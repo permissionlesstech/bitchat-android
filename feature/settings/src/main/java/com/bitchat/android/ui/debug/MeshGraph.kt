@@ -46,7 +46,7 @@ private enum class EdgeTransport { WIFI, BLE }
 
 private data class EdgeMarker(val x: Float, val y: Float, val transport: EdgeTransport)
 
-private fun shouldMarkDirectEdge(
+internal fun shouldMarkDirectEdge(
     edge: MeshGraphService.GraphEdge,
     transportPeerIDs: Set<String>,
     localID: String?
@@ -60,7 +60,7 @@ private fun shouldMarkDirectEdge(
     }
 }
 
-private fun edgeMarkerPosition(
+internal fun edgeMarkerPosition(
     x1: Float,
     y1: Float,
     x2: Float,
@@ -79,7 +79,7 @@ private fun edgeMarkerPosition(
     return (midX + px) to (midY + py)
 }
 
-private class GraphNodeState(
+internal class GraphNodeState(
     val id: String,
     var label: String,
     var x: Float,
@@ -91,7 +91,7 @@ private class GraphNodeState(
     var pulseLevel: Float = 0f // 0f to 1f, used for size/glow animation
 }
 
-private class Simulation {
+internal class Simulation {
     val nodes = mutableMapOf<String, GraphNodeState>()
     // Storing edges as pairs of IDs
     val edges = mutableListOf<MeshGraphService.GraphEdge>()

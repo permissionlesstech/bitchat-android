@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +46,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.bitchat.android.core.ui.component.screen.BitchatScreenTopBar
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
+import com.bitchat.android.settings.MeshSnapshot
 import com.bitchat.android.settings.TransportDiagnostics
 import com.bitchat.android.share.AppBuildInfo
 import com.bitchat.android.util.DistributionInfoProvider
@@ -94,9 +96,8 @@ fun MeshTopologySection(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     nodes.forEach { node ->
-                        val label = "${node.peerID.take(8)} • ${node.nickname ?: "Unknown"}"
                         Text(
-                            text = label,
+                            text = topologyLabel(node),
                             fontFamily = BitchatFontFamily,
                             fontSize = 11.sp,
                             color = colorScheme.onSurface.copy(alpha = 0.85f)
@@ -142,19 +143,9 @@ private fun DistributionInfoSection(info: DistributionInfoProvider.DistributionI
                     color = colorScheme.onSurface.copy(alpha = 0.6f)
                 )
             } else {
-                DistributionInfoRow("Install source", info.installSource)
-                info.installerPackage?.let {
-                    DistributionInfoRow("Installer package", it)
+                distributionRows(info).forEach { (label, value) ->
+                    DistributionInfoRow(label, value)
                 }
-                DistributionInfoRow("Package format", info.packageFormat)
-                DistributionInfoRow("APK architecture", info.architecture)
-                DistributionInfoRow("Sharing source", info.sharingSource)
-                DistributionInfoRow("Version", "${info.versionName} (${info.versionCode})")
-                DistributionInfoRow("Signing channel", info.signingChannel)
-                DistributionInfoRow(
-                    label = "Certificate SHA-256",
-                    value = info.certificateSha256 ?: "Unavailable"
-                )
 
                 if (info.certificateSha256 != null) {
                     TextButton(
@@ -197,7 +188,36 @@ private fun DistributionInfoRow(label: String, value: String) {
     }
 }
 
-private enum class GraphMode { OVERALL, PER_DEVICE, PER_PEER }
+/**
+ * Saves the relay graph's series, as the card's saveable state always held
+ * them, and not its colours, which were never saved (QD17).
+ */
+private val RelayGraphSamplerSaver = listSaver<RelayGraphSampler, Any>(
+    save = { sampler ->
+        val series = sampler.series
+        listOf(
+            ArrayList(series.overallIncoming),
+            ArrayList(series.overallOutgoing),
+            ArrayList(series.keysIncoming),
+            ArrayList(series.keysOutgoing),
+            LinkedHashMap(series.stackedIncoming.mapValues { ArrayList(it.value) }),
+            LinkedHashMap(series.stackedOutgoing.mapValues { ArrayList(it.value) }),
+        )
+    },
+    restore = { saved ->
+        @Suppress("UNCHECKED_CAST")
+        RelayGraphSampler(
+            initial = RelayGraphSeries(
+                overallIncoming = saved[0] as List<Float>,
+                overallOutgoing = saved[1] as List<Float>,
+                keysIncoming = saved[2] as List<String>,
+                keysOutgoing = saved[3] as List<String>,
+                stackedIncoming = saved[4] as Map<String, List<Float>>,
+                stackedOutgoing = saved[5] as Map<String, List<Float>>,
+            ),
+        )
+    },
+)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -239,16 +259,15 @@ fun DebugSettingsScreen(
     // Onboarding only asks for these when the toggle is already on, and it defaults to off,
     // so enabling from here has to request them or the controller never starts.
     val wifiAwarePermissions = remember { diagnostics.wifiAwarePermissions() }
+    val isGranted: (String) -> Boolean = {
+        ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+    }
     val wifiAwarePermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ ->
         // Check live state, not the result map — already-held permissions are filtered out
         // before launching. Only NEARBY_WIFI_DEVICES blocks startup; the other is defensive.
-        val nearbyPermission = android.Manifest.permission.NEARBY_WIFI_DEVICES
-        val nearbyGranted = nearbyPermission !in wifiAwarePermissions ||
-            ContextCompat.checkSelfPermission(context, nearbyPermission) ==
-                PackageManager.PERMISSION_GRANTED
-        if (nearbyGranted) {
+        if (canEnableWifiAwareAfterRequest(wifiAwarePermissions, isGranted)) {
             manager.setWifiAwareEnabled(true)
         } else {
             manager.addDebugMessage(
@@ -257,9 +276,7 @@ fun DebugSettingsScreen(
         }
     }
     val enableWifiAware: () -> Unit = {
-        val missing = wifiAwarePermissions.filter {
-            ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
-        }
+        val missing = missingPermissions(wifiAwarePermissions, isGranted)
         if (missing.isEmpty()) {
             manager.setWifiAwareEnabled(true)
         } else {
@@ -268,10 +285,7 @@ fun DebugSettingsScreen(
     }
     val wifiAwareDiscovered by manager.wifiAwareDiscovered.collectAsState()
     val wifiAwareConnected by manager.wifiAwareConnected.collectAsState()
-    val wifiAwareSupported by diagnostics.wifiAwareSupported.collectAsState()
-    val wifiAwareAvailable by diagnostics.wifiAwareAvailable.collectAsState()
-    val wifiAwareSupportReason by diagnostics.wifiAwareSupportReason
-        .collectAsState(initial = diagnostics.currentWifiAwareSupportReason())
+    val wifiAwareStatus by diagnostics.wifiAwareStatus.collectAsState()
     // Persistent notification is now controlled solely by MeshServicePreferences.isBackgroundEnabled
     val listState = rememberLazyListState()
     val isScrolled by remember {
@@ -284,35 +298,14 @@ fun DebugSettingsScreen(
         label = "topBarAlpha"
     )
 
+    // The poll's latest mesh snapshot; the relay card's legend reads its address map.
+    val latestSnapshot = remember { mutableStateOf<MeshSnapshot?>(null) }
+
     // Push live connected devices from mesh service whenever sheet is visible
     LaunchedEffect(Unit) {
         // Poll device list periodically for now (TODO: add callbacks)
         while (true) {
-            val entries = mesh.connectedDeviceEntries()
-            val mapping = mesh.deviceAddressToPeerMapping()
-            val peers = mapping.values.toSet()
-            val nicknames = mesh.peerNicknames()
-            val directMap = peers.associateWith { pid -> mesh.isDirectConnection(pid) }
-            val devices = entries.map { (address, isClient, rssi) ->
-                val pid = mapping[address]
-                com.bitchat.android.ui.debug.ConnectedDevice(
-                    deviceAddress = address,
-                    peerID = pid,
-                    nickname = pid?.let { nicknames[it] },
-                    rssi = rssi,
-                    connectionType = if (isClient) ConnectionType.GATT_CLIENT else ConnectionType.GATT_SERVER,
-                    isDirectConnection = pid?.let { directMap[it] } ?: false
-                )
-            }
-            manager.updateConnectedDevices(devices)
-            // Also surface Wi‑Fi Aware status
-            try {
-                val known = diagnostics.wifiAwareKnownPeers.value
-                val discovered = diagnostics.wifiAwareDiscoveredPeers.value
-                val discoveredMap = discovered.associateWith { pid -> known[pid] ?: "" }
-                manager.updateWifiAwareDiscovered(discoveredMap)
-                manager.updateWifiAwareConnected(diagnostics.wifiAwareConnectedPeers.value)
-            } catch (_: Exception) { }
+            pollOnce(mesh, diagnostics, manager)?.let { latestSnapshot.value = it }
             kotlinx.coroutines.delay(1000)
         }
     }
@@ -382,12 +375,10 @@ fun DebugSettingsScreen(
 
             // Mesh topology visualization (moved below verbose logging)
             item {
-                val blePeerIDs = remember(connectedDevices) {
-                    connectedDevices.mapNotNull { it.peerID }.toSet()
-                }
+                val blePeerIDs = remember(connectedDevices) { blePeerIDs(connectedDevices) }
                 MeshTopologySection(
                     diagnostics = diagnostics,
-                    localPeerID = mesh.myPeerID,
+                    localPeerID = mesh?.myPeerID,
                     blePeerIDs = blePeerIDs,
                 )
             }
@@ -404,18 +395,16 @@ fun DebugSettingsScreen(
                             Text(stringResource(R.string.debug_gatt_server), fontFamily = BitchatFontFamily, modifier = Modifier.weight(1f))
                             Switch(checked = gattServerEnabled, onCheckedChange = {
                                 manager.setGattServerEnabled(it)
-                                scope.launch {
-                                    if (it) mesh.startGattServer() else mesh.stopGattServer()
-                                }
+                                scope.launch { mesh?.setGattServerRunning(it) }
                             })
                         }
-                        val serverCount = connectedDevices.count { it.connectionType == ConnectionType.GATT_SERVER }
-                        Text(stringResource(R.string.debug_connections_fmt, serverCount, maxServer), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        val counts = connectionCounts(connectedDevices)
+                        Text(stringResource(R.string.debug_connections_fmt, counts.server, maxServer), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(stringResource(R.string.debug_max_server), fontFamily = BitchatFontFamily, modifier = Modifier.width(90.dp))
                             Slider(
                                 value = maxServer.toFloat(),
-                                onValueChange = { manager.setMaxServerConnections(it.toInt().coerceAtLeast(1)) },
+                                onValueChange = { manager.setMaxServerConnections(connectionLimitFromSlider(it)) },
                                 valueRange = 1f..32f,
                                 steps = 30
                             )
@@ -424,29 +413,25 @@ fun DebugSettingsScreen(
                             Text(stringResource(R.string.debug_gatt_client), fontFamily = BitchatFontFamily, modifier = Modifier.weight(1f))
                             Switch(checked = gattClientEnabled, onCheckedChange = {
                                 manager.setGattClientEnabled(it)
-                                scope.launch {
-                                    if (it) mesh.startGattClient() else mesh.stopGattClient()
-                                }
+                                scope.launch { mesh?.setGattClientRunning(it) }
                             })
                         }
-                        val clientCount = connectedDevices.count { it.connectionType == ConnectionType.GATT_CLIENT }
-                        Text(stringResource(R.string.debug_connections_fmt, clientCount, maxClient), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Text(stringResource(R.string.debug_connections_fmt, counts.client, maxClient), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(stringResource(R.string.debug_max_client), fontFamily = BitchatFontFamily, modifier = Modifier.width(90.dp))
                             Slider(
                                 value = maxClient.toFloat(),
-                                onValueChange = { manager.setMaxClientConnections(it.toInt().coerceAtLeast(1)) },
+                                onValueChange = { manager.setMaxClientConnections(connectionLimitFromSlider(it)) },
                                 valueRange = 1f..32f,
                                 steps = 30
                             )
                         }
-                        val overallCount = connectedDevices.size
-                        Text(stringResource(R.string.debug_overall_connections_fmt, overallCount, maxOverall), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Text(stringResource(R.string.debug_overall_connections_fmt, counts.overall, maxOverall), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(stringResource(R.string.debug_max_overall), fontFamily = BitchatFontFamily, modifier = Modifier.width(90.dp))
                             Slider(
                                 value = maxOverall.toFloat(),
-                                onValueChange = { manager.setMaxConnectionsOverall(it.toInt().coerceAtLeast(1)) },
+                                onValueChange = { manager.setMaxConnectionsOverall(connectionLimitFromSlider(it)) },
                                 valueRange = 1f..32f,
                                 steps = 30
                             )
@@ -481,21 +466,16 @@ fun DebugSettingsScreen(
                             Icon(Icons.Filled.Wifi, contentDescription = null, tint = Color(0xFF9C27B0))
                             Spacer(Modifier.width(8.dp))
                             Text("Wi‑Fi Aware", fontFamily = BitchatFontFamily, modifier = Modifier.weight(1f))
-                            val wifiSwitchEnabled = wifiAwareSupported
                             Text(
-                                when {
-                                    !wifiAwareSupported -> "unsupported"
-                                    wifiAwareAvailable -> "available"
-                                    else -> "unavailable"
-                                },
+                                wifiAwareTransportLabel(wifiAwareStatus),
                                 fontFamily = BitchatFontFamily,
                                 fontSize = 11.sp,
                                 color = colorScheme.onSurface.copy(alpha = 0.6f)
                             )
                             Spacer(Modifier.width(8.dp))
                             Switch(
-                                checked = wifiAwareEnabled && wifiAwareSupported,
-                                enabled = wifiSwitchEnabled,
+                                checked = wifiAwareSwitchChecked(wifiAwareEnabled, wifiAwareStatus),
+                                enabled = wifiAwareStatus.supported,
                                 onCheckedChange = { on ->
                                     if (on) enableWifiAware() else manager.setWifiAwareEnabled(false)
                                 }
@@ -540,10 +520,17 @@ fun DebugSettingsScreen(
                         val nicknameMap = remember { mutableStateOf<Map<String, String?>>(emptyMap()) }
                         val devicePeerMap = remember { mutableStateOf<Map<String, String>>(emptyMap()) }
                         LaunchedEffect(Unit) {
-                            try { nicknameMap.value = mesh.peerNicknames() } catch (_: Exception) { }
-                            // Try to fetch device->peer map periodically for legend resolution
+                            // Legend lookups from the poll's snapshot: nicknames once per
+                            // composition of this card (QD4), the device->peer map every second.
+                            var nicknamesRead = false
                             while (true) {
-                                try { devicePeerMap.value = mesh.deviceAddressToPeerMapping() } catch (_: Exception) { }
+                                latestSnapshot.value?.let { snap ->
+                                    if (!nicknamesRead) {
+                                        nicknameMap.value = snap.nicknames
+                                        nicknamesRead = true
+                                    }
+                                    devicePeerMap.value = snap.addressToPeer
+                                }
                                 kotlinx.coroutines.delay(1000)
                             }
                         }
@@ -570,15 +557,6 @@ fun DebugSettingsScreen(
                                 )
                             }
 
-                            // Time series state
-                            var overallSeriesIncoming by rememberSaveable { mutableStateOf(List(60) { 0f }) }
-                            var overallSeriesOutgoing by rememberSaveable { mutableStateOf(List(60) { 0f }) }
-                            var stackedKeysIncoming by rememberSaveable { mutableStateOf(listOf<String>()) }
-                            var stackedKeysOutgoing by rememberSaveable { mutableStateOf(listOf<String>()) }
-                            var stackedSeriesIncoming by rememberSaveable { mutableStateOf<Map<String, List<Float>>>(emptyMap()) }
-                            var stackedSeriesOutgoing by rememberSaveable { mutableStateOf<Map<String, List<Float>>>(emptyMap()) }
-                            var highlightedKey by rememberSaveable { mutableStateOf<String?>(null) }
-
                             // Color palette for stacked legend
                             val palette = remember {
                                 listOf(
@@ -587,183 +565,86 @@ fun DebugSettingsScreen(
                                     Color(0xFFFFCC00), Color(0xFF5856D6)
                                 )
                             }
-                            val colorForKey = remember { mutableStateMapOf<String, Color>() }
-                            fun stableColorFor(key: String): Color {
-                                // Deterministic fallback color based on key hash using HSV palette
-                                val h = (key.hashCode().toUInt().toInt() and 0x7FFFFFFF) % 360
-                                return Color.hsv(h.toFloat(), 0.65f, 0.95f)
+                            // Time series state. The series survive rotation; the colours do not (QD17).
+                            val sampler = rememberSaveable(saver = RelayGraphSamplerSaver) {
+                                RelayGraphSampler(paletteSize = palette.size)
                             }
-                            // Ensure colors are assigned for current keys before drawing
-                            fun ensureColors(keys: List<String>) {
-                                keys.forEachIndexed { idx, k ->
-                                    colorForKey.putIfAbsent(k, palette.getOrNull(idx) ?: stableColorFor(k))
-                                }
-                            }
+                            var series by remember(sampler) { mutableStateOf(sampler.series) }
+                            var highlightedKey by rememberSaveable { mutableStateOf<String?>(null) }
+                            fun colorFor(key: String): Color =
+                                palette.getOrNull(sampler.colorIndexFor(key))
+                                    ?: Color.hsv(RelayGraphSampler.fallbackHue(key), 0.65f, 0.95f)
 
                             LaunchedEffect(graphMode) {
                                 while (true) {
-                                    when (graphMode) {
-                                        GraphMode.OVERALL -> {
-                                            val sIn = relayStats.lastSecondIncoming.toFloat()
-                                            val sOut = relayStats.lastSecondOutgoing.toFloat()
-                                            overallSeriesIncoming = (overallSeriesIncoming + sIn).takeLast(60)
-                                            overallSeriesOutgoing = (overallSeriesOutgoing + sOut).takeLast(60)
-                                        }
-                                        GraphMode.PER_DEVICE -> {
-                                            val snapshotIn = perDeviceIncoming
-                                            val snapshotOut = perDeviceOutgoing
-                                            fun advance(base: Map<String, List<Float>>, snap: Map<String, Int>): Map<String, List<Float>> {
-                                                val next = mutableMapOf<String, List<Float>>()
-                                                val union = (base.keys + snap.keys).toSet()
-                                                union.forEach { k ->
-                                                    val prev = base[k] ?: List(60) { 0f }
-                                                    val s = (snap[k] ?: 0).toFloat()
-                                                    next[k] = (prev + s).takeLast(60)
-                                                }
-                                                return next
-                                            }
-                                            // Advance and prune fully-stale series (all-zero in visible window)
-                                            stackedSeriesIncoming = advance(stackedSeriesIncoming, snapshotIn).filterValues { series -> series.any { it != 0f } }
-                                            stackedSeriesOutgoing = advance(stackedSeriesOutgoing, snapshotOut).filterValues { series -> series.any { it != 0f } }
-                                            stackedKeysIncoming = stackedSeriesIncoming.keys.sorted()
-                                            stackedKeysOutgoing = stackedSeriesOutgoing.keys.sorted()
-                                        }
-                                        GraphMode.PER_PEER -> {
-                                            val snapshotIn = perPeerIncoming
-                                            val snapshotOut = perPeerOutgoing
-                                            fun advance(base: Map<String, List<Float>>, snap: Map<String, Int>): Map<String, List<Float>> {
-                                                val next = mutableMapOf<String, List<Float>>()
-                                                val union = (base.keys + snap.keys).toSet()
-                                                union.forEach { k ->
-                                                    val prev = base[k] ?: List(60) { 0f }
-                                                    val s = (snap[k] ?: 0).toFloat()
-                                                    next[k] = (prev + s).takeLast(60)
-                                                }
-                                                return next
-                                            }
-                                            stackedSeriesIncoming = advance(stackedSeriesIncoming, snapshotIn).filterValues { series -> series.any { it != 0f } }
-                                            stackedSeriesOutgoing = advance(stackedSeriesOutgoing, snapshotOut).filterValues { series -> series.any { it != 0f } }
-                                            stackedKeysIncoming = stackedSeriesIncoming.keys.sorted()
-                                            stackedKeysOutgoing = stackedSeriesOutgoing.keys.sorted()
-                                        }
-                                    }
+                                    sampler.sample(
+                                        mode = graphMode,
+                                        stats = relayStats,
+                                        perDevice = RelayCounts(perDeviceIncoming, perDeviceOutgoing),
+                                        perPeer = RelayCounts(perPeerIncoming, perPeerOutgoing),
+                                    )
+                                    series = sampler.series
                                     kotlinx.coroutines.delay(1000)
                                 }
                             }
-                            
-                            // Helper functions moved to top-level composable below to avoid scope issues
 
                             // Render two blocks: Incoming and Outgoing
                             Text("Incoming", fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                             Text(
-                                "${relayStats.lastSecondIncoming}/s • ${relayStats.lastMinuteIncoming}/m • ${relayStats.last15MinuteIncoming}/15m • total ${relayStats.totalIncomingCount}",
+                                relayIncomingHeader(relayStats),
                                 fontFamily = BitchatFontFamily, fontSize = 10.sp, color = colorScheme.onSurface.copy(alpha = 0.6f)
                             )
                             DrawGraphBlock(
                                 title = "Incoming",
-                                stackedKeys = stackedKeysIncoming,
-                                stackedSeries = stackedSeriesIncoming,
-                                overallSeries = if (graphMode == GraphMode.OVERALL) overallSeriesIncoming else null,
+                                stackedKeys = series.keysIncoming,
+                                stackedSeries = series.stackedIncoming,
+                                overallSeries = if (graphMode == GraphMode.OVERALL) series.overallIncoming else null,
                                 graphMode = graphMode,
+                                topLabel = sampler.topLabel(graphMode, incoming = true),
                                 highlightedKey = highlightedKey,
-                                onToggleHighlight = { key -> highlightedKey = if (highlightedKey == key) null else key },
-                                ensureColors = { keys -> ensureColors(keys) },
-                                colorForKey = { k -> colorForKey[k] ?: stableColorFor(k) },
+                                onToggleHighlight = { key -> highlightedKey = toggleHighlight(highlightedKey, key) },
+                                colorForKey = ::colorFor,
                                 legendTitleFor = { key ->
-                                    when (graphMode) {
-                                        GraphMode.PER_PEER -> {
-                                            val nick = nicknameMap.value[key]
-                                            val prefix = key.take(6)
-                                            if (!nick.isNullOrBlank()) "$nick ($prefix)" else prefix
-                                        }
-                                        GraphMode.PER_DEVICE -> {
-                                            val device = key
-                                            val pid = connectedDevices.firstOrNull { it.deviceAddress == device }?.peerID
-                                                ?: devicePeerMap.value[device]
-                                            if (pid != null) {
-                                                val nick = nicknameMap.value[pid]
-                                                val prefix = pid.take(6)
-                                                "$device (${if (!nick.isNullOrBlank()) "$nick ($prefix)" else prefix})"
-                                            } else device
-                                        }
-                                        else -> key
-                                    }
+                                    legendTitle(graphMode, key, nicknameMap.value, connectedDevices, devicePeerMap.value)
                                 },
                                 legendMetricsFor = { key ->
-                                    when (graphMode) {
-                                        GraphMode.PER_PEER -> {
-                                            val s = perPeerIncoming[key] ?: 0
-                                            val m = perPeerIncoming1m[key] ?: 0
-                                            val t = (perPeerIncomingTotal[key] ?: 0L)
-                                            "${s}/s • ${m}/m • total ${t}"
-                                        }
-                                        GraphMode.PER_DEVICE -> {
-                                            val s = perDeviceIncoming[key] ?: 0
-                                            val m = perDeviceIncoming1m[key] ?: 0
-                                            val t = (perDeviceIncomingTotal[key] ?: 0L)
-                                            "${s}/s • ${m}/m • total ${t}"
-                                        }
-                                        else -> ""
+                                    if (graphMode == GraphMode.PER_PEER) {
+                                        legendMetrics(graphMode, key, perPeerIncoming, perPeerIncoming1m, perPeerIncomingTotal)
+                                    } else {
+                                        legendMetrics(graphMode, key, perDeviceIncoming, perDeviceIncoming1m, perDeviceIncomingTotal)
                                     }
                                 }
                             )
-                            if (graphMode != GraphMode.OVERALL && stackedKeysIncoming.isNotEmpty()) { /* legend printed inside DrawGraphBlock */ }
+                            if (graphMode != GraphMode.OVERALL && series.keysIncoming.isNotEmpty()) { /* legend printed inside DrawGraphBlock */ }
 
                             Spacer(Modifier.height(8.dp))
                             Text("Outgoing", fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                             Text(
-                                "${relayStats.lastSecondOutgoing}/s • ${relayStats.lastMinuteOutgoing}/m • ${relayStats.last15MinuteOutgoing}/15m • total ${relayStats.totalOutgoingCount}",
+                                relayOutgoingHeader(relayStats),
                                 fontFamily = BitchatFontFamily, fontSize = 10.sp, color = colorScheme.onSurface.copy(alpha = 0.6f)
                             )
                             DrawGraphBlock(
                                 title = "Outgoing",
-                                stackedKeys = stackedKeysOutgoing,
-                                stackedSeries = stackedSeriesOutgoing,
-                                overallSeries = if (graphMode == GraphMode.OVERALL) overallSeriesOutgoing else null,
+                                stackedKeys = series.keysOutgoing,
+                                stackedSeries = series.stackedOutgoing,
+                                overallSeries = if (graphMode == GraphMode.OVERALL) series.overallOutgoing else null,
                                 graphMode = graphMode,
+                                topLabel = sampler.topLabel(graphMode, incoming = false),
                                 highlightedKey = highlightedKey,
-                                onToggleHighlight = { key -> highlightedKey = if (highlightedKey == key) null else key },
-                                ensureColors = { keys -> ensureColors(keys) },
-                                colorForKey = { k -> colorForKey[k] ?: stableColorFor(k) },
+                                onToggleHighlight = { key -> highlightedKey = toggleHighlight(highlightedKey, key) },
+                                colorForKey = ::colorFor,
                                 legendTitleFor = { key ->
-                                    when (graphMode) {
-                                        GraphMode.PER_PEER -> {
-                                            val nick = nicknameMap.value[key]
-                                            val prefix = key.take(6)
-                                            if (!nick.isNullOrBlank()) "$nick ($prefix)" else prefix
-                                        }
-                                        GraphMode.PER_DEVICE -> {
-                                            val device = key
-                                            val pid = connectedDevices.firstOrNull { it.deviceAddress == device }?.peerID
-                                                ?: devicePeerMap.value[device]
-                                            if (pid != null) {
-                                                val nick = nicknameMap.value[pid]
-                                                val prefix = pid.take(6)
-                                                "$device (${if (!nick.isNullOrBlank()) "$nick ($prefix)" else prefix})"
-                                            } else device
-                                        }
-                                        else -> key
-                                    }
+                                    legendTitle(graphMode, key, nicknameMap.value, connectedDevices, devicePeerMap.value)
                                 },
                                 legendMetricsFor = { key ->
-                                    when (graphMode) {
-                                        GraphMode.PER_PEER -> {
-                                            val s = perPeerOutgoing[key] ?: 0
-                                            val m = perPeerOutgoing1m[key] ?: 0
-                                            val t = (perPeerOutgoingTotal[key] ?: 0L)
-                                            "${s}/s • ${m}/m • total ${t}"
-                                        }
-                                        GraphMode.PER_DEVICE -> {
-                                            val s = perDeviceOutgoing[key] ?: 0
-                                            val m = perDeviceOutgoing1m[key] ?: 0
-                                            val t = (perDeviceOutgoingTotal[key] ?: 0L)
-                                            "${s}/s • ${m}/m • total ${t}"
-                                        }
-                                        else -> ""
+                                    if (graphMode == GraphMode.PER_PEER) {
+                                        legendMetrics(graphMode, key, perPeerOutgoing, perPeerOutgoing1m, perPeerOutgoingTotal)
+                                    } else {
+                                        legendMetrics(graphMode, key, perDeviceOutgoing, perDeviceOutgoing1m, perDeviceOutgoingTotal)
                                     }
                                 }
                             )
-                            if (graphMode != GraphMode.OVERALL && stackedKeysOutgoing.isNotEmpty()) { /* legend printed inside DrawGraphBlock */ }
+                            if (graphMode != GraphMode.OVERALL && series.keysOutgoing.isNotEmpty()) { /* legend printed inside DrawGraphBlock */ }
                         }
                     }
                 }
@@ -773,22 +654,15 @@ fun DebugSettingsScreen(
             item {
                 Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        val running by diagnostics.wifiAwareRunning.collectAsState()
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Filled.WifiTethering, contentDescription = null, tint = Color(0xFF9C27B0))
                             Text("Wi‑Fi Aware", fontFamily = BitchatFontFamily, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                             Spacer(Modifier.weight(1f))
-                            val wifiStatusText = when {
-                                !wifiAwareSupported -> "unsupported"
-                                running -> "running"
-                                !wifiAwareAvailable -> "unavailable"
-                                else -> "stopped"
-                            }
-                            Text(wifiStatusText, fontFamily = BitchatFontFamily, fontSize = 12.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                            Text(wifiAwareCardStatus(wifiAwareStatus), fontFamily = BitchatFontFamily, fontSize = 12.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         }
-                        if (!wifiAwareSupported) {
+                        wifiAwareUnsupportedText(wifiAwareStatus)?.let { reason ->
                             Text(
-                                wifiAwareSupportReason ?: "Wi-Fi Aware is not supported on this device",
+                                reason,
                                 fontFamily = BitchatFontFamily,
                                 fontSize = 11.sp,
                                 color = colorScheme.onSurface.copy(alpha = 0.6f)
@@ -797,13 +671,13 @@ fun DebugSettingsScreen(
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             AssistChip(
                                 onClick = enableWifiAware,
-                                enabled = wifiAwareSupported,
+                                enabled = wifiAwareStatus.supported,
                                 label = { Text("Start") }
                             )
                             AssistChip(onClick = { manager.setWifiAwareEnabled(false) }, label = { Text("Stop") })
                             AssistChip(
                                 onClick = { diagnostics.sendWifiAwareAnnounce() },
-                                enabled = running,
+                                enabled = wifiAwareStatus.running,
                                 label = { Text("Announce") }
                             )
                         }
@@ -811,8 +685,8 @@ fun DebugSettingsScreen(
                         if (wifiAwareDiscovered.isEmpty()) {
                             Text("No discoveries yet", fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
                         } else {
-                            wifiAwareDiscovered.entries.take(50).forEach { (peer, nick) ->
-                                Text("• ${if (nick.isBlank()) peer.take(8) + "…" else nick} (${peer.take(8)}…) ", fontFamily = BitchatFontFamily, fontSize = 12.sp)
+                            wifiAwareDiscoveredLines(wifiAwareDiscovered).forEach { line ->
+                                Text(line, fontFamily = BitchatFontFamily, fontSize = 12.sp)
                             }
                         }
                         Divider()
@@ -820,8 +694,8 @@ fun DebugSettingsScreen(
                         if (wifiAwareConnected.isEmpty()) {
                             Text("No active sockets", fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
                         } else {
-                            wifiAwareConnected.entries.take(50).forEach { (peer, ip) ->
-                                Text("• ${peer.take(8)}… @ $ip", fontFamily = BitchatFontFamily, fontSize = 12.sp)
+                            wifiAwareConnectedLines(wifiAwareConnected).forEach { line ->
+                                Text(line, fontFamily = BitchatFontFamily, fontSize = 12.sp)
                             }
                         }
                     }
@@ -842,9 +716,8 @@ fun DebugSettingsScreen(
                         Slider(value = gcsMaxBytes.toFloat(), onValueChange = { manager.setGcsMaxBytes(it.toInt()) }, valueRange = 128f..1024f, steps = 0)
                         Text(stringResource(R.string.debug_target_fpr_fmt, gcsFpr), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         Slider(value = gcsFpr.toFloat(), onValueChange = { manager.setGcsFprPercent(it.toDouble()) }, valueRange = 0.1f..5.0f, steps = 49)
-                        val p = remember(gcsFpr) { com.bitchat.android.sync.GCSFilter.deriveP(gcsFpr / 100.0) }
-                        val nmax = remember(gcsFpr, gcsMaxBytes) { com.bitchat.android.sync.GCSFilter.estimateMaxElementsForSize(gcsMaxBytes, p) }
-                        Text(stringResource(R.string.debug_derived_p_fmt, p.toString(), nmax.toString()), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        val gcs = remember(gcsFpr, gcsMaxBytes) { gcsDerived(gcsFpr, gcsMaxBytes) }
+                        Text(stringResource(R.string.debug_derived_p_fmt, gcs.p.toString(), gcs.maxElements.toString()), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                     }
                 }
             }
@@ -857,7 +730,7 @@ fun DebugSettingsScreen(
                             Icon(Icons.Filled.Devices, contentDescription = null, tint = Color(0xFF4CAF50))
                             Text(stringResource(R.string.debug_connected_devices), fontFamily = BitchatFontFamily, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         }
-                        val localAddr = remember { mesh.localAdapterAddress() }
+                        val localAddr = remember { mesh?.localAdapterAddress() }
                         Text(stringResource(R.string.debug_our_device_id_fmt, localAddr ?: stringResource(R.string.unknown)), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         if (connectedDevices.isEmpty()) {
                             Text("None", fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
@@ -866,12 +739,12 @@ fun DebugSettingsScreen(
                                 Surface(shape = RoundedCornerShape(8.dp), color = colorScheme.surface.copy(alpha = 0.6f)) {
                                     Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Column(Modifier.weight(1f)) {
-                                            Text((dev.peerID ?: stringResource(R.string.unknown)) + " • ${dev.deviceAddress}", fontFamily = BitchatFontFamily, fontSize = 12.sp)
+                                            Text(deviceRowTitle(dev.peerID, dev.deviceAddress, stringResource(R.string.unknown)), fontFamily = BitchatFontFamily, fontSize = 12.sp)
                                             val roleLabel = if (dev.connectionType == ConnectionType.GATT_SERVER) stringResource(R.string.debug_role_server) else stringResource(R.string.debug_role_client)
                                             Text("${dev.nickname ?: ""} • " + stringResource(R.string.debug_rssi_fmt, dev.rssi ?: stringResource(R.string.debug_question_mark)) + " • $roleLabel" + (if (dev.isDirectConnection) stringResource(R.string.debug_direct_suffix) else ""), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                                         }
                                         Text(stringResource(R.string.debug_disconnect), color = Color(0xFFBF1A1A), fontFamily = BitchatFontFamily, modifier = Modifier.clickable {
-                                            mesh.disconnectDevice(dev.deviceAddress)
+                                            mesh?.disconnectDevice(dev.deviceAddress)
                                         })
                                     }
                                 }
@@ -896,11 +769,11 @@ fun DebugSettingsScreen(
                                 Surface(shape = RoundedCornerShape(8.dp), color = colorScheme.surface.copy(alpha = 0.6f)) {
                                     Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Column(Modifier.weight(1f)) {
-                                            Text((res.peerID ?: stringResource(R.string.unknown)) + " • ${res.deviceAddress}", fontFamily = BitchatFontFamily, fontSize = 12.sp)
+                                            Text(deviceRowTitle(res.peerID, res.deviceAddress, stringResource(R.string.unknown)), fontFamily = BitchatFontFamily, fontSize = 12.sp)
                                             Text(stringResource(R.string.debug_rssi_fmt, res.rssi.toString()), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                                         }
                                         Text(stringResource(R.string.debug_connect), color = Color(0xFF00C851), fontFamily = BitchatFontFamily, modifier = Modifier.clickable {
-                                            mesh.connectToDevice(res.deviceAddress)
+                                            mesh?.connectToDevice(res.deviceAddress)
                                         })
                                     }
                                 }
@@ -923,8 +796,8 @@ fun DebugSettingsScreen(
                             })
                         }
                         Column(Modifier.heightIn(max = 260.dp).background(colorScheme.surface.copy(alpha = 0.5f)).padding(8.dp)) {
-                            debugMessages.takeLast(100).reversed().forEach { msg ->
-                                Text("${msg.content}", fontFamily = BitchatFontFamily, fontSize = 11.sp)
+                            consoleLines(debugMessages).forEach { line ->
+                                Text(line, fontFamily = BitchatFontFamily, fontSize = 11.sp)
                             }
                         }
                     }
@@ -965,9 +838,9 @@ private fun DrawGraphBlock(
     stackedSeries: Map<String, List<Float>>,
     overallSeries: List<Float>?,
     graphMode: GraphMode,
+    topLabel: Int,
     highlightedKey: String?,
     onToggleHighlight: (String) -> Unit,
-    ensureColors: (List<String>) -> Unit,
     colorForKey: (String) -> Color,
     legendTitleFor: (String) -> String,
     legendMetricsFor: (String) -> String
@@ -1008,15 +881,12 @@ private fun DrawGraphBlock(
                 }
                 else -> {
                     val indices = 0 until 60
-                    val totals = indices.map { idx ->
-                        stackedSeries.values.sumOf { it.getOrNull(idx)?.toDouble() ?: 0.0 }.toFloat()
-                    }
+                    val totals = RelayGraphSampler.stackedTotals(stackedSeries)
                     val maxTotal = (totals.maxOrNull() ?: 0f)
                     val drawKeysBars = if (stackedKeys.isNotEmpty()) stackedKeys else stackedSeries.keys.sorted()
                     indices.forEach { i ->
                         var yTop = h
                         if (maxTotal > 0f) {
-                            ensureColors(drawKeysBars)
                             drawKeysBars.forEach { k ->
                                 val v = stackedSeries[k]?.getOrNull(i) ?: 0f
                                 if (v > 0f) {
@@ -1050,15 +920,8 @@ private fun DrawGraphBlock(
                     color = colorScheme.onSurface.copy(alpha = 0.7f),
                     modifier = Modifier.align(Alignment.CenterStart).padding(start = 2.dp).rotate(-90f)
                 )
-                val topLabel = when (graphMode) {
-                    GraphMode.OVERALL -> (overallSeries?.maxOrNull() ?: 0f).toInt().toString()
-                    else -> {
-                        val totals = (0 until 60).map { idx -> stackedSeries.values.sumOf { it.getOrNull(idx)?.toDouble() ?: 0.0 }.toFloat() }
-                        (totals.maxOrNull() ?: 0f).toInt().toString()
-                    }
-                }
                 Text(
-                    topLabel,
+                    topLabel.toString(),
                     fontFamily = BitchatFontFamily,
                     fontSize = 10.sp,
                     color = colorScheme.onSurface.copy(alpha = 0.7f),
@@ -1082,7 +945,7 @@ private fun DrawGraphBlock(
             FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 drawKeys.forEach { key ->
                     val baseColor = colorForKey(key)
-                    val dimmed = highlightedKey != null && highlightedKey != key
+                    val dimmed = isDimmed(highlightedKey, key)
                     val swatchColor = if (dimmed) baseColor.copy(alpha = 0.35f) else baseColor
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
