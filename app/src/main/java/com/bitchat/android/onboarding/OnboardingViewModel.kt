@@ -45,7 +45,7 @@ class OnboardingViewModel @Inject constructor(
 
         const val BLUETOOTH_DECLINED_MESSAGE =
             "Bluetooth is required for bitchat to discover and connect to nearby users. Please enable Bluetooth to continue."
-        const val BLUETOOTH_TURNED_OFF_MESSAGE = "User has turned off their Blue"
+        const val BLUETOOTH_TURNED_OFF_MESSAGE = "User has turned off their Bluetooth"
         const val BLUETOOTH_NOT_SUPPORTED_MESSAGE =
             "This device doesn't support Bluetooth, which is required for bitchat to function."
         const val LOCATION_DECLINED_MESSAGE =

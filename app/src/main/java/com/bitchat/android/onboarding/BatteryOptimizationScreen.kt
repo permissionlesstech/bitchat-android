@@ -13,7 +13,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -32,7 +31,6 @@ fun BatteryOptimizationScreen(
     state: OnboardingUiState,
     onAction: (OnboardingAction) -> Unit,
 ) {
-    val context = LocalContext.current
     val colorScheme = MaterialTheme.colorScheme
     val status = state.battery
     val isLoading = state.batteryLoading
@@ -40,11 +38,6 @@ fun BatteryOptimizationScreen(
     val onRetry = { onAction(OnboardingAction.BatteryCheckAgainTapped) }
     // The view model writes the skip choice.
     val onSkip = { onAction(OnboardingAction.BatterySkipTapped) }
-    
-    // Initialize preference manager
-    LaunchedEffect(Unit) {
-        BatteryOptimizationPreferenceManager.init(context)
-    }
 
     Box(
         modifier = modifier.padding(24.dp),

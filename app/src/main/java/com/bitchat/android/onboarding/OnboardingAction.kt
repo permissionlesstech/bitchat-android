@@ -11,7 +11,7 @@ sealed interface OnboardingAction {
     data object BluetoothEnableTapped : OnboardingAction
     data object BluetoothSkipTapped : OnboardingAction
 
-    /** The Bluetooth screen's retry callback. The screen never renders it today. */
+    /** Runs the Bluetooth check again (P1). The Bluetooth screen has no button for it. */
     data object BluetoothCheckAgainTapped : OnboardingAction
     data class BluetoothResult(val enabled: Boolean) : OnboardingAction
     data class BluetoothLaunchFailed(val message: String) : OnboardingAction

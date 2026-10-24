@@ -30,8 +30,6 @@ fun BluetoothCheckScreen(
     val status = state.bluetooth
     val isLoading = state.bluetoothLoading
     val onEnableBluetooth = { onAction(OnboardingAction.BluetoothEnableTapped) }
-    // No check-again button is shown on this screen.
-    val onRetry = {}
     val onSkip = { onAction(OnboardingAction.BluetoothSkipTapped) }
 
     Box(
@@ -42,7 +40,6 @@ fun BluetoothCheckScreen(
             BluetoothStatus.DISABLED -> {
                 BluetoothDisabledContent(
                     onEnableBluetooth = onEnableBluetooth,
-                    onRetry = onRetry,
                     onSkip = onSkip,
                     colorScheme = colorScheme,
                     isLoading = isLoading
@@ -66,7 +63,6 @@ fun BluetoothCheckScreen(
 @Composable
 private fun BluetoothDisabledContent(
     onEnableBluetooth: () -> Unit,
-    onRetry: () -> Unit,
     onSkip: () -> Unit,
     colorScheme: ColorScheme,
     isLoading: Boolean
