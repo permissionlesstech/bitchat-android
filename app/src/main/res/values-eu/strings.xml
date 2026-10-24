@@ -1,0 +1,622 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cashu_pay_via">ordaindu Cashu bidez</string>
+    <string name="cashu_payment_description">Cashu ordainketa</string>
+    <string name="cashu_copy_token">Kopiatu tokena</string>
+    <string name="cashu_redeem_wallet">Trukatu zorroan</string>
+    <string name="cashu_redeem_web">Trukatu webean</string>
+    <string name="permission_bluetooth_rationale">Bluetooth baimena behar da internetik gabeko parez pareko mezularitzarako.</string>
+    <string name="permission_location_rationale">Kokapen baimena behar da inguruko gailuak Bluetooth bidez aurkitzeko.</string>
+    <string name="permission_notification_rationale">Jakinarazpen baimena behar da mezu berrien berri emateko.</string>
+    <string name="nickname_hint">Ezizena</string>
+    <string name="message_hint">Idatzi mezu bat…</string>
+    <string name="channel_password_hint">Pasahitza</string>
+    <string name="join_channel">Sartu kanalera</string>
+    <string name="leave_channel">Irten</string>
+    <string name="send_message">Bidali</string>
+    <string name="show_commands">Erakutsi komandoak</string>
+    <string name="back">Atzera</string>
+    <string name="people">Jendea</string>
+    <string name="channels">Kanalak</string>
+    <string name="online_users">Konektatutako erabiltzaileak</string>
+    <string name="no_one_connected">Ez dago inor konektatuta</string>
+    <string name="emergency_clear_hint">Sakatu hiru aldiz datu guztiak ezabatzeko</string>
+    <string name="your_network">Sarea</string>
+
+    <!-- Battery Optimization Strings -->
+    <string name="battery_optimization_detected">Bateria-optimizazioa detektatu da</string>
+    <string name="battery_optimization_disabled">Bateria-optimizazioa desgaituta</string>
+    <string name="battery_optimization_not_required">Bateria-optimizazioa ez da beharrezkoa</string>
+    <string name="battery_optimization_checking">Bateria-optimizazioa egiaztatzen</string>
+    <string name="battery_optimization_why_disable">Zergatik desgaitu bateria-optimizazioa?</string>
+    <string name="battery_optimization_explanation">bitchat atzeko planoan dabil inguruko gailuekiko mesh sareko konexioei eusteko. Bateria-optimizazioak konexio horiek eten ditzake, eta mezuak berandu iritsi edo galdu egin daitezke.\n\nBateria-optimizazioa desgaituz gero, parez pareko mezularitza fidagarria izango da.</string>
+    <string name="battery_optimization_disable_button">Desgaitu bateria-optimizazioa</string>
+    <string name="battery_optimization_note">Oharra: ezarpen hau geroago alda dezakezu Android Ezarpenak > Aplikazioak > bitchat > Bateria atalean</string>
+    <string name="battery_optimization_not_supported_explanation">Zure gailuak ez du bateria-optimizazioko ezarpenik behar. bitchat normal ibiliko da.</string>
+    <string name="battery_optimization_not_supported_message">Zure gailuak ez du bateria-optimizazioko ezarpenik behar. bitchat normal ibiliko da.</string>
+    <string name="battery_optimization_success_message">bitchat atzeko planoan modu fidagarrian ibil daiteke</string>
+    <string name="battery_optimization_benefits">• Mezuak modu fidagarrian entregatzen dira\n• Mesh sareko konexioari eusten zaio\n• Mezuak atzeko planoan birbidal daitezke\n• Konexio-etenak saihesten dira</string>
+    <string name="battery_optimization_check_again">Egiaztatu berriro</string>
+    <string name="battery_optimization_skip">Saltatu oraingoz</string>
+    <string name="battery_optimization_continue">Jarraitu</string>
+    <string name="retry">Saiatu berriro</string>
+    <string name="skip">Saltatu</string>
+
+    <!-- Notifications -->
+    <string name="notification_summary_more">eta beste %1$d</string>
+    <string name="notification_messages_from_people">%1$d mezu %2$d pertsonarengandik</string>
+    <string name="notification_more_conversations">eta beste %1$d elkarrizketa</string>
+    <string name="notification_active_peers_title">bitchat erabiltzaileak inguruan!</string>
+    <string name="notification_active_peers_one">Pertsona 1 inguruan</string>
+    <string name="notification_active_peers_many">%1$d pertsona inguruan</string>
+    <string name="notification_new_messages">Mezu berriak</string>
+    <string name="notification_new_location_messages">Kokapeneko mezu berriak</string>
+    <string name="notification_mentions_in">Aipatu zaituzte hemen: %1$s</string>
+    <string name="notification_mentions_in_more">Aipatu zaituzte hemen: %1$s (+%2$d gehiago)</string>
+    <string name="notification_mentions_in_plural">%1$d aipamen hemen: %2$s</string>
+    <string name="notification_new_activity_in">Jarduera berria hemen: %1$s</string>
+    <string name="notification_messages_in">Mezuak hemen: %1$s</string>
+    <string name="notification_joined_conversation">%1$s elkarrizketara batu da</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat - %1$d aipamen</string>
+    <string name="notification_geohash_summary_title">bitchat - Kokapeneko txatak</string>
+    <string name="notification_geohash_summary_text">%1$d mezu %2$d kokapenetatik</string>
+    <string name="notification_mesh_mention_title_singular">Mesh txatean aipatu zaituzte</string>
+    <string name="notification_mesh_mention_title_plural">%1$d aipamen mesh txatean</string>
+    <string name="notification_more_locations">eta beste %1$d kokapen</string>
+    <string name="notification_and_more">eta beste %1$d</string>
+
+    <!-- Mesh Service Foreground Notification -->
+    <string name="mesh_service_channel_name">Mesh zerbitzua atzeko planoan</string>
+    <string name="mesh_service_channel_desc">Bluetooth mesh sarea atzeko planoan martxan mantentzen du</string>
+    <string name="mesh_service_notification_content">Mesh martxan — %1$d kide</string>
+
+    <!-- Favorites accessibility -->
+    <string name="cd_add_favorite">Gehitu gogokoetara</string>
+    <string name="cd_remove_favorite">Kendu gogokoetatik</string>
+    <string name="cd_favorite">Gogokoa</string>
+    <string name="cd_favorited_you">Gogoko egin zaitu</string>
+    <string name="cd_add_bookmark">Gehitu laster-marka</string>
+
+    <!-- Chat header &amp; accessibility -->
+    <string name="cd_nostr_reachable">Nostr bidez eskuragarri</string>
+    <string name="cd_unread_private_messages">Mezuak</string>
+    <string name="conversations">Elkarrizketak</string>
+    <string name="offline_not_in_mesh">Lineaz kanpo · ez dago mesh sarean</string>
+    <string name="offline_reachable_via_nostr">Mesh saretik kanpo · Nostr erabilgarri</string>
+    <string name="delete">Ezabatu</string>
+    <string name="delete_conversation_action">Ezabatu elkarrizketa</string>
+    <string name="delete_conversation_title">Elkarrizketa ezabatu?</string>
+    <string name="delete_conversation_message">%1$s erabiltzailearekin duzun elkarrizketa gailu honetatik ezabatu?</string>
+    <string name="search_conversations">Bilatu elkarrizketetan</string>
+    <string name="clear">Garbitu</string>
+    <string name="loading_conversations">Elkarrizketa pribatuak kargatzen…</string>
+    <string name="conversation_storage_error">Ezin izan dira elkarrizketa pribatuak kargatu</string>
+    <string name="no_conversations_yet">Elkarrizketa pribatuak hemen agertuko dira</string>
+    <string name="no_conversation_results">Ez dago bat datorren elkarrizketarik</string>
+    <string name="online_conversations">LINEAN</string>
+    <string name="offline_conversations">LINEAZ KANPO</string>
+    <string name="mark_read">Markatu irakurritako gisa</string>
+    <string name="mark_unread">Markatu irakurri gabeko gisa</string>
+    <string name="pin_conversation">Ainguratu elkarrizketa</string>
+    <string name="unpin_conversation">Askatu elkarrizketa</string>
+    <string name="mute_conversation">Isilarazi elkarrizketa</string>
+    <string name="unmute_conversation">Aktibatu elkarrizketaren soinua</string>
+    <string name="conversation_actions">Elkarrizketaren ekintzak</string>
+    <string name="conversation_unread_count">%1$d mezu irakurri gabe</string>
+    <string name="conversation_read">Irakurrita</string>
+    <string name="conversation_draft_preview">Zirriborroa: %1$s</string>
+    <string name="conversation_you_preview">Zu: %1$s</string>
+    <string name="conversation_delete_failed">Ezin izan da elkarrizketa ezabatu</string>
+    <string name="conversation_deleted">%1$s erabiltzailearekiko elkarrizketa ezabatu da</string>
+    <string name="undo">Desegin</string>
+    <string name="conversation_restore_failed">Ezin izan da elkarrizketa leheneratu</string>
+    <string name="notification_reply">Erantzun</string>
+    <string name="notification_mark_read">Markatu irakurrita</string>
+    <string name="notification_private_message">Mezu pribatu berria</string>
+    <string name="notification_content_hidden">Ireki bitchat ikusteko</string>
+    <string name="notification_channel_direct_messages">Mezu zuzenak</string>
+    <string name="notification_channel_direct_messages_description">Beste erabiltzaileen mezu pribatuen jakinarazpenak</string>
+    <string name="notification_channel_geohash">Geohash txatak</string>
+    <string name="notification_channel_geohash_description">Geohash kokapen-kanaletako aipamen eta mezuen jakinarazpenak</string>
+    <string name="you">Zu</string>
+    <string name="cd_location_notes">Kokapeneko oharrak</string>
+    <string name="cd_teleported">Teleportatua</string>
+    <string name="cd_open_location_channels">Ireki kokapenaren eta kanalen ezarpenak</string>
+    <string name="cd_connected_peers">Konektatutako kideak</string>
+    <string name="cd_geohash_participants">Geohash parte-hartzaileak</string>
+    <string name="cd_ready_for_handshake">Gako-trukerako prest</string>
+    <string name="cd_handshake_in_progress">Gako-trukea abian</string>
+    <string name="cd_encrypted">Muturretik muturrera zifratua</string>
+    <string name="cd_handshake_failed">Gako-truketak huts egin du</string>
+
+    <!-- One-shot private-media downgrade consent -->
+    <string name="private_media_legacy_title">Muturretik muturrerako zifratzerik gabe bidali?</string>
+    <string name="private_media_legacy_body">Ezin da %1$s zifratuta bidali %2$s erabiltzaileari, haren bezeroa zaharragoa delako. %3$s</string>
+    <string name="private_media_legacy_send_once">Bidali fitxategi hau behin</string>
+
+    <!-- File viewer dialog -->
+    <string name="file_viewer_title">📎 Fitxategia jaso da</string>
+    <string name="file_viewer_size">📏 Tamaina: %1$s</string>
+    <string name="file_viewer_type">🏷️ Mota: %1$s</string>
+    <string name="file_viewer_open_save">📂 Ireki / Gorde</string>
+    <string name="close_with_emoji">❌ Itxi</string>
+    <string name="pick_image">Aukeratu irudia</string>
+    <string name="cd_save_current_image">Gorde uneko irudia</string>
+    <string name="cd_close">Itxi</string>
+    <string name="toast_image_saved">Irudia Deskargak karpetan gorde da</string>
+    <string name="toast_failed_to_save_image">Ezin izan da irudia gorde</string>
+    <string name="cd_image_index_of">%1$d. irudia / %2$d</string>
+    <string name="cd_pick_file">Aukeratu fitxategia</string>
+
+    <!-- About sheet -->
+    <string name="about_tagline">Ondokoen txata</string>
+
+    <!-- About sheet: tabs -->
+    <string name="about_tab_info">Informazioa</string>
+    <string name="about_tab_settings">Ezarpenak</string>
+
+    <!-- About sheet: how-to-use instructions -->
+    <string name="about_how_to_use_heading">Nola erabili</string>
+    <string name="about_howto_nickname">Ezarri zure ezizena hura sakatuta</string>
+    <string name="about_howto_channels">Sakatu kanalaren izena kanalez aldatzeko</string>
+    <string name="about_howto_people">Sakatu jendearen ikonoa kanalean nor dagoen ikusteko</string>
+    <string name="about_howto_bookmark">Gehitu laster-marka kanal bati zure zerrendan gordetzeko</string>
+    <string name="about_howto_mention">Idatzi @ norbait aipatzeko</string>
+    <string name="about_howto_commands">Idatzi / komando erabilgarriak ikusteko</string>
+    <string name="about_howto_panic">Sakatu logoa hiru aldiz datu guztiak ezabatzeko</string>
+
+    <!-- About sheet: section labels -->
+    <string name="about_section_about">Honi buruz</string>
+    <string name="about_section_theme">Gaia</string>
+    <string name="about_section_settings">Ezarpenak</string>
+
+    <!-- About sheet: feature list -->
+    <string name="about_no_tracking_title">Jarraipenik ez</string>
+    <string name="about_no_tracking_desc">Ez zerbitzaririk, ez konturik, ez datu-bilketarik.</string>
+    <string name="about_ephemeral_title">Behin-behineko identitatea</string>
+    <string name="about_ephemeral_desc">Kide-ID berri bat sortzen da aldizka.</string>
+    <string name="about_panic_desc">Sakatu logoa hiru aldiz datu guztiak berehala ezabatzeko.</string>
+
+    <!-- About sheet: settings labels -->
+    <string name="about_tor_title">Tor sarea</string>
+    <string name="about_difficulty">Zailtasuna</string>
+    <string name="about_difficulty_value">%1$d bit • %2$s</string>
+    <string name="about_tor_connected">Konektatuta (%%%1$d)</string>
+    <string name="about_tor_disconnected">Deskonektatuta</string>
+
+    <string name="about_offline_mesh_title">Lineaz kanpoko komunikazioa</string>
+    <string name="about_offline_mesh_desc">Txateatu Bluetooth mesh sare baten bidez, internetik eta zerbitzaririk gabe. Mezuak inguruko gailuen bidez birbidaltzen dira irismena zabaltzeko.</string>
+    <string name="about_online_geohash_title">Tokiko kanalak</string>
+    <string name="about_online_geohash_desc">Geohash kanalek inguruko jendearekin konektatzen zaituzte, mesh sarea errele publikoen bidez zabalduz.</string>
+    <string name="about_e2e_title">Muturretik muturrerako zifratzea</string>
+    <string name="about_e2e_desc">Mezu pribatuak zifratuta daude. Kanaletako mezuak publikoak dira.</string>
+    <string name="about_system">Sistema</string>
+    <string name="about_light">Argia</string>
+    <string name="about_dark">Iluna</string>
+    <string name="chat_ui_matrix">Matrix</string>
+    <string name="chat_ui_bubbles">Burbuilak</string>
+    <string name="about_pow">Lan-froga</string>
+    <string name="about_pow_off">Lan-froga desaktibatuta</string>
+    <string name="about_pow_on">Lan-froga aktibatuta</string>
+    <string name="about_pow_tip">Gehitu lan-froga geohash mezuei spama saihesteko.</string>
+    <string name="about_pow_difficulty">Zailtasuna: %1$d bit (~%2$s)</string>
+    <string name="about_pow_difficulty_attempts">%1$d zailtasunak ~%2$s hash saiakera behar ditu</string>
+    <string name="about_pow_desc_none">Ez da lan-frogarik behar</string>
+    <string name="about_pow_desc_very_low">Oso baxua – spamaren aurkako gutxieneko babesa</string>
+    <string name="about_pow_desc_low">Baxua – spamaren aurkako oinarrizko babesa</string>
+    <string name="about_pow_desc_medium">Ertaina – spamaren aurkako babes ona</string>
+    <string name="about_pow_desc_high">Altua – spamaren aurkako babes sendoa</string>
+    <string name="about_pow_desc_very_high">Oso altua – atzerapenak eragin ditzake</string>
+    <string name="about_pow_desc_extreme">Muturrekoa – kalkulu handia behar da</string>
+    <string name="about_network">Sarea</string>
+    <string name="about_tor_off">Tor desaktibatuta</string>
+    <string name="about_tor_on">Tor aktibatuta</string>
+    <string name="about_tor_route">Bideratu internet Tor bidez pribatutasun handiagoa izateko.</string>
+    <string name="about_tor_status">Tor egoera: %1$s, abiaraztea %%%2$d</string>
+    <string name="about_last">Azkena: %1$s</string>
+    <string name="about_emergency_title">Larrialdi modua</string>
+    <string name="about_debug_settings">Arazketa-ezarpenak</string>
+    <string name="about_footer">Kode irekia • Pribatutasuna lehenik • Deszentralizatua</string>
+    <string name="close_plain">Itxi</string>
+    <string name="cd_privacy_protected">Pribatutasuna babestuta</string>
+    <string name="cancel_lower">Utzi</string>
+
+    <!-- APK Sharing -->
+    <string name="share_bitchat_title">Partekatu BitChat</string>
+    <string name="share_bitchat_subtitle">Partekatu instalazio-fitxategia lineaz kanpo banatzeko</string>
+    <string name="share_apk_title">Partekatu BitChat aplikazioa</string>
+    <string name="share_apk_explanation">BitChat-en instalazio-fitxategiak partekatuko dira, besteek aplikazioa internetik gabe instala dezaten. Ezin hobea mesh sarea zabaltzeko!</string>
+    <string name="share_apk_receiver_instructions">Hartzaileak hau egin beharko du:\n• Gaitu \"Instalatu jatorri ezezagunetatik\" Android ezarpenetan\n• Desinstalatu BitChat lehenik, dagoeneko instalatuta badago (sinadurak desberdinak dira)</string>
+    <string name="share_apk_confirm">Partekatu aplikazioa</string>
+    <string name="share_apk_chooser_title">Partekatu BitChat honen bidez…</string>
+    <string name="share_apk_error">Ezin izan da aplikazioa partekatzeko prestatu. Saiatu berriro.</string>
+
+    <!-- Universal APK Preparation -->
+    <string name="prepare_apk_title">Prestatu aplikazioa partekatzeko</string>
+    <string name="prepare_apk_ready_title">Aplikazioa lineaz kanpo partekatzeko prest</string>
+    <string name="prepare_apk_subtitle">Deskargatu APK unibertsala lineaz kanpo partekatzeko</string>
+    <string name="prepare_apk_status_not_downloaded">Ez dago prest • Sakatu deskargatzeko</string>
+    <string name="prepare_apk_status_ready">Partekatzeko prest</string>
+    <string name="prepare_apk_ready_detail">Partekatzeko prest • %1$s • %2$d MB\n%3$s</string>
+    <string name="prepare_apk_status_resumable">%1$s • %%%2$d deskargatuta</string>
+    <string name="prepare_apk_source_installed">Partekatzeko iturria: instalatutako APK hau</string>
+    <string name="prepare_apk_source_installed_arm64">Partekatzeko iturria: instalatutako APK hau • ARM64 gailuetarako soilik</string>
+    <string name="prepare_apk_source_downloaded">Partekatzeko iturria: deskargatutako APK unibertsal egiaztatua</string>
+    <string name="prepare_apk_update_available">%1$s bertsioa eskuragarri dago. APK hau partekatzen jarrai dezakezu edo eguneraketa deskargatu.</string>
+    <string name="prepare_apk_update_warning">Bertsio berria eskuragarri</string>
+    <string name="prepare_apk_get_universal">Deskargatu APK unibertsala</string>
+    <string name="prepare_apk_retry">Saiatu berriro deskargatzen</string>
+    <string name="prepare_apk_status_downloading">Deskargatzen… %%%1$d</string>
+    <string name="prepare_apk_phase_awaiting_connectivity">Sarearen zain…</string>
+    <string name="prepare_apk_phase_retrying">Berriro saiatzen…</string>
+    <string name="prepare_apk_phase_selecting_source">Deskarga-iturria hautatzen…</string>
+    <string name="prepare_apk_phase_awaiting_route">Tor-en zain…</string>
+    <string name="prepare_apk_phase_transferring">Deskargatzen…</string>
+    <string name="prepare_apk_phase_verifying_signature">Sinadura egiaztatzen…</string>
+    <string name="prepare_apk_stop">Gelditu deskarga</string>
+    <string name="prepare_apk_button_prepare">Prestatu</string>
+    <string name="prepare_apk_button_delete">Ezabatu</string>
+    <string name="prepare_apk_info">%1$s bertsioa • %2$d MB</string>
+    <string name="prepare_apk_dialog_title">APK unibertsala deskargatu?</string>
+    <string name="prepare_apk_update_dialog_title">APK unibertsal berriagoa deskargatu?</string>
+    <string name="prepare_apk_dialog_message_unknown_size">APK unibertsal egiaztatu bat deskargatuko da konfiguratutako iturri batetik. Behin bakarrik egin behar duzu.</string>
+    <string name="prepare_apk_update_dialog_message">%1$s bertsioa GitHub-en eskuragarri dago (%2$d MB). Zure uneko APKa partekagarri izango da deskargak irauten duen bitartean.</string>
+    <string name="prepare_apk_dialog_confirm">Deskargatu</string>
+    <string name="prepare_apk_downloading_title">APK unibertsala deskargatzen</string>
+    <string name="prepare_apk_downloading_message">%1$d MB deskargatzen…</string>
+    <string name="prepare_apk_success">APK unibertsala prest!</string>
+    <string name="prepare_apk_error_network">Sare-errorea. Egiaztatu zure konexioa.</string>
+    <string name="prepare_apk_error_storage">Ez dago behar adina biltegiratze-leku.</string>
+    <string name="prepare_apk_error_rate_limited">%1$s iturriak eskaerak mugatu ditu aldi baterako. Saiatu berriro geroago.</string>
+    <string name="prepare_apk_error_no_universal">%1$s iturriak ez du APK unibertsalik une honetan.</string>
+    <string name="prepare_apk_error_http">%1$s deskargak huts egin du: HTTP %2$s %3$s</string>
+    <string name="prepare_apk_error_generic">Deskargak huts egin du. Saiatu berriro.</string>
+    <string name="prepare_apk_error_storage_needed">Ez dago behar adina leku: %1$s MB behar dira, %2$s MB libre.</string>
+    <string name="prepare_apk_error_no_sources">Ez dago APK deskarga-iturririk konfiguratuta.</string>
+    <string name="prepare_apk_error_tor_connecting">Tor oraindik konektatzen ari da. Saiatu berriro Tor prest dagoenean.</string>
+    <string name="prepare_apk_error_no_url">%1$s iturriak ez du APK URL erabilgarririk.</string>
+    <string name="prepare_apk_error_unreachable">Ezin izan da %1$s iturrira iritsi.</string>
+    <string name="prepare_apk_error_insecure_redirect">%1$s iturriak URL ez-seguru batera birbideratu du.</string>
+    <string name="prepare_apk_error_resume_rejected">%1$s iturriak gordetako deskarga-posizioa baztertu du. Hurrengo saiakeran deskarga hasieratik hasiko da.</string>
+    <string name="prepare_apk_error_incomplete">%1$s deskarga byte guztiak iritsi aurretik amaitu da. Berrekin daiteke.</string>
+    <string name="prepare_apk_error_invalid_resume">%1$s iturriak berrekiteko erantzun baliogabea itzuli du. Hurrengo saiakeran deskarga hasieratik hasiko da.</string>
+    <string name="prepare_apk_error_untrusted_key">%1$s iturriko APKa ez dago BitChat-en bertsio-gako fidagarri batekin sinatuta.</string>
+    <string name="prepare_apk_error_not_universal">%1$s iturriak arkitektura jakin baterako APKa itzuli du, ez beharrezkoa den APK unibertsala.</string>
+    <string name="prepare_apk_error_apk_unreadable">Ezin izan da deskargatutako APKa irakurri.</string>
+    <string name="prepare_apk_error_not_bitchat">Deskargatutako fitxategia ez da BitChat APK bat.</string>
+    <string name="prepare_apk_error_no_version">Deskargatutako APKak ez du bertsio-informaziorik.</string>
+    <string name="prepare_apk_error_source_failed">%1$s deskargak huts egin du.</string>
+    <string name="prepare_apk_error_all_sources">Konfiguratutako APK iturri guztiek huts egin dute.</string>
+    <string name="prepare_apk_delete_confirm">Cachean gordetako APKa ezabatu?</string>
+    <string name="prepare_apk_delete_message">~%1$d MB biltegiratze-leku askatuko dira.</string>
+    <string name="prepare_apk_required">Prestatu aplikazioa partekatzeko lehenik.</string>
+    <string name="prepare_apk_download_interrupted">Deskarga eten da</string>
+    <string name="prepare_apk_download_cancelled">Deskarga bertan behera utzi da</string>
+    <string name="apk_download_notification_title">APK unibertsala deskargatzen</string>
+    <string name="apk_download_channel_name">APK deskargak</string>
+
+    <!-- Hotspot Sharing -->
+    <string name="hotspot_share_via">Partekatu wifi-gune bidez</string>
+    <string name="hotspot_share_via_subtitle">Sortu wifi-gune bat lineaz kanpo partekatzeko</string>
+    <string name="hotspot_share_other">Partekatu Quick Share bidez</string>
+    <string name="hotspot_share_other_subtitle">Erabili Android-en partekatze arrunta</string>
+    <string name="hotspot_disconnect_title">Uneko Wi-Fi Direct konexioa deskonektatu?</string>
+    <string name="hotspot_disconnect_message">Wifi-gunea abiaraztean uneko Wi-Fi Direct konexioa deskonektatuko da. Horrek Cast, Android Auto, Quick Share edo inguruko beste konexio bat eten dezake.</string>
+    <string name="hotspot_disconnect_confirm">Deskonektatu eta abiarazi</string>
+
+    <!-- APK Installation -->
+    <string name="install_bitchat_title">Instalatu jasotako APKa</string>
+    <string name="install_bitchat_subtitle">Instalatu BitChat jasotako fitxategietatik</string>
+    <string name="install_apk_dialog_title">Instalatu BitChat-en eguneraketa</string>
+    <string name="install_apk_dialog_message">BitChat instalatu jasotako APK fitxategietatik? Horri esker, aplikazioa lineaz kanpo bana daiteke mesh sareetan.</string>
+    <string name="install_apk_permission_title">Baimena behar da</string>
+    <string name="install_apk_permission_message">BitChat-ek paketeak instalatzeko baimena behar du bere burua banatzeko. Gaitu \"Instalatu aplikazio ezezagunak\" hurrengo pantailan.</string>
+    <string name="install_apk_confirm">Instalatu</string>
+    <string name="install_apk_grant_permission">Eman baimena</string>
+    <string name="install_apk_select_files">Hautatu APK fitxategiak</string>
+    <string name="install_apk_error">Ezin izan da APKa instalatu. Saiatu berriro.</string>
+    <string name="install_apk_no_files">Ez da APK fitxategirik hautatu.</string>
+
+    <!-- Generic content descriptions -->
+    <string name="cd_warning">Abisua</string>
+    <string name="cd_location_services">Kokapen-zerbitzuak</string>
+    <string name="cd_privacy">Pribatutasuna</string>
+    <string name="cd_error">Errorea</string>
+    <string name="cd_battery_optimization">Bateria-optimizazioa</string>
+    <string name="cd_benefits">Abantailak</string>
+    <string name="cd_checking_battery_optimization">Bateria-optimizazioa egiaztatzen</string>
+    <string name="cd_not_supported_battery_optimization">Bateria-optimizazioa ez da onartzen</string>
+    <string name="cd_bluetooth">Bluetooth</string>
+    <string name="cd_direct_wifi_aware">Wi-Fi Aware zuzena</string>
+    <string name="cd_direct_bluetooth">Bluetooth zuzena</string>
+    <string name="cd_routed_mesh">Bideratutako mesh sarea</string>
+    <string name="cd_unread_message">Irakurri gabeko mezua</string>
+    <string name="cd_open_map">Ireki mapa</string>
+    <string name="cd_remove_bookmark">Kendu laster-marka</string>
+    <string name="cd_teleport">Teleportatu</string>
+    <string name="notification_action_quit_bitchat">Irten bitchat-etik</string>
+    <string name="about_background_title">Exekutatu atzeko planoan</string>
+    <string name="about_background_desc">Mantendu mesh sarea aktibo aplikazioa itxita dagoenean (aurreko planoko zerbitzua)</string>
+    <string name="cd_leave_channel">Irten kanaletik</string>
+    <string name="cd_reachable_via_nostr">Nostr bidez eskuragarri</string>
+    <string name="cd_offline_favorite">Lineaz kanpoko gogokoa</string>
+    <string name="cd_decrease_precision">Txikitu zehaztasuna</string>
+    <string name="cd_increase_precision">Handitu zehaztasuna</string>
+    <string name="cd_select_geohash">Hautatu geohash-a</string>
+    <string name="cd_scroll_to_bottom">Joan behera</string>
+    <string name="cd_file">Fitxategia</string>
+    <string name="cd_image">Irudia</string>
+    <string name="cd_cancel">Utzi</string>
+    <string name="cd_link">Esteka</string>
+    <string name="cd_record_voice">Grabatu ahots-oharra</string>
+    <string name="cd_pick_media">Aukeratu multimedia</string>
+    <string name="cd_offline_mesh_chat">Lineaz kanpoko mesh txata</string>
+    <string name="cd_online_geohash_channels">Lineako geohash kanalak</string>
+    <string name="cd_end_to_end_encryption">Muturretik muturrerako zifratzea</string>
+    <string name="location_bluetooth_subtitle">Bluetooth • %1$s</string>
+    <string name="location_bluetooth_wifi_subtitle">Bluetooth • Wifi • %1$s</string>
+
+    <string name="image_page_of">%1$d. irudia / %2$d</string>
+    <string name="image_unavailable">Irudia ez dago erabilgarri</string>
+    <string name="image_saved_to_downloads">Irudia Deskargak karpetan gorde da</string>
+    <string name="image_save_failed">Ezin izan da irudia gorde</string>
+    <string name="pick_file">Aukeratu fitxategia</string>
+    <string name="file_unavailable">[fitxategia ez dago erabilgarri]</string>
+    <string name="unknown">Ezezaguna</string>
+
+    <!-- Chat user sheet actions -->
+    <string name="choose_action_message_or_user">Aukeratu ekintza bat mezu edo erabiltzaile honetarako</string>
+    <string name="choose_action_user">Aukeratu ekintza bat erabiltzaile honetarako</string>
+    <string name="action_copy_message_title">Kopiatu mezua</string>
+    <string name="action_copy_message_subtitle">Kopiatu mezu hau arbelean</string>
+    <string name="action_slap_title">Zaplaztekoa %1$s erabiltzaileari</string>
+    <string name="action_slap_subtitle">Bidali txantxetako zaplazteko-mezu bat</string>
+    <string name="action_hug_title">Besarkatu %1$s</string>
+    <string name="action_hug_subtitle">Bidali besarkada-mezu atsegin bat</string>
+    <string name="action_block_title">Blokeatu %1$s</string>
+    <string name="action_block_subtitle">Blokeatu erabiltzaile honen mezu guztiak</string>
+    <string name="action_private_message_title">Mezua %1$s erabiltzaileari</string>
+    <string name="action_private_message_subtitle">Bidali mezu pribatu bat</string>
+
+    <!-- Location channels sheet -->
+    <string name="location_channels_title">Kanalak</string>
+    <string name="location_channels_heading">Kokapen-kanalak</string>
+    <string name="location_channels_desc">Txateatu gutxi gorabeherako kokapenaren arabera. Ez du inoiz GPS kokapen zehatza partekatzen.</string>
+    <string name="location_channels_nearby">Inguruan</string>
+    <string name="mesh_section_subtitle">Lineaz kanpoko mesh sarea. Ez da internetik behar.</string>
+
+    <!-- Location channels sheet: sections and Tor routing -->
+    <string name="section_nearby">Inguruan</string>
+    <string name="location_tor_routing_title">Tor bideratzea</string>
+    <string name="location_tor_routing_desc">Zure IPa ezkutatzen du kokapen-kanaletan.</string>
+    <string name="badge_recommended">Gomendatua</string>
+
+    <!-- People sheet -->
+    <string name="people_count_title">Jendea (%1$d)</string>
+    <string name="section_people">Jendea</string>
+    <string name="section_on_location">Kokapenean</string>
+    <string name="section_teleported_in">Teleportatuak</string>
+
+    <string name="grant_location_permission">Eman kokapen baimena</string>
+    <string name="location_permission_denied">Kokapen baimena ukatu da. Gaitu ezarpenetan kokapen-kanalak erabiltzeko.</string>
+
+    <string name="location_permission_granted">✓ Kokapen baimena emanda</string>
+    <string name="checking_permissions">Baimenak egiaztatzen…</string>
+    <string name="finding_nearby_channels">Inguruko kanalak bilatzen…</string>
+    <string name="bookmarked">Laster-marka gehituta</string>
+    <string name="geohash_placeholder">geohash</string>
+    <string name="invalid_geohash">Geohash baliogabea</string>
+    <string name="teleport">Teleportatu</string>
+    <string name="disable_location_services">Kendu kokapenerako sarbidea</string>
+    <string name="enable_location_services">Gaitu kokapen-zerbitzuak</string>
+    <string name="mesh_label">mesh</string>
+    <string name="mesh_title">Mesh</string>
+    <string name="location_level_block">Etxadia</string>
+    <string name="location_level_neighborhood">Auzoa</string>
+    <string name="location_level_city">Hiria</string>
+    <string name="location_level_province">Probintzia</string>
+    <string name="location_level_region">Eskualdea</string>
+
+    <!-- Location notes sheet -->
+    <string name="nearby_notes_reveal">begiratu hemen utzitako oharrik dagoen</string>
+    <string name="nearby_notes_one">Ohar 1 utzi dute hemen — sakatu irakurtzeko</string>
+    <string name="nearby_notes_many">%d ohar utzi dituzte hemen — sakatu irakurtzeko</string>
+    <plurals name="location_notes_title">
+        <item quantity="one">#%1$s ± 1 • %2$d ohar</item>
+        <item quantity="other">#%1$s ± 1 • %2$d ohar</item>
+    </plurals>
+    <string name="location_notes_description">Gehitu ohar labur iraunkorrak kokapen honetan, beste bisitariek aurki ditzaten.</string>
+    <string name="location_notes_relays_unavailable">Geo-erreleak ez daude erabilgarri; oharrak pausatuta</string>
+    <string name="location_notes_no_relays_title">Ez dago geo-errelerik inguruan</string>
+    <string name="location_notes_no_relays_desc">Oharrak geo-erreleen mende daude. Egiaztatu konexioa eta saiatu berriro.</string>
+    <string name="loading_location_notes">Oharrak kargatzen…</string>
+    <string name="location_notes_empty_title">Oraindik ez dago oharrik</string>
+    <string name="location_notes_empty_desc">Izan zaitez leku honetan ohar bat gehitzen lehena.</string>
+    <string name="dismiss">Baztertu</string>
+    <string name="location_notes_input_placeholder">Gehitu ohar bat leku honetarako</string>
+
+    <!-- Debug / Diagnostics -->
+    <string name="debug_tools">Arazketa-tresnak</string>
+    <string name="debug_tools_desc">Garatzaileentzako diagnostiko- eta kontrol-tresnak</string>
+    <string name="debug_verbose_logging">Erregistro xehatua</string>
+    <string name="debug_verbose_hint">Kideen sarrerak/irteerak, konexioaren norabidea, paketeen bideratzea eta birbidalketak erregistratzen ditu</string>
+    <string name="debug_bluetooth_roles">Bluetooth rolak</string>
+    <string name="debug_gatt_server">GATT zerbitzaria</string>
+    <string name="debug_connections_fmt">Konexioak: %1$d / %2$d</string>
+    <string name="debug_max_server">Zerbitzari max.</string>
+    <string name="debug_gatt_client">GATT bezeroa</string>
+    <string name="debug_max_client">Bezero max.</string>
+    <string name="debug_overall_connections_fmt">Konexioak: %1$d / %2$d</string>
+    <string name="debug_max_overall">Guztira max.</string>
+    <string name="debug_packet_relay">Paketeen birbidalketa</string>
+    <string name="debug_since_start_fmt">Hasieratik: %1$d</string>
+    <string name="debug_roles_hint">Aktibatu/desaktibatu rolak eta itxi konexio guztiak desgaitzean</string>
+    <string name="debug_sync_settings">Sinkronizazio-ezarpenak</string>
+    <string name="debug_max_packets_per_sync_fmt">Pakete max. sinkronizazio bakoitzeko: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">GCS iragazkiaren tamaina max.: %1$d byte (128–1024)</string>
+    <string name="debug_target_fpr_fmt">FPR helburua: %%%1$.2f</string>
+    <string name="debug_connected_devices">Konektatutako gailuak</string>
+    <string name="debug_our_device_id_fmt">Gure gailuaren IDa: %1$s</string>
+    <string name="debug_none">Bat ere ez</string>
+    <string name="debug_disconnect">Deskonektatu</string>
+    <string name="debug_recent_scan_results">Azken eskaneatze-emaitzak</string>
+
+    <string name="verify_title">Egiaztatu</string>
+    <string name="verify_my_qr_title">Eskaneatu ni egiaztatzeko</string>
+    <string name="verify_scan_prompt_friend">Eskaneatu beste norbaiten QRa</string>
+    <string name="verify_scan_someone">Eskaneatu beste norbaiten QRa</string>
+    <string name="verify_show_my_qr">Erakutsi nire QRa</string>
+    <string name="verify_remove">Kendu egiaztapena</string>
+    <string name="verify_qr_unavailable">QRa ez dago erabilgarri</string>
+    <string name="verify_camera_permission">Kamera baimena behar da QR kodeak eskaneatzeko</string>
+    <string name="verify_request_camera">Gaitu kamera</string>
+    <string name="verify_paste_label">Itsatsi egiaztapen-URLa</string>
+    <string name="verify_validate">Balidatu</string>
+    <string name="verify_scanned">Egiaztapena eskatu da</string>
+    <string name="security_verification_title">Segurtasun-egiaztapena</string>
+    <string name="fingerprint_their">Haren hatz-marka</string>
+    <string name="fingerprint_yours">Zure hatz-marka</string>
+    <string name="fingerprint_pending">Gako-trukea zain</string>
+    <string name="fingerprint_no_peer">Ireki txat pribatu bat hatz-markak ikusteko</string>
+    <string name="fingerprint_status_verified">Zifratua eta egiaztatua</string>
+    <string name="fingerprint_status_encrypted">Zifratua</string>
+    <string name="fingerprint_status_handshaking">Gakoak trukatzen</string>
+    <string name="fingerprint_status_failed">Gako-truketak huts egin du</string>
+    <string name="fingerprint_status_uninitialized">Zifratu gabea</string>
+    <string name="fingerprint_verified_label">Egiaztatua</string>
+    <string name="fingerprint_verified_message">Pertsona honen identitatea egiaztatu duzu.</string>
+    <string name="fingerprint_not_verified_label">Egiaztatu gabea</string>
+    <string name="fingerprint_not_verified_message_fmt">Konparatu hatz-marka hauek %1$s erabiltzailearekin kanal seguru baten bidez.</string>
+    <string name="fingerprint_mark_verified">Markatu egiaztatutzat</string>
+    <string name="fingerprint_start_handshake">Hasi gako-trukea</string>
+    <string name="fingerprint_copy">Kopiatu</string>
+
+    <string name="verify_mutual_match_title">Elkarren arteko egiaztapena</string>
+    <string name="verify_mutual_match_body">Zuk eta %1$s erabiltzaileak elkar egiaztatu duzue</string>
+    <string name="verify_mutual_system_message">Elkarren arteko egiaztapena %1$s erabiltzailearekin</string>
+    <string name="verify_success_title">Egiaztatua</string>
+    <string name="verify_success_body">%1$s egiaztatu duzu</string>
+    <string name="verify_success_system_message">%1$s egiaztatuta</string>
+
+    <string name="debug_connect">Konektatu</string>
+    <string name="debug_debug_console">Arazketa-kontsola</string>
+    <string name="debug_clear">Garbitu</string>
+    <string name="debug_relays_window_fmt">Azken 10 s: %1$d • 1 min: %2$d • 15 min: %3$d</string>
+    <string name="debug_derived_p_fmt">P eratorria: %1$s • gehienezko elementu kopurua (gutxi gorabehera): %2$s</string>
+    <string name="debug_direct_suffix"> • zuzena</string>
+    <string name="debug_role_server">Zerbitzari gisa (guk ostatatzen dugu)</string>
+    <string name="debug_role_client">Bezero gisa (gu konektatzen gara)</string>
+
+    <!-- Onboarding screens -->
+    <string name="location_services_required">Kokapen-zerbitzuak behar dira</string>
+    <string name="privacy_first">Pribatutasuna lehenik</string>
+    <string name="location_explanation">bitchat-ek EZ du zure kokapenaren jarraipenik egiten.\n\nKokapen-zerbitzuak beharrezkoak dira Bluetooth bidez eskaneatzeko eta Geohash txaterako.</string>
+    <string name="location_needs_for">bitchat-ek kokapen-zerbitzuak behar ditu honetarako:</string>
+    <string name="location_needs_bullets">• Bluetooth gailuak eskaneatzeko\n• Mesh sarean inguruko erabiltzaileak aurkitzeko\n• Geohash txaterako\n• Ez da jarraipenik ez kokapen-bilketarik egiten</string>
+    <string name="background_location_required_title">Atzeko planoko kokapena gomendatzen da</string>
+    <string name="background_location_required_subtitle">Aukerakoa, mesh sarearen fidagarritasuna hobetzen du</string>
+    <string name="background_location_explanation">Android-ek atzeko planoko kokapena gomendatzen du, bitchat-ek inguruko gailuak eskanea ditzan aplikazioa irekita ez dagoenean. Horri esker, mesh sarea bizirik mantentzen da gailua berrabiarazi ondoren.</string>
+    <string name="background_location_settings_tip">Ezarpenak irekitzean, aukeratu \"Baimendu beti\".</string>
+    <string name="background_location_needs_for">bitchat-ek atzeko planoko kokapena erabiltzen du honetarako:</string>
+    <string name="background_location_needs_bullets">- Inguruko gailuak eskaneatzeko aplikazioa itxita dagoenean\n- Berrabiarazi ondoren berriro konektatzeko\n- Mesh sarea atzeko planoan martxan mantentzeko</string>
+    <string name="background_location_privacy_note">Ez dugu INOIZ zure kokapena biltzen edo gordetzen. Zure pribatutasuna seguru dago.</string>
+    <string name="grant_background_location">Baimendu atzeko planoko kokapena</string>
+    <string name="skip_background_location">Jarraitu atzeko planoko kokapenik gabe</string>
+    <string name="open_location_settings">Ireki kokapen-ezarpenak</string>
+    <string name="check_again">Egiaztatu berriro</string>
+    <string name="location_services_unavailable">Kokapen-zerbitzuak ez daude erabilgarri</string>
+    <string name="location_unavailable_explanation">Kokapen-zerbitzuak ez daude erabilgarri gailu honetan. Ezohikoa da, kokapen-zerbitzuak Android gailuetan estandarrak baitira.\n\nbitchat-ek kokapen-zerbitzuak behar ditu Bluetooth bidezko eskaneatzeak behar bezala funtziona dezan (Android-en eskakizuna). Hori gabe, aplikazioak ezin ditu inguruko erabiltzaileak aurkitu.</string>
+    <string name="checking_location_services">Kokapen-zerbitzuak egiaztatzen...</string>
+    <string name="bluetooth_required">Bluetooth behar da</string>
+    <string name="bluetooth_needs_for">bitchat-ek Bluetooth behar du honetarako:</string>
+    <string name="bluetooth_needs_bullets">• Inguruko erabiltzaileak aurkitzeko\n• Mesh sareko konexioak sortzeko\n• Mezuak bidali eta jasotzeko\n• Internetik eta zerbitzaririk gabe funtzionatzeko</string>
+    <string name="enable_bluetooth">Gaitu Bluetooth</string>
+    <string name="bluetooth_not_supported">Bluetooth ez da onartzen</string>
+    <string name="bluetooth_unsupported_explanation">Gailu honek ez du Bluetooth Low Energy (BLE) onartzen, eta bitchat-ek hori behar du funtzionatzeko.\n\nbitchat-ek BLE behar du mesh sareak sortzeko eta inguruko gailuekin internetik gabe komunikatzeko.</string>
+    <string name="checking_bluetooth_status">Bluetooth-en egoera egiaztatzen...</string>
+    <string name="battery_optimization_detected_title">Bateria-optimizazioa detektatu da</string>
+    <string name="battery_optimization_enabled_title">Bateria-optimizazioa gaituta</string>
+    <string name="battery_optimization_explanation_short">bitchat-ek atzeko planoan ibili behar du mesh sareko konexioei eusteko. Bateria-optimizazioak konexio horiek eten ditzake.</string>
+    <string name="benefits_of_disabling">Desgaitzearen abantailak</string>
+    <string name="battery_benefits_short">• Mezuen entrega fidagarria\n• Mesh sareko konexioari eusten zaio\n• Konexio-etenak saihesten dira</string>
+    <string name="disable_battery_optimization">Desgaitu bateria-optimizazioa</string>
+    <string name="battery_optimization_disabled_title">Bateria-optimizazioa desgaituta</string>
+    <string name="continue_btn">Jarraitu</string>
+    <string name="initializing_mesh_network">Mesh sarea abiarazten</string>
+    <string name="setting_up_bluetooth">Bluetooth mesh sarea konfiguratzen...</string>
+    <string name="should_take_seconds">Segundo batzuk besterik ez ditu beharko</string>
+    <string name="setup_not_complete">Konfigurazioa ez da osatu</string>
+    <string name="try_again">Saiatu berriro</string>
+    <string name="open_settings">Ireki ezarpenak</string>
+    <string name="privacy_protected">Zure pribatutasuna babestuta dago</string>
+    <string name="privacy_bullets">• Ez da jarraipenik ez datu-bilketarik egiten\n• Bluetooth mesh txatak guztiz lineaz kanpokoak dira\n• Geohash txatek internet erabiltzen dute</string>
+    <string name="permissions_header">Baimenak</string>
+    <string name="grant_permissions">Eman baimenak</string>
+    <string name="location_tracking_warning">bitchat-ek EZ du zure kokapenaren jarraipenik egiten</string>
+    <string name="cd_open_about">Ireki Honi buruz</string>
+    <string name="nobody_around">Ez dago inor inguruan…</string>
+    <string name="you_suffix"> (zu)</string>
+    <string name="pan_zoom_instruction">Arrastatu biratzeko · Atximurkatu zoom egiteko · Sakatu fokatzeko</string>
+    <string name="select">Hautatu</string>
+    <string name="type_a_message_placeholder">Idatzi mezu bat…</string>
+    <string name="mention">Aipatu</string>
+    <string name="media_type_image">Irudia</string>
+    <string name="media_type_file">Fitxategia</string>
+
+    <!-- Notification text helpers -->
+    <string name="notification_sent_image">📷 irudi bat bidali du</string>
+    <string name="notification_sent_voice">🎤 ahots-mezu bat bidali du</string>
+    <string name="notification_sent_file">📎 fitxategi bat bidali du</string>
+
+    <!-- Voice player accessibility -->
+    <string name="cd_play_voice">Erreproduzitu</string>
+    <string name="cd_pause_voice">Pausatu</string>
+
+    <!-- Permission descriptions -->
+    <string name="perm_nearby_devices_desc">Beharrezkoa bitchat erabiltzaileak Bluetooth bidez aurkitzeko</string>
+    <string name="perm_nearby_devices_system">Baimendu bitchat inguruko gailuekin konektatzea</string>
+    <string name="perm_location_desc">Android-ek eskatzen du inguruko bitchat erabiltzaileak Bluetooth bidez aurkitzeko</string>
+    <string name="perm_location_system">bitchat-ek hau behar du inguruko gailuak eskaneatzeko</string>
+    <string name="perm_background_location_desc">Gomendatua inguruko gailuak eskaneatzeko aplikazioa atzeko planoan dagoenean</string>
+    <string name="perm_background_location_system">Baimendu atzeko planoko kokapenerako sarbidea</string>
+    <string name="perm_notifications_desc">Jaso jakinarazpenak mezu pribatuak jasotzen dituzunean</string>
+    <string name="perm_notifications_system">Baimendu bitchat-i jakinarazpenak bidaltzea</string>
+    <string name="perm_battery_desc">Desgaitu bateria-optimizazioa bitchat atzeko planoan modu fidagarrian ibil dadin eta mesh sareko konexioei eutsi diezaien</string>
+    <string name="perm_battery_system">Baimendu bitchat bateria-murrizketarik gabe ibiltzea</string>
+
+    <!-- Permission types -->
+    <string name="perm_type_nearby_devices">Inguruko gailuak</string>
+    <string name="perm_type_precise_location">Kokapen zehatza</string>
+    <string name="perm_type_background_location">Atzeko planoko kokapena</string>
+    <string name="perm_type_microphone">Mikrofonoa</string>
+    <string name="perm_type_notifications">Jakinarazpenak</string>
+    <string name="perm_type_battery_optimization">Bateria-optimizazioa</string>
+    <string name="perm_type_other">Bestelakoak</string>
+
+    <!-- Password prompt dialog -->
+    <string name="pwd_prompt_title">Idatzi kanalaren pasahitza</string>
+    <string name="pwd_prompt_message">%1$s kanala pasahitz bidez babestuta dago. Idatzi pasahitza sartzeko.</string>
+    <string name="pwd_label">Pasahitza</string>
+    <string name="join">Sartu</string>
+    <string name="cancel">Utzi</string>
+    <string name="tor_not_available_in_this_build">Tor ez dago erabilgarri konpilazio honetan</string>
+    <string name="checking">Egiaztatzen...</string>
+    <string name="apk_not_ready_please_prepare_it_first">APKa ez dago prest. Presta ezazu lehenik.</string>
+
+    <!-- Plurals -->
+    <plurals name="notification_and_more">
+        <item quantity="one">eta beste %d</item>
+        <item quantity="other">eta beste %d</item>
+    </plurals>
+
+    <plurals name="people_count">
+        <item quantity="one">Pertsona 1</item>
+        <item quantity="other">%d pertsona</item>
+    </plurals>
+
+    <string name="bluetooth_recommended">Bluetooth gomendatzen da</string>
+    <string name="about_language">Hizkuntza</string>
+    <string name="about_app_language">Aplikazioaren hizkuntza</string>
+    <string name="about_system_default">Sistemaren lehenetsia</string>
+    <string name="about_select_language">Hautatu hizkuntza</string>
+</resources>
