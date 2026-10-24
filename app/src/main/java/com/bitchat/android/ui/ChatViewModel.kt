@@ -1666,10 +1666,10 @@ class ChatViewModel(
     }
 
     /**
-     * Block a user in geohash channels by their nickname
+     * Block a user in geohash channels, preferring the sender's Nostr pubkey over the nickname
      */
-    fun blockUserInGeohash(targetNickname: String) {
-        geohashViewModel.blockUserInGeohash(targetNickname)
+    fun blockUserInGeohash(targetNickname: String, pubkeyHex: String? = null) {
+        geohashViewModel.blockUserInGeohash(targetNickname, pubkeyHex)
     }
 
     // MARK: - Navigation Management
