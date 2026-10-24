@@ -7,15 +7,18 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * The onboarding state machine, lifted out of MainActivity and
- * OnboardingCoordinator unchanged: same checks, same order, same delays and
- * the same log lines. It writes its state into [state] and reaches the device
- * only through [system].
+ * The onboarding steps, lifted out of MainActivity and OnboardingCoordinator
+ * unchanged: same checks, same order, same delays and the same log lines. It
+ * writes the step into [state], reaches the device only through [system], and
+ * tells [host] when onboarding is done. Whether onboarding shows at all is the
+ * app gate's decision.
  */
 class OnboardingFlow(
     private val scope: CoroutineScope,
     private val state: MainViewModel,
     private val system: OnboardingSystem,
+    private val skip: BluetoothSkipSession,
+    private val host: OnboardingHost,
 ) {
 
     companion object {
@@ -36,20 +39,14 @@ class OnboardingFlow(
 
     fun dispatch(action: OnboardingAction) {
         when (action) {
-            OnboardingAction.Start -> {
-                // Only start onboarding process if we're in the initial CHECKING state
-                // This prevents restarting onboarding on configuration changes
-                if (state.onboardingState.value == OnboardingState.CHECKING) {
-                    checkOnboardingStatus()
-                }
-            }
+            OnboardingAction.Start -> showStepReadinessImplies()
 
             OnboardingAction.BluetoothEnableTapped -> {
                 state.updateBluetoothLoading(true)
                 system.launchBluetoothEnable()
             }
             OnboardingAction.BluetoothSkipTapped -> {
-                state.skipBluetoothCheck()
+                skip.skip()
                 checkLocationAndProceed()
             }
             OnboardingAction.BluetoothCheckAgainTapped -> checkBluetoothAndProceed()
@@ -114,33 +111,57 @@ class OnboardingFlow(
             OnboardingAction.BackgroundSkipTapped -> skipBackgroundLocation()
 
             OnboardingAction.TryAgainTapped -> {
-                state.updateOnboardingState(OnboardingState.CHECKING)
-                checkOnboardingStatus()
+                // Back to checking (T40); the gate runs the checks again and
+                // reopens onboarding on the step they find.
+                state.updateOnboardingState(null)
+                host.retry()
             }
             OnboardingAction.OpenSettingsTapped -> system.openAppSettings()
-
-            OnboardingAction.ResumedWhileComplete -> recheckAfterResume()
         }
     }
 
-    /** P6 failed: the permission re-check or an exception during initialization. */
-    fun onInitFailed(message: String) {
-        handleOnboardingFailed(message)
-    }
-
-    /** P6 finished. */
-    fun onInitComplete() {
-        state.updateOnboardingState(OnboardingState.COMPLETE)
-    }
-
-    private fun checkOnboardingStatus() {
-        scope.launch {
-            // Small delay to show the checking state
-            delay(500)
-
-            // First check Bluetooth status (always required)
-            checkBluetoothAndProceed()
+    /**
+     * The step the checks would land on, written as they write it. The app gate
+     * waited the 500 ms already and found onboarding needed.
+     */
+    private fun showStepReadinessImplies() {
+        val r = system.snapshot()
+        val phase = if (r.firstLaunch) OnboardingPhase.FIRST_LAUNCH else OnboardingPhase.RETURNING
+        when (nextStep(r, phase, skip.skipped.value)) {
+            null -> finishOnboarding()
+            OnboardingStep.BLUETOOTH -> {
+                system.logBluetoothDiagnostics()
+                state.updateBluetoothStatus(r.bluetooth)
+                state.updateOnboardingState(OnboardingState.BLUETOOTH_CHECK)
+                state.updateBluetoothLoading(false)
+            }
+            OnboardingStep.LOCATION -> {
+                system.logLocationDiagnostics()
+                state.updateLocationStatus(r.location)
+                state.updateOnboardingState(OnboardingState.LOCATION_CHECK)
+                state.updateLocationLoading(false)
+            }
+            OnboardingStep.BATTERY_OPTIMIZATION -> {
+                system.logBatteryDiagnostics()
+                state.updateBatteryOptimizationStatus(r.batteryOptimization)
+                state.updateOnboardingState(OnboardingState.BATTERY_OPTIMIZATION_CHECK)
+                state.updateBatteryOptimizationLoading(false)
+            }
+            OnboardingStep.PERMISSION_EXPLANATION ->
+                state.updateOnboardingState(OnboardingState.PERMISSION_EXPLANATION)
+            OnboardingStep.BACKGROUND_LOCATION ->
+                state.updateOnboardingState(OnboardingState.BACKGROUND_LOCATION_EXPLANATION)
+            // nextStep never opens on these.
+            OnboardingStep.CHECKING,
+            OnboardingStep.PERMISSION_REQUESTING,
+            OnboardingStep.ERROR -> Unit
         }
+    }
+
+    /** Onboarding is through: no step on screen, and the gate starts the app. */
+    private fun finishOnboarding() {
+        state.updateOnboardingState(null)
+        host.onboardingFinished()
     }
 
     /**
@@ -148,7 +169,7 @@ class OnboardingFlow(
      */
     private fun checkBluetoothAndProceed() {
         // Check if user has skipped Bluetooth check for this session
-        if (state.isBluetoothCheckSkipped.value) {
+        if (skip.skipped.value) {
             checkLocationAndProceed()
             return
         }
@@ -207,8 +228,7 @@ class OnboardingFlow(
                 ) {
                     state.updateOnboardingState(OnboardingState.BACKGROUND_LOCATION_EXPLANATION)
                 } else {
-                    state.updateOnboardingState(OnboardingState.INITIALIZING)
-                    system.initializeApp()
+                    finishOnboarding()
                 }
             } else {
                 state.updateOnboardingState(OnboardingState.PERMISSION_EXPLANATION)
@@ -349,8 +369,7 @@ class OnboardingFlow(
             }
             else -> {
                 // Both are enabled, proceed to app initialization
-                state.updateOnboardingState(OnboardingState.INITIALIZING)
-                system.initializeApp()
+                finishOnboarding()
             }
         }
     }
@@ -416,35 +435,6 @@ class OnboardingFlow(
 
         // Stay on battery optimization check screen for retry
         state.updateOnboardingState(OnboardingState.BATTERY_OPTIMIZATION_CHECK)
-    }
-
-    /**
-     * onResume while COMPLETE: back to a check screen if Bluetooth or location
-     * services were turned off while the app was in the background.
-     */
-    private fun recheckAfterResume() {
-        // Check if Bluetooth was disabled while app was backgrounded
-        val currentBluetoothStatus = system.bluetoothStatus()
-        val bleRequired = system.bleRequired()
-        if (bleRequired && currentBluetoothStatus != BluetoothStatus.ENABLED && !state.isBluetoothCheckSkipped.value) {
-            Log.w(ACTIVITY_TAG, "Bluetooth disabled while app was backgrounded")
-            state.updateBluetoothStatus(currentBluetoothStatus)
-            state.updateOnboardingState(OnboardingState.BLUETOOTH_CHECK)
-            state.updateBluetoothLoading(false)
-            return
-        }
-
-        // Check if location services were disabled while app was backgrounded
-        val currentLocationStatus = system.locationStatus()
-        if (currentLocationStatus != LocationStatus.ENABLED) {
-            Log.w(ACTIVITY_TAG, "Location services disabled while app was backgrounded")
-            state.updateLocationStatus(currentLocationStatus)
-            state.updateOnboardingState(OnboardingState.LOCATION_CHECK)
-            state.updateLocationLoading(false)
-        } else {
-            // If location is enabled, ensure Wi-Fi Aware starts if it was blocked by location earlier
-            system.startWifiAwareIfPossible()
-        }
     }
 
     // ---- Formerly OnboardingCoordinator ----

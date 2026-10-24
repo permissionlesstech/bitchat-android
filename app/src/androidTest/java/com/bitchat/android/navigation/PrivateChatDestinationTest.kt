@@ -14,6 +14,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.lifecycle.ViewModelProvider
 import com.bitchat.android.MainActivity
+import com.bitchat.android.AppPhase
 import com.bitchat.android.MainViewModel
 import com.bitchat.android.onboarding.OnboardingState
 import com.bitchat.android.R
@@ -154,20 +155,27 @@ class PrivateChatDestinationTest {
         }
         awaitSelection(PEER_A)
 
-        setOnboardingState(OnboardingState.BLUETOOTH_CHECK)
+        showOnboardingStep(OnboardingState.BLUETOOTH_CHECK)
         rule.waitUntil(5_000) { rule.backStack() == listOf(OnboardingRoute) }
 
-        setOnboardingState(OnboardingState.COMPLETE)
+        forcePhase(AppPhase.READY)
         rule.waitUntil(5_000) {
             rule.backStack() == listOf(ChatRoute, MeshPeerListRoute, PrivateChatRoute(PEER_A))
         }
         awaitSelection(PEER_A)
     }
 
-    private fun setOnboardingState(state: OnboardingState) {
+    /** The gate sends the app to onboarding, on [step]. */
+    private fun showOnboardingStep(step: OnboardingState) {
         rule.runOnUiThread {
-            ViewModelProvider(rule.activity)[MainViewModel::class.java].updateOnboardingState(state)
+            ViewModelProvider(rule.activity)[MainViewModel::class.java].updateOnboardingState(step)
+            rule.activity.startupGate.forcePhase(AppPhase.ONBOARDING)
         }
+        rule.waitForIdle()
+    }
+
+    private fun forcePhase(phase: AppPhase) {
+        rule.runOnUiThread { rule.activity.startupGate.forcePhase(phase) }
         rule.waitForIdle()
     }
 

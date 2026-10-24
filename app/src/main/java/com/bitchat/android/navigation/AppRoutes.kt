@@ -1,7 +1,7 @@
 package com.bitchat.android.navigation
 
 import androidx.navigation3.runtime.NavKey
-import com.bitchat.android.onboarding.OnboardingState
+import com.bitchat.android.AppPhase
 import kotlinx.serialization.Serializable
 
 /**
@@ -16,16 +16,17 @@ import kotlinx.serialization.Serializable
 data object OnboardingRoute : NavKey
 
 /**
- * The destination that should be at the root for a given onboarding state.
+ * The destination that should be at the root for a given app phase.
  *
  * CHECKING and INITIALIZING map to chat, matching the behaviour this replaced:
  * the app shows the chat screen while it verifies its own readiness rather than
- * flashing an onboarding step.
+ * flashing an onboarding step. An init failure shows on onboarding's error step.
  */
-fun rootRouteFor(state: OnboardingState): NavKey = when (state) {
-    OnboardingState.CHECKING,
-    OnboardingState.INITIALIZING,
-    OnboardingState.COMPLETE -> ChatRoute
+fun rootRouteFor(phase: AppPhase): NavKey = when (phase) {
+    AppPhase.CHECKING,
+    AppPhase.INITIALIZING,
+    AppPhase.READY -> ChatRoute
 
-    else -> OnboardingRoute
+    AppPhase.ONBOARDING,
+    AppPhase.INIT_FAILED -> OnboardingRoute
 }

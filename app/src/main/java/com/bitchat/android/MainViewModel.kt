@@ -14,8 +14,10 @@ import javax.inject.Inject
 @HiltViewModel
 class MainViewModel @Inject constructor() : ViewModel() {
 
-    private val _onboardingState = MutableStateFlow(OnboardingState.CHECKING)
-    val onboardingState: StateFlow<OnboardingState> = _onboardingState.asStateFlow()
+    // The onboarding step on screen, or null when none is: before onboarding has
+    // picked one and whenever the app gate is not showing onboarding.
+    private val _onboardingState = MutableStateFlow<OnboardingState?>(null)
+    val onboardingState: StateFlow<OnboardingState?> = _onboardingState.asStateFlow()
 
     private val _bluetoothStatus = MutableStateFlow(BluetoothStatus.ENABLED)
     val bluetoothStatus: StateFlow<BluetoothStatus> = _bluetoothStatus.asStateFlow()
@@ -38,11 +40,8 @@ class MainViewModel @Inject constructor() : ViewModel() {
     private val _isBatteryOptimizationLoading = MutableStateFlow(false)
     val isBatteryOptimizationLoading: StateFlow<Boolean> = _isBatteryOptimizationLoading.asStateFlow()
 
-    private val _isBluetoothCheckSkipped = MutableStateFlow(false)
-    val isBluetoothCheckSkipped: StateFlow<Boolean> = _isBluetoothCheckSkipped.asStateFlow()
-
     // Public update functions for MainActivity
-    fun updateOnboardingState(state: OnboardingState) {
+    fun updateOnboardingState(state: OnboardingState?) {
         _onboardingState.value = state
     }
 
@@ -72,9 +71,5 @@ class MainViewModel @Inject constructor() : ViewModel() {
 
     fun updateBatteryOptimizationLoading(loading: Boolean) {
         _isBatteryOptimizationLoading.value = loading
-    }
-
-    fun skipBluetoothCheck() {
-        _isBluetoothCheckSkipped.value = true
     }
 }

@@ -7,7 +7,10 @@ package com.bitchat.android.onboarding
  */
 sealed interface OnboardingAction {
 
-    /** The Activity was created; starts the checks if nothing has run yet. */
+    /**
+     * The app gate opened onboarding with no step on screen: shows the step
+     * readiness implies, or finishes onboarding at once if there is none.
+     */
     data object Start : OnboardingAction
 
     // Bluetooth
@@ -53,7 +56,4 @@ sealed interface OnboardingAction {
     // Error screen
     data object TryAgainTapped : OnboardingAction
     data object OpenSettingsTapped : OnboardingAction
-
-    /** The Activity resumed while onboarding was complete. */
-    data object ResumedWhileComplete : OnboardingAction
 }

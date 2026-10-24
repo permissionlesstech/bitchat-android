@@ -7,6 +7,9 @@ package com.bitchat.android.onboarding
  */
 interface OnboardingSystem {
 
+    /** Everything at once, for picking the step onboarding opens on. */
+    fun snapshot(): Readiness
+
     // Status reads
     fun bluetoothStatus(): BluetoothStatus
     fun locationStatus(): LocationStatus
@@ -48,9 +51,6 @@ interface OnboardingSystem {
 
     // Other side effects
     fun startWifiAwareIfPossible()
-
-    /** Starts the app once onboarding is through; reports back through [OnboardingFlow.onInitComplete] or [OnboardingFlow.onInitFailed]. */
-    fun initializeApp()
 
     // Diagnostics logged at the points the flow logged them before. Logging only.
     fun logBluetoothDiagnostics() {}

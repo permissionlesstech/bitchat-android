@@ -9,14 +9,12 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
-import androidx.lifecycle.ViewModelProvider
 import androidx.navigation3.runtime.NavKey
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.bitchat.android.MainActivity
-import com.bitchat.android.MainViewModel
+import com.bitchat.android.AppPhase
 import com.bitchat.android.R
-import com.bitchat.android.onboarding.OnboardingState
 import com.bitchat.android.onboarding.SystemDeviceReadiness
 import com.bitchat.android.wifiaware.WifiAwareSupport
 
@@ -89,7 +87,7 @@ internal fun MainActivityRule.openAboutLabel(): String =
 internal fun MainActivityRule.awaitChat() {
     val openAbout = openAboutLabel()
     waitUntil(timeoutMillis = 15_000) {
-        onboardingState() == OnboardingState.COMPLETE &&
+        appPhase() == AppPhase.READY &&
             onAllNodesWithContentDescription(openAbout).fetchSemanticsNodes().isNotEmpty()
     }
     waitForIdle()
@@ -115,12 +113,10 @@ internal fun MainActivityRule.awaitAbout() {
     waitForIdle()
 }
 
-private fun MainActivityRule.onboardingState(): OnboardingState {
-    var state = OnboardingState.CHECKING
-    runOnUiThread {
-        state = ViewModelProvider(activity)[MainViewModel::class.java].onboardingState.value
-    }
-    return state
+private fun MainActivityRule.appPhase(): AppPhase {
+    var phase = AppPhase.CHECKING
+    runOnUiThread { phase = activity.startupGate.phase.value }
+    return phase
 }
 
 internal fun MainActivityRule.pressBack() {

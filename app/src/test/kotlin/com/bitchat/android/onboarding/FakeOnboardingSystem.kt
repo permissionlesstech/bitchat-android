@@ -28,6 +28,24 @@ class FakeOnboardingSystem : OnboardingSystem {
 
     val effects = mutableListOf<String>()
 
+    override fun snapshot() = Readiness(
+        bluetooth = bluetooth,
+        location = location,
+        batteryOptimization = battery,
+        requiredPermissionsGranted = areRequiredPermissionsGranted(),
+        missingPermissions = missingPermissions(),
+        unrequestedOptionalPermissions = unrequestedOptional,
+        backgroundLocation = when {
+            !needsBackgroundLocation -> BackgroundLocation.NOT_NEEDED
+            backgroundLocationGranted -> BackgroundLocation.GRANTED
+            else -> BackgroundLocation.NEEDED
+        },
+        firstLaunch = firstTimeLaunch,
+        batterySkipped = batterySkipped,
+        backgroundLocationSkipped = backgroundLocationSkipped,
+        bleRequired = bleRequired,
+    )
+
     override fun bluetoothStatus() = bluetooth
     override fun locationStatus() = location
     override fun batteryStatus() = battery
@@ -86,9 +104,6 @@ class FakeOnboardingSystem : OnboardingSystem {
 
     override fun startWifiAwareIfPossible() {
         effects += "startWifiAwareIfPossible"
-    }
-    override fun initializeApp() {
-        effects += "initializeApp"
     }
 
     companion object {

@@ -14,6 +14,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -26,14 +27,27 @@ import org.junit.Test
  * Skipped (spec Decision 4, removed by the restructure, not reproduced): F1 (T11's
  * double chain and repeated init), F3 (T45, recreation during a delay) and F11
  * (T12 during the permission phase).
+ *
+ * Whether onboarding shows at all is the app gate's (AppStartupGateTest): its
+ * 500 ms check (T3), init and its outcomes (P6, T44), and the resume re-check
+ * (T42/T43). Where the flow wrote INITIALIZING and started init, it now tells
+ * its host that onboarding finished.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class OnboardingFlowTest {
 
     private val vm = MainViewModel()
     private val system = FakeOnboardingSystem()
+    private val skip = BluetoothSkipSession()
+    private val host = FakeOnboardingHost()
 
-    private fun TestScope.flow() = OnboardingFlow(this, vm, system)
+    private fun TestScope.flow() = OnboardingFlow(this, vm, system, skip, host)
+
+    /** Onboarding finished, where it used to write INITIALIZING and start init: no step left, the host told once. */
+    private fun assertFinished() {
+        assertNull(state)
+        assertEquals(1, host.finished)
+    }
 
     /** Runs everything due up to and including [ms] from now. */
     private fun TestScope.advance(ms: Long) {
@@ -46,8 +60,8 @@ class OnboardingFlowTest {
     // ---- T1 ----
 
     @Test
-    fun t1_newViewModel_startsCheckingWithDefaults() {
-        assertEquals(OnboardingState.CHECKING, state)
+    fun t1_newViewModel_startsWithNoStepAndDefaults() {
+        assertNull(state)
         assertEquals(BluetoothStatus.ENABLED, vm.bluetoothStatus.value)
         assertEquals(LocationStatus.ENABLED, vm.locationStatus.value)
         assertEquals(BatteryOptimizationStatus.ENABLED, vm.batteryOptimizationStatus.value)
@@ -55,7 +69,7 @@ class OnboardingFlowTest {
         assertFalse(vm.isBluetoothLoading.value)
         assertFalse(vm.isLocationLoading.value)
         assertFalse(vm.isBatteryOptimizationLoading.value)
-        assertFalse(vm.isBluetoothCheckSkipped.value)
+        assertFalse(skip.skipped.value)
     }
 
     // ---- T2, T3 ----
@@ -76,43 +90,68 @@ class OnboardingFlowTest {
         assertFalse(vm.isBluetoothLoading.value)
     }
 
+    // ---- Start: the gate opened onboarding with no step on screen ----
+
     @Test
-    fun t3_checking_runsChecksAfter500ms() = runTest {
+    fun start_firstLaunch_showsPermissionExplanationAtOnce() = runTest {
+        system.firstTimeLaunch = true
+        system.bluetooth = BluetoothStatus.DISABLED
+
         flow().dispatch(OnboardingAction.Start)
 
-        advance(499)
-        assertEquals(OnboardingState.CHECKING, state)
-        assertTrue(system.effects.isEmpty())
-
-        advance(1)
-        // P1 -> P2 -> P3 -> P4, which waits 200 ms before it decides.
-        assertEquals(OnboardingState.CHECKING, state)
-        advance(200)
-        assertEquals(OnboardingState.INITIALIZING, state)
-        assertEquals(listOf("initializeApp"), system.effects)
+        assertEquals(OnboardingState.PERMISSION_EXPLANATION, state)
     }
 
     @Test
-    fun t3_notChecking_startDoesNothing() = runTest {
-        vm.updateOnboardingState(OnboardingState.ERROR)
+    fun start_returningBatteryOptimized_showsBatteryCheck() = runTest {
+        system.battery = BatteryOptimizationStatus.ENABLED
+        vm.updateBatteryOptimizationLoading(true)
 
         flow().dispatch(OnboardingAction.Start)
-        advance(10_000)
 
-        assertEquals(OnboardingState.ERROR, state)
-        assertTrue(system.effects.isEmpty())
+        assertEquals(OnboardingState.BATTERY_OPTIMIZATION_CHECK, state)
+        assertEquals(BatteryOptimizationStatus.ENABLED, vm.batteryOptimizationStatus.value)
+        assertFalse(vm.isBatteryOptimizationLoading.value)
     }
 
-    // ---- P1 checkBluetoothAndProceed ----
+    @Test
+    fun start_returningBackgroundLocationNeeded_showsBackgroundExplanation() = runTest {
+        system.backgroundLocationGranted = false
+
+        flow().dispatch(OnboardingAction.Start)
+
+        assertEquals(OnboardingState.BACKGROUND_LOCATION_EXPLANATION, state)
+    }
 
     @Test
-    fun p1_bluetoothCheckSkipped_runsLocationCheck() = runTest {
-        vm.skipBluetoothCheck()
+    fun start_bluetoothSkipped_showsLocationCheck() = runTest {
+        skip.skip()
         system.bluetooth = BluetoothStatus.DISABLED
         system.location = LocationStatus.DISABLED
 
         flow().dispatch(OnboardingAction.Start)
-        advance(500)
+
+        assertEquals(OnboardingState.LOCATION_CHECK, state)
+    }
+
+    @Test
+    fun start_nothingToDo_finishesOnboarding() = runTest {
+        flow().dispatch(OnboardingAction.Start)
+
+        assertFinished()
+        assertTrue(system.effects.isEmpty())
+    }
+
+    // ---- P1 checkBluetoothAndProceed (run directly by the Bluetooth step's check again) ----
+
+    @Test
+    fun p1_bluetoothCheckSkipped_runsLocationCheck() = runTest {
+        skip.skip()
+        system.bluetooth = BluetoothStatus.DISABLED
+        system.location = LocationStatus.DISABLED
+
+        flow().dispatch(OnboardingAction.BluetoothCheckAgainTapped)
+        runCurrent()
 
         assertEquals(OnboardingState.LOCATION_CHECK, state)
         // Bluetooth was not read.
@@ -124,9 +163,9 @@ class OnboardingFlowTest {
         system.firstTimeLaunch = true
         system.bluetooth = BluetoothStatus.DISABLED
 
-        flow().dispatch(OnboardingAction.Start)
-        advance(500)
-        assertEquals(OnboardingState.CHECKING, state)
+        flow().dispatch(OnboardingAction.BluetoothCheckAgainTapped)
+        runCurrent()
+        assertNull(state)
         advance(200)
 
         assertEquals(OnboardingState.PERMISSION_EXPLANATION, state)
@@ -139,8 +178,8 @@ class OnboardingFlowTest {
         system.bluetooth = BluetoothStatus.DISABLED
         system.location = LocationStatus.DISABLED
 
-        flow().dispatch(OnboardingAction.Start)
-        advance(500)
+        flow().dispatch(OnboardingAction.BluetoothCheckAgainTapped)
+        runCurrent()
 
         assertEquals(OnboardingState.LOCATION_CHECK, state)
         assertEquals(BluetoothStatus.DISABLED, vm.bluetoothStatus.value)
@@ -150,8 +189,8 @@ class OnboardingFlowTest {
     fun p1_bluetoothEnabled_runsLocationCheck() = runTest {
         system.location = LocationStatus.DISABLED
 
-        flow().dispatch(OnboardingAction.Start)
-        advance(500)
+        flow().dispatch(OnboardingAction.BluetoothCheckAgainTapped)
+        runCurrent()
 
         assertEquals(OnboardingState.LOCATION_CHECK, state)
     }
@@ -161,8 +200,8 @@ class OnboardingFlowTest {
         system.bluetooth = BluetoothStatus.DISABLED
         vm.updateBluetoothLoading(true)
 
-        flow().dispatch(OnboardingAction.Start)
-        advance(500)
+        flow().dispatch(OnboardingAction.BluetoothCheckAgainTapped)
+        runCurrent()
 
         assertEquals(OnboardingState.BLUETOOTH_CHECK, state)
         assertEquals(BluetoothStatus.DISABLED, vm.bluetoothStatus.value)
@@ -174,8 +213,8 @@ class OnboardingFlowTest {
         system.bluetooth = BluetoothStatus.NOT_SUPPORTED
         vm.updateBluetoothLoading(true)
 
-        flow().dispatch(OnboardingAction.Start)
-        advance(500)
+        flow().dispatch(OnboardingAction.BluetoothCheckAgainTapped)
+        runCurrent()
 
         assertEquals(OnboardingState.BLUETOOTH_CHECK, state)
         assertEquals(BluetoothStatus.NOT_SUPPORTED, vm.bluetoothStatus.value)
@@ -257,7 +296,7 @@ class OnboardingFlowTest {
         flow().dispatch(OnboardingAction.BatteryCheckAgainTapped)
         advance(200)
 
-        assertEquals(OnboardingState.INITIALIZING, state)
+        assertFinished()
         assertEquals(BatteryOptimizationStatus.NOT_SUPPORTED, vm.batteryOptimizationStatus.value)
     }
 
@@ -268,7 +307,7 @@ class OnboardingFlowTest {
         flow().dispatch(OnboardingAction.BatteryCheckAgainTapped)
         advance(200)
 
-        assertEquals(OnboardingState.INITIALIZING, state)
+        assertFinished()
         assertEquals(BatteryOptimizationStatus.DISABLED, vm.batteryOptimizationStatus.value)
     }
 
@@ -279,7 +318,7 @@ class OnboardingFlowTest {
         flow().dispatch(OnboardingAction.BatteryCheckAgainTapped)
         advance(200)
 
-        assertEquals(OnboardingState.INITIALIZING, state)
+        assertFinished()
         assertEquals(BatteryOptimizationStatus.NOT_SUPPORTED, vm.batteryOptimizationStatus.value)
     }
 
@@ -303,7 +342,7 @@ class OnboardingFlowTest {
 
         flow().dispatch(OnboardingAction.BatteryCheckAgainTapped)
         advance(199)
-        assertEquals(OnboardingState.CHECKING, state)
+        assertNull(state)
         advance(1)
 
         assertEquals(OnboardingState.PERMISSION_EXPLANATION, state)
@@ -339,8 +378,8 @@ class OnboardingFlowTest {
         flow().dispatch(OnboardingAction.BatteryCheckAgainTapped)
         advance(200)
 
-        assertEquals(OnboardingState.INITIALIZING, state)
-        assertEquals(listOf("initializeApp"), system.effects)
+        assertFinished()
+        assertEquals(emptyList<String>(), system.effects)
     }
 
     @Test
@@ -351,8 +390,8 @@ class OnboardingFlowTest {
         flow().dispatch(OnboardingAction.BatteryCheckAgainTapped)
         advance(200)
 
-        assertEquals(OnboardingState.INITIALIZING, state)
-        assertEquals(listOf("initializeApp"), system.effects)
+        assertFinished()
+        assertEquals(emptyList<String>(), system.effects)
     }
 
     @Test
@@ -360,8 +399,8 @@ class OnboardingFlowTest {
         flow().dispatch(OnboardingAction.BatteryCheckAgainTapped)
         advance(200)
 
-        assertEquals(OnboardingState.INITIALIZING, state)
-        assertEquals(listOf("initializeApp"), system.effects)
+        assertFinished()
+        assertEquals(emptyList<String>(), system.effects)
     }
 
     @Test
@@ -387,15 +426,15 @@ class OnboardingFlowTest {
         advance(99)
         assertEquals(OnboardingState.BACKGROUND_LOCATION_EXPLANATION, state)
         advance(1)
-        assertEquals(OnboardingState.INITIALIZING, state)
-        assertEquals(listOf("markOnboardingComplete", "initializeApp"), system.effects)
+        assertFinished()
+        assertEquals(listOf("markOnboardingComplete"), system.effects)
     }
 
     // ---- P5 handleOnboardingComplete (reached through C) ----
 
     @Test
     fun p5_bluetoothOffEvenIfSkipped_showsBluetoothCheck() = runTest {
-        vm.skipBluetoothCheck()
+        skip.skip()
         vm.updateBluetoothLoading(true)
         system.bluetooth = BluetoothStatus.DISABLED
         system.location = LocationStatus.DISABLED
@@ -416,7 +455,7 @@ class OnboardingFlowTest {
         flow().dispatch(OnboardingAction.BackgroundResult(granted = true))
         advance(100)
 
-        assertEquals(OnboardingState.INITIALIZING, state)
+        assertFinished()
         assertEquals(BluetoothStatus.ENABLED, vm.bluetoothStatus.value)
     }
 
@@ -453,42 +492,8 @@ class OnboardingFlowTest {
         flow().dispatch(OnboardingAction.BackgroundResult(granted = true))
         advance(100)
 
-        assertEquals(OnboardingState.INITIALIZING, state)
-        assertEquals(listOf("markOnboardingComplete", "initializeApp"), system.effects)
-    }
-
-    // ---- P6 initializeApp hand-offs (the body stays in MainActivity, behind system.initializeApp) ----
-
-    @Test
-    fun p6_permissionsRevoked_errorWithMessage() = runTest {
-        vm.updateOnboardingState(OnboardingState.INITIALIZING)
-
-        flow().onInitFailed("Some permissions were revoked. Please grant all permissions to continue.")
-
-        assertEquals(OnboardingState.ERROR, state)
-        assertEquals(
-            "Some permissions were revoked. Please grant all permissions to continue.",
-            vm.errorMessage.value,
-        )
-    }
-
-    @Test
-    fun p6_initFinished_complete() = runTest {
-        vm.updateOnboardingState(OnboardingState.INITIALIZING)
-
-        flow().onInitComplete()
-
-        assertEquals(OnboardingState.COMPLETE, state)
-    }
-
-    @Test
-    fun p6_initThrew_errorWithMessage() = runTest {
-        vm.updateOnboardingState(OnboardingState.INITIALIZING)
-
-        flow().onInitFailed("Failed to initialize the app: synthetic failure")
-
-        assertEquals(OnboardingState.ERROR, state)
-        assertEquals("Failed to initialize the app: synthetic failure", vm.errorMessage.value)
+        assertFinished()
+        assertEquals(listOf("markOnboardingComplete"), system.effects)
     }
 
     // ---- T4-T12 Bluetooth ----
@@ -607,7 +612,7 @@ class OnboardingFlowTest {
 
         flow().dispatch(OnboardingAction.BluetoothSkipTapped)
 
-        assertTrue(vm.isBluetoothCheckSkipped.value)
+        assertTrue(skip.skipped.value)
         assertEquals(OnboardingState.LOCATION_CHECK, state)
     }
 
@@ -622,10 +627,10 @@ class OnboardingFlowTest {
     }
 
     @Test
-    fun t12_bluetoothTurnedOffWhileComplete_showsBluetoothCheck() = runTest {
+    fun t12_bluetoothTurnedOffWhileReady_showsBluetoothCheck() = runTest {
         // Ignores both the session skip and the debug BLE switch.
-        vm.updateOnboardingState(OnboardingState.COMPLETE)
-        vm.skipBluetoothCheck()
+        vm.updateOnboardingState(null)
+        skip.skip()
         system.bleRequired = false
         system.bluetooth = BluetoothStatus.DISABLED
 
@@ -728,8 +733,8 @@ class OnboardingFlowTest {
     }
 
     @Test
-    fun t19_locationTurnedOffWhileComplete_showsLocationCheck() = runTest {
-        vm.updateOnboardingState(OnboardingState.COMPLETE)
+    fun t19_locationTurnedOffWhileReady_showsLocationCheck() = runTest {
+        vm.updateOnboardingState(null)
         system.location = LocationStatus.DISABLED
 
         flow().dispatch(OnboardingAction.LocationChanged(enabled = false))
@@ -762,8 +767,8 @@ class OnboardingFlowTest {
         assertEquals(BatteryOptimizationStatus.DISABLED, vm.batteryOptimizationStatus.value)
         assertFalse(vm.isBatteryOptimizationLoading.value)
         advance(200)
-        assertEquals(OnboardingState.INITIALIZING, state)
-        assertEquals(listOf("initializeApp"), system.effects)
+        assertFinished()
+        assertEquals(emptyList<String>(), system.effects)
     }
 
     @Test
@@ -788,7 +793,7 @@ class OnboardingFlowTest {
         flow().dispatch(OnboardingAction.BatteryCheckAgainTapped)
         advance(200)
 
-        assertEquals(OnboardingState.INITIALIZING, state)
+        assertFinished()
         assertEquals(BatteryOptimizationStatus.DISABLED, vm.batteryOptimizationStatus.value)
     }
 
@@ -802,8 +807,8 @@ class OnboardingFlowTest {
         assertEquals(listOf("setBatterySkipped"), system.effects)
         assertEquals(OnboardingState.BATTERY_OPTIMIZATION_CHECK, state)
         advance(200)
-        assertEquals(OnboardingState.INITIALIZING, state)
-        assertEquals(listOf("setBatterySkipped", "initializeApp"), system.effects)
+        assertFinished()
+        assertEquals(listOf("setBatterySkipped"), system.effects)
     }
 
     // ---- T26-T34 Runtime permissions ----
@@ -846,7 +851,7 @@ class OnboardingFlowTest {
         assertEquals(OnboardingState.PERMISSION_REQUESTING, state)
         assertEquals(listOf("markOnboardingComplete"), system.effects)
         advance(100)
-        assertEquals(OnboardingState.INITIALIZING, state)
+        assertFinished()
     }
 
     @Test
@@ -889,7 +894,7 @@ class OnboardingFlowTest {
 
         assertEquals(listOf("markOnboardingComplete"), system.effects)
         advance(100)
-        assertEquals(OnboardingState.INITIALIZING, state)
+        assertFinished()
     }
 
     @Test
@@ -902,7 +907,7 @@ class OnboardingFlowTest {
         assertEquals(listOf("markOnboardingComplete"), system.effects)
         assertEquals("", vm.errorMessage.value)
         advance(100)
-        assertEquals(OnboardingState.INITIALIZING, state)
+        assertFinished()
     }
 
     @Test
@@ -914,7 +919,7 @@ class OnboardingFlowTest {
 
         assertEquals(listOf("markOnboardingComplete"), system.effects)
         advance(100)
-        assertEquals(OnboardingState.INITIALIZING, state)
+        assertFinished()
     }
 
     @Test
@@ -953,8 +958,8 @@ class OnboardingFlowTest {
 
         assertEquals(listOf("markOnboardingComplete"), system.effects)
         advance(100)
-        assertEquals(OnboardingState.INITIALIZING, state)
-        assertEquals(listOf("markOnboardingComplete", "initializeApp"), system.effects)
+        assertFinished()
+        assertEquals(listOf("markOnboardingComplete"), system.effects)
     }
 
     // ---- T35-T39 Background location ----
@@ -968,7 +973,7 @@ class OnboardingFlowTest {
 
         assertEquals(listOf("markOnboardingComplete"), system.effects)
         advance(100)
-        assertEquals(OnboardingState.INITIALIZING, state)
+        assertFinished()
     }
 
     @Test
@@ -990,8 +995,8 @@ class OnboardingFlowTest {
         flow().dispatch(OnboardingAction.BackgroundResult(granted = true))
         advance(100)
 
-        assertEquals(OnboardingState.INITIALIZING, state)
-        assertEquals(listOf("markOnboardingComplete", "initializeApp"), system.effects)
+        assertFinished()
+        assertEquals(listOf("markOnboardingComplete"), system.effects)
     }
 
     @Test
@@ -1002,8 +1007,8 @@ class OnboardingFlowTest {
         flow().dispatch(OnboardingAction.BackgroundResult(granted = false))
         advance(100)
 
-        assertEquals(OnboardingState.INITIALIZING, state)
-        assertEquals(listOf("markOnboardingComplete", "initializeApp"), system.effects)
+        assertFinished()
+        assertEquals(listOf("markOnboardingComplete"), system.effects)
     }
 
     @Test
@@ -1013,8 +1018,8 @@ class OnboardingFlowTest {
         flow().dispatch(OnboardingAction.BackgroundCheckAgainTapped)
         advance(100)
 
-        assertEquals(OnboardingState.INITIALIZING, state)
-        assertEquals(listOf("markOnboardingComplete", "initializeApp"), system.effects)
+        assertFinished()
+        assertEquals(listOf("markOnboardingComplete"), system.effects)
     }
 
     @Test
@@ -1038,23 +1043,22 @@ class OnboardingFlowTest {
 
         assertEquals(listOf("setBackgroundLocationSkipped", "markOnboardingComplete"), system.effects)
         advance(100)
-        assertEquals(OnboardingState.INITIALIZING, state)
+        assertFinished()
     }
 
     // ---- T40-T44 Error screen, resume, init ----
 
     @Test
-    fun t40_tryAgain_checkingThenChecksAfter500ms() = runTest {
+    fun t40_tryAgain_clearsStepAndRetriesThroughTheGate() = runTest {
         vm.updateOnboardingState(OnboardingState.ERROR)
-        system.bluetooth = BluetoothStatus.DISABLED
 
         flow().dispatch(OnboardingAction.TryAgainTapped)
+        advance(10_000)
 
-        assertEquals(OnboardingState.CHECKING, state)
-        advance(499)
-        assertEquals(OnboardingState.CHECKING, state)
-        advance(1)
-        assertEquals(OnboardingState.BLUETOOTH_CHECK, state)
+        // Back to checking: the gate waits 500 ms and reopens onboarding (AppStartupGateTest).
+        assertNull(state)
+        assertEquals(1, host.retried)
+        assertEquals(0, host.finished)
     }
 
     @Test
@@ -1069,13 +1073,13 @@ class OnboardingFlowTest {
     }
 
     @Test
-    fun t42_resumedWithBluetoothOff_showsBluetoothCheck() = runTest {
-        vm.updateOnboardingState(OnboardingState.COMPLETE)
+    fun t42_startWithBluetoothOff_showsBluetoothCheck() = runTest {
+        // The gate found Bluetooth off on resume (T42) and opened onboarding.
         vm.updateBluetoothLoading(true)
         system.bluetooth = BluetoothStatus.DISABLED
         system.location = LocationStatus.DISABLED
 
-        flow().dispatch(OnboardingAction.ResumedWhileComplete)
+        flow().dispatch(OnboardingAction.Start)
 
         assertEquals(OnboardingState.BLUETOOTH_CHECK, state)
         assertEquals(BluetoothStatus.DISABLED, vm.bluetoothStatus.value)
@@ -1084,61 +1088,16 @@ class OnboardingFlowTest {
     }
 
     @Test
-    fun t42_resumedWithBluetoothOffButSkipped_ignoresBluetooth() = runTest {
-        vm.updateOnboardingState(OnboardingState.COMPLETE)
-        vm.skipBluetoothCheck()
-        system.bluetooth = BluetoothStatus.DISABLED
-
-        flow().dispatch(OnboardingAction.ResumedWhileComplete)
-
-        assertEquals(OnboardingState.COMPLETE, state)
-        assertEquals(listOf("startWifiAwareIfPossible"), system.effects)
-    }
-
-    @Test
-    fun t42_resumedWithBluetoothOffBleSwitchedOff_ignoresBluetooth() = runTest {
-        vm.updateOnboardingState(OnboardingState.COMPLETE)
-        system.bleRequired = false
-        system.bluetooth = BluetoothStatus.DISABLED
-
-        flow().dispatch(OnboardingAction.ResumedWhileComplete)
-
-        assertEquals(OnboardingState.COMPLETE, state)
-        assertEquals(listOf("startWifiAwareIfPossible"), system.effects)
-    }
-
-    @Test
-    fun t43_resumedWithLocationOff_showsLocationCheck() = runTest {
-        vm.updateOnboardingState(OnboardingState.COMPLETE)
+    fun t43_startWithLocationOff_showsLocationCheck() = runTest {
+        // The gate found location off on resume (T43) and opened onboarding.
         vm.updateLocationLoading(true)
         system.location = LocationStatus.DISABLED
 
-        flow().dispatch(OnboardingAction.ResumedWhileComplete)
+        flow().dispatch(OnboardingAction.Start)
 
         assertEquals(OnboardingState.LOCATION_CHECK, state)
         assertEquals(LocationStatus.DISABLED, vm.locationStatus.value)
         assertFalse(vm.isLocationLoading.value)
         assertTrue(system.effects.isEmpty())
-    }
-
-    @Test
-    fun t43_resumedAllReady_startsWifiAwareAndStaysComplete() = runTest {
-        vm.updateOnboardingState(OnboardingState.COMPLETE)
-
-        flow().dispatch(OnboardingAction.ResumedWhileComplete)
-
-        assertEquals(OnboardingState.COMPLETE, state)
-        assertEquals(listOf("startWifiAwareIfPossible"), system.effects)
-    }
-
-    @Test
-    fun t44_initCancelled_errorWithCancellationMessage_currentBehaviour() = runTest {
-        // initializeApp's catch (e: Exception) also catches the cancellation and reports it here.
-        vm.updateOnboardingState(OnboardingState.INITIALIZING)
-
-        flow().onInitFailed("Failed to initialize the app: Job was cancelled")
-
-        assertEquals(OnboardingState.ERROR, state)
-        assertEquals("Failed to initialize the app: Job was cancelled", vm.errorMessage.value)
     }
 }

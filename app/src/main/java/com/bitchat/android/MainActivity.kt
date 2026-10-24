@@ -23,6 +23,7 @@ import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.onboarding.BluetoothCheckScreen
+import com.bitchat.android.onboarding.BluetoothSkipSession
 import com.bitchat.android.onboarding.BluetoothStatus
 import com.bitchat.android.onboarding.BluetoothStatusManager
 import com.bitchat.android.onboarding.DeviceReadiness
@@ -101,6 +102,17 @@ class MainActivity : OrientationAwareActivity() {
     // stored onboarding choices, read in one place.
     @Inject
     lateinit var deviceReadiness: DeviceReadiness
+
+    // Decides between onboarding and chat. Retained, like the navigator.
+    @Inject
+    lateinit var startupGate: AppStartupGate
+
+    @Inject
+    lateinit var bluetoothSkip: BluetoothSkipSession
+
+    // The launch or new intent last handed to the notification and verify
+    // handlers, so a later init does not open it a second time (F1).
+    private var handledIntent: Intent? = null
 
     @Inject
     lateinit var locationChannelManager: LocationChannelManager
@@ -192,7 +204,7 @@ class MainActivity : OrientationAwareActivity() {
         // Expose BLE mesh to Wi‑Fi Aware controller for cross-transport relays - DEPRECATED
         // Bridging is now handled by TransportBridgeService automatically
 
-        onboardingFlow = OnboardingFlow(lifecycleScope, mainViewModel, onboardingSystem)
+        onboardingFlow = OnboardingFlow(lifecycleScope, mainViewModel, onboardingSystem, bluetoothSkip, startupGate)
 
         // The managers and the coordinator register their launchers here, in this
         // order, and forward every result to the flow.
@@ -248,8 +260,8 @@ class MainActivity : OrientationAwareActivity() {
                     val onboardingModifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding)
-                    val onboardingState by mainViewModel.onboardingState.collectAsState()
-                    val root = rootRouteFor(onboardingState)
+                    val phase by startupGate.phase.collectAsState()
+                    val root = rootRouteFor(phase)
 
                     // Restores the stack after process death. Composed before the
                     // seeding effect below, which then sees a stack whose root
@@ -363,26 +375,45 @@ class MainActivity : OrientationAwareActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.CREATED) {
                 deviceReadiness.systemEvents.collect { event ->
-                    when (event) {
-                        // Both, in this order: re-run the check if its screen is
-                        // showing, then take the Bluetooth-enabled path.
-                        SystemEvent.BluetoothOn -> {
-                            onboardingFlow.dispatch(OnboardingAction.BluetoothTurnedOn)
-                            onboardingFlow.dispatch(OnboardingAction.BluetoothResult(enabled = true))
+                    when (startupGate.phase.value) {
+                        // Onboarding, or the init error it shows, reacts as it always has.
+                        AppPhase.ONBOARDING, AppPhase.INIT_FAILED -> dispatchToOnboarding(event)
+                        // A radio off sends the app back to onboarding. The step is
+                        // written first, so onboarding opens on it (T12/T19).
+                        AppPhase.READY -> if (event.turnsRadioOff()) {
+                            dispatchToOnboarding(event)
+                            startupGate.onSystemEvent(event)
                         }
-                        SystemEvent.BluetoothOff -> onboardingFlow.dispatch(OnboardingAction.BluetoothTurnedOff)
-                        is SystemEvent.LocationChanged ->
-                            onboardingFlow.dispatch(OnboardingAction.LocationChanged(enabled = event.enabled))
+                        // The gate reads readiness when the check or the init ends.
+                        AppPhase.CHECKING, AppPhase.INITIALIZING -> Unit
                     }
                 }
             }
         }
-        
-        // Collect state changes in a lifecycle-aware manner
+
+        // Follows the app gate for the whole Activity. Init runs here, once per
+        // entry into INITIALIZING: a recreated Activity that finds the gate
+        // already initializing does not start it again.
         lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                mainViewModel.onboardingState.collect { state ->
-                    handleOnboardingStateChange(state)
+            repeatOnLifecycle(Lifecycle.State.CREATED) {
+                startupGate.phase.collect { phase ->
+                    when (phase) {
+                        AppPhase.ONBOARDING -> {
+                            // Opened by the gate with no step on screen yet
+                            if (mainViewModel.onboardingState.value == null) {
+                                onboardingFlow.dispatch(OnboardingAction.Start)
+                            }
+                        }
+                        AppPhase.INITIALIZING -> if (startupGate.takeInitRequest()) initializeApp()
+                        AppPhase.READY -> {
+                            // No onboarding step survives into chat
+                            mainViewModel.updateOnboardingState(null)
+                            // App is fully initialized, mesh service is running
+                            android.util.Log.i("MainActivity", "Onboarding completed - app ready")
+                        }
+                        AppPhase.INIT_FAILED -> android.util.Log.e("MainActivity", "Onboarding error state reached")
+                        AppPhase.CHECKING -> Unit
+                    }
                 }
             }
         }
@@ -398,14 +429,16 @@ class MainActivity : OrientationAwareActivity() {
             }
         }
         
-        // Starts onboarding only from the initial CHECKING state, so a
-        // configuration change does not restart it
-        onboardingFlow.dispatch(OnboardingAction.Start)
+        // Decides between onboarding and init, only from the initial CHECKING
+        // state, so a configuration change does not restart it
+        startupGate.start()
     }
     
     @Composable
     private fun OnboardingFlowScreen(modifier: Modifier = Modifier) {
         val onboardingState by mainViewModel.onboardingState.collectAsState()
+        val phase by startupGate.phase.collectAsState()
+        val initError by startupGate.initError.collectAsState()
         val bluetoothStatus by mainViewModel.bluetoothStatus.collectAsState()
         val locationStatus by mainViewModel.locationStatus.collectAsState()
         val batteryOptimizationStatus by mainViewModel.batteryOptimizationStatus.collectAsState()
@@ -492,11 +525,20 @@ class MainActivity : OrientationAwareActivity() {
                 )
             }
 
-            // CHECKING, INITIALIZING and COMPLETE are handled by ChatRoute, so this
-            // composable is only ever shown for the onboarding steps themselves.
-            OnboardingState.CHECKING,
-            OnboardingState.INITIALIZING,
-            OnboardingState.COMPLETE -> Unit
+            // No step: the app's init failed, which shows on the same error
+            // screen. Otherwise onboarding has not picked its step yet.
+            null -> if (phase == AppPhase.INIT_FAILED) {
+                InitializationErrorScreen(
+                    modifier = modifier,
+                    errorMessage = initError.orEmpty(),
+                    onRetry = {
+                        onboardingFlow.dispatch(OnboardingAction.TryAgainTapped)
+                    },
+                    onOpenSettings = {
+                        onboardingFlow.dispatch(OnboardingAction.OpenSettingsTapped)
+                    }
+                )
+            }
 
             OnboardingState.ERROR -> {
                 InitializationErrorScreen(
@@ -518,6 +560,8 @@ class MainActivity : OrientationAwareActivity() {
     // coordinator.
     private val onboardingSystem = object : OnboardingSystem {
         private fun readiness() = deviceReadiness.snapshot()
+
+        override fun snapshot() = readiness()
 
         override fun bluetoothStatus() = readiness().bluetooth
         override fun locationStatus() = readiness().location
@@ -552,7 +596,6 @@ class MainActivity : OrientationAwareActivity() {
         override fun openAppSettings() = onboardingCoordinator.openAppSettings()
 
         override fun startWifiAwareIfPossible() = WifiAwareController.startIfPossible()
-        override fun initializeApp() = this@MainActivity.initializeApp()
 
         override fun logBluetoothDiagnostics() = bluetoothStatusManager.logBluetoothStatus()
         override fun logLocationDiagnostics() = locationStatusManager.logLocationStatus()
@@ -573,19 +616,23 @@ class MainActivity : OrientationAwareActivity() {
         else -> OnboardingAction.LocationLaunchFailed(message)
     }
 
-    private fun handleOnboardingStateChange(state: OnboardingState) {
-
-        when (state) {
-            OnboardingState.COMPLETE -> {
-                // App is fully initialized, mesh service is running
-                android.util.Log.i("MainActivity", "Onboarding completed - app ready")
+    // The radios as onboarding has always heard them.
+    private fun dispatchToOnboarding(event: SystemEvent) {
+        when (event) {
+            // Both, in this order: re-run the check if its screen is
+            // showing, then take the Bluetooth-enabled path.
+            SystemEvent.BluetoothOn -> {
+                onboardingFlow.dispatch(OnboardingAction.BluetoothTurnedOn)
+                onboardingFlow.dispatch(OnboardingAction.BluetoothResult(enabled = true))
             }
-            OnboardingState.ERROR -> {
-                android.util.Log.e("MainActivity", "Onboarding error state reached")
-            }
-            else -> {}
+            SystemEvent.BluetoothOff -> onboardingFlow.dispatch(OnboardingAction.BluetoothTurnedOff)
+            is SystemEvent.LocationChanged ->
+                onboardingFlow.dispatch(OnboardingAction.LocationChanged(enabled = event.enabled))
         }
     }
+
+    private fun SystemEvent.turnsRadioOff() =
+        this == SystemEvent.BluetoothOff || this == SystemEvent.LocationChanged(enabled = false)
     
     private fun startMeshForegroundServiceBestEffort() {
         if (!lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
@@ -621,7 +668,7 @@ class MainActivity : OrientationAwareActivity() {
                 if (!readiness.requiredPermissionsGranted) {
                     val missing = readiness.missingPermissions
                     Log.w("MainActivity", "Permissions revoked during initialization: $missing")
-                    onboardingFlow.onInitFailed("Some permissions were revoked. Please grant all permissions to continue.")
+                    startupGate.initFailed("Some permissions were revoked. Please grant all permissions to continue.")
                     return@launch
                 }
 
@@ -630,17 +677,16 @@ class MainActivity : OrientationAwareActivity() {
                 unifiedMeshService.startServices()
                 startMeshForegroundServiceBestEffort()
 
-                // Handle any notification intent
-                handleNotificationIntent(intent)
-                handleVerificationIntent(intent)
+                // Handle any notification intent, unless an earlier init did
+                handleIntentOnce(intent)
 
                 // Small delay to ensure mesh service is fully initialized
                 delay(500)
                 Log.i("MainActivity", "App initialization complete")
-                onboardingFlow.onInitComplete()
+                startupGate.initSucceeded()
             } catch (e: Exception) {
                 Log.e("MainActivity", "Failed to initialize app", e)
-                onboardingFlow.onInitFailed("Failed to initialize the app: ${e.message}")
+                startupGate.initFailed("Failed to initialize the app: ${e.message}")
             }
         }
     }
@@ -659,10 +705,18 @@ class MainActivity : OrientationAwareActivity() {
         com.bitchat.android.service.AppShutdownCoordinator.cancelPendingShutdown()
         
         // Handle notification intents when app is already running
-        if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
-            handleNotificationIntent(intent)
-            handleVerificationIntent(intent)
+        if (startupGate.phase.value == AppPhase.READY) {
+            handleIntentOnce(intent)
         }
+    }
+
+    // Each intent instance is handled at most once: a re-init after onboarding
+    // came back mid-session must not reopen the chat the app was launched into.
+    private fun handleIntentOnce(intent: Intent) {
+        if (intent === handledIntent) return
+        handledIntent = intent
+        handleNotificationIntent(intent)
+        handleVerificationIntent(intent)
     }
 
     override fun onStart() {
@@ -678,20 +732,24 @@ class MainActivity : OrientationAwareActivity() {
         locationChannelManager.syncPermissionState()
 
         // Check Bluetooth and Location status on resume and handle accordingly
-        if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
+        if (startupGate.phase.value == AppPhase.READY) {
             // Reattach the session's mesh delegate, detached in onPause
             try { unifiedMeshService.delegate = chatMeshDelegate } catch (_: Exception) { }
 
-            // Back to a check screen if Bluetooth or location services went off
-            // while the app was in the background
-            onboardingFlow.dispatch(OnboardingAction.ResumedWhileComplete)
+            // Back to onboarding if Bluetooth or location services went off
+            // while the app was in the background (T42/T43)
+            startupGate.onResumed()
+            if (startupGate.phase.value == AppPhase.READY) {
+                // If location is enabled, ensure Wi-Fi Aware starts if it was blocked by location earlier
+                WifiAwareController.startIfPossible()
+            }
         }
     }
     
     override fun onPause() {
         super.onPause()
         // Only set background state if app is fully initialized
-        if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
+        if (startupGate.phase.value == AppPhase.READY) {
             // Detach UI delegate so the foreground service can own DM notifications while UI is closed
             try { unifiedMeshService.delegate = null } catch (_: Exception) { }
         }

@@ -14,14 +14,13 @@ class MainViewModelTest {
     fun shouldUpdateOnboardingStateCorrectly() {
         val cases = listOf(
             OnboardingState.ERROR,
-            OnboardingState.CHECKING,
+            null,
             OnboardingState.BLUETOOTH_CHECK,
             OnboardingState.LOCATION_CHECK,
             OnboardingState.BATTERY_OPTIMIZATION_CHECK,
             OnboardingState.PERMISSION_REQUESTING,
             OnboardingState.PERMISSION_EXPLANATION,
-            OnboardingState.COMPLETE,
-            OnboardingState.INITIALIZING
+            OnboardingState.BACKGROUND_LOCATION_EXPLANATION,
         )
 
         cases.forEach { input ->
