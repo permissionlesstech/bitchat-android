@@ -34,6 +34,17 @@ and portable across implementations.
   bounded timeout.
 - A fixed bug must retain its smallest reproducing input as a regression test.
 
+## Device readiness in instrumented tests
+
+Instrumented tests never read the device's own Bluetooth, location services,
+battery optimization or permission state. `ReadinessOverride`
+(`app/src/debug/`, debug builds only) replaces the readiness snapshot whole and
+lets a test send radio changes with `emit`. Set it before the Activity launches
+and `clear()` it when the test ends. The release source set binds the system
+readiness directly, so the override never reaches a release build; neither
+`app/src/main/` nor `app/src/release/` may reference it. Onboarding's step logic
+is covered on the JVM in `:feature:onboarding` with fakes.
+
 ## Naming
 
 Test names should describe observable behavior:

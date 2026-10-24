@@ -76,8 +76,8 @@ Bug fixes and small behaviour changes:
 - **How to add a screen:**
   1. Declare a `@Serializable` route implementing `NavKey` in the feature's `:api` module.
   2. Register its entry in the feature's `@Provides @IntoSet EntryProviderInstaller`
-     (`ChatEntriesModule`, `LocationEntriesModule`, `SettingsEntriesModule`). `MainActivity`
-     registers only `OnboardingRoute` itself.
+     (`ChatEntriesModule`, `LocationEntriesModule`, `SettingsEntriesModule`,
+     `OnboardingEntriesModule`). `MainActivity` registers no destinations itself.
   3. Add the route to the list in `EveryRouteHasAnEntryTest`. The list is hand-written, so a
      route left off it is not checked.
   4. Make it a sheet (`SheetSceneStrategy.sheet()`) only if it is a leaf. A sheet never opens

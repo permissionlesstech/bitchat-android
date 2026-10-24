@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="battery_optimization_not_required">بیٹری کی اصلاح ضروری نہیں</string>
+    <string name="battery_optimization_not_supported_message">آپ کے آلے کو بیٹری کی اصلاح کی سیٹنگز کی ضرورت نہیں۔ bitchat عام طور پر چلے گا۔</string>
+    <string name="battery_optimization_success_message">bitchat پس منظر میں قابل اعتماد طور پر چل سکتا ہے</string>
+    <string name="battery_optimization_skip">ابھی چھوڑیں</string>
+    <string name="skip">چھوڑیں</string>
+
+    <string name="cd_location_services">مقام کی خدمات</string>
+    <string name="cd_privacy">پرائیویسی</string>
+    <string name="cd_error">خرابی</string>
+    <string name="cd_battery_optimization">بیٹری کی اصلاح</string>
+    <string name="cd_benefits">فوائد</string>
+    <string name="cd_checking_battery_optimization">بیٹری کی اصلاح چیک کر رہے ہیں</string>
+    <string name="cd_not_supported_battery_optimization">بیٹری کی اصلاح تعاون یافتہ نہیں</string>
+    <string name="cd_bluetooth">Bluetooth</string>
+    <string name="cd_privacy_protected">پرائیویسی محفوظ</string>
+    <!-- آن بورڈنگ اسکرینز -->
+    <string name="location_services_required">مقام کی خدمات ضروری</string>
+    <string name="privacy_first">پرائیویسی پہلے</string>
+    <string name="location_explanation">bitchat آپ کا مقام ٹریک نہیں کرتا۔\n\nBluetooth اسکیننگ اور geohash چیٹ فیچر کے لیے مقام کی خدمات ضروری ہیں۔</string>
+    <string name="location_needs_for">bitchat کو مقام کی خدمات کی ضرورت:</string>
+    <string name="location_needs_bullets">• Bluetooth آلات اسکیننگ\n• میش نیٹ ورک میں قریبی صارفین کی دریافت\n• geohash چیٹ فیچر\n• کوئی ٹریکنگ یا مقام کا اجماع نہیں</string>
+    <string name="open_location_settings">مقام سیٹنگز کھولیں</string>
+    <string name="check_again">دوبارہ چیک کریں</string>
+    <string name="location_services_unavailable">مقام کی خدمات دستیاب نہیں</string>
+    <string name="location_unavailable_explanation">اس آلے پر مقام کی خدمات دستیاب نہیں ہیں۔ یہ غیر معمولی ہے کیونکہ مقام کی خدمات Android آلات پر معیاری ہیں۔\n\nBluetooth اسکیننگ (Android کی ضرورت) کے ٹھیک سے کام کرنے کے لیے مقام کی خدمات ضروری ہیں۔ اس کے بغیر ایپ قریبی صارفین کو دریافت نہیں کر سکتی۔</string>
+    <string name="checking_location_services">مقام کی خدمات چیک کر رہے ہیں…</string>
+    <string name="bluetooth_needs_for">bitchat کو Bluetooth کی ضرورت:</string>
+    <string name="bluetooth_needs_bullets">• قریبی صارفین کی دریافت\n• میش نیٹ ورک کنیکشنز بنانا\n• پیغامات بھیجنا اور وصول کرنا\n• انٹرنیٹ یا سرورز کے بغیر کام کرنا</string>
+    <string name="enable_bluetooth">Bluetooth فعال کریں</string>
+    <string name="bluetooth_not_supported">Bluetooth تعاون یافتہ نہیں</string>
+    <string name="bluetooth_unsupported_explanation">یہ آلہ Bluetooth Low Energy (BLE) کو سپورٹ نہیں کرتا، جو bitchat کے کام کے لیے ضروری ہے۔\n\nBLE میش نیٹ ورکس بنانے اور انٹرنیٹ کے بغیر قریبی آلات کے ساتھ بات چیت کرنے کے لیے ضروری ہے۔</string>
+    <string name="checking_bluetooth_status">Bluetooth کی کیفیت چیک کر رہے ہیں…</string>
+    <string name="battery_optimization_detected_title">بیٹری کی اصلاح کا پتہ چلا</string>
+    <string name="battery_optimization_enabled_title">بیٹری کی اصلاح فعال</string>
+    <string name="battery_optimization_explanation_short">میش کنیکشنز برقرار رکھنے کے لیے bitchat کو پس منظر میں چلنا ضروری ہے۔ بیٹری کی اصلاح ان کنیکشنز کو خراب کر سکتی ہے۔</string>
+    <string name="benefits_of_disabling">بند کرنے کے فوائد</string>
+    <string name="battery_benefits_short">• قابل اعتماد پیغام کی ڈیلیوری\n• میش کنیکٹویٹی برقرار رکھنا\n• کنیکشن منقطع ہونے سے بچنا</string>
+    <string name="disable_battery_optimization">بیٹری کی اصلاح بند کریں</string>
+    <string name="battery_optimization_disabled_title">بیٹری کی اصلاح بند</string>
+    <string name="continue_btn">جاری رکھیں</string>
+    <string name="initializing_mesh_network">میش نیٹ ورک شروع کر رہے ہیں</string>
+    <string name="setting_up_bluetooth">Bluetooth میش نیٹ ورک سیٹ کر رہے ہیں…</string>
+    <string name="should_take_seconds">اس میں صرف چند سیکنڈ لگنے چاہیے</string>
+    <string name="setup_not_complete">سیٹ اپ مکمل نہیں</string>
+    <string name="try_again">دوبارہ کوشش کریں</string>
+    <string name="privacy_protected">آپ کی پرائیویسی محفوظ ہے</string>
+    <string name="privacy_bullets">• کوئی ٹریکنگ یا ڈیٹا اجماع نہیں\n• Bluetooth میش چیٹس مکمل آف لائن\n• geohash چیٹس انٹرنیٹ استعمال کرتے ہیں</string>
+    <string name="permissions_header">اجازات</string>
+    <string name="grant_permissions">اجازات دیں</string>
+    <string name="bluetooth_recommended">Bluetooth Recommended</string>
+</resources>

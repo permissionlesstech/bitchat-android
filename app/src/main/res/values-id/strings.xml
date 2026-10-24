@@ -18,21 +18,15 @@
     <!-- Optimalisasi baterai -->
     <string name="battery_optimization_detected">Optimalisasi baterai terdeteksi</string>
     <string name="battery_optimization_disabled">Optimalisasi baterai dinonaktifkan</string>
-    <string name="battery_optimization_not_required">Optimalisasi baterai tidak diperlukan</string>
     <string name="battery_optimization_checking">Memeriksa optimalisasi baterai</string>
     <string name="battery_optimization_why_disable">Mengapa menonaktifkan optimalisasi baterai?</string>
     <string name="battery_optimization_explanation">bitchat berjalan di latar belakang untuk mempertahankan koneksi mesh dengan perangkat terdekat. Optimalisasi baterai dapat mengganggu koneksi ini, menyebabkan pesan tertunda atau hilang.\n\nMenonaktifkan optimalisasi baterai memastikan komunikasi peer-to-peer yang andal.</string>
     <string name="battery_optimization_disable_button">Nonaktifkan optimalisasi baterai</string>
     <string name="battery_optimization_note">Catatan: Anda dapat mengubahnya nanti di Pengaturan Android &gt; Aplikasi &gt; bitchat &gt; Baterai.</string>
     <string name="battery_optimization_not_supported_explanation">Perangkat Anda tidak memerlukan pengaturan optimalisasi baterai. bitchat akan berjalan normal.</string>
-    <string name="battery_optimization_not_supported_message">Perangkat Anda tidak memerlukan pengaturan optimalisasi baterai. bitchat akan berjalan normal.</string>
-    <string name="battery_optimization_success_message">bitchat dapat berjalan andal di latar belakang</string>
     <string name="battery_optimization_benefits">• Pengiriman pesan yang andal\n• Mempertahankan koneksi mesh\n• Relay pesan latar belakang\n• Mencegah putusnya koneksi</string>
     <string name="battery_optimization_check_again">Periksa lagi</string>
-    <string name="battery_optimization_skip">Lewati sekarang</string>
     <string name="battery_optimization_continue">Lanjut</string>
-    <string name="skip">Lewati</string>
-
     <!-- Notifikasi -->
     <string name="notification_summary_more">dan %1$d lagi</string>
     <string name="notification_active_peers_title">bitchatter terdekat!</string>
@@ -51,17 +45,8 @@
     <string name="about_emergency_title">Hapus data darurat</string>
     <!-- Deskripsi konten umum -->
     <string name="cd_warning">Peringatan</string>
-    <string name="cd_location_services">Layanan lokasi</string>
-    <string name="cd_privacy">Privasi</string>
-    <string name="cd_error">Kesalahan</string>
-    <string name="cd_battery_optimization">Optimalisasi baterai</string>
-    <string name="cd_benefits">Manfaat</string>
-    <string name="cd_checking_battery_optimization">Memeriksa optimalisasi baterai</string>
-    <string name="cd_not_supported_battery_optimization">Optimalisasi baterai tidak didukung</string>
-    <string name="cd_bluetooth">Bluetooth</string>
     <string name="cd_teleport">Teleportasi</string>
     <string name="cd_leave_channel">Keluar dari channel</string>
-    <string name="cd_privacy_protected">Privasi terlindungi</string>
     <string name="cd_offline_mesh_chat">Chat Mesh Offline</string>
     <string name="cd_online_geohash_channels">Channel Geohash Online</string>
     <string name="cd_end_to_end_encryption">Enkripsi end-to-end</string>
@@ -77,41 +62,7 @@
     <string name="debug_since_start_fmt">sejak mulai: %1$d</string>
     <string name="debug_sync_settings">Pengaturan sinkronisasi</string>
     <string name="debug_relays_window_fmt">10 detik terakhir: %1$d • 1m: %2$d • 15m: %3$d</string>
-    <!-- Layar onboarding -->
-    <string name="location_services_required">Layanan lokasi diperlukan</string>
-    <string name="privacy_first">Privasi pertama</string>
-    <string name="location_explanation">bitchat TIDAK melacak lokasi Anda.\n\nLayanan lokasi diperlukan untuk pemindaian Bluetooth dan fitur geohash chat.</string>
-    <string name="location_needs_for">bitchat memerlukan layanan lokasi untuk:</string>
-    <string name="location_needs_bullets">• Pemindaian perangkat Bluetooth\n• Menemukan pengguna terdekat di jaringan mesh\n• Fitur geohash chat\n• Tidak ada pelacakan atau pengumpulan lokasi</string>
-    <string name="open_location_settings">Buka pengaturan lokasi</string>
-    <string name="check_again">Periksa lagi</string>
-    <string name="location_services_unavailable">Layanan lokasi tidak tersedia</string>
-    <string name="location_unavailable_explanation">Layanan lokasi tidak tersedia di perangkat ini. Ini tidak biasa karena layanan lokasi standar di perangkat Android.\n\nbitchat memerlukan layanan lokasi agar pemindaian Bluetooth berfungsi dengan benar (persyaratan Android). Tanpanya, aplikasi tidak dapat menemukan pengguna terdekat.</string>
-    <string name="checking_location_services">Memeriksa layanan lokasi …</string>
     <string name="bluetooth_required">Bluetooth diperlukan</string>
-    <string name="bluetooth_needs_for">bitchat memerlukan Bluetooth untuk:</string>
-    <string name="bluetooth_needs_bullets">• Menemukan pengguna terdekat\n• Membuat koneksi jaringan mesh\n• Mengirim dan menerima pesan\n• Berfungsi tanpa Internet atau server</string>
-    <string name="enable_bluetooth">Aktifkan Bluetooth</string>
-    <string name="bluetooth_not_supported">Bluetooth tidak didukung</string>
-    <string name="bluetooth_unsupported_explanation">Perangkat ini tidak mendukung Bluetooth Low Energy (BLE), yang diperlukan agar bitchat berfungsi.\n\nbitchat memerlukan BLE untuk membuat jaringan mesh dan berkomunikasi dengan perangkat terdekat tanpa Internet.</string>
-    <string name="checking_bluetooth_status">Memeriksa status Bluetooth …</string>
-    <string name="battery_optimization_detected_title">Optimalisasi baterai terdeteksi</string>
-    <string name="battery_optimization_enabled_title">Optimalisasi baterai diaktifkan</string>
-    <string name="battery_optimization_explanation_short">bitchat harus berjalan di latar belakang untuk mempertahankan koneksi mesh. Optimalisasi baterai dapat mengganggu koneksi ini.</string>
-    <string name="benefits_of_disabling">Manfaat menonaktifkan</string>
-    <string name="battery_benefits_short">• pengiriman pesan yang andal\n• mempertahankan koneksi mesh\n• mencegah putusnya koneksi</string>
-    <string name="disable_battery_optimization">Nonaktifkan optimalisasi baterai</string>
-    <string name="battery_optimization_disabled_title">Optimalisasi baterai dinonaktifkan</string>
-    <string name="continue_btn">Lanjut</string>
-    <string name="initializing_mesh_network">Menginisialisasi jaringan mesh</string>
-    <string name="setting_up_bluetooth">Menyiapkan jaringan Bluetooth mesh …</string>
-    <string name="should_take_seconds">Ini seharusnya hanya memakan waktu beberapa detik</string>
-    <string name="setup_not_complete">Penyiapan tidak lengkap</string>
-    <string name="try_again">Coba lagi</string>
-    <string name="privacy_protected">Privasi Anda terlindungi</string>
-    <string name="privacy_bullets">• tidak ada pelacakan atau pengumpulan data\n• Bluetooth mesh chat sepenuhnya offline\n• Geohash chat menggunakan Internet</string>
-    <string name="permissions_header">Izin</string>
-    <string name="grant_permissions">Berikan izin</string>
     <string name="location_tracking_warning">bitchat TIDAK melacak lokasi Anda</string>
     <string name="image_star">image/*</string>
     <!-- Aksesibilitas pemutar suara -->
@@ -138,7 +89,6 @@
 
     <!-- Jamak -->
 
-    <string name="bluetooth_recommended">Bluetooth Recommended</string>
     <string name="mesh_service_notification_content">Mesh berjalan — %1$d peer</string>
 
   <string name="verify_scan_someone">scan someone elses qr</string>

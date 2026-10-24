@@ -18,21 +18,15 @@
     <!-- Otimização da bateria -->
     <string name="battery_optimization_detected">Detetada otimização da bateria</string>
     <string name="battery_optimization_disabled">Otimização da bateria desativada</string>
-    <string name="battery_optimization_not_required">Otimização da bateria não necessária</string>
     <string name="battery_optimization_checking">A verificar otimização da bateria</string>
     <string name="battery_optimization_why_disable">Por que desativar a otimização da bateria?</string>
     <string name="battery_optimization_explanation">O bitchat funciona em segundo plano para manter conexões de rede mesh com dispositivos próximos. A otimização da bateria pode interromper essas conexões, fazendo com que as mensagens cheguem atrasadas ou se percam.\n\nDesativar a otimização da bateria garante comunicação peer-to-peer confiável.</string>
     <string name="battery_optimization_disable_button">Desativar otimização da bateria</string>
     <string name="battery_optimization_note">Nota: Pode alterar isso posteriormente em Definições do Android &gt; Aplicações &gt; bitchat &gt; Bateria.</string>
     <string name="battery_optimization_not_supported_explanation">O seu dispositivo não requer definições de otimização da bateria. O bitchat funcionará normalmente.</string>
-    <string name="battery_optimization_not_supported_message">O seu dispositivo não requer definições de otimização da bateria. O bitchat funcionará normalmente.</string>
-    <string name="battery_optimization_success_message">O bitchat pode funcionar de forma confiável em segundo plano</string>
     <string name="battery_optimization_benefits">• Entrega confiável de mensagens\n• Manutenção da conexão mesh\n• Reencaminhamento de mensagens em segundo plano\n• Previne desconexões</string>
     <string name="battery_optimization_check_again">Verificar novamente</string>
-    <string name="battery_optimization_skip">Ignorar por agora</string>
     <string name="battery_optimization_continue">Continuar</string>
-    <string name="skip">Ignorar</string>
-
     <!-- Notificações -->
     <string name="notification_summary_more">e mais %1$d</string>
     <string name="notification_active_peers_title">bitchatters por perto!</string>
@@ -51,17 +45,8 @@
     <string name="about_emergency_title">Limpeza de dados de emergência</string>
     <!-- Descrições de conteúdo gerais -->
     <string name="cd_warning">Aviso</string>
-    <string name="cd_location_services">Serviços de localização</string>
-    <string name="cd_privacy">Privacidade</string>
-    <string name="cd_error">Erro</string>
-    <string name="cd_battery_optimization">Otimização da bateria</string>
-    <string name="cd_benefits">Benefícios</string>
-    <string name="cd_checking_battery_optimization">A verificar otimização da bateria</string>
-    <string name="cd_not_supported_battery_optimization">Otimização da bateria não suportada</string>
-    <string name="cd_bluetooth">Bluetooth</string>
     <string name="cd_teleport">Teletransportar</string>
     <string name="cd_leave_channel">Sair do canal</string>
-    <string name="cd_privacy_protected">Privacidade protegida</string>
     <string name="cd_offline_mesh_chat">Chat mesh offline</string>
     <string name="cd_online_geohash_channels">Canais geohash online</string>
     <string name="cd_end_to_end_encryption">Encriptação ponto a ponto</string>
@@ -77,41 +62,7 @@
     <string name="debug_since_start_fmt">desde o início: %1$d</string>
     <string name="debug_sync_settings">Definições de sincronização</string>
     <string name="debug_relays_window_fmt">últimos 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
-    <!-- Ecrãs de integração -->
-    <string name="location_services_required">Serviços de localização necessários</string>
-    <string name="privacy_first">Privacidade primeiro</string>
-    <string name="location_explanation">O bitchat NÃO rastreia a sua localização.\n\nOs serviços de localização são necessários para a digitalização Bluetooth e a funcionalidade de chat geohash.</string>
-    <string name="location_needs_for">O bitchat precisa de serviços de localização para:</string>
-    <string name="location_needs_bullets">• Digitalização de dispositivos Bluetooth\n• Descobrir utilizadores próximos na rede mesh\n• Funcionalidade de chat geohash\n• Sem rastreamento ou recolha de localização</string>
-    <string name="open_location_settings">Abrir definições de localização</string>
-    <string name="check_again">Verificar novamente</string>
-    <string name="location_services_unavailable">Serviços de localização indisponíveis</string>
-    <string name="location_unavailable_explanation">Os serviços de localização não estão disponíveis neste dispositivo. Isto é incomum, uma vez que os serviços de localização são padrão em dispositivos Android.\n\nO bitchat requer serviços de localização para o funcionamento adequado da digitalização Bluetooth (requisito do Android). Sem isso, a aplicação não pode descobrir utilizadores próximos.</string>
-    <string name="checking_location_services">A verificar serviços de localização…</string>
     <string name="bluetooth_required">Bluetooth necessário</string>
-    <string name="bluetooth_needs_for">O bitchat precisa de Bluetooth para:</string>
-    <string name="bluetooth_needs_bullets">• Descobrir utilizadores próximos\n• Criar conexões de rede mesh\n• Enviar e receber mensagens\n• Funcionar sem internet ou servidores</string>
-    <string name="enable_bluetooth">Ativar Bluetooth</string>
-    <string name="bluetooth_not_supported">Bluetooth não suportado</string>
-    <string name="bluetooth_unsupported_explanation">Este dispositivo não suporta Bluetooth Low Energy (BLE), que é necessário para o bitchat funcionar.\n\nO BLE é necessário para criar redes mesh e comunicar com dispositivos próximos sem internet.</string>
-    <string name="checking_bluetooth_status">A verificar estado do Bluetooth…</string>
-    <string name="battery_optimization_detected_title">Otimização da bateria detetada</string>
-    <string name="battery_optimization_enabled_title">Otimização da bateria ativada</string>
-    <string name="battery_optimization_explanation_short">O bitchat precisa de funcionar em segundo plano para manter conexões mesh. A otimização da bateria pode interromper essas conexões.</string>
-    <string name="benefits_of_disabling">Benefícios de desativar</string>
-    <string name="battery_benefits_short">• entrega confiável de mensagens\n• mantém conectividade mesh\n• previne desconexões</string>
-    <string name="disable_battery_optimization">Desativar otimização da bateria</string>
-    <string name="battery_optimization_disabled_title">Otimização da bateria desativada</string>
-    <string name="continue_btn">Continuar</string>
-    <string name="initializing_mesh_network">A inicializar rede mesh</string>
-    <string name="setting_up_bluetooth">A configurar rede mesh Bluetooth…</string>
-    <string name="should_take_seconds">Isto deve demorar apenas alguns segundos</string>
-    <string name="setup_not_complete">Configuração não concluída</string>
-    <string name="try_again">Tentar novamente</string>
-    <string name="privacy_protected">A sua privacidade está protegida</string>
-    <string name="privacy_bullets">• sem rastreamento ou recolha de dados\n• chats mesh Bluetooth são completamente offline\n• chats geohash usam internet</string>
-    <string name="permissions_header">Permissões</string>
-    <string name="grant_permissions">Conceder permissões</string>
     <string name="location_tracking_warning">O bitchat NÃO rastreia a sua localização</string>
     <string name="image_star">image/*</string>
     <!-- Acessibilidade do reprodutor de voz -->
@@ -138,7 +89,6 @@
 
     <!-- Plurais -->
 
-    <string name="bluetooth_recommended">Bluetooth recomendado</string>
     <string name="mesh_service_notification_content">Mesh em execução — %1$d pares</string>
 
   <string name="verify_scan_someone">digitalizar outro qr</string>

@@ -18,21 +18,15 @@
     <!-- Batterijoptimalisatie -->
     <string name="battery_optimization_detected">Batterijoptimalisatie gedetecteerd</string>
     <string name="battery_optimization_disabled">Batterijoptimalisatie uitgeschakeld</string>
-    <string name="battery_optimization_not_required">Batterijoptimalisatie niet vereist</string>
     <string name="battery_optimization_checking">Batterijoptimalisatie controleren</string>
     <string name="battery_optimization_why_disable">Waarom batterijoptimalisatie uitschakelen?</string>
     <string name="battery_optimization_explanation">bitchat draait op de achtergrond om meshnetwerkverbindingen met apparaten in de buurt te onderhouden. Batterijoptimalisatie kan deze verbindingen onderbreken, waardoor berichten vertraagd of gemist worden.\n\nHet uitschakelen van batterijoptimalisatie zorgt voor betrouwbare peer-to-peer communicatie.</string>
     <string name="battery_optimization_disable_button">Batterijoptimalisatie uitschakelen</string>
     <string name="battery_optimization_note">Opmerking: U kunt deze instelling later wijzigen in Android-instellingen &gt; Apps &gt; bitchat &gt; Batterij</string>
     <string name="battery_optimization_not_supported_explanation">Uw apparaat vereist geen batterijoptimalisatie-instellingen. bitchat zal normaal draaien.</string>
-    <string name="battery_optimization_not_supported_message">Uw apparaat vereist geen batterijoptimalisatie-instellingen. bitchat zal normaal draaien.</string>
-    <string name="battery_optimization_success_message">bitchat kan betrouwbaar op de achtergrond draaien</string>
     <string name="battery_optimization_benefits">• Zorgt voor betrouwbare berichtbezorging\n• Onderhoudt meshnetwerkconnectiviteit\n• Staat berichtrelay op achtergrond toe\n• Voorkomt verbindingsonderbrekingen</string>
     <string name="battery_optimization_check_again">Opnieuw controleren</string>
-    <string name="battery_optimization_skip">Nu overslaan</string>
     <string name="battery_optimization_continue">Doorgaan</string>
-    <string name="skip">Overslaan</string>
-
     <!-- Meldingen -->
     <string name="notification_summary_more">en %1$d meer</string>
     <string name="notification_active_peers_title">bitchatters in de buurt!</string>
@@ -51,17 +45,8 @@
     <string name="about_emergency_title">Noodgegevensverwijdering</string>
     <!-- Algemene content-beschrijvingen -->
     <string name="cd_warning">Waarschuwing</string>
-    <string name="cd_location_services">Locatiediensten</string>
-    <string name="cd_privacy">Privacy</string>
-    <string name="cd_error">Fout</string>
-    <string name="cd_battery_optimization">Batterijoptimalisatie</string>
-    <string name="cd_benefits">Voordelen</string>
-    <string name="cd_checking_battery_optimization">Batterijoptimalisatie controleren</string>
-    <string name="cd_not_supported_battery_optimization">Batterijoptimalisatie niet ondersteund</string>
-    <string name="cd_bluetooth">Bluetooth</string>
     <string name="cd_teleport">Teleporteren</string>
     <string name="cd_leave_channel">Kanaal verlaten</string>
-    <string name="cd_privacy_protected">Privacy beschermd</string>
     <string name="cd_offline_mesh_chat">Offline meshchat</string>
     <string name="cd_online_geohash_channels">Online geohash-kanalen</string>
     <string name="cd_end_to_end_encryption">End-to-end-versleuteling</string>
@@ -77,41 +62,7 @@
     <string name="debug_since_start_fmt">sinds start: %1$d</string>
     <string name="debug_sync_settings">sync-instellingen</string>
     <string name="debug_relays_window_fmt">laatste 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
-    <!-- Onboarding-schermen -->
-    <string name="location_services_required">Locatiediensten vereist</string>
-    <string name="privacy_first">Privacy eerst</string>
-    <string name="location_explanation">bitchat volgt NIET uw locatie.\n\nLocatiediensten zijn vereist voor Bluetooth-scanning en voor de geohash-chatfunctie.</string>
-    <string name="location_needs_for">bitchat heeft locatiediensten nodig voor:</string>
-    <string name="location_needs_bullets">• Bluetooth-apparaat scanning\n• Ontdekken van gebruikers in de buurt op meshnetwerk\n• Geohash-chatfunctie\n• Geen tracking of locatieverzameling</string>
-    <string name="open_location_settings">Locatie-instellingen openen</string>
-    <string name="check_again">Opnieuw controleren</string>
-    <string name="location_services_unavailable">Locatiediensten niet beschikbaar</string>
-    <string name="location_unavailable_explanation">Locatiediensten zijn niet beschikbaar op dit apparaat. Dit is ongebruikelijk omdat locatiediensten standaard zijn op Android-apparaten.\n\nbitchat heeft locatiediensten nodig om Bluetooth-scanning goed te laten werken (Android-vereiste). Zonder dit kan de app geen gebruikers in de buurt ontdekken.</string>
-    <string name="checking_location_services">Locatiediensten controleren…</string>
     <string name="bluetooth_required">Bluetooth vereist</string>
-    <string name="bluetooth_needs_for">bitchat heeft Bluetooth nodig om:</string>
-    <string name="bluetooth_needs_bullets">• Gebruikers in de buurt te ontdekken\n• Meshnetwerkverbindingen te maken\n• Berichten te verzenden en ontvangen\n• Te werken zonder internet of servers</string>
-    <string name="enable_bluetooth">Bluetooth inschakelen</string>
-    <string name="bluetooth_not_supported">Bluetooth niet ondersteund</string>
-    <string name="bluetooth_unsupported_explanation">Dit apparaat ondersteunt geen Bluetooth Low Energy (BLE), wat vereist is om bitchat te laten functioneren.\n\nbitchat heeft BLE nodig om meshnetwerken te maken en te communiceren met apparaten in de buurt zonder internet.</string>
-    <string name="checking_bluetooth_status">Bluetooth-status controleren…</string>
-    <string name="battery_optimization_detected_title">batterijoptimalisatie gedetecteerd</string>
-    <string name="battery_optimization_enabled_title">Batterijoptimalisatie ingeschakeld</string>
-    <string name="battery_optimization_explanation_short">bitchat moet op de achtergrond draaien om meshverbindingen te onderhouden. batterijoptimalisatie kan deze verbindingen onderbreken.</string>
-    <string name="benefits_of_disabling">Voordelen van uitschakelen</string>
-    <string name="battery_benefits_short">• betrouwbare berichtbezorging\n• onderhoudt meshconnectiviteit\n• voorkomt verbindingsonderbrekingen</string>
-    <string name="disable_battery_optimization">Batterijoptimalisatie uitschakelen</string>
-    <string name="battery_optimization_disabled_title">batterijoptimalisatie uitgeschakeld</string>
-    <string name="continue_btn">Doorgaan</string>
-    <string name="initializing_mesh_network">Meshnetwerk initialiseren</string>
-    <string name="setting_up_bluetooth">Bluetooth-meshnetwerk instellen…</string>
-    <string name="should_take_seconds">Dit zou slechts enkele seconden moeten duren</string>
-    <string name="setup_not_complete">Installatie niet voltooid</string>
-    <string name="try_again">Opnieuw proberen</string>
-    <string name="privacy_protected">Uw privacy is beschermd</string>
-    <string name="privacy_bullets">• geen tracking of gegevensverzameling\n• Bluetooth-meshchats zijn volledig offline\n• Geohash-chats gebruiken internet</string>
-    <string name="permissions_header">toestemmingen</string>
-    <string name="grant_permissions">Toestemmingen verlenen</string>
     <string name="location_tracking_warning">bitchat volgt NIET uw locatie</string>
     <string name="image_star">image/*</string>
     <!-- Spraakspeler toegankelijkheid -->
@@ -136,8 +87,6 @@
     <string name="perm_type_battery_optimization">Batterijoptimalisatie</string>
     <string name="perm_type_other">Overig</string>
 
-    <string name="dot">.</string>
-    <string name="warning_emoji">⚠️</string>
     <!-- Berichtstatus-pictogrammen -->
 
     <!-- Meldingsbestand-emojis -->
@@ -150,7 +99,6 @@
 
     <!-- Meervouden -->
 
-    <string name="bluetooth_recommended">Bluetooth aanbevolen</string>
     <string name="mesh_service_notification_content">Mesh actief — %1$d peers</string>
 
   <string name="verify_scan_someone">scan someone elses qr</string>

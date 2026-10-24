@@ -93,21 +93,31 @@ and the font, on Compose foundation/ui only, with no Material3 and no other
 project module. `core/designsystem/phone/` adds the phone's Material3 theme,
 generic components and the resources shared between `:app` and the features.
 
+`core/readiness/` reads what the device and the stored onboarding choices say
+about readiness (Bluetooth, location services, battery optimization, runtime
+permissions, first launch, the skip preferences) through `DeviceReadiness`, and
+decides the next onboarding step (`nextStep`). It depends only on `:core:mesh`
+and `:core:domain`, so both the app's startup gate and the onboarding feature
+build on it.
+
 `core/tor/` holds Arti and the Tor HTTP stack. It depends on no other project
 module. It signals route changes through `ArtiTorManager.routeChanges`, which the
 app wires into the `NostrHttpClients` port, so relays reset on a route change.
 
-`feature/share`, `feature/settings`, `feature/location` and `feature/chat` hold
-the phone screens, each with an `:api` module for its routes (and, for chat,
-`openPrivateChat`). A feature registers its Nav3 destinations as Hilt
+`feature/share`, `feature/settings`, `feature/location`, `feature/chat` and
+`feature/onboarding` hold the phone screens, each with an `:api` module for its
+routes (and, for chat, `openPrivateChat`; for onboarding, the `OnboardingHost`
+port the app binds to its startup gate). A feature registers its Nav3 destinations as Hilt
 `@IntoSet EntryProviderInstaller`s. A feature depends only on another feature's
 `:api`, never on the feature. An `:api` module depends only on
 `:core:navigation` and `:core:domain` among project modules; external Compose
-runtime/ui libraries are allowed. `FeatureDependencyRulesTest` enforces this and
-that `:core:tor` has no project dependencies. `:app` keeps `MainActivity`,
-onboarding, the application class, the mesh, Wi-Fi Aware and foreground service,
-the DI modules that bind ports, the debug hooks and all instrumented tests.
-`MainActivity` registers only `OnboardingRoute` inline.
+runtime/ui libraries are allowed. `FeatureDependencyRulesTest` enforces this,
+that `:core:tor` has no project dependencies and that `:core:readiness` depends
+on no feature and not on `:app`. `:app` keeps `MainActivity`, the startup gate
+(`AppStartupGate`), the application class, the mesh, Wi-Fi Aware and foreground
+service, the DI modules that bind ports, the debug hooks (`ReadinessOverride`
+among them) and all instrumented tests. `MainActivity` registers no destinations
+inline.
 
 `build-logic/` holds the Gradle convention plugins (`bitchat.android.*`)
 applied by library modules. It is an included build; it does not appear in

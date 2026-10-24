@@ -5,6 +5,7 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import com.bitchat.android.chat.ChatEntriesModule
 import com.bitchat.android.location.LocationEntriesModule
+import com.bitchat.android.onboarding.OnboardingEntriesModule
 import com.bitchat.android.settings.SettingsEntriesModule
 import com.bitchat.android.share.AppBuildInfo
 import com.bitchat.android.ui.ChatState
@@ -17,11 +18,11 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Every route in [routes] resolves to exactly one entry once the host's own
- * entries and the feature installers are assembled.
+ * Every route in [routes] resolves to exactly one entry once the feature
+ * installers are assembled.
  *
  * This does not exercise the Hilt graph. It assembles the installers by calling
- * the three providers by hand, so a feature module that is missing from the
+ * the four providers by hand, so a feature module that is missing from the
  * graph (not a dependency of :app, or lacking @InstallIn) is not caught, and
  * neither is a route missing from the hand-written [routes] list.
  *
@@ -62,7 +63,8 @@ class EveryRouteHasAnEntryTest {
             ),
             LocationEntriesModule.locationEntries(navigator = navigator, chatState = chatState),
             ChatEntriesModule.chatEntries(navigator = navigator, chatState = chatState),
-        ) + appEntries(onboarding = {})
+            OnboardingEntriesModule.onboardingEntries(),
+        )
 
         val unresolved = mutableListOf<NavKey>()
         val provider = entryProvider<NavKey>(

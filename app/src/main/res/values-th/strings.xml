@@ -18,21 +18,15 @@
     <!-- การเพิ่มประสิทธิภาพแบตเตอรี่ -->
     <string name="battery_optimization_detected">ตรวจพบการเพิ่มประสิทธิภาพแบตเตอรี่</string>
     <string name="battery_optimization_disabled">ปิดการเพิ่มประสิทธิภาพแบตเตอรี่แล้ว</string>
-    <string name="battery_optimization_not_required">ไม่จำเป็นต้องเพิ่มประสิทธิภาพแบตเตอรี่</string>
     <string name="battery_optimization_checking">กำลังตรวจสอบการเพิ่มประสิทธิภาพแบตเตอรี่</string>
     <string name="battery_optimization_why_disable">ทำไมต้องปิดการเพิ่มประสิทธิภาพแบตเตอรี่?</string>
     <string name="battery_optimization_explanation">bitchat ทำงานเบื้องหลังเพื่อคงการเชื่อมต่อแบบเมชกับอุปกรณ์ใกล้เคียง การเพิ่มประสิทธิภาพแบตเตอรี่อาจขัดจังหวะการเชื่อมต่อเหล่านี้ ทำให้ข้อความล่าช้าหรือสูญหาย\n\nการปิดการเพิ่มประสิทธิภาพแบตเตอรี่ช่วยให้การสื่อสารแบบเพียร์ทูเพียร์เชื่อถือได้</string>
     <string name="battery_optimization_disable_button">ปิดการเพิ่มประสิทธิภาพแบตเตอรี่</string>
     <string name="battery_optimization_note">หมายเหตุ: คุณสามารถเปลี่ยนได้ภายหลังที่ การตั้งค่า Android &gt; แอป &gt; bitchat &gt; แบตเตอรี่</string>
     <string name="battery_optimization_not_supported_explanation">อุปกรณ์ของคุณไม่ต้องการการตั้งค่าการเพิ่มประสิทธิภาพแบตเตอรี่ bitchat จะทำงานตามปกติ</string>
-    <string name="battery_optimization_not_supported_message">อุปกรณ์ของคุณไม่ต้องการการตั้งค่าการเพิ่มประสิทธิภาพแบตเตอรี่ bitchat จะทำงานตามปกติ</string>
-    <string name="battery_optimization_success_message">bitchat สามารถทำงานเบื้องหลังได้อย่างเชื่อถือได้</string>
     <string name="battery_optimization_benefits">• ส่งข้อความได้อย่างเชื่อถือ\n• รักษาการเชื่อมต่อแบบเมช\n• ส่งต่อข้อความเบื้องหลัง\n• ป้องกันการหลุดการเชื่อมต่อ</string>
     <string name="battery_optimization_check_again">ตรวจสอบอีกครั้ง</string>
-    <string name="battery_optimization_skip">ข้ามตอนนี้</string>
     <string name="battery_optimization_continue">ดำเนินการต่อ</string>
-    <string name="skip">ข้าม</string>
-
     <!-- การแจ้งเตือน -->
     <string name="notification_summary_more">และอีก %1$d</string>
     <string name="notification_active_peers_title">มีผู้ใช้ใกล้คุณ!</string>
@@ -51,17 +45,8 @@
     <string name="about_emergency_title">ลบข้อมูลฉุกเฉิน</string>
     <!-- คำอธิบายเนื้อหาทั่วไป -->
     <string name="cd_warning">คำเตือน</string>
-    <string name="cd_location_services">บริการตำแหน่ง</string>
-    <string name="cd_privacy">ความเป็นส่วนตัว</string>
-    <string name="cd_error">ข้อผิดพลาด</string>
-    <string name="cd_battery_optimization">การเพิ่มประสิทธิภาพแบตเตอรี่</string>
-    <string name="cd_benefits">ประโยชน์</string>
-    <string name="cd_checking_battery_optimization">กำลังตรวจสอบการเพิ่มประสิทธิภาพแบตเตอรี่</string>
-    <string name="cd_not_supported_battery_optimization">ไม่รองรับการเพิ่มประสิทธิภาพแบตเตอรี่</string>
-    <string name="cd_bluetooth">Bluetooth</string>
     <string name="cd_teleport">เทเลพอร์ต</string>
     <string name="cd_leave_channel">ออกจากช่อง</string>
-    <string name="cd_privacy_protected">คุ้มครองความเป็นส่วนตัว</string>
     <string name="cd_offline_mesh_chat">แชทเมชออฟไลน์</string>
     <string name="cd_online_geohash_channels">ช่อง geohash ออนไลน์</string>
     <string name="cd_end_to_end_encryption">การเข้ารหัสแบบปลายทางถึงปลายทาง</string>
@@ -77,41 +62,7 @@
     <string name="debug_since_start_fmt">ตั้งแต่เริ่มต้น: %1$d</string>
     <string name="debug_sync_settings">การตั้งค่าการซิงค์</string>
     <string name="debug_relays_window_fmt">10 วิ ล่าสุด: %1$d • 1 นาที: %2$d • 15 นาที: %3$d</string>
-    <!-- หน้าจอเริ่มต้นใช้งาน -->
-    <string name="location_services_required">ต้องใช้บริการตำแหน่ง</string>
-    <string name="privacy_first">ความเป็นส่วนตัวมาก่อน</string>
-    <string name="location_explanation">bitchat ไม่ติดตามตำแหน่งของคุณ\n\nต้องใช้บริการตำแหน่งสำหรับการสแกนบลูทูธและคุณสมบัติแชท geohash</string>
-    <string name="location_needs_for">bitchat ต้องใช้บริการตำแหน่งสำหรับ:</string>
-    <string name="location_needs_bullets">• สแกนอุปกรณ์บลูทูธ\n• ค้นพบผู้ใช้ใกล้เคียงในเครือข่ายเมช\n• คุณสมบัติแชท geohash\n• ไม่มีการติดตามหรือเก็บตำแหน่ง</string>
-    <string name="open_location_settings">เปิดการตั้งค่าตำแหน่ง</string>
-    <string name="check_again">ตรวจสอบอีกครั้ง</string>
-    <string name="location_services_unavailable">ไม่สามารถใช้บริการตำแหน่งได้</string>
-    <string name="location_unavailable_explanation">บริการตำแหน่งไม่สามารถใช้ได้ในอุปกรณ์นี้ ซึ่งผิดปกติเนื่องจากโดยทั่วไปแล้วอุปกรณ์ Android จะมีบริการตำแหน่ง\n\nต้องใช้บริการตำแหน่งเพื่อให้การสแกนบลูทูธทำงานได้อย่างถูกต้อง (ข้อกำหนดของ Android) หากไม่มี แอปจะไม่สามารถค้นพบผู้ใช้ใกล้เคียงได้</string>
-    <string name="checking_location_services">กำลังตรวจสอบบริการตำแหน่ง…</string>
     <string name="bluetooth_required">ต้องใช้บลูทูธ</string>
-    <string name="bluetooth_needs_for">bitchat ต้องใช้บลูทูธสำหรับ:</string>
-    <string name="bluetooth_needs_bullets">• ค้นพบผู้ใช้ใกล้เคียง\n• สร้างการเชื่อมต่อเครือข่ายเมช\n• ส่งและรับข้อความ\n• ทำงานโดยไม่ใช้อินเทอร์เน็ตหรือเซิร์ฟเวอร์</string>
-    <string name="enable_bluetooth">เปิดบลูทูธ</string>
-    <string name="bluetooth_not_supported">ไม่รองรับบลูทูธ</string>
-    <string name="bluetooth_unsupported_explanation">อุปกรณ์นี้ไม่รองรับ Bluetooth Low Energy (BLE) ซึ่งจำเป็นสำหรับการทำงานของ bitchat\n\nต้องใช้ BLE เพื่อสร้างเครือข่ายเมชและสื่อสารกับอุปกรณ์ใกล้เคียงโดยไม่ใช้อินเทอร์เน็ต</string>
-    <string name="checking_bluetooth_status">กำลังตรวจสอบสถานะบลูทูธ…</string>
-    <string name="battery_optimization_detected_title">ตรวจพบการเพิ่มประสิทธิภาพแบตเตอรี่</string>
-    <string name="battery_optimization_enabled_title">เปิดใช้การเพิ่มประสิทธิภาพแบตเตอรี่</string>
-    <string name="battery_optimization_explanation_short">bitchat ต้องทำงานเบื้องหลังเพื่อคงการเชื่อมต่อแบบเมช การเพิ่มประสิทธิภาพแบตเตอรี่อาจขัดจังหวะการเชื่อมต่อเหล่านี้</string>
-    <string name="benefits_of_disabling">ประโยชน์ของการปิดใช้งาน</string>
-    <string name="battery_benefits_short">• ส่งข้อความได้อย่างเชื่อถือ\n• รักษาการเชื่อมต่อแบบเมช\n• ป้องกันการหลุดการเชื่อมต่อ</string>
-    <string name="disable_battery_optimization">ปิดการเพิ่มประสิทธิภาพแบตเตอรี่</string>
-    <string name="battery_optimization_disabled_title">ปิดการเพิ่มประสิทธิภาพแบตเตอรี่แล้ว</string>
-    <string name="continue_btn">ดำเนินการต่อ</string>
-    <string name="initializing_mesh_network">กำลังเริ่มต้นเครือข่ายเมช</string>
-    <string name="setting_up_bluetooth">กำลังตั้งค่าเครือข่ายเมช Bluetooth…</string>
-    <string name="should_take_seconds">ควรใช้เวลาเพียงไม่กี่วินาที</string>
-    <string name="setup_not_complete">ตั้งค่าไม่เสร็จสมบูรณ์</string>
-    <string name="try_again">ลองอีกครั้ง</string>
-    <string name="privacy_protected">ความเป็นส่วนตัวของคุณได้รับการคุ้มครอง</string>
-    <string name="privacy_bullets">• ไม่มีการติดตามหรือเก็บข้อมูล\n• แชทเมชบลูทูธทำงานแบบออฟไลน์ทั้งหมด\n• แชท geohash ใช้อินเทอร์เน็ต</string>
-    <string name="permissions_header">สิทธิ์</string>
-    <string name="grant_permissions">ให้สิทธิ์</string>
     <string name="location_tracking_warning">bitchat ไม่ติดตามตำแหน่งของคุณ</string>
     <string name="image_star">image/*</string>
     <!-- การช่วยสำหรับการเข้าถึงของเครื่องเล่นเสียง -->
@@ -138,7 +89,6 @@
 
     <!-- พหูพจน์ -->
 
-    <string name="bluetooth_recommended">Bluetooth Recommended</string>
     <string name="mesh_service_notification_content">Mesh กำลังทำงาน — %1$d เพื่อน</string>
 
   <string name="verify_scan_someone">scan someone elses qr</string>

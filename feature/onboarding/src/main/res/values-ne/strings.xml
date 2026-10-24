@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="battery_optimization_not_required">ब्याट्री अनुकूलन आवश्यक छैन</string>
+    <string name="battery_optimization_not_supported_message">तपाईंको यन्त्रलाई ब्याट्री अनुकूलन सेटिङ आवश्यक छैन। bitchat सामान्य रूपमा चल्नेछ।</string>
+    <string name="battery_optimization_success_message">bitchat पछाडिबाट भरपर्दो रूपमा चल्न सक्छ</string>
+    <string name="battery_optimization_skip">अहिलेलाई बेवास्ता गर्नुहोस्</string>
+    <string name="skip">बेवास्ता गर्नुहोस्</string>
+
+    <string name="cd_location_services">स्थान सेवाहरू</string>
+    <string name="cd_privacy">गोपनीयता</string>
+    <string name="cd_error">त्रुटि</string>
+    <string name="cd_battery_optimization">ब्याट्री अनुकूलन</string>
+    <string name="cd_benefits">फाइदाहरू</string>
+    <string name="cd_checking_battery_optimization">ब्याट्री अनुकूलन जाँचिँदै</string>
+    <string name="cd_not_supported_battery_optimization">समर्थन छैन</string>
+    <string name="cd_bluetooth">ब्लुटुथ</string>
+    <!-- अनबोर्डिङ स्क्रिन -->
+    <string name="location_services_required">स्थान सेवाहरू आवश्यक</string>
+    <string name="privacy_first">गोपनीयता पहिलो</string>
+    <string name="location_explanation">bitchat ले तपाईंको स्थान पछ्याउँदैन।\n\nब्लुटुथ स्क्यान र Geohash च्याट सुविधा लागि स्थान सेवा आवश्यक छन्।</string>
+    <string name="location_needs_for">bitchat लाई स्थान सेवा आवश्यक पर्छ:</string>
+    <string name="location_needs_bullets">• ब्लुटुथ यन्त्र स्क्यान\n• मेष सञ्जालमा नजिकका प्रयोगकर्ता पत्ता लगाउने\n• Geohash च्याट सुविधा\n• कुनै ट्र्याकिङ वा स्थान सङ्कलन छैन</string>
+    <string name="open_location_settings">स्थान सेटिङ खोल्नुहोस्</string>
+    <string name="check_again">फेरि जाँच्नुहोस्</string>
+    <string name="location_services_unavailable">स्थान सेवाहरू उपलब्ध छैनन्</string>
+    <string name="location_unavailable_explanation">यस यन्त्रमा स्थान सेवाहरू उपलब्ध छैनन्। यो असामान्य हो किनकि Android यन्त्रमा यो मानक हो।\n\nब्लुटुथ स्क्यान ठीकसँग चल्न (Android को आवश्यक) स्थान सेवा चाहिन्छ। अन्यथा नजिकका प्रयोगकर्ता पत्ता लाग्दैनन्।</string>
+    <string name="checking_location_services">स्थान सेवाहरू जाँचिँदै…</string>
+    <string name="bluetooth_needs_for">bitchat लाई ब्लुटुथ आवश्यक छ:</string>
+    <string name="bluetooth_needs_bullets">• नजिकका प्रयोगकर्ता पत्ता लगाउने\n• मेष जडान बनाउने\n• सन्देश पठाउने/प्राप्त गर्ने\n• इन्टरनेट वा सर्भर बिना काम गर्ने</string>
+    <string name="enable_bluetooth">ब्लुटुथ सक्षम गर्नुहोस्</string>
+    <string name="bluetooth_not_supported">ब्लुटुथ समर्थित छैन</string>
+    <string name="bluetooth_unsupported_explanation">यो यन्त्रले Bluetooth Low Energy (BLE) समर्थन गर्दैन, जुन bitchat को लागि आवश्यक छ।\n\nनजिकका यन्त्रहरूसँग इन्टरनेट बिना सञ्चार गर्न र मेष बनाउन BLE चाहिन्छ।</string>
+    <string name="checking_bluetooth_status">ब्लुटुथ स्थिति जाँचिँदै…</string>
+    <string name="battery_optimization_detected_title">ब्याट्री अनुकूलन भेटियो</string>
+    <string name="battery_optimization_enabled_title">ब्याट्री अनुकूलन सक्षम</string>
+    <string name="battery_optimization_explanation_short">मेष जडान कायम राख्न bitchat पछाडिबाट चल्नुपर्छ। ब्याट्री अनुकूलनले जडान काट्न सक्छ।</string>
+    <string name="benefits_of_disabling">बन्द गर्ने फाइदाहरू</string>
+    <string name="battery_benefits_short">• भरपर्दो डेलिभरी\n• मेष कन्नेक्टिभिटी कायम\n• विच्छेद रोक्छ</string>
+    <string name="disable_battery_optimization">अनुकूलन बन्द गर्नुहोस्</string>
+    <string name="battery_optimization_disabled_title">ब्याट्री अनुकूलन बन्द</string>
+    <string name="continue_btn">जारी राख्नुहोस्</string>
+    <string name="initializing_mesh_network">मेष सञ्जाल सुरु गर्दै</string>
+    <string name="dot">.</string>
+    <string name="setting_up_bluetooth">ब्लुटुथ मेष सेटअप गर्दै…</string>
+    <string name="should_take_seconds">यसलाई केही सेकेन्ड मात्र लाग्छ</string>
+    <string name="warning_emoji">⚠️</string>
+    <string name="setup_not_complete">सेटअप पूरा भएन</string>
+    <string name="try_again">फेरि प्रयास गर्नुहोस्</string>
+    <string name="privacy_protected">तपाईंको गोपनीयता सुरक्षित छ</string>
+    <string name="privacy_bullets">• कुनै ट्र्याकिङ वा डेटा सङ्कलन छैन\n• ब्लुटुथ मेष च्याट पूर्णतया अफलाइन\n• Geohash च्याट इन्टरनेट प्रयोग गर्छ</string>
+    <string name="permissions_header">अनुमति</string>
+    <string name="grant_permissions">अनुमति दिनुहोस्</string>
+    <string name="bluetooth_recommended">ब्लुटुथ सिफारिस गरिएको</string>
+</resources>

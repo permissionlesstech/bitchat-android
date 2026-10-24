@@ -1,7 +1,6 @@
 package com.bitchat.android.onboarding
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
@@ -16,43 +15,44 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import com.bitchat.android.ui.theme.BitchatFontFamily
-import com.bitchat.android.R
+import com.bitchat.android.feature.onboarding.R
 
 /**
- * Screen shown when checking location services status or requesting location services enable
+ * Screen shown when checking Bluetooth status or requesting Bluetooth enable
  */
 @Composable
-fun LocationCheckScreen(
+fun BluetoothCheckScreen(
     modifier: Modifier,
     state: OnboardingUiState,
     onAction: (OnboardingAction) -> Unit,
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val status = state.location
-    val isLoading = state.locationLoading
-    val onEnableLocation = { onAction(OnboardingAction.LocationOpenSettingsTapped) }
-    val onRetry = { onAction(OnboardingAction.LocationCheckAgainTapped) }
+    val status = state.bluetooth
+    val isLoading = state.bluetoothLoading
+    val onEnableBluetooth = { onAction(OnboardingAction.BluetoothEnableTapped) }
+    val onSkip = { onAction(OnboardingAction.BluetoothSkipTapped) }
 
     Box(
         modifier = modifier.padding(32.dp),
         contentAlignment = Alignment.Center
     ) {
         when (status) {
-            LocationStatus.DISABLED -> {
-                LocationDisabledContent(
-                    onEnableLocation = onEnableLocation,
-                    onRetry = onRetry,
+            BluetoothStatus.DISABLED -> {
+                BluetoothDisabledContent(
+                    onEnableBluetooth = onEnableBluetooth,
+                    onSkip = onSkip,
                     colorScheme = colorScheme,
                     isLoading = isLoading
                 )
             }
-            LocationStatus.NOT_AVAILABLE -> {
-                LocationNotAvailableContent(
-                    colorScheme = colorScheme
+            BluetoothStatus.NOT_SUPPORTED -> {
+                BluetoothNotSupportedContent(
+                    colorScheme = colorScheme,
+                    onSkip = onSkip
                 )
             }
-            LocationStatus.ENABLED -> {
-                LocationCheckingContent(
+            BluetoothStatus.ENABLED -> {
+                BluetoothCheckingContent(
                     colorScheme = colorScheme
                 )
             }
@@ -61,9 +61,9 @@ fun LocationCheckScreen(
 }
 
 @Composable
-private fun LocationDisabledContent(
-    onEnableLocation: () -> Unit,
-    onRetry: () -> Unit,
+private fun BluetoothDisabledContent(
+    onEnableBluetooth: () -> Unit,
+    onSkip: () -> Unit,
     colorScheme: ColorScheme,
     isLoading: Boolean
 ) {
@@ -71,16 +71,16 @@ private fun LocationDisabledContent(
         verticalArrangement = Arrangement.spacedBy(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Location icon - using LocationOn outlined icon in app's green color
+        // Bluetooth icon - using Bluetooth outlined icon in app's green color
         Icon(
-            imageVector = Icons.Outlined.LocationOn,
-            contentDescription = stringResource(R.string.cd_location_services),
+            imageVector = Icons.Outlined.Bluetooth,
+            contentDescription = stringResource(R.string.cd_bluetooth),
             modifier = Modifier.size(64.dp),
             tint = Color(0xFF00C851) // App's main green color
         )
 
         Text(
-            text = stringResource(R.string.location_services_required),
+            text = stringResource(R.string.bluetooth_recommended),
             style = MaterialTheme.typography.headlineSmall.copy(
                 fontFamily = BitchatFontFamily,
                 fontWeight = FontWeight.Bold,
@@ -98,41 +98,10 @@ private fun LocationDisabledContent(
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Privacy assurance section
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Security,
-                        contentDescription = stringResource(R.string.cd_privacy),
-                        tint = Color(0xFF4CAF50),
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = stringResource(R.string.privacy_first),
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = colorScheme.onSurface
-                        )
-                    )
-                }
-                
                     Text(
-                        text = stringResource(R.string.location_explanation),
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontFamily = BitchatFontFamily,
-                        color = colorScheme.onSurface.copy(alpha = 0.8f)
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = stringResource(R.string.location_needs_for),
+                        text = stringResource(R.string.bluetooth_needs_for),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.Medium,
                         color = colorScheme.onSurface
@@ -142,7 +111,7 @@ private fun LocationDisabledContent(
                 )
                 
                     Text(
-                        text = stringResource(R.string.location_needs_bullets),
+                        text = stringResource(R.string.bluetooth_needs_bullets),
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontFamily = BitchatFontFamily,
                         color = colorScheme.onSurface.copy(alpha = 0.8f)
@@ -152,21 +121,21 @@ private fun LocationDisabledContent(
         }
 
         if (isLoading) {
-            LocationLoadingIndicator()
+            BluetoothLoadingIndicator()
         } else {
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Button(
-                    onClick = onEnableLocation,
+                    onClick = onEnableBluetooth,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF00C851) // App's main green color
                     )
                 ) {
                         Text(
-                            text = stringResource(R.string.open_location_settings),
+                            text = stringResource(R.string.enable_bluetooth),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = BitchatFontFamily,
                             fontWeight = FontWeight.Bold
@@ -175,16 +144,15 @@ private fun LocationDisabledContent(
                     )
                 }
 
-                OutlinedButton(
-                    onClick = onRetry,
+                TextButton(
+                    onClick = onSkip,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                        Text(
-                            text = stringResource(R.string.check_again),
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontFamily = BitchatFontFamily
-                        ),
-                        modifier = Modifier.padding(vertical = 4.dp)
+                    Text(
+                        text = stringResource(R.string.skip),
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            color = colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
                     )
                 }
             }
@@ -193,23 +161,30 @@ private fun LocationDisabledContent(
 }
 
 @Composable
-private fun LocationNotAvailableContent(
-    colorScheme: ColorScheme
+private fun BluetoothNotSupportedContent(
+    colorScheme: ColorScheme,
+    onSkip: () -> Unit
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Error icon
-        Icon(
-            imageVector = Icons.Filled.ErrorOutline,
-            contentDescription = stringResource(R.string.cd_error),
-            modifier = Modifier.size(64.dp),
-            tint = colorScheme.error
-        )
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFFFFEBEE)
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.warning_emoji),
+                style = MaterialTheme.typography.headlineLarge,
+                modifier = Modifier.padding(16.dp)
+            )
+        }
 
         Text(
-            text = stringResource(R.string.location_services_unavailable),
+            text = stringResource(R.string.bluetooth_not_supported),
             style = MaterialTheme.typography.headlineSmall.copy(
                 fontFamily = BitchatFontFamily,
                 fontWeight = FontWeight.Bold,
@@ -226,7 +201,7 @@ private fun LocationNotAvailableContent(
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Text(
-                text = stringResource(R.string.location_unavailable_explanation),
+                text = stringResource(R.string.bluetooth_unsupported_explanation),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontFamily = BitchatFontFamily,
                     color = colorScheme.onSurface
@@ -235,11 +210,21 @@ private fun LocationNotAvailableContent(
                 textAlign = TextAlign.Center
             )
         }
+
+        Button(
+            onClick = onSkip,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = colorScheme.secondary
+            )
+        ) {
+            Text(text = stringResource(R.string.continue_btn))
+        }
     }
 }
 
 @Composable
-private fun LocationCheckingContent(
+private fun BluetoothCheckingContent(
     colorScheme: ColorScheme
 ) {
     Column(
@@ -256,10 +241,10 @@ private fun LocationCheckingContent(
             textAlign = TextAlign.Center
         )
 
-        LocationLoadingIndicator()
+        BluetoothLoadingIndicator()
 
         Text(
-            text = stringResource(R.string.checking_location_services),
+            text = stringResource(R.string.checking_bluetooth_status),
             style = MaterialTheme.typography.bodyLarge.copy(
                 fontFamily = BitchatFontFamily,
                 color = colorScheme.onSurface.copy(alpha = 0.7f)
@@ -269,9 +254,9 @@ private fun LocationCheckingContent(
 }
 
 @Composable
-private fun LocationLoadingIndicator() {
+private fun BluetoothLoadingIndicator() {
     // Animated rotation for the loading indicator
-    val infiniteTransition = rememberInfiniteTransition(label = "location_loading")
+    val infiniteTransition = rememberInfiniteTransition(label = "bluetooth_loading")
     val rotationAngle by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
@@ -290,7 +275,7 @@ private fun LocationLoadingIndicator() {
             modifier = Modifier
                 .fillMaxSize()
                 .rotate(rotationAngle),
-            color = Color(0xFF4CAF50), // Location green
+            color = Color(0xFF2196F3), // Bluetooth blue
             strokeWidth = 3.dp
         )
     }

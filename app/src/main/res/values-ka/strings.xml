@@ -18,21 +18,15 @@
     <!-- ბატარეის ოპტიმიზაცია -->
     <string name="battery_optimization_detected">ბატარეის ოპტიმიზაცია აღმოჩნდა</string>
     <string name="battery_optimization_disabled">ბატარეის ოპტიმიზაცია გამორთულია</string>
-    <string name="battery_optimization_not_required">ბატარეის ოპტიმიზაცია არ არის საჭირო</string>
     <string name="battery_optimization_checking">ბატარეის ოპტიმიზაციის შემოწმება</string>
     <string name="battery_optimization_why_disable">რატომ უნდა გამოირთოს ბატარეის ოპტიმიზაცია?</string>
     <string name="battery_optimization_explanation">bitchat მუშაობს ფონში, რათა ახლომდებარე მოწყობილობებთან mesh-კავშირები შეინარჩუნოს. ბატარეის ოპტიმიზაციამ შეიძლება დააწყვეტინოს ეს კავშირები, რის გამოც შეტყობინებები დაგვიანდეს ან დაიკარგოს.\n\nბატარეის ოპტიმიზაციის გამორთვა უზრუნველყოფს სანდო peer-to-peer კომუნიკაციას.</string>
     <string name="battery_optimization_disable_button">ბატარეის ოპტიმიზაციის გამორთვა</string>
     <string name="battery_optimization_note">შენიშვნა: შეგიძლიათ შეცვალოთ მოგვიანებით Android-ის პარამეტრებში &gt; აპები &gt; bitchat &gt; ბატარეა.</string>
     <string name="battery_optimization_not_supported_explanation">თქვენს მოწყობილობას ბატარეის ოპტიმიზაცია არ სჭირდება. bitchat ჩვეულებრივ იმუშავებს.</string>
-    <string name="battery_optimization_not_supported_message">თქვენს მოწყობილობას ბატარეის ოპტიმიზაცია არ სჭირდება. bitchat ჩვეულებრივ იმუშავებს.</string>
-    <string name="battery_optimization_success_message">bitchat შეძლებს სანდოდ იმუშაოს ფონში</string>
     <string name="battery_optimization_benefits">• შეტყობინებების სანდო მიწოდება\n• mesh-კავშირის შენარჩუნება\n• ფონური გადაგზავნა\n• გათიშვების თავიდან აცილება</string>
     <string name="battery_optimization_check_again">თავიდან შემოწმება</string>
-    <string name="battery_optimization_skip">ახლა გამოტოვება</string>
     <string name="battery_optimization_continue">გაგრძელება</string>
-    <string name="skip">გამოტოვება</string>
-
     <!-- შეტყობინებები -->
     <string name="notification_summary_more">და კიდევ %1$d</string>
     <string name="notification_active_peers_title">bitchatter-ები ახლოს!</string>
@@ -51,17 +45,8 @@
     <string name="about_emergency_title">სასწრაფო მონაცემების წაშლა</string>
     <!-- ზოგადი კონტენტის აღწერები -->
     <string name="cd_warning">გაფრთხილება</string>
-    <string name="cd_location_services">მდებარეობის სერვისები</string>
-    <string name="cd_privacy">კონფიდენციალობა</string>
-    <string name="cd_error">შეცდომა</string>
-    <string name="cd_battery_optimization">ბატარეის ოპტიმიზაცია</string>
-    <string name="cd_benefits">სარგებელი</string>
-    <string name="cd_checking_battery_optimization">ბატარეის ოპტიმიზაციის შემოწმება</string>
-    <string name="cd_not_supported_battery_optimization">ბატარეის ოპტიმიზაცია მხარდაჭერილი არ არის</string>
-    <string name="cd_bluetooth">Bluetooth</string>
     <string name="cd_teleport">ტელეპორტი</string>
     <string name="cd_leave_channel">არხიდან გამოსვლა</string>
-    <string name="cd_privacy_protected">კონფიდენციალობა დაცულია</string>
     <string name="cd_offline_mesh_chat">ოფლაინ mesh-ჩათი</string>
     <string name="cd_online_geohash_channels">ონლაინ geohash არხები</string>
     <string name="cd_end_to_end_encryption">ბოლო-მდე დაშიფვრა</string>
@@ -77,41 +62,7 @@
     <string name="debug_since_start_fmt">გაშვებიდან: %1$d</string>
     <string name="debug_sync_settings">სინქრონიზაციის პარამეტრები</string>
     <string name="debug_relays_window_fmt">ბოლო 10 წმ: %1$d • 1 წთ: %2$d • 15 წთ: %3$d</string>
-    <!-- ონბორდინგის ეკრანები -->
-    <string name="location_services_required">მდებარეობის სერვისებია საჭირო</string>
-    <string name="privacy_first">კონფიდენციალობა პირველია</string>
-    <string name="location_explanation">bitchat არ აკონტროლებს თქვენს მდებარეობას.\n\nმდებარეობის სერვისები საჭიროა Bluetooth სკანირებისა და geohash ჩათის ფუნქციისთვის.</string>
-    <string name="location_needs_for">bitchat-ს სჭირდება მდებარეობის სერვისები შემდეგისთვის:</string>
-    <string name="location_needs_bullets">• Bluetooth მოწყობილობების სკანირება\n• mesh ქსელში ახლომდებარე მომხმარებლების აღმოჩენა\n• geohash ჩათის ფუნქცია\n• არც ტრეკინგი, არც მდებარეობის შეგროვება</string>
-    <string name="open_location_settings">მდებარეობის პარამეტრების გახსნა</string>
-    <string name="check_again">თავიდან შემოწმება</string>
-    <string name="location_services_unavailable">მდებარეობის სერვისები მიუწვდომელია</string>
-    <string name="location_unavailable_explanation">ამ მოწყობილობაზე მდებარეობის სერვისები მიუწვდომელია. ეს უჩვეულოა, რადგან Android მოწყობილობებზე ისინი სტანდარტულია.\n\nBluetooth სკანირებისთვის (Android-ის მოთხოვნა) საჭიროა მდებარეობის სერვისები. ამის გარეშე აპს არ შეუძლია ახლომდებარე მომხმარებლების აღმოჩენა.</string>
-    <string name="checking_location_services">მდებარეობის სერვისების შემოწმება…</string>
     <string name="bluetooth_required">Bluetooth საჭიროა</string>
-    <string name="bluetooth_needs_for">bitchat-ს სჭირდება Bluetooth შემდეგისთვის:</string>
-    <string name="bluetooth_needs_bullets">• ახლომდებარე მომხმარებლების აღმოჩენა\n• mesh ქსელის კავშირების შექმნა\n• შეტყობინებების გაგზავნა/მიღება\n• მუშაობა ინტერნეტის ან სერვერების გარეშე</string>
-    <string name="enable_bluetooth">Bluetooth-ის ჩართვა</string>
-    <string name="bluetooth_not_supported">Bluetooth არ მხარდაჭერილია</string>
-    <string name="bluetooth_unsupported_explanation">ამ მოწყობილობას არ უჭერს მხარს Bluetooth Low Energy (BLE), რომელიც საჭიროა bitchat-ისთვის.\n\nBLE საჭიროა mesh ქსელების შესაქმნელად და ახლომდებარე მოწყობილობებთან ინტერნეტის გარეშე კომუნიკაციისთვის.</string>
-    <string name="checking_bluetooth_status">Bluetooth სტატუსის შემოწმება…</string>
-    <string name="battery_optimization_detected_title">ბატარეის ოპტიმიზაცია აღმოჩნდა</string>
-    <string name="battery_optimization_enabled_title">ბატარეის ოპტიმიზაცია ჩართულია</string>
-    <string name="battery_optimization_explanation_short">mesh კავშირების შესანარჩუნებლად bitchat უნდა იმუშავოს ფონში. ბატარეის ოპტიმიზაციამ შეიძლება დაარღვიოს ეს კავშირები.</string>
-    <string name="benefits_of_disabling">გამორთვის სარგებელი</string>
-    <string name="battery_benefits_short">• სანდო მიწოდება\n• mesh კავშირის შენარჩუნება\n• გათიშვების თავიდან აცილება</string>
-    <string name="disable_battery_optimization">ბატარეის ოპტიმიზაციის გამორთვა</string>
-    <string name="battery_optimization_disabled_title">ბატარეის ოპტიმიზაცია გამორთულია</string>
-    <string name="continue_btn">გაგრძელება</string>
-    <string name="initializing_mesh_network">mesh ქსელის ინიციალიზაცია</string>
-    <string name="setting_up_bluetooth">Bluetooth mesh ქსელის მოწყობა…</string>
-    <string name="should_take_seconds">ეს რამდენიმე წამს უნდა გაგრძელდეს</string>
-    <string name="setup_not_complete">მოწყობა დაუსრულებელია</string>
-    <string name="try_again">კვლავ ცდა</string>
-    <string name="privacy_protected">თქვენი კონფიდენციალობა დაცულია</string>
-    <string name="privacy_bullets">• ტრეკინგი ან მონაცემთა შეგროვება არა\n• Bluetooth mesh-ჩათები სრულად ოფლაინ\n• geohash ჩათი იყენებს ინტერნეტს</string>
-    <string name="permissions_header">ნებართვები</string>
-    <string name="grant_permissions">ნებართვების მინიჭება</string>
     <string name="location_tracking_warning">bitchat არ აკონტროლებს თქვენს მდებარეობას</string>
     <string name="image_star">image/*</string>
     <!-- ხმოვანი დამკვრელის ხელმისაწვდომობა -->
@@ -138,7 +89,6 @@
 
     <!-- მრავლობითი რიცხვები -->
 
-    <string name="bluetooth_recommended">Bluetooth Recommended</string>
     <string name="mesh_service_notification_content">Mesh გაშვებულია — %1$d პირები</string>
 
   <string name="verify_scan_someone">scan someone elses qr</string>

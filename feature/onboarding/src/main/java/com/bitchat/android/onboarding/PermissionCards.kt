@@ -4,7 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.os.Build
 import android.util.Log
-import com.bitchat.android.R
+import com.bitchat.android.feature.onboarding.R
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn

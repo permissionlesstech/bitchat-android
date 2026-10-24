@@ -18,21 +18,15 @@
     <!-- बैटरी अनुकूलन -->
     <string name="battery_optimization_detected">बैटरी अनुकूलन मिला</string>
     <string name="battery_optimization_disabled">बैटरी अनुकूलन बंद है</string>
-    <string name="battery_optimization_not_required">बैटरी अनुकूलन आवश्यक नहीं</string>
     <string name="battery_optimization_checking">बैटरी अनुकूलन जाँच रहे हैं</string>
     <string name="battery_optimization_why_disable">बैटरी अनुकूलन क्यों बंद करें?</string>
     <string name="battery_optimization_explanation">bitchat पृष्ठभूमि में चलती है ताकि पास के उपकरणों के साथ मेष कनेक्शन बनाए रखे। बैटरी अनुकूलन इन कनेक्शनों को बाधित कर सकता है, जिससे संदेश देर से पहुँचें या खो जाएँ।\n\nबैटरी अनुकूलन बंद करने से विश्वसनीय पीयर‑टू‑पीयर संचार सुनिश्चित होता है।</string>
     <string name="battery_optimization_disable_button">बैटरी अनुकूलन बंद करें</string>
     <string name="battery_optimization_note">नोट: आप इसे बाद में Android सेटिंग्स &gt; ऐप्स &gt; bitchat &gt; बैटरी में बदल सकते हैं।</string>
     <string name="battery_optimization_not_supported_explanation">आपके डिवाइस को बैटरी अनुकूलन सेटिंग्स की आवश्यकता नहीं है। bitchat सामान्य रूप से चलेगी।</string>
-    <string name="battery_optimization_not_supported_message">आपके डिवाइस को बैटरी अनुकूलन सेटिंग्स की आवश्यकता नहीं है। bitchat सामान्य रूप से चलेगी।</string>
-    <string name="battery_optimization_success_message">bitchat पृष्ठभूमि में विश्वसनीय रूप से चल सकती है</string>
     <string name="battery_optimization_benefits">• संदेशों की विश्वसनीय डिलीवरी\n• मेष कनेक्शन बनाए रखना\n• पृष्ठभूमि में संदेश फॉरवर्डिंग\n• डिसकनेक्शन से बचाव</string>
     <string name="battery_optimization_check_again">फिर से जाँचें</string>
-    <string name="battery_optimization_skip">अभी छोड़ें</string>
     <string name="battery_optimization_continue">जारी रखें</string>
-    <string name="skip">छोड़ें</string>
-
     <!-- सूचनाएँ -->
     <string name="notification_summary_more">और %1$d</string>
     <string name="notification_active_peers_title">पास में उपयोगकर्ता!</string>
@@ -51,17 +45,8 @@
     <string name="about_emergency_title">आपातकालीन डेटा मिटाना</string>
     <!-- सामान्य कंटेंट विवरण -->
     <string name="cd_warning">चेतावनी</string>
-    <string name="cd_location_services">स्थान सेवाएँ</string>
-    <string name="cd_privacy">गोपनीयता</string>
-    <string name="cd_error">त्रुटि</string>
-    <string name="cd_battery_optimization">बैटरी अनुकूलन</string>
-    <string name="cd_benefits">लाभ</string>
-    <string name="cd_checking_battery_optimization">बैटरी अनुकूलन जाँच रहे हैं</string>
-    <string name="cd_not_supported_battery_optimization">बैटरी अनुकूलन समर्थित नहीं</string>
-    <string name="cd_bluetooth">Bluetooth</string>
     <string name="cd_teleport">टेलीपोर्ट</string>
     <string name="cd_leave_channel">चैनल छोड़ें</string>
-    <string name="cd_privacy_protected">गोपनीयता सुरक्षित</string>
     <string name="cd_offline_mesh_chat">ऑफ़लाइन मेष चैट</string>
     <string name="cd_online_geohash_channels">ऑनलाइन geohash चैनल</string>
     <string name="cd_end_to_end_encryption">एंड‑टू‑एंड एन्क्रिप्शन</string>
@@ -77,41 +62,7 @@
     <string name="debug_since_start_fmt">आरंभ से: %1$d</string>
     <string name="debug_sync_settings">सिंक सेटिंग्स</string>
     <string name="debug_relays_window_fmt">पिछले 10 से.: %1$d • 1 मि.: %2$d • 15 मि.: %3$d</string>
-    <!-- ऑनबोर्डिंग स्क्रीन -->
-    <string name="location_services_required">स्थान सेवाएँ आवश्यक</string>
-    <string name="privacy_first">गोपनीयता पहले</string>
-    <string name="location_explanation">bitchat आपकी लोकेशन ट्रैक नहीं करती।\n\nBluetooth स्कैनिंग और geohash चैट फीचर के लिए स्थान सेवाएँ आवश्यक हैं।</string>
-    <string name="location_needs_for">bitchat को इन कारणों से स्थान सेवाएँ चाहिए:</string>
-    <string name="location_needs_bullets">• Bluetooth डिवाइस स्कैनिंग\n• मेष नेटवर्क में पास के उपयोगकर्ताओं की खोज\n• geohash चैट फीचर\n• कोई ट्रैकिंग या लोकेशन संग्रह नहीं</string>
-    <string name="open_location_settings">स्थान सेटिंग्स खोलें</string>
-    <string name="check_again">फिर से जाँचें</string>
-    <string name="location_services_unavailable">स्थान सेवाएँ उपलब्ध नहीं</string>
-    <string name="location_unavailable_explanation">इस डिवाइस पर स्थान सेवाएँ उपलब्ध नहीं हैं। यह असामान्य है क्योंकि Android डिवाइसों पर वे सामान्यतः होती हैं।\n\nBluetooth स्कैनिंग (Android आवश्यकता) के ठीक से काम करने के लिए स्थान सेवाएँ जरूरी हैं। इसके बिना ऐप पास के उपयोगकर्ताओं को नहीं ढूँढ़ सकती।</string>
-    <string name="checking_location_services">स्थान सेवाएँ जाँची जा रही हैं…</string>
     <string name="bluetooth_required">Bluetooth आवश्यक</string>
-    <string name="bluetooth_needs_for">bitchat को Bluetooth की आवश्यकता:</string>
-    <string name="bluetooth_needs_bullets">• पास के उपयोगकर्ताओं की खोज\n• मेष कनेक्शन बनाना\n• संदेश भेजना और प्राप्त करना\n• इंटरनेट या सर्वर के बिना काम करना</string>
-    <string name="enable_bluetooth">Bluetooth चालू करें</string>
-    <string name="bluetooth_not_supported">Bluetooth समर्थित नहीं</string>
-    <string name="bluetooth_unsupported_explanation">यह डिवाइस Bluetooth Low Energy (BLE) को सपोर्ट नहीं करता, जो bitchat के लिए आवश्यक है।\n\nइंटरनेट के बिना पास के डिवाइसों के साथ मेष नेटवर्क बनाने और संवाद करने के लिए BLE आवश्यक है।</string>
-    <string name="checking_bluetooth_status">Bluetooth स्थिति जाँच रहे हैं…</string>
-    <string name="battery_optimization_detected_title">बैटरी अनुकूलन मिला</string>
-    <string name="battery_optimization_enabled_title">बैटरी अनुकूलन चालू है</string>
-    <string name="battery_optimization_explanation_short">मेष कनेक्शन बनाए रखने के लिए bitchat को पृष्ठभूमि में चलना होता है। बैटरी अनुकूलन इन कनेक्शनों को बाधित कर सकता है।</string>
-    <string name="benefits_of_disabling">बंद करने के लाभ</string>
-    <string name="battery_benefits_short">• विश्वसनीय डिलीवरी\n• मेष कनेक्टिविटी बनाए रखें\n• डिसकनेक्शन रोकें</string>
-    <string name="disable_battery_optimization">बैटरी अनुकूलन बंद करें</string>
-    <string name="battery_optimization_disabled_title">बैटरी अनुकूलन बंद</string>
-    <string name="continue_btn">जारी रखें</string>
-    <string name="initializing_mesh_network">मेष नेटवर्क प्रारंभ कर रहे हैं</string>
-    <string name="setting_up_bluetooth">Bluetooth मेष नेटवर्क सेट कर रहे हैं…</string>
-    <string name="should_take_seconds">इसमें केवल कुछ सेकंड लगेंगे</string>
-    <string name="setup_not_complete">सेटअप पूरा नहीं हुआ</string>
-    <string name="try_again">फिर से प्रयास करें</string>
-    <string name="privacy_protected">आपकी गोपनीयता सुरक्षित है</string>
-    <string name="privacy_bullets">• कोई ट्रैकिंग या डेटा संग्रह नहीं\n• Bluetooth मेष चैट पूरी तरह ऑफ़लाइन\n• geohash चैट इंटरनेट का उपयोग करती है</string>
-    <string name="permissions_header">अनुमतियाँ</string>
-    <string name="grant_permissions">अनुमतियाँ दें</string>
     <string name="location_tracking_warning">bitchat आपकी लोकेशन ट्रैक नहीं करती</string>
     <string name="image_star">image/*</string>
     <!-- वॉइस प्लेयर एक्सेसिबिलिटी -->
@@ -138,7 +89,6 @@
 
     <!-- बहुवचन -->
 
-    <string name="bluetooth_recommended">ब्लूटूथ अनुशंसित</string>
     <string name="mesh_service_notification_content">मेश चल रहा है — %1$d पीयर्स</string>
 
   <string name="verify_scan_someone">scan someone elses qr</string>

@@ -18,21 +18,15 @@
     <!-- 电池优化 -->
     <string name="battery_optimization_detected">检测到电池优化</string>
     <string name="battery_optimization_disabled">电池优化已禁用</string>
-    <string name="battery_optimization_not_required">无需电池优化</string>
     <string name="battery_optimization_checking">正在检查电池优化</string>
     <string name="battery_optimization_why_disable">为何禁用电池优化？</string>
     <string name="battery_optimization_explanation">bitchat 在后台运行以保持与附近设备的 mesh 连接。电池优化可能中断连接，导致消息延迟或丢失。\n\n禁用可确保可靠的点对点消息。</string>
     <string name="battery_optimization_disable_button">禁用电池优化</string>
     <string name="battery_optimization_note">备注：稍后可在 设置 &gt; 应用 &gt; bitchat &gt; 电池 中更改。</string>
     <string name="battery_optimization_not_supported_explanation">你的设备不需要电池优化设置。bitchat 将正常运行。</string>
-    <string name="battery_optimization_not_supported_message">你的设备不需要电池优化设置。bitchat 将正常运行。</string>
-    <string name="battery_optimization_success_message">bitchat 可在后台可靠运行</string>
     <string name="battery_optimization_benefits">• 可靠投递消息\n• 维持 mesh 连接\n• 后台转发\n• 避免断连</string>
     <string name="battery_optimization_check_again">重新检查</string>
-    <string name="battery_optimization_skip">暂时跳过</string>
     <string name="battery_optimization_continue">继续</string>
-    <string name="skip">跳过</string>
-
     <!-- 通知 -->
     <string name="notification_summary_more">以及另外 %1$d 条</string>
     <string name="notification_active_peers_title">附近的 bitchatter！</string>
@@ -51,14 +45,6 @@
     <string name="about_emergency_title">紧急数据删除</string>
     <!-- 通用 CD -->
     <string name="cd_warning">警告</string>
-    <string name="cd_location_services">定位服务</string>
-    <string name="cd_privacy">隐私</string>
-    <string name="cd_error">错误</string>
-    <string name="cd_battery_optimization">电池优化</string>
-    <string name="cd_benefits">好处</string>
-    <string name="cd_checking_battery_optimization">检查电池优化</string>
-    <string name="cd_not_supported_battery_optimization">不支持</string>
-    <string name="cd_bluetooth">Bluetooth</string>
     <string name="cd_teleport">传送</string>
     <string name="cd_leave_channel">离开频道</string>
     <string name="cd_offline_mesh_chat">离线 Mesh 聊天</string>
@@ -76,43 +62,7 @@
     <string name="debug_since_start_fmt">自启动以来：%1$d</string>
     <string name="debug_sync_settings">同步设置</string>
     <string name="debug_relays_window_fmt">最近 10 秒：%1$d • 1 分钟：%2$d • 15 分钟：%3$d</string>
-    <!-- 入门屏幕 -->
-    <string name="location_services_required">需要定位服务</string>
-    <string name="privacy_first">隐私优先</string>
-    <string name="location_explanation">bitchat 不会跟踪你的位置。\n\n蓝牙扫描和 geohash 聊天功能需要定位服务。</string>
-    <string name="location_needs_for">bitchat 需要定位服务用于：</string>
-    <string name="location_needs_bullets">• 蓝牙设备扫描\n• 在 mesh 网络发现附近用户\n• Geohash 聊天\n• 不跟踪或收集位置</string>
-    <string name="open_location_settings">打开定位设置</string>
-    <string name="check_again">再次检查</string>
-    <string name="location_services_unavailable">定位服务不可用</string>
-    <string name="location_unavailable_explanation">此设备上定位服务不可用。这不常见，因为 Android 设备通常具备此功能。\n\n为使蓝牙扫描正常工作（Android 要求），需要定位服务。否则无法发现附近用户。</string>
-    <string name="checking_location_services">正在检查定位服务…</string>
     <string name="bluetooth_required">需要 Bluetooth</string>
-    <string name="bluetooth_needs_for">bitchat 需要 Bluetooth 以：</string>
-    <string name="bluetooth_needs_bullets">• 发现附近用户\n• 建立 mesh 连接\n• 发送和接收消息\n• 在无网络和服务器时工作</string>
-    <string name="enable_bluetooth">启用 Bluetooth</string>
-    <string name="bluetooth_not_supported">不支持 Bluetooth</string>
-    <string name="bluetooth_unsupported_explanation">此设备不支持 Bluetooth Low Energy (BLE)，而 bitchat 需要它。\n\nbitchat 需要 BLE 以建立 mesh 并在无网络时与附近设备通信。</string>
-    <string name="checking_bluetooth_status">正在检查 Bluetooth 状态…</string>
-    <string name="battery_optimization_detected_title">检测到电池优化</string>
-    <string name="battery_optimization_enabled_title">电池优化已启用</string>
-    <string name="battery_optimization_explanation_short">bitchat 需要在后台运行以维持连接；电池优化可能会中断。</string>
-    <string name="benefits_of_disabling">禁用的好处</string>
-    <string name="battery_benefits_short">• 可靠投递\n• 维持连接\n• 避免中断</string>
-    <string name="disable_battery_optimization">禁用优化</string>
-    <string name="battery_optimization_disabled_title">已禁用优化</string>
-    <string name="continue_btn">继续</string>
-    <string name="initializing_mesh_network">正在初始化 mesh 网络</string>
-    <string name="dot">.</string>
-    <string name="setting_up_bluetooth">正在设置 Bluetooth mesh…</string>
-    <string name="should_take_seconds">只需几秒钟</string>
-    <string name="warning_emoji">⚠️</string>
-    <string name="setup_not_complete">设置未完成</string>
-    <string name="try_again">重试</string>
-    <string name="privacy_protected">你的隐私已受保护</string>
-    <string name="privacy_bullets">• 不跟踪不收集\n• 蓝牙 mesh 聊天完全离线\n• geohash 聊天使用互联网</string>
-    <string name="permissions_header">权限</string>
-    <string name="grant_permissions">授予权限</string>
     <string name="location_tracking_warning">bitchat 不会跟踪你的位置</string>
     <string name="image_star">image/*</string>
     <!-- 消息状态 -->
@@ -148,7 +98,6 @@
 
     <!-- 复数 -->
 
-    <string name="bluetooth_recommended">建议开启蓝牙</string>
     <string name="mesh_service_notification_content">Mesh 运行中 — %1$d 个节点</string>
 
   <string name="verify_scan_someone">扫描他人的QR码</string>

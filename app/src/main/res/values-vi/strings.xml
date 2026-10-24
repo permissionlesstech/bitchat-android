@@ -18,21 +18,15 @@
     <!-- Tối ưu hóa pin -->
     <string name="battery_optimization_detected">Đã phát hiện tối ưu hóa pin</string>
     <string name="battery_optimization_disabled">Tối ưu hóa pin đã tắt</string>
-    <string name="battery_optimization_not_required">Không cần tối ưu hóa pin</string>
     <string name="battery_optimization_checking">Đang kiểm tra tối ưu hóa pin</string>
     <string name="battery_optimization_why_disable">Tại sao nên tắt tối ưu hóa pin?</string>
     <string name="battery_optimization_explanation">bitchat chạy nền để duy trì kết nối mesh với các thiết bị gần đó. Tối ưu hóa pin có thể làm gián đoạn các kết nối này, gây ra tin nhắn bị trễ hoặc mất.\n\nTắt tối ưu hóa pin đảm bảo liên lạc ngang hàng đáng tin cậy.</string>
     <string name="battery_optimization_disable_button">Tắt tối ưu hóa pin</string>
     <string name="battery_optimization_note">Lưu ý: Bạn có thể thay đổi điều này sau trong Android Settings &gt; Apps &gt; bitchat &gt; Battery.</string>
     <string name="battery_optimization_not_supported_explanation">Thiết bị của bạn không cần cài đặt tối ưu hóa pin. bitchat sẽ chạy bình thường.</string>
-    <string name="battery_optimization_not_supported_message">Thiết bị của bạn không cần cài đặt tối ưu hóa pin. bitchat sẽ chạy bình thường.</string>
-    <string name="battery_optimization_success_message">bitchat có thể chạy đáng tin cậy trong nền</string>
     <string name="battery_optimization_benefits">• Gửi tin nhắn đáng tin cậy\n• Duy trì kết nối mesh\n• Chuyển tiếp tin nhắn nền\n• Ngăn ngừa mất kết nối</string>
     <string name="battery_optimization_check_again">Kiểm tra lại</string>
-    <string name="battery_optimization_skip">Bỏ qua ngay</string>
     <string name="battery_optimization_continue">Tiếp tục</string>
-    <string name="skip">Bỏ qua</string>
-
     <!-- Thông báo -->
     <string name="notification_summary_more">và %1$d khác</string>
     <string name="notification_active_peers_title">bitchatter gần đó!</string>
@@ -51,17 +45,8 @@
     <string name="about_emergency_title">Xóa dữ liệu khẩn cấp</string>
     <!-- Mô tả nội dung chung -->
     <string name="cd_warning">Cảnh báo</string>
-    <string name="cd_location_services">Dịch vụ vị trí</string>
-    <string name="cd_privacy">Quyền riêng tư</string>
-    <string name="cd_error">Lỗi</string>
-    <string name="cd_battery_optimization">Tối ưu hóa pin</string>
-    <string name="cd_benefits">Lợi ích</string>
-    <string name="cd_checking_battery_optimization">Đang kiểm tra tối ưu hóa pin</string>
-    <string name="cd_not_supported_battery_optimization">Tối ưu hóa pin không được hỗ trợ</string>
-    <string name="cd_bluetooth">Bluetooth</string>
     <string name="cd_teleport">Dịch chuyển</string>
     <string name="cd_leave_channel">Rời khỏi kênh</string>
-    <string name="cd_privacy_protected">Quyền riêng tư được bảo vệ</string>
     <string name="cd_offline_mesh_chat">Trò chuyện Mesh ngoại tuyến</string>
     <string name="cd_online_geohash_channels">Kênh Geohash trực tuyến</string>
     <string name="cd_end_to_end_encryption">Mã hóa đầu cuối</string>
@@ -77,41 +62,7 @@
     <string name="debug_since_start_fmt">từ lúc bắt đầu: %1$d</string>
     <string name="debug_sync_settings">Cài đặt sync</string>
     <string name="debug_relays_window_fmt">10s cuối: %1$d • 1m: %2$d • 15m: %3$d</string>
-    <!-- Màn hình onboarding -->
-    <string name="location_services_required">Yêu cầu dịch vụ vị trí</string>
-    <string name="privacy_first">Quyền riêng tư trước tiên</string>
-    <string name="location_explanation">bitchat KHÔNG theo dõi vị trí của bạn.\n\nDịch vụ vị trí cần thiết cho quét Bluetooth và tính năng geohash chat.</string>
-    <string name="location_needs_for">bitchat cần dịch vụ vị trí cho:</string>
-    <string name="location_needs_bullets">• Quét thiết bị Bluetooth\n• Khám phá người dùng gần đó trong mạng mesh\n• Tính năng geohash chat\n• Không theo dõi hoặc thu thập vị trí</string>
-    <string name="open_location_settings">Mở cài đặt vị trí</string>
-    <string name="check_again">Kiểm tra lại</string>
-    <string name="location_services_unavailable">Dịch vụ vị trí không có sẵn</string>
-    <string name="location_unavailable_explanation">Dịch vụ vị trí không có sẵn trên thiết bị này. Điều này bất thường vì dịch vụ vị trí là tiêu chuẩn trên thiết bị Android.\n\nbitchat cần dịch vụ vị trí để quét Bluetooth hoạt động đúng (yêu cầu Android). Không có nó, ứng dụng không thể khám phá người dùng gần đó.</string>
-    <string name="checking_location_services">Đang kiểm tra dịch vụ vị trí …</string>
     <string name="bluetooth_required">Yêu cầu Bluetooth</string>
-    <string name="bluetooth_needs_for">bitchat cần Bluetooth cho:</string>
-    <string name="bluetooth_needs_bullets">• Khám phá người dùng gần đó\n• Tạo kết nối mạng mesh\n• Gửi và nhận tin nhắn\n• Hoạt động mà không cần Internet hoặc máy chủ</string>
-    <string name="enable_bluetooth">Bật Bluetooth</string>
-    <string name="bluetooth_not_supported">Bluetooth không được hỗ trợ</string>
-    <string name="bluetooth_unsupported_explanation">Thiết bị này không hỗ trợ Bluetooth Low Energy (BLE), cần thiết để bitchat hoạt động.\n\nbitchat cần BLE để tạo mạng mesh và liên lạc với thiết bị gần đó mà không cần Internet.</string>
-    <string name="checking_bluetooth_status">Đang kiểm tra trạng thái Bluetooth …</string>
-    <string name="battery_optimization_detected_title">Đã phát hiện tối ưu hóa pin</string>
-    <string name="battery_optimization_enabled_title">Tối ưu hóa pin đã bật</string>
-    <string name="battery_optimization_explanation_short">bitchat phải chạy nền để duy trì kết nối mesh. Tối ưu hóa pin có thể làm gián đoạn các kết nối này.</string>
-    <string name="benefits_of_disabling">Lợi ích của việc tắt</string>
-    <string name="battery_benefits_short">• gửi tin nhắn đáng tin cậy\n• duy trì kết nối mesh\n• ngăn ngừa mất kết nối</string>
-    <string name="disable_battery_optimization">Tắt tối ưu hóa pin</string>
-    <string name="battery_optimization_disabled_title">Tối ưu hóa pin đã tắt</string>
-    <string name="continue_btn">Tiếp tục</string>
-    <string name="initializing_mesh_network">Đang khởi tạo mạng mesh</string>
-    <string name="setting_up_bluetooth">Đang thiết lập mạng Bluetooth mesh …</string>
-    <string name="should_take_seconds">Điều này chỉ mất vài giây</string>
-    <string name="setup_not_complete">Thiết lập chưa hoàn thành</string>
-    <string name="try_again">Thử lại</string>
-    <string name="privacy_protected">Quyền riêng tư của bạn được bảo vệ</string>
-    <string name="privacy_bullets">• không theo dõi hoặc thu thập dữ liệu\n• Bluetooth mesh chat hoàn toàn ngoại tuyến\n• Geohash chat sử dụng Internet</string>
-    <string name="permissions_header">Quyền</string>
-    <string name="grant_permissions">Cấp quyền</string>
     <string name="location_tracking_warning">bitchat KHÔNG theo dõi vị trí của bạn</string>
     <string name="image_star">image/*</string>
     <!-- Khả năng truy cập trình phát thoại -->
@@ -138,7 +89,6 @@
 
     <!-- Số nhiều -->
 
-    <string name="bluetooth_recommended">Khuyên dùng Bluetooth</string>
     <string name="mesh_service_notification_content">Mesh đang chạy — %1$d ngang hàng</string>
 
   <string name="verify_scan_someone">scan someone elses qr</string>

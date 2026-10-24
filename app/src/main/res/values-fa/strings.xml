@@ -18,21 +18,15 @@
     <!-- بهینه‌سازی باتری -->
     <string name="battery_optimization_detected">بهینه‌سازی باتری شناسایی شد</string>
     <string name="battery_optimization_disabled">بهینه‌سازی باتری غیرفعال شد</string>
-    <string name="battery_optimization_not_required">بهینه‌سازی باتری لازم نیست</string>
     <string name="battery_optimization_checking">در حال بررسی بهینه‌سازی باتری</string>
     <string name="battery_optimization_why_disable">چرا بهینه‌سازی باتری را غیرفعال کنیم؟</string>
     <string name="battery_optimization_explanation">bitchat برای حفظ اتصال مِش با دستگاه‌های نزدیک در پس‌زمینه اجرا می‌شود. بهینه‌سازی باتری می‌تواند این اتصال‌ها را قطع کند و باعث تأخیر یا از دست رفتن پیام‌ها شود.\n\nغیرفعال‌کردن بهینه‌سازی باتری، ارتباط همتابه‌همتای قابل اعتماد را تضمین می‌کند.</string>
     <string name="battery_optimization_disable_button">غیرفعال‌کردن بهینه‌سازی باتری</string>
     <string name="battery_optimization_note">توجه: می‌توانید بعداً در تنظیمات اندروید &gt; برنامه‌ها &gt; bitchat &gt; باتری این مورد را تغییر دهید.</string>
     <string name="battery_optimization_not_supported_explanation">دستگاه شما به تنظیمات بهینه‌سازی باتری نیاز ندارد. bitchat به‌صورت عادی اجرا می‌شود.</string>
-    <string name="battery_optimization_not_supported_message">دستگاه شما به تنظیمات بهینه‌سازی باتری نیاز ندارد. bitchat به‌صورت عادی اجرا می‌شود.</string>
-    <string name="battery_optimization_success_message">bitchat می‌تواند با اطمینان در پس‌زمینه اجرا شود</string>
     <string name="battery_optimization_benefits">• تحویل مطمئن پیام‌ها\n• حفظ اتصال مِش\n• رلهٔ پیام در پس‌زمینه\n• جلوگیری از قطع اتصال</string>
     <string name="battery_optimization_check_again">بررسی مجدد</string>
-    <string name="battery_optimization_skip">فعلاً رد کردن</string>
     <string name="battery_optimization_continue">ادامه</string>
-    <string name="skip">رد کردن</string>
-
     <!-- اعلان‌ها -->
     <string name="notification_summary_more">و %1$d مورد دیگر</string>
     <string name="notification_active_peers_title">کاربران bitchat در نزدیکی!</string>
@@ -51,17 +45,8 @@
     <string name="about_emergency_title">پاکسازی اضطراری داده</string>
     <!-- توضیحات عمومی محتوا -->
     <string name="cd_warning">هشدار</string>
-    <string name="cd_location_services">خدمات مکان</string>
-    <string name="cd_privacy">حریم خصوصی</string>
-    <string name="cd_error">خطا</string>
-    <string name="cd_battery_optimization">بهینه‌سازی باتری</string>
-    <string name="cd_benefits">مزایا</string>
-    <string name="cd_checking_battery_optimization">در حال بررسی بهینه‌سازی باتری</string>
-    <string name="cd_not_supported_battery_optimization">بهینه‌سازی باتری پشتیبانی نمی‌شود</string>
-    <string name="cd_bluetooth">بلوتوث</string>
     <string name="cd_teleport">انتقال</string>
     <string name="cd_leave_channel">خروج از کانال</string>
-    <string name="cd_privacy_protected">حریم خصوصی محافظت شده است</string>
     <string name="cd_offline_mesh_chat">گفت‌وگوی مِش آفلاین</string>
     <string name="cd_online_geohash_channels">کانال‌های geohash آنلاین</string>
     <string name="cd_end_to_end_encryption">رمزگذاری سرتاسری</string>
@@ -77,41 +62,7 @@
     <string name="debug_since_start_fmt">از شروع: %1$d</string>
     <string name="debug_sync_settings">تنظیمات همگام‌سازی</string>
     <string name="debug_relays_window_fmt">۱۰ث اخیر: %1$d • ۱د: %2$d • ۱۵د: %3$d</string>
-    <!-- صفحه‌های آغازین -->
-    <string name="location_services_required">خدمات مکان لازم است</string>
-    <string name="privacy_first">حریم خصوصی در اولویت</string>
-    <string name="location_explanation">bitchat موقعیت شما را پیگیری نمی‌کند.\n\nبرای اسکن بلوتوث و قابلیت گفت‌وگوی geohash، خدمات مکان لازم است.</string>
-    <string name="location_needs_for">bitchat به خدمات مکان برای موارد زیر نیاز دارد:</string>
-    <string name="location_needs_bullets">• اسکن دستگاه‌های بلوتوث\n• یافتن کاربران نزدیک در شبکهٔ مِش\n• قابلیت گفت‌وگوی geohash\n• بدون پیگیری یا جمع‌آوری موقعیت</string>
-    <string name="open_location_settings">باز کردن تنظیمات مکان</string>
-    <string name="check_again">بررسی دوباره</string>
-    <string name="location_services_unavailable">خدمات مکان در دسترس نیست</string>
-    <string name="location_unavailable_explanation">خدمات مکان در این دستگاه در دسترس نیست. این غیرمعمول است زیرا خدمات مکان در دستگاه‌های اندرویدی استاندارد است.\n\nبرای عملکرد صحیح اسکن بلوتوث (الزام اندروید) bitchat به خدمات مکان نیاز دارد. بدون آن، برنامه نمی‌تواند کاربران نزدیک را بیابد.</string>
-    <string name="checking_location_services">در حال بررسی خدمات مکان …</string>
     <string name="bluetooth_required">بلوتوث لازم است</string>
-    <string name="bluetooth_needs_for">bitchat به بلوتوث برای موارد زیر نیاز دارد:</string>
-    <string name="bluetooth_needs_bullets">• یافتن کاربران نزدیک\n• ایجاد اتصال‌های شبکهٔ مِش\n• ارسال و دریافت پیام‌ها\n• کار بدون اینترنت یا سرور</string>
-    <string name="enable_bluetooth">فعال‌کردن بلوتوث</string>
-    <string name="bluetooth_not_supported">بلوتوث پشتیبانی نمی‌شود</string>
-    <string name="bluetooth_unsupported_explanation">این دستگاه از Bluetooth Low Energy (BLE) که برای کارکرد bitchat لازم است پشتیبانی نمی‌کند.\n\nbitchat برای ایجاد شبکهٔ مِش و ارتباط با دستگاه‌های نزدیک بدون اینترنت به BLE نیاز دارد.</string>
-    <string name="checking_bluetooth_status">در حال بررسی وضعیت بلوتوث …</string>
-    <string name="battery_optimization_detected_title">بهینه‌سازی باتری شناسایی شد</string>
-    <string name="battery_optimization_enabled_title">بهینه‌سازی باتری فعال است</string>
-    <string name="battery_optimization_explanation_short">برای حفظ اتصال مِش، bitchat باید در پس‌زمینه اجرا شود. بهینه‌سازی باتری می‌تواند این اتصال‌ها را مختل کند.</string>
-    <string name="benefits_of_disabling">مزایای غیرفعالسازی</string>
-    <string name="battery_benefits_short">• تحویل مطمئن پیام‌ها\n• حفظ اتصال مِش\n• جلوگیری از قطع اتصال</string>
-    <string name="disable_battery_optimization">غیرفعال‌کردن بهینه‌سازی باتری</string>
-    <string name="battery_optimization_disabled_title">بهینه‌سازی باتری غیرفعال شد</string>
-    <string name="continue_btn">ادامه</string>
-    <string name="initializing_mesh_network">در حال راه‌اندازی شبکهٔ مِش</string>
-    <string name="setting_up_bluetooth">در حال تنظیم شبکهٔ مِش بلوتوث …</string>
-    <string name="should_take_seconds">این کار فقط چند ثانیه طول می‌کشد</string>
-    <string name="setup_not_complete">راه‌اندازی کامل نشد</string>
-    <string name="try_again">تلاش دوباره</string>
-    <string name="privacy_protected">حریم خصوصی شما محافظت می‌شود</string>
-    <string name="privacy_bullets">• بدون پیگیری یا جمع‌آوری داده\n• گفت‌وگوی مِش بلوتوث کاملاً آفلاین است\n• گفت‌وگوی geohash از اینترنت استفاده می‌کند</string>
-    <string name="permissions_header">مجوزها</string>
-    <string name="grant_permissions">اعطای مجوزها</string>
     <string name="location_tracking_warning">bitchat موقعیت شما را پیگیری نمی‌کند</string>
     <string name="image_star">image/*</string>
     <!-- دسترسی‌پذیری پخش‌کنندهٔ صوت -->
@@ -138,7 +89,6 @@
 
     <!-- حالت جمع -->
 
-    <string name="bluetooth_recommended">بلوتوث توصیه می شود</string>
     <string name="mesh_service_notification_content">مش در حال اجرا — %1$d همتا</string>
 
   <string name="verify_scan_someone">scan someone elses qr</string>

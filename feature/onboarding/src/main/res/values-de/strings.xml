@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="battery_optimization_not_required">Akku‑Optimierung nicht erforderlich</string>
+    <string name="battery_optimization_not_supported_message">Dein Gerät benötigt keine Akku‑Optimierungs­einstellungen. bitchat läuft normal.</string>
+    <string name="battery_optimization_success_message">bitchat kann zuverlässig im Hintergrund laufen</string>
+    <string name="battery_optimization_skip">Jetzt überspringen</string>
+    <string name="skip">Überspringen</string>
+
+    <string name="cd_location_services">Standortdienste</string>
+    <string name="cd_privacy">Privatsphäre</string>
+    <string name="cd_error">Fehler</string>
+    <string name="cd_battery_optimization">Akku‑Optimierung</string>
+    <string name="cd_benefits">Vorteile</string>
+    <string name="cd_checking_battery_optimization">Akku‑Optimierung wird geprüft</string>
+    <string name="cd_not_supported_battery_optimization">Akku‑Optimierung nicht unterstützt</string>
+    <string name="cd_bluetooth">Bluetooth</string>
+    <string name="cd_privacy_protected">Privatsphäre geschützt</string>
+    <!-- Onboarding‑Bildschirme -->
+    <string name="location_services_required">Standortdienste erforderlich</string>
+    <string name="privacy_first">Privatsphäre zuerst</string>
+    <string name="location_explanation">bitchat verfolgt NICHT deinen Standort.\n\nStandortdienste sind für Bluetooth‑Scanning und das Geohash‑Chat‑Feature erforderlich.</string>
+    <string name="location_needs_for">bitchat benötigt Standortdienste für:</string>
+    <string name="location_needs_bullets">• Bluetooth‑Gerätescanning\n• Entdecken nahegelegener Benutzer im Mesh‑Netzwerk\n• Geohash‑Chat‑Feature\n• Keine Verfolgung oder Standortsammlung</string>
+    <string name="open_location_settings">Standorteinstellungen öffnen</string>
+    <string name="check_again">Erneut prüfen</string>
+    <string name="location_services_unavailable">Standortdienste nicht verfügbar</string>
+    <string name="location_unavailable_explanation">Standortdienste sind auf diesem Gerät nicht verfügbar. Das ist ungewöhnlich, da Standortdienste bei Android‑Geräten Standard sind.\n\nbitchat benötigt Standortdienste für das ordnungsgemäße Funktionieren des Bluetooth‑Scannings (Android‑Anforderung). Ohne diese kann die App keine nahegelegenen Benutzer entdecken.</string>
+    <string name="checking_location_services">Standortdienste werden geprüft …</string>
+    <string name="bluetooth_needs_for">bitchat benötigt Bluetooth für:</string>
+    <string name="bluetooth_needs_bullets">• Entdecken nahegelegener Benutzer\n• Erstellen von Mesh‑Netzwerkverbindungen\n• Senden und Empfangen von Nachrichten\n• Funktionieren ohne Internet oder Server</string>
+    <string name="enable_bluetooth">Bluetooth aktivieren</string>
+    <string name="bluetooth_not_supported">Bluetooth nicht unterstützt</string>
+    <string name="bluetooth_unsupported_explanation">Dieses Gerät unterstützt kein Bluetooth Low Energy (BLE), das für das Funktionieren von bitchat erforderlich ist.\n\nbitchat benötigt BLE, um Mesh‑Netzwerke zu erstellen und ohne Internet mit nahegelegenen Geräten zu kommunizieren.</string>
+    <string name="checking_bluetooth_status">Bluetooth‑Status wird geprüft …</string>
+    <string name="battery_optimization_detected_title">Akku‑Optimierung erkannt</string>
+    <string name="battery_optimization_enabled_title">Akku‑Optimierung aktiviert</string>
+    <string name="battery_optimization_explanation_short">bitchat muss im Hintergrund laufen, um Mesh‑Verbindungen aufrechtzuerhalten. Die Akku‑Optimierung kann diese Verbindungen unterbrechen.</string>
+    <string name="benefits_of_disabling">Vorteile der Deaktivierung</string>
+    <string name="battery_benefits_short">• zuverlässige Nachrichtenzustellung\n• Aufrechterhaltung der Mesh‑Konnektivität\n• verhindert Verbindungsabbrüche</string>
+    <string name="disable_battery_optimization">Akku‑Optimierung deaktivieren</string>
+    <string name="battery_optimization_disabled_title">Akku‑Optimierung deaktiviert</string>
+    <string name="continue_btn">Fortfahren</string>
+    <string name="initializing_mesh_network">Mesh‑Netzwerk wird initialisiert</string>
+    <string name="setting_up_bluetooth">Bluetooth‑Mesh‑Netzwerk wird eingerichtet …</string>
+    <string name="should_take_seconds">Das sollte nur wenige Sekunden dauern</string>
+    <string name="setup_not_complete">Setup nicht abgeschlossen</string>
+    <string name="try_again">Erneut versuchen</string>
+    <string name="privacy_protected">Deine Privatsphäre ist geschützt</string>
+    <string name="privacy_bullets">• keine Verfolgung oder Datensammlung\n• Bluetooth‑Mesh‑Chats sind vollständig offline\n• Geohash‑Chats nutzen das Internet</string>
+    <string name="permissions_header">Berechtigungen</string>
+    <string name="grant_permissions">Berechtigungen erteilen</string>
+    <string name="bluetooth_recommended">Bluetooth empfohlen</string>
+</resources>

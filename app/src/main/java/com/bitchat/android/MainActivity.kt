@@ -8,7 +8,6 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
@@ -22,7 +21,7 @@ import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.onboarding.DeviceReadiness
-import com.bitchat.android.onboarding.OnboardingRouteContent
+import com.bitchat.android.onboarding.LocalOnboardingContentPadding
 import com.bitchat.android.ui.BackAction
 import com.bitchat.android.ui.AppForegroundEffect
 import com.bitchat.android.ui.ChatBackUnwinder
@@ -42,7 +41,6 @@ import com.bitchat.android.navigation.AppNavigator
 import com.bitchat.android.navigation.BitchatNavDisplay
 import com.bitchat.android.navigation.ChatRoute
 import com.bitchat.android.navigation.EntryProviderInstaller
-import com.bitchat.android.navigation.appEntries
 import com.bitchat.android.navigation.MeshPeerListRoute
 import com.bitchat.android.navigation.SheetSceneStrategy
 import com.bitchat.android.navigation.VerificationRoute
@@ -114,8 +112,8 @@ class MainActivity : OrientationAwareActivity() {
     @Inject
     lateinit var geohashSession: GeohashSession
 
-    // Every feature's destinations, contributed through Hilt; the app's own
-    // are in appEntries.
+    // Every destination, onboarding's included, contributed by the features
+    // through Hilt.
     @Inject
     lateinit var entryInstallers: Set<@JvmSuppressWildcards EntryProviderInstaller>
 
@@ -179,11 +177,6 @@ class MainActivity : OrientationAwareActivity() {
                     modifier = Modifier.fillMaxSize(),
                     containerColor = MaterialTheme.colorScheme.background
                 ) { innerPadding ->
-                    // Only onboarding takes the scaffold insets; ChatScreen applies
-                    // its own status, navigation and IME padding.
-                    val onboardingModifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
                     val phase by startupGate.phase.collectAsState()
                     val retrying by startupGate.retrying.collectAsState()
                     // Read once per composition: it only matters while CHECKING,
@@ -244,22 +237,24 @@ class MainActivity : OrientationAwareActivity() {
                     }
 
                     val sheetSceneStrategy = remember { SheetSceneStrategy() }
-                    val entries = appEntries {
-                        OnboardingRouteContent(onboardingModifier)
-                    }
 
                     // NavDisplay rejects an empty back stack and the effect above does
                     // not run until after this composition, so the host waits a frame
                     // for it. Gate on the stack itself: root is non-null immediately,
                     // so gating on that would compose with nothing to show.
+                    //
+                    // Only onboarding takes the scaffold insets; ChatScreen applies
+                    // its own status, navigation and IME padding.
                     if (navigator.backStack.isNotEmpty()) {
-                        BitchatNavDisplay(
-                            navigator = navigator,
-                            entryInstallers = entryInstallers + setOf(entries),
-                            onExit = { finish() },
-                            modifier = Modifier.fillMaxSize(),
-                            sceneStrategies = listOf(sheetSceneStrategy),
-                        )
+                        CompositionLocalProvider(LocalOnboardingContentPadding provides innerPadding) {
+                            BitchatNavDisplay(
+                                navigator = navigator,
+                                entryInstallers = entryInstallers,
+                                onExit = { finish() },
+                                modifier = Modifier.fillMaxSize(),
+                                sceneStrategies = listOf(sheetSceneStrategy),
+                            )
+                        }
                     }
 
                     // NavDisplay enables its own back handler only while

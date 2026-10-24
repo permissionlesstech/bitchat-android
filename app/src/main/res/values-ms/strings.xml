@@ -15,21 +15,15 @@
     <!-- Battery Optimization Strings -->
     <string name="battery_optimization_detected">Pengoptimuman Bateri Dikesan</string>
     <string name="battery_optimization_disabled">Pengoptimuman Bateri Dilumpuhkan</string>
-    <string name="battery_optimization_not_required">Pengoptimuman Bateri Tidak Diperlukan</string>
     <string name="battery_optimization_checking">Menyemak Pengoptimuman Bateri</string>
     <string name="battery_optimization_why_disable">Kenapa lumpuhkan pengoptimuman bateri?</string>
     <string name="battery_optimization_explanation">bitchat berjalan di latar belakang untuk mengekalkan sambungan rangkaian mesh dengan peranti berdekatan. Pengoptimuman bateri boleh mengganggu sambungan ini, menyebabkan mesej lewat atau terlepas.\n\nMelumpuhkan pengoptimuman bateri memastikan pemesejan rakan-ke-rakan yang boleh dipercayai.</string>
     <string name="battery_optimization_disable_button">Lumpuhkan Pengoptimuman Bateri</string>
     <string name="battery_optimization_note">Nota: Anda boleh menukar tetapan ini kemudian dalam Tetapan Android > Apl > bitchat > Bateri</string>
     <string name="battery_optimization_not_supported_explanation">Peranti anda tidak memerlukan tetapan pengoptimuman bateri. bitchat akan berjalan seperti biasa.</string>
-    <string name="battery_optimization_not_supported_message">Peranti anda tidak memerlukan tetapan pengoptimuman bateri. bitchat akan berjalan seperti biasa.</string>
-    <string name="battery_optimization_success_message">bitchat boleh berjalan dengan boleh dipercayai di latar belakang</string>
     <string name="battery_optimization_benefits">• Memastikan penghantaran mesej yang boleh dipercayai\n• Mengekalkan ketersambungan rangkaian mesh\n• Membenarkan geganti mesej latar belakang\n• Mengelakkan sambungan terputus</string>
     <string name="battery_optimization_check_again">Semak Semula</string>
-    <string name="battery_optimization_skip">Langkau Buat Masa Ini</string>
     <string name="battery_optimization_continue">Teruskan</string>
-  <string name="skip">Skip</string>
-
   <!-- Notifications -->
   <string name="notification_summary_more">dan %1$d lagi</string>
   <string name="notification_active_peers_title">👥 bitchatter berdekatan!</string>
@@ -50,17 +44,8 @@
   <string name="about_tor_status">Status tor: %1$s, but-mula %2$d%%</string>
   <string name="about_last">Terakhir: %1$s</string>
   <string name="about_emergency_title">Pemadaman Data Kecemasan</string>
-  <string name="cd_privacy_protected">Privasi Dilindungi</string>
   <!-- Generic content descriptions -->
   <string name="cd_warning">Amaran</string>
-  <string name="cd_location_services">Perkhidmatan Lokasi</string>
-  <string name="cd_privacy">Privasi</string>
-  <string name="cd_error">Ralat</string>
-  <string name="cd_battery_optimization">Pengoptimuman Bateri</string>
-  <string name="cd_benefits">Faedah</string>
-  <string name="cd_checking_battery_optimization">Menyemak Pengoptimuman Bateri</string>
-  <string name="cd_not_supported_battery_optimization">Pengoptimuman Bateri Tidak Disokong</string>
-  <string name="cd_bluetooth">Bluetooth</string>
   <string name="cd_teleport">Teleport</string>
   <string name="notification_action_quit_bitchat">Keluar bitchat</string>
   <string name="cd_leave_channel">Keluar saluran</string>
@@ -82,52 +67,8 @@
   <string name="verify_validate">sahkan</string>
   <string name="verify_scanned">pengesahan diminta</string>
   <string name="debug_relays_window_fmt">10s lepas: %1$d • 1m: %2$d • 15m: %3$d</string>
-  <!-- Onboarding screens -->
-  <string name="location_services_required">Perkhidmatan Lokasi Diperlukan</string>
-  <string name="privacy_first">Privasi Diutamakan</string>
-  <string name="location_explanation">bitchat TIDAK menjejaki lokasi anda.\n\nPerkhidmatan lokasi diperlukan untuk imbasan Bluetooth dan untuk ciri sembang Geohash.</string>
-  <string name="location_needs_for">bitchat memerlukan perkhidmatan lokasi untuk:</string>
-  <string name="location_needs_bullets">• Imbasan peranti Bluetooth\n• Mengesan pengguna berdekatan pada rangkaian mesh\n• Ciri sembang Geohash\n• Tiada penjejakan atau pengumpulan lokasi</string>
-  <string name="background_location_required_title">Lokasi Latar Belakang Disyorkan</string>
-  <string name="background_location_required_subtitle">pilihan, meningkatkan kebolehpercayaan mesh</string>
-  <string name="background_location_explanation">Android mengesyorkan lokasi latar belakang supaya bitchat boleh mengimbas peranti berdekatan semasa apl tidak dibuka. Ini mengekalkan mesh aktif selepas but semula.</string>
-  <string name="background_location_settings_tip">Apabila tetapan dibuka, pilih "Benarkan sepanjang masa".</string>
-  <string name="background_location_needs_for">bitchat menggunakan lokasi latar belakang untuk:</string>
-  <string name="background_location_needs_bullets">- mengimbas peranti berdekatan semasa apl ditutup\n- menyambung semula selepas but semula\n- mengekalkan mesh berjalan di latar belakang</string>
-  <string name="background_location_privacy_note">Kami TIDAK PERNAH mengumpul atau menyimpan lokasi anda. Privasi anda selamat.</string>
-  <string name="grant_background_location">Benarkan Lokasi Latar Belakang</string>
   <string name="skip_background_location">Teruskan tanpa lokasi latar belakang</string>
-  <string name="open_location_settings">Buka Tetapan Lokasi</string>
-  <string name="check_again">Semak Semula</string>
-  <string name="location_services_unavailable">Perkhidmatan Lokasi Tidak Tersedia</string>
-  <string name="location_unavailable_explanation">Perkhidmatan lokasi tidak tersedia pada peranti ini. Ini luar biasa kerana perkhidmatan lokasi adalah standard pada peranti Android.\n\nbitchat memerlukan perkhidmatan lokasi untuk imbasan Bluetooth berfungsi dengan betul (keperluan Android). Tanpa ini, apl tidak dapat mengesan pengguna berdekatan.</string>
-  <string name="checking_location_services">Menyemak perkhidmatan lokasi...</string>
   <string name="bluetooth_required">Bluetooth Diperlukan</string>
-  <string name="bluetooth_needs_for">bitchat memerlukan Bluetooth untuk:</string>
-  <string name="bluetooth_needs_bullets">• Mengesan pengguna berdekatan\n• Mewujudkan sambungan rangkaian mesh\n• Menghantar dan menerima mesej\n• Berfungsi tanpa internet atau pelayan</string>
-  <string name="enable_bluetooth">Aktifkan Bluetooth</string>
-  <string name="bluetooth_not_supported">Bluetooth Tidak Disokong</string>
-  <string name="bluetooth_unsupported_explanation">Peranti ini tidak menyokong Bluetooth Low Energy (BLE), yang diperlukan untuk bitchat berfungsi.\n\nbitchat memerlukan BLE untuk mewujudkan rangkaian mesh dan berkomunikasi dengan peranti berdekatan tanpa internet.</string>
-  <string name="checking_bluetooth_status">Menyemak status Bluetooth...</string>
-  <string name="battery_optimization_detected_title">pengoptimuman bateri dikesan</string>
-  <string name="battery_optimization_enabled_title">Pengoptimuman Bateri Diaktifkan</string>
-  <string name="battery_optimization_explanation_short">bitchat perlu berjalan di latar belakang untuk mengekalkan sambungan mesh. pengoptimuman bateri boleh mengganggu sambungan ini.</string>
-  <string name="benefits_of_disabling">Faedah Melumpuhkan</string>
-  <string name="battery_benefits_short">• penghantaran mesej yang boleh dipercayai\n• mengekalkan ketersambungan mesh\n• mengelakkan sambungan terputus</string>
-  <string name="disable_battery_optimization">Lumpuhkan Pengoptimuman Bateri</string>
-  <string name="battery_optimization_disabled_title">pengoptimuman bateri dilumpuhkan</string>
-  <string name="continue_btn">Teruskan</string>
-  <string name="initializing_mesh_network">Memulakan rangkaian mesh</string>
-  <string name="dot">.</string>
-  <string name="setting_up_bluetooth">Menyediakan rangkaian mesh Bluetooth...</string>
-  <string name="should_take_seconds">Ini sepatutnya hanya mengambil masa beberapa saat</string>
-  <string name="warning_emoji">⚠️</string>
-  <string name="setup_not_complete">Persediaan Tidak Lengkap</string>
-  <string name="try_again">Cuba Lagi</string>
-  <string name="privacy_protected">Privasi Anda Dilindungi</string>
-  <string name="privacy_bullets">• tiada penjejakan atau pengumpulan data\n• sembang mesh Bluetooth sepenuhnya luar talian\n• sembang Geohash menggunakan internet</string>
-  <string name="permissions_header">kebenaran</string>
-  <string name="grant_permissions">Berikan Kebenaran</string>
   <string name="location_tracking_warning">bitchat TIDAK menjejaki lokasi anda</string>
   <string name="image_star">image/*</string>
   <!-- Message status icons -->
@@ -148,8 +89,6 @@
   <string name="perm_nearby_devices_system">Benarkan bitchat menyambung kepada peranti berdekatan</string>
   <string name="perm_location_desc">Diperlukan oleh Android untuk mengesan pengguna bitchat berdekatan melalui Bluetooth</string>
   <string name="perm_location_system">bitchat memerlukan ini untuk mengimbas peranti berdekatan</string>
-  <string name="perm_background_location_desc">Disyorkan untuk mengimbas peranti berdekatan semasa apl di latar belakang</string>
-  <string name="perm_background_location_system">Benarkan akses lokasi latar belakang</string>
   <string name="perm_notifications_desc">Terima pemberitahuan apabila anda menerima mesej peribadi</string>
   <string name="perm_notifications_system">Benarkan bitchat menghantar pemberitahuan kepada anda</string>
   <string name="perm_battery_desc">Lumpuhkan pengoptimuman bateri untuk memastikan bitchat berjalan dengan boleh dipercayai di latar belakang dan mengekalkan sambungan rangkaian mesh</string>
@@ -166,5 +105,4 @@
 
     <!-- Plurals -->
 
-    <string name="bluetooth_recommended">Bluetooth Disyorkan</string>
 </resources>

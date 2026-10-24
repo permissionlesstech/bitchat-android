@@ -147,6 +147,8 @@ dependencies {
     implementation(project(":feature:location:api"))
     implementation(project(":feature:settings"))
     implementation(project(":feature:settings:api"))
+    implementation(project(":feature:onboarding"))
+    implementation(project(":feature:onboarding:api"))
 
     // Core Android dependencies
     implementation(libs.androidx.core.ktx)
