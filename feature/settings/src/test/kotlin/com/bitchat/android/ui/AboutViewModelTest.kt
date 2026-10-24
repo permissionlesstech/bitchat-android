@@ -15,7 +15,6 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -44,7 +43,9 @@ class AboutViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun newViewModel() = AboutViewModel(store, background, tor)
+    // The read runs on the test dispatcher, so it has landed before the constructor returns
+    // and nothing is left in flight once a test ends.
+    private fun newViewModel() = AboutViewModel(store, background, tor, UnconfinedTestDispatcher())
 
     // QA5: PoW is loaded before its flows are first read.
     @Test
@@ -83,10 +84,10 @@ class AboutViewModelTest {
 
     // A1, A5, QA7: version and languages arrive from the background read.
     @Test
-    fun versionAndLanguages_areFilledInAfterTheBackgroundRead() = runTest {
+    fun versionAndLanguages_areFilledInAfterTheBackgroundRead() {
         val viewModel = newViewModel()
 
-        val state = withTimeout(5_000) { viewModel.uiState.first { it.versionName.isNotEmpty() } }
+        val state = viewModel.uiState.value
 
         assertEquals("1.2.3", state.versionName)
         assertEquals(listOf("de", "fr"), state.languages.map { it.languageTag })

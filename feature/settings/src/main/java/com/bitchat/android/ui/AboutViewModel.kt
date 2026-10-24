@@ -7,6 +7,7 @@ import com.bitchat.android.settings.BackgroundMeshSetting
 import com.bitchat.android.settings.TorStatusSource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -26,11 +27,20 @@ import kotlinx.coroutines.withContext
  * About opens. The version and the language list are read off the main thread.
  */
 @HiltViewModel
-class AboutViewModel @Inject constructor(
+class AboutViewModel internal constructor(
     private val store: AboutSettingsStore,
     private val backgroundMesh: BackgroundMeshSetting,
     private val tor: TorStatusSource,
+    /** Where the version and language reads run; tests pass their own dispatcher. */
+    private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
+
+    @Inject
+    constructor(
+        store: AboutSettingsStore,
+        backgroundMesh: BackgroundMeshSetting,
+        tor: TorStatusSource,
+    ) : this(store, backgroundMesh, tor, Dispatchers.IO)
 
     private val _uiState: MutableStateFlow<AboutUiState>
     val uiState: StateFlow<AboutUiState>
@@ -67,7 +77,7 @@ class AboutViewModel @Inject constructor(
         follow(tor.status) { copy(torStatus = it) }
 
         viewModelScope.launch {
-            val (versionName, languages) = withContext(Dispatchers.IO) {
+            val (versionName, languages) = withContext(ioDispatcher) {
                 store.versionName() to store.supportedLanguages()
             }
             _uiState.update { it.copy(versionName = versionName, languages = languages) }
