@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.widget.Toast
 import androidx.camera.compose.CameraXViewfinder
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
@@ -14,7 +15,6 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.core.SurfaceRequest
 import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.camera.viewfinder.core.ImplementationMode
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -66,6 +66,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.set
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.ui.theme.BitchatFontFamily
@@ -85,7 +86,6 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.common.BitMatrix
 import com.google.zxing.qrcode.QRCodeWriter
 import kotlinx.coroutines.flow.MutableStateFlow
-import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -96,10 +96,14 @@ fun VerificationSheet(
     viewModel: ChatViewModel,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val errorInvalid = stringResource(R.string.verify_scan_error_invalid)
+    val errorPeerNotFound = stringResource(R.string.verify_scan_error_peer_not_found)
+
     if (!isPresented) return
 
     val accent = MaterialTheme.colorScheme.primary
-    
+
     var selectedTab by remember { mutableStateOf(0) } // 0 = My Code, 1 = Scan
     val nickname by viewModel.nickname.collectAsStateWithLifecycle()
     val npub = remember { viewModel.getCurrentNpub() }
@@ -165,7 +169,7 @@ fun VerificationSheet(
 
             // Content
             Crossfade(
-                targetState = selectedTab, 
+                targetState = selectedTab,
                 label = "VerificationTabCrossfade",
                 modifier = Modifier.weight(1f)
             ) { tab ->
@@ -179,18 +183,21 @@ fun VerificationSheet(
                         accent = accent,
                         onScan = { code ->
                             val qr = VerificationService.verifyScannedQR(code)
-                            if (qr != null && viewModel.beginQRVerification(qr)) {
-                                selectedTab = 0
+                            when {
+                                qr == null -> Toast.makeText(context, errorInvalid, Toast.LENGTH_SHORT).show()
+                                !viewModel.beginQRVerification(qr) -> Toast.makeText(context, errorPeerNotFound, Toast.LENGTH_SHORT).show()
+                                else -> selectedTab = 0
                             }
                         }
+
                     )
                 }
             }
-            
+
             // Unverify Action
             val peerID by viewModel.selectedPrivateChatPeer.collectAsStateWithLifecycle()
             val fingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
-            
+
             if (peerID != null) {
                 val fingerprint = viewModel.getMeshPeerFingerprint(peerID!!)
                 if (fingerprint != null && fingerprints.contains(fingerprint)) {
@@ -254,14 +261,14 @@ private fun MyQrTabContent(
         verticalArrangement = Arrangement.Top
     ) {
         Spacer(modifier = Modifier.height(24.dp))
-        
+
         Text(
             text = stringResource(R.string.verify_my_qr_title),
             style = MaterialTheme.typography.titleMedium,
             fontFamily = BitchatFontFamily,
             color = accent
         )
-        
+
         Spacer(modifier = Modifier.height(32.dp))
 
         if (qrString.isNotBlank()) {
@@ -300,9 +307,9 @@ private fun MyQrTabContent(
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center
         )
-        
+
         Spacer(modifier = Modifier.height(8.dp))
-        
+
         // Helper text
         Text(
             text = stringResource(R.string.app_name).lowercase(),
@@ -321,7 +328,7 @@ private fun ScanTabContent(
     onScan: (String) -> Unit
 ) {
     val permissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
-    
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -339,19 +346,19 @@ private fun ScanTabContent(
                 contentAlignment = Alignment.Center
             ) {
                 ScannerView(onScan = onScan)
-                
+
                 // Overlay border
                 Box(
                     modifier = Modifier
                         .size(280.dp)
                         .border(2.dp, accent.copy(alpha = 0.8f), RoundedCornerShape(16.dp))
                 )
-                
+
                 // Corner accents for the overlay
                 Box(modifier = Modifier.size(260.dp)) {
                     // This could be drawn with Canvas for cooler effect, but simple border is cleaner for now
                 }
-                
+
                 Text(
                     text = stringResource(R.string.verify_scan_prompt_friend),
                     color = Color.White,
@@ -412,67 +419,95 @@ private fun ScannerView(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var lastValid by remember { mutableStateOf<String?>(null) }
-    val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
-    val cameraExecutor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
+    var cameraUnavailable by remember { mutableStateOf(false) }
     val surfaceRequests = remember { MutableStateFlow<SurfaceRequest?>(null) }
     val surfaceRequest by surfaceRequests.collectAsState(initial = null)
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
-
     val onCodeState = rememberUpdatedState(onScan)
-    val analyzer = remember {
-        QRCodeAnalyzer { text ->
-            mainHandler.post {
-                if (text == lastValid) return@post
-                lastValid = text
-                onCodeState.value(text)
+
+    DisposableEffect(context, lifecycleOwner) {
+        val mainExecutor = ContextCompat.getMainExecutor(context)
+        val cameraExecutor = Executors.newSingleThreadExecutor()
+        var active = true
+        var cameraProvider: ProcessCameraProvider? = null
+        var preview: Preview? = null
+        var analysis: ImageAnalysis? = null
+        cameraUnavailable = false
+        val analyzer = runCatching {
+            QRCodeAnalyzer { text ->
+                mainHandler.post {
+                    if (!active || !lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) || text == lastValid) return@post
+                    lastValid = text
+                    onCodeState.value(text)
+                }
+            }
+        }.getOrNull()
+
+        if (analyzer == null) {
+            cameraUnavailable = true
+        } else {
+            // Both provider creation and Future.get can fail before camera binding begins.
+            runCatching {
+                val future = ProcessCameraProvider.getInstance(context)
+                future.addListener({
+                    if (!active) return@addListener
+                    runCatching {
+                        val provider = future.get()
+                        cameraProvider = provider
+                        val scannerPreview = Preview.Builder().build().also {
+                            it.setSurfaceProvider(mainExecutor) { request ->
+                                if (active) surfaceRequests.value = request
+                                else request.willNotProvideSurface()
+                            }
+                        }
+                        val scannerAnalysis = ImageAnalysis.Builder()
+                            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                            .build()
+                            .also { it.setAnalyzer(cameraExecutor, analyzer) }
+                        preview = scannerPreview
+                        analysis = scannerAnalysis
+                        provider.bindToLifecycle(
+                            lifecycleOwner,
+                            CameraSelector.DEFAULT_BACK_CAMERA,
+                            scannerPreview,
+                            scannerAnalysis
+                        )
+                    }.onFailure {
+                        cameraUnavailable = true
+                        Log.w("VerificationSheet", "Unable to start verification camera")
+                    }
+                }, mainExecutor)
+            }.onFailure {
+                cameraUnavailable = true
+                Log.w("VerificationSheet", "Unable to initialize verification camera")
             }
         }
-    }
-
-    DisposableEffect(Unit) {
-        val executor = ContextCompat.getMainExecutor(context)
-        var cameraProvider: ProcessCameraProvider? = null
-
-        cameraProviderFuture.addListener(
-            {
-                val provider = cameraProviderFuture.get()
-                cameraProvider = provider
-                val preview = Preview.Builder().build().also {
-                    it.setSurfaceProvider { request -> surfaceRequests.value = request }
-                }
-                val analysis = ImageAnalysis.Builder()
-                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                    .build()
-                    .also { it.setAnalyzer(cameraExecutor, analyzer) }
-
-                runCatching {
-                    provider.unbindAll()
-                    provider.bindToLifecycle(
-                        lifecycleOwner,
-                        CameraSelector.DEFAULT_BACK_CAMERA,
-                        preview,
-                        analysis
-                    )
-                }.onFailure {
-                    Log.w("VerificationSheet", "Failed to bind camera: ${it.message}")
-                }
-            },
-            executor
-        )
 
         onDispose {
+            active = false
+            mainHandler.removeCallbacksAndMessages(null)
+            surfaceRequests.value?.willNotProvideSurface()
             surfaceRequests.value = null
-            runCatching { cameraProvider?.unbindAll() }
+            analysis?.clearAnalyzer()
+            val useCases = listOfNotNull(preview, analysis).toTypedArray()
+            runCatching { cameraProvider?.unbind(*useCases) }
+            runCatching { analyzer?.close() }
             cameraExecutor.shutdown()
         }
     }
 
-    surfaceRequest?.let { request ->
-        CameraXViewfinder(
-            surfaceRequest = request,
-            implementationMode = ImplementationMode.EMBEDDED,
-            modifier = Modifier.fillMaxSize()
+    if (cameraUnavailable) {
+        Text(
+            text = stringResource(R.string.verify_qr_unavailable),
+            color = Color.White
         )
+    } else {
+        surfaceRequest?.let { request ->
+            CameraXViewfinder(
+                surfaceRequest = request,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
     }
 }
 
@@ -513,8 +548,10 @@ private fun bitmapFromMatrix(matrix: BitMatrix): Bitmap {
 }
 
 private class QRCodeAnalyzer(
-    private val onCode: (String) -> Unit
+    onCode: (String) -> Unit
 ) : ImageAnalysis.Analyzer {
+    private val onCode = onCode
+    private var closed = false
     private val scanner = BarcodeScanning.getClient(
         BarcodeScannerOptions.Builder()
             .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
@@ -523,16 +560,39 @@ private class QRCodeAnalyzer(
 
     @ExperimentalGetImage
     override fun analyze(imageProxy: ImageProxy) {
-        val mediaImage = imageProxy.image ?: run {
-            imageProxy.close()
-            return
-        }
-        val input = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-        scanner.process(input)
-            .addOnSuccessListener { barcodes ->
-                val text = barcodes.firstOrNull()?.rawValue
-                if (!text.isNullOrBlank()) onCode(text)
+        synchronized(this) {
+            if (closed) {
+                imageProxy.close()
+                return
             }
-            .addOnCompleteListener { imageProxy.close() }
+            try {
+                val mediaImage = imageProxy.image ?: run {
+                    imageProxy.close()
+                    return
+                }
+                val input = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+                scanner.process(input)
+                    .addOnSuccessListener { barcodes ->
+                        synchronized(this) {
+                            if (!closed) {
+                                val text = barcodes.firstOrNull()?.rawValue
+                                if (!text.isNullOrBlank()) onCode(text)
+                            }
+                        }
+                    }
+                    .addOnCompleteListener { imageProxy.close() }
+            } catch (_: Exception) {
+                imageProxy.close()
+            }
+        }
+    }
+
+    fun close() {
+        synchronized(this) {
+            if (!closed) {
+                closed = true
+                scanner.close()
+            }
+        }
     }
 }
