@@ -3,6 +3,7 @@ package com.bitchat.android.mesh
 import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
@@ -43,13 +44,13 @@ abstract class MeshConnectionTracker(
     protected val pendingConnections = ConcurrentHashMap<String, ConnectionAttempt>()
 
     private var isActive = false
+    @Volatile private var cleanupJob: Job? = null
 
     /**
      * Start the tracker and its cleanup loop
      */
     open fun start() {
         isActive = true
-        startPeriodicCleanup()
     }
 
     /**
@@ -57,7 +58,12 @@ abstract class MeshConnectionTracker(
      */
     open fun stop() {
         isActive = false
-        pendingConnections.clear()
+        cleanupJob?.cancel()
+        cleanupJob = null
+        if (pendingConnections.isNotEmpty()) {
+            pendingConnections.clear()
+            onPendingConnectionsChanged()
+        }
     }
 
     /**
@@ -92,6 +98,8 @@ abstract class MeshConnectionTracker(
             val attempts = if (currentAttempt?.isExpired() == true) 1 else (currentAttempt?.attempts ?: 0) + 1
             pendingConnections[id] = ConnectionAttempt(attempts)
             Log.d(tag, "Added pending connection for $id (attempts: $attempts)")
+            onPendingConnectionsChanged()
+            scheduleCleanupIfNeeded()
             return true
         }
     }
@@ -100,8 +108,10 @@ abstract class MeshConnectionTracker(
      * Remove a pending attempt (e.g., on success or fatal error)
      */
     fun removePendingConnection(id: String) {
-        pendingConnections.remove(id)
+        if (pendingConnections.remove(id) != null) onPendingConnectionsChanged()
     }
+
+    protected open fun onPendingConnectionsChanged() = Unit
 
     /**
      * Abstract: Subclasses must define what "connected" means
@@ -118,9 +128,10 @@ abstract class MeshConnectionTracker(
      */
     abstract fun getConnectionCount(): Int
 
-    private fun startPeriodicCleanup() {
-        scope.launch {
-            while (isActive) {
+    private fun scheduleCleanupIfNeeded() {
+        if (!isActive || cleanupJob?.isActive == true) return
+        cleanupJob = scope.launch {
+            while (isActive && pendingConnections.isNotEmpty()) {
                 try {
                     delay(CLEANUP_INTERVAL)
                     if (!isActive) break
@@ -130,6 +141,7 @@ abstract class MeshConnectionTracker(
                     expired.keys.forEach { pendingConnections.remove(it) }
 
                     if (expired.isNotEmpty()) {
+                        onPendingConnectionsChanged()
                         Log.d(tag, "Cleaned up ${expired.size} expired connection attempts")
                     }
                 } catch (e: CancellationException) {
@@ -138,6 +150,8 @@ abstract class MeshConnectionTracker(
                     Log.w(tag, "Error in periodic cleanup: ${e.message}")
                 }
             }
+            cleanupJob = null
+            if (isActive && pendingConnections.isNotEmpty()) scheduleCleanupIfNeeded()
         }
     }
 }

@@ -2,6 +2,7 @@ package com.bitchat.watch.ui
 
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -9,6 +10,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.bitchat.android.features.voice.VoiceRecorder
 import com.bitchat.android.features.voice.normalizeAmplitudeSample
 import kotlinx.coroutines.CoroutineScope
@@ -99,5 +103,19 @@ fun rememberVoiceNoteController(
 ): VoiceNoteController {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    return remember { VoiceNoteController(context, scope, recorderFactory, onSendVoice) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val controller = remember {
+        VoiceNoteController(context, scope, recorderFactory, onSendVoice)
+    }
+    DisposableEffect(lifecycleOwner, controller) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) controller.stop(send = false)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            controller.stop(send = false)
+        }
+    }
+    return controller
 }
