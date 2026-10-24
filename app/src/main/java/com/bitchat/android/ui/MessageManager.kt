@@ -343,6 +343,12 @@ class MessageManager(private val state: ChatState) {
         state.setChannelMessages(updatedChannelMessages)
     }
 
+    // Drop a blocked sender's messages from every geohash timeline
+    fun removeGeohashMessagesFromSender(pubkeyHex: String) {
+        com.bitchat.android.services.AppStateStore.removeGeohashMessagesFromSender(pubkeyHex)
+        state.setChannelMessages(com.bitchat.android.services.AppStateStore.channelMessages.value)
+    }
+
     // Remove a message from all locations (main timeline, private chats, channels)
     fun removeMessageById(messageID: String) {
         // Main timeline
