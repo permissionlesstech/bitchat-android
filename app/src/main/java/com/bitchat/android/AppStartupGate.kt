@@ -15,6 +15,7 @@ import com.bitchat.android.onboarding.nextStep
 import com.bitchat.android.wifiaware.WifiAwareController
 import dagger.hilt.android.scopes.ActivityRetainedScoped
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -31,7 +32,7 @@ enum class AppPhase {
     /** Onboarding shows; it decides its own step. */
     ONBOARDING,
 
-    /** The app is starting (P6). Chat shows meanwhile. */
+    /** The app is starting (P6, run by the gate). Chat shows meanwhile. */
     INITIALIZING,
 
     READY,
@@ -44,15 +45,17 @@ enum class AppPhase {
  * The one place that decides between onboarding and chat. Retained across
  * configuration changes and cleared with the Activity.
  *
- * Init runs once per entry into [AppPhase.INITIALIZING]: whoever runs it takes
- * the request with [takeInitRequest], which says yes once per entry. When init
- * finishes the gate re-reads readiness, so a Bluetooth or location drop during
- * init ends in onboarding instead of being overwritten by READY (F1).
+ * Init (P6) runs once per entry into [AppPhase.INITIALIZING], on the gate's own
+ * scope, so recreating the Activity mid-init neither cancels nor repeats it
+ * (F2). When init finishes the gate re-reads readiness, so a Bluetooth or
+ * location drop during init ends in onboarding instead of being overwritten by
+ * READY (F1).
  */
 @ActivityRetainedScoped
 class AppStartupGate @Inject constructor(
     private val readiness: DeviceReadiness,
     private val skip: BluetoothSkipSession,
+    private val initializer: AppInitializer,
     @AppStartupScope private val scope: CoroutineScope,
 ) : OnboardingHost {
 
@@ -67,7 +70,8 @@ class AppStartupGate @Inject constructor(
     override val initError: StateFlow<String?> = _initError.asStateFlow()
 
     private var check: Job? = null
-    private var initRequested = false
+    private var init: Job? = null
+    private var initCompleted = false
 
     // Bluetooth turned off while READY, for onboarding to open on its step (T12).
     private var bluetoothTurnedOff = false
@@ -89,12 +93,13 @@ class AppStartupGate @Inject constructor(
     }
 
     /**
-     * True once per entry into INITIALIZING, for whoever runs init. A recreated
-     * Activity that finds the gate already initializing gets false.
+     * True once per init that ended in READY, for the Activity's part of
+     * finishing it (the launch intent). A recreated Activity that finds the gate
+     * already READY gets false.
      */
-    fun takeInitRequest(): Boolean {
-        if (_phase.value != AppPhase.INITIALIZING || !initRequested) return false
-        initRequested = false
+    fun takeInitCompleted(): Boolean {
+        if (_phase.value != AppPhase.READY || !initCompleted) return false
+        initCompleted = false
         return true
     }
 
@@ -106,12 +111,17 @@ class AppStartupGate @Inject constructor(
     }
 
     /** Init finished. READY, unless Bluetooth or location dropped meanwhile. */
-    fun initSucceeded() {
+    private fun initSucceeded() {
         if (_phase.value != AppPhase.INITIALIZING) return
-        _phase.value = if (dropped(readiness.snapshot())) AppPhase.ONBOARDING else AppPhase.READY
+        if (dropped(readiness.snapshot())) {
+            _phase.value = AppPhase.ONBOARDING
+        } else {
+            initCompleted = true
+            _phase.value = AppPhase.READY
+        }
     }
 
-    fun initFailed(message: String) {
+    private fun initFailed(message: String) {
         if (_phase.value != AppPhase.INITIALIZING) return
         Log.e(TAG, "Onboarding failed: $message")
         _initError.value = message
@@ -176,8 +186,44 @@ class AppStartupGate @Inject constructor(
     private fun enterInitializing() {
         _initError.value = null
         bluetoothTurnedOff = false
-        initRequested = true
+        initCompleted = false
         _phase.value = AppPhase.INITIALIZING
+        init?.cancel()
+        init = scope.launch { initializeApp() }
+    }
+
+    // P6, the part that needs no Activity. The Activity attaches the mesh
+    // delegate on INITIALIZING and handles the launch intent on READY.
+    private suspend fun initializeApp() {
+        try {
+            // Initialize the app with a proper delay to ensure Bluetooth stack is ready
+            // This solves the issue where app needs restart to work on first install
+            delay(1000) // Give the system time to process permission grants
+
+            initializer.initializeLibraries()
+
+            // Ensure all permissions are still granted (user might have revoked in settings)
+            val r = readiness.snapshot()
+            if (!r.requiredPermissionsGranted) {
+                Log.w(TAG, "Permissions revoked during initialization: ${r.missingPermissions}")
+                initFailed("Some permissions were revoked. Please grant all permissions to continue.")
+                return
+            }
+
+            // Start enabled transports
+            initializer.startServices()
+
+            // Small delay to ensure mesh service is fully initialized
+            delay(500)
+            Log.i(TAG, "App initialization complete")
+            initSucceeded()
+        } catch (e: CancellationException) {
+            // The retained scope was cleared: not an init failure (T44)
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize app", e)
+            initFailed("Failed to initialize the app: ${e.message}")
+        }
     }
 
     // The onResume re-check's rule: Bluetooth counts unless skipped or switched

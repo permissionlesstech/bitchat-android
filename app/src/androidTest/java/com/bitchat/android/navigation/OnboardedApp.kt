@@ -78,11 +78,10 @@ internal fun MainActivityRule.openAboutLabel(): String =
  * Waits for chat, with the app finished starting.
  *
  * Chat is the root from the first frame, so its header on screen does not mean
- * start-up is over. That matters to any test that recreates the Activity:
- * initialisation runs in the Activity's lifecycleScope, so recreating it
- * mid-start-up cancels the work and lands on the onboarding error screen. That
- * is an app bug, not a test artefact; waiting here keeps it out of tests that
- * are about something else.
+ * start-up is over. Initialisation runs on the app gate's retained scope, so
+ * recreating the Activity mid-start-up no longer fails it; waiting for READY
+ * still keeps a test from acting on chat before the mesh is attached and the
+ * launch intent handled.
  */
 internal fun MainActivityRule.awaitChat() {
     val openAbout = openAboutLabel()

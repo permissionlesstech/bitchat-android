@@ -1,6 +1,8 @@
 package com.bitchat.android.di
 
+import com.bitchat.android.AppInitializer
 import com.bitchat.android.AppStartupGate
+import com.bitchat.android.DefaultAppInitializer
 import com.bitchat.android.onboarding.OnboardingHost
 import dagger.Binds
 import dagger.Module
@@ -20,13 +22,16 @@ import kotlinx.coroutines.cancel
 @Retention(AnnotationRetention.BINARY)
 annotation class AppStartupScope
 
-/** The app gate, and the port onboarding reports to it through. */
+/** The app gate, the port onboarding reports to it through, and the init it runs. */
 @Module
 @InstallIn(ActivityRetainedComponent::class)
 abstract class AppStartupModule {
 
     @Binds
     abstract fun bindOnboardingHost(gate: AppStartupGate): OnboardingHost
+
+    @Binds
+    abstract fun bindAppInitializer(initializer: DefaultAppInitializer): AppInitializer
 
     companion object {
         /** A supervisor on the main thread, cancelled when the retained component is cleared. */

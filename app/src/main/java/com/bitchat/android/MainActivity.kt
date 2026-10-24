@@ -34,7 +34,6 @@ import com.bitchat.android.ui.VerificationHandler
 import com.bitchat.android.ui.OrientationAwareActivity
 import com.bitchat.android.ui.theme.BitchatTheme
 import com.bitchat.android.wifiaware.WifiAwareController
-import com.bitchat.android.nostr.PoWPreferenceManager
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.serialization.NavKeySerializer
 import androidx.savedstate.serialization.decodeFromSavedState
@@ -53,7 +52,6 @@ import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.VerificationService
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.builtins.ListSerializer
 
@@ -293,16 +291,21 @@ class MainActivity : OrientationAwareActivity() {
             }
         }
 
-        // Follows the app gate for the whole Activity. Init runs here, once per
-        // entry into INITIALIZING: a recreated Activity that finds the gate
-        // already initializing does not start it again.
+        // Follows the app gate for the whole Activity. The gate runs init itself,
+        // so a configuration change does not interrupt it (F2); the Activity
+        // does the parts that need it.
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.CREATED) {
                 startupGate.phase.collect { phase ->
                     when (phase) {
-                        AppPhase.INITIALIZING -> if (startupGate.takeInitRequest()) initializeApp()
+                        // Set up the unified mesh delegate before the gate starts
+                        // the transports
+                        AppPhase.INITIALIZING -> unifiedMeshService.delegate = chatMeshDelegate
                         // App is fully initialized, mesh service is running
-                        AppPhase.READY -> android.util.Log.i("MainActivity", "Onboarding completed - app ready")
+                        AppPhase.READY -> {
+                            if (startupGate.takeInitCompleted()) finishInit()
+                            android.util.Log.i("MainActivity", "Onboarding completed - app ready")
+                        }
                         AppPhase.INIT_FAILED -> android.util.Log.e("MainActivity", "Onboarding error state reached")
                         // Onboarding picks its own step
                         AppPhase.ONBOARDING, AppPhase.CHECKING -> Unit
@@ -343,45 +346,12 @@ class MainActivity : OrientationAwareActivity() {
         }
     }
     
-    private fun initializeApp() {
-        lifecycleScope.launch {
-            try {
-                // Initialize the app with a proper delay to ensure Bluetooth stack is ready
-                // This solves the issue where app needs restart to work on first install
-                delay(1000) // Give the system time to process permission grants
+    // Init's Activity part, once per init that ended in READY.
+    private fun finishInit() {
+        startMeshForegroundServiceBestEffort()
 
-                // Initialize PoW preferences early in the initialization process
-                PoWPreferenceManager.init(this@MainActivity)
-                
-                // Initialize Location Notes Manager (extracted to separate file)
-                com.bitchat.android.nostr.LocationNotesInitializer.initialize(this@MainActivity)
-                
-                // Ensure all permissions are still granted (user might have revoked in settings)
-                val readiness = deviceReadiness.snapshot()
-                if (!readiness.requiredPermissionsGranted) {
-                    val missing = readiness.missingPermissions
-                    Log.w("MainActivity", "Permissions revoked during initialization: $missing")
-                    startupGate.initFailed("Some permissions were revoked. Please grant all permissions to continue.")
-                    return@launch
-                }
-
-                // Set up unified mesh delegate and start enabled transports
-                unifiedMeshService.delegate = chatMeshDelegate
-                unifiedMeshService.startServices()
-                startMeshForegroundServiceBestEffort()
-
-                // Handle any notification intent, unless an earlier init did
-                handleIntentOnce(intent)
-
-                // Small delay to ensure mesh service is fully initialized
-                delay(500)
-                Log.i("MainActivity", "App initialization complete")
-                startupGate.initSucceeded()
-            } catch (e: Exception) {
-                Log.e("MainActivity", "Failed to initialize app", e)
-                startupGate.initFailed("Failed to initialize the app: ${e.message}")
-            }
-        }
+        // Handle any notification intent, unless an earlier init did
+        handleIntentOnce(intent)
     }
     
     override fun onNewIntent(intent: Intent) {
@@ -518,9 +488,9 @@ class MainActivity : OrientationAwareActivity() {
         val uri = intent.data ?: return
         if (uri.scheme != "bitchat" || uri.host != "verify") return
 
-        // Runs after the stack has been seeded: on a cold start from
-        // initializeApp, which only runs once onboarding has put chat at the
-        // root, and otherwise from onNewIntent once onboarding is complete.
+        // Runs after the stack has been seeded: on a cold start once init
+        // reaches READY, by which time onboarding has put chat at the root,
+        // and otherwise from onNewIntent once onboarding is complete.
         // A sheet is never under anything, so unwind to chat first. When chat
         // is not on the stack the result is false and nothing changes.
         navigator.popTo(ChatRoute)

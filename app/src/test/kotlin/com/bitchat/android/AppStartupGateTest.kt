@@ -5,7 +5,10 @@ import com.bitchat.android.onboarding.BluetoothStatus
 import com.bitchat.android.onboarding.FakeDeviceReadiness
 import com.bitchat.android.onboarding.LocationStatus
 import com.bitchat.android.onboarding.SystemEvent
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -27,8 +30,10 @@ class AppStartupGateTest {
 
     private val readiness = FakeDeviceReadiness()
     private val skip = BluetoothSkipSession()
+    private val initializer = FakeAppInitializer()
 
-    private fun TestScope.gate() = AppStartupGate(readiness, skip, this)
+    private fun TestScope.gate(scope: CoroutineScope = this) =
+        AppStartupGate(readiness, skip, initializer, scope)
 
     private fun TestScope.advance(ms: Long) {
         advanceTimeBy(ms)
@@ -38,9 +43,7 @@ class AppStartupGateTest {
     private fun TestScope.readyGate(): AppStartupGate {
         val gate = gate()
         gate.start()
-        advance(500)
-        assertTrue(gate.takeInitRequest())
-        gate.initSucceeded()
+        advance(500 + INIT_MS)
         assertEquals(AppPhase.READY, gate.phase.value)
         return gate
     }
@@ -55,10 +58,17 @@ class AppStartupGateTest {
         assertEquals(AppPhase.CHECKING, gate.phase.value)
         advance(1)
         assertEquals(AppPhase.INITIALIZING, gate.phase.value)
-        assertTrue(gate.takeInitRequest())
 
-        gate.initSucceeded()
+        // P6: 1000 ms, the libraries, the permission re-check, the services, 500 ms.
+        advance(1000)
+        assertEquals(1, initializer.librariesInitialized)
+        assertEquals(1, initializer.servicesStarted)
+        advance(499)
+        assertEquals(AppPhase.INITIALIZING, gate.phase.value)
+        advance(1)
         assertEquals(AppPhase.READY, gate.phase.value)
+        assertTrue(gate.takeInitCompleted())
+        assertFalse(gate.takeInitCompleted())
     }
 
     /**
@@ -74,8 +84,9 @@ class AppStartupGateTest {
         gate.start()
         advance(500)
 
+        advance(INIT_MS)
         assertEquals(AppPhase.ONBOARDING, gate.phase.value)
-        assertFalse(gate.takeInitRequest())
+        assertEquals(0, initializer.servicesStarted)
     }
 
     @Test
@@ -107,18 +118,20 @@ class AppStartupGateTest {
     }
 
     @Test
-    fun onboardingFinishedTwice_initRequestedOnce() = runTest {
+    fun onboardingFinishedTwice_initializesOnce() = runTest {
         readiness.readiness = readiness.readiness.copy(bluetooth = BluetoothStatus.DISABLED)
         val gate = gate()
         gate.start()
         advance(500)
+        readiness.readiness = readiness.readiness.copy(bluetooth = BluetoothStatus.ENABLED)
 
         gate.onboardingFinished()
         gate.onboardingFinished()
 
         assertEquals(AppPhase.INITIALIZING, gate.phase.value)
-        assertTrue(gate.takeInitRequest())
-        assertFalse(gate.takeInitRequest())
+        advance(INIT_MS)
+        assertEquals(1, initializer.servicesStarted)
+        assertEquals(AppPhase.READY, gate.phase.value)
     }
 
     @Test
@@ -129,7 +142,7 @@ class AppStartupGateTest {
         assertEquals(AppPhase.INITIALIZING, gate.phase.value)
 
         readiness.readiness = readiness.readiness.copy(bluetooth = BluetoothStatus.DISABLED)
-        gate.initSucceeded()
+        advance(INIT_MS)
 
         assertEquals(AppPhase.ONBOARDING, gate.phase.value)
     }
@@ -141,7 +154,7 @@ class AppStartupGateTest {
         advance(500)
 
         readiness.readiness = readiness.readiness.copy(location = LocationStatus.DISABLED)
-        gate.initSucceeded()
+        advance(INIT_MS)
 
         assertEquals(AppPhase.ONBOARDING, gate.phase.value)
     }
@@ -154,7 +167,7 @@ class AppStartupGateTest {
 
         readiness.readiness = readiness.readiness.copy(bluetooth = BluetoothStatus.DISABLED)
         skip.skip()
-        gate.initSucceeded()
+        advance(INIT_MS)
 
         assertEquals(AppPhase.READY, gate.phase.value)
     }
@@ -188,7 +201,7 @@ class AppStartupGateTest {
         gate.onSystemEvent(SystemEvent.LocationChanged(enabled = true))
 
         assertEquals(AppPhase.READY, gate.phase.value)
-        assertFalse(gate.takeInitRequest())
+        assertEquals(1, initializer.servicesStarted)
     }
 
     @Test
@@ -259,9 +272,14 @@ class AppStartupGateTest {
         gate.start()
         advance(500)
 
-        gate.initFailed("Some permissions were revoked. Please grant all permissions to continue.")
+        readiness.readiness = readiness.readiness.copy(
+            requiredPermissionsGranted = false,
+            missingPermissions = listOf("android.permission.BLUETOOTH_SCAN"),
+        )
+        advance(INIT_MS)
 
         assertEquals(AppPhase.INIT_FAILED, gate.phase.value)
+        assertEquals(0, initializer.servicesStarted)
         assertEquals(
             "Some permissions were revoked. Please grant all permissions to continue.",
             gate.initError.value,
@@ -271,35 +289,60 @@ class AppStartupGateTest {
     @Test
     fun p6_initThrew_initFailedWithMessage() = runTest {
         val gate = gate()
+        initializer.failure = IllegalStateException("synthetic failure")
         gate.start()
-        advance(500)
-
-        gate.initFailed("Failed to initialize the app: synthetic failure")
+        advance(500 + INIT_MS)
 
         assertEquals(AppPhase.INIT_FAILED, gate.phase.value)
         assertEquals("Failed to initialize the app: synthetic failure", gate.initError.value)
+        assertFalse(gate.takeInitCompleted())
+    }
+
+    /**
+     * F2: init runs on the gate's retained scope, so recreating the Activity
+     * mid-init neither cancels it nor reports an error. Recreation is the
+     * Activity calling start() again; the gate is the same instance.
+     */
+    @Test
+    fun initSurvivesActivityRecreation_noInitFailed() = runTest {
+        val gate = gate()
+        gate.start()
+        advance(500 + 700) // inside P6's first delay
+
+        gate.start() // the recreated Activity
+        advance(INIT_MS - 700)
+
+        assertEquals(AppPhase.READY, gate.phase.value)
+        assertNull(gate.initError.value)
+        assertEquals(1, initializer.servicesStarted)
+        assertTrue(gate.takeInitCompleted())
     }
 
     @Test
-    fun t44_initCancelled_initFailedWithCancellationMessage_currentBehaviour() = runTest {
-        // initializeApp's catch (e: Exception) also catches the cancellation and reports it here.
-        val gate = gate()
+    fun t44_initCancelled_noInitFailed() = runTest {
+        // The retained scope is cancelled when the Activity is finished for good.
+        // A cancelled init is not an init failure.
+        val gateScope = CoroutineScope(coroutineContext + SupervisorJob())
+        val gate = gate(gateScope)
         gate.start()
-        advance(500)
+        advance(500 + 700)
 
-        gate.initFailed("Failed to initialize the app: Job was cancelled")
+        gateScope.cancel()
+        advance(INIT_MS)
 
-        assertEquals(AppPhase.INIT_FAILED, gate.phase.value)
-        assertEquals("Failed to initialize the app: Job was cancelled", gate.initError.value)
+        assertEquals(AppPhase.INITIALIZING, gate.phase.value)
+        assertNull(gate.initError.value)
+        assertEquals(0, initializer.servicesStarted)
     }
 
     @Test
     fun retry_returnsToChecking() = runTest {
+        initializer.failure = IllegalStateException("synthetic failure")
         val gate = gate()
         gate.start()
-        advance(500)
-        gate.takeInitRequest()
-        gate.initFailed("Failed to initialize the app: synthetic failure")
+        advance(500 + INIT_MS)
+        assertEquals(AppPhase.INIT_FAILED, gate.phase.value)
+        initializer.failure = null
 
         gate.retry()
 
@@ -309,7 +352,8 @@ class AppStartupGateTest {
         assertEquals(AppPhase.CHECKING, gate.phase.value)
         advance(1)
         assertEquals(AppPhase.INITIALIZING, gate.phase.value)
-        assertTrue(gate.takeInitRequest())
+        advance(INIT_MS)
+        assertEquals(AppPhase.READY, gate.phase.value)
     }
 
     @Test
@@ -329,16 +373,40 @@ class AppStartupGateTest {
     @Test
     fun onboardingFinishedAfterInitFailed_initializesAgain() = runTest {
         // An init error screen that Bluetooth or location events moved on from, as today.
+        initializer.failure = IllegalStateException("synthetic failure")
         val gate = gate()
         gate.start()
-        advance(500)
-        gate.takeInitRequest()
-        gate.initFailed("Failed to initialize the app: synthetic failure")
+        advance(500 + INIT_MS)
+        assertEquals(AppPhase.INIT_FAILED, gate.phase.value)
+        initializer.failure = null
 
         gate.onboardingFinished()
 
         assertEquals(AppPhase.INITIALIZING, gate.phase.value)
         assertNull(gate.initError.value)
-        assertTrue(gate.takeInitRequest())
+        advance(INIT_MS)
+        assertEquals(AppPhase.READY, gate.phase.value)
+        assertEquals(2, initializer.librariesInitialized)
+    }
+
+    private companion object {
+        /** P6's two delays, 1000 ms and 500 ms. */
+        const val INIT_MS = 1500L
+    }
+}
+
+/** Counts what init asked of the app; throws [failure] from the libraries step when set. */
+private class FakeAppInitializer : AppInitializer {
+    var librariesInitialized = 0
+    var servicesStarted = 0
+    var failure: Exception? = null
+
+    override fun initializeLibraries() {
+        librariesInitialized++
+        failure?.let { throw it }
+    }
+
+    override fun startServices() {
+        servicesStarted++
     }
 }
