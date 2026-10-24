@@ -75,9 +75,10 @@ class MainActivity : OrientationAwareActivity() {
     @Inject
     lateinit var startupGate: AppStartupGate
 
-    // The launch or new intent last handed to the notification and verify
-    // handlers, so a later init does not open it a second time (F1).
-    private var handledIntent: Intent? = null
+    // Whether the current intent has been handed to the notification and verify
+    // handlers, so a later init does not open it a second time (F1). Saved with
+    // the instance state: a recreated Activity gets the same intent back.
+    private var intentHandled = false
 
     @Inject
     lateinit var locationChannelManager: LocationChannelManager
@@ -128,6 +129,7 @@ class MainActivity : OrientationAwareActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        intentHandled = savedInstanceState?.getBoolean(STATE_INTENT_HANDLED) ?: false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             this.setRecentsScreenshotEnabled(false)
         }
@@ -359,6 +361,7 @@ class MainActivity : OrientationAwareActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        intentHandled = false
         
         // Check if this is a quit request from the notification
         if (intent.getBooleanExtra("ACTION_QUIT_APP", false)) {
@@ -375,13 +378,19 @@ class MainActivity : OrientationAwareActivity() {
         }
     }
 
-    // Each intent instance is handled at most once: a re-init after onboarding
-    // came back mid-session must not reopen the chat the app was launched into.
+    // Each intent is handled at most once, across rotation too: a re-init after
+    // onboarding came back mid-session must not reopen the chat the app was
+    // launched into.
     private fun handleIntentOnce(intent: Intent) {
-        if (intent === handledIntent) return
-        handledIntent = intent
+        if (intentHandled) return
+        intentHandled = true
         handleNotificationIntent(intent)
         handleVerificationIntent(intent)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(STATE_INTENT_HANDLED, intentHandled)
     }
 
     override fun onStart() {
@@ -514,5 +523,9 @@ class MainActivity : OrientationAwareActivity() {
         // The Bluetooth and location receivers go with the systemEvents collector.
 
         // Do not stop mesh here; ForegroundService owns lifecycle for background reliability
+    }
+
+    private companion object {
+        const val STATE_INTENT_HANDLED = "intent_handled"
     }
 }
