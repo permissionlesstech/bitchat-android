@@ -1,6 +1,9 @@
 package com.bitchat.android.net
 
 import okhttp3.OkHttpClient
+import okhttp3.Authenticator
+import okhttp3.ConnectionPool
+import okhttp3.CookieJar
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.util.concurrent.TimeUnit
@@ -22,12 +25,14 @@ object OkHttpProvider {
 
     private val httpClientRef = AtomicReference<RoutedClient?>(null)
     private val wsClientRef = AtomicReference<OkHttpClient?>(null)
+    private val privateWsClientRef = AtomicReference<OkHttpClient?>(null)
     private val clientLock = Any()
 
     fun reset() {
         synchronized(clientLock) {
             httpClientRef.set(null)
             wsClientRef.set(null)
+            privateWsClientRef.set(null)
         }
     }
 
@@ -64,6 +69,19 @@ object OkHttpProvider {
                 .build()
                 .also(wsClientRef::set)
         }
+    }
+
+    /** Every call opens a new send-only WebSocket; no cookies, AUTH or pooled account transport. */
+    fun privatePublishClient(): OkHttpClient = synchronized(clientLock) {
+        privateWsClientRef.get() ?: baseBuilderForCurrentProxy().first
+            .cookieJar(CookieJar.NO_COOKIES)
+            .authenticator(Authenticator.NONE)
+            .proxyAuthenticator(Authenticator.NONE)
+            .connectionPool(ConnectionPool(0, 1, TimeUnit.SECONDS))
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(0, TimeUnit.SECONDS)
+            .writeTimeout(10, TimeUnit.SECONDS)
+            .build().also(privateWsClientRef::set)
     }
 
     private fun baseBuilderForCurrentProxy(): Pair<OkHttpClient.Builder, Route> {

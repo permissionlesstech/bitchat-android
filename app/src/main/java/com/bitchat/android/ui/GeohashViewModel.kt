@@ -49,7 +49,6 @@ class GeohashViewModel(
     private val geohashMessageHandler = GeohashMessageHandler(
         application = application,
         repo = repo,
-        scope = viewModelScope,
         dataManager = dataManager,
         addChannelMessage = messageManager::addChannelMessage
     )
@@ -127,8 +126,14 @@ class GeohashViewModel(
     }
 
     fun sendGeohashMessage(content: String, channel: com.bitchat.android.geohash.GeohashChannel, myPeerID: String, nickname: String?) {
+        val relayManager = NostrRelayManager.getInstance(getApplication())
+        val accountGeneration = relayManager.captureAccountGeneration()
+        if (!relayManager.isAccountGenerationCurrent(accountGeneration)) return
         viewModelScope.launch {
             try {
+                if (!relayManager.isAccountGenerationCurrent(accountGeneration)) {
+                    return@launch
+                }
                 val canUseChannel = locationChannelManager
                     ?.canUseSelectedLocationChannel(channel) == true
                 if (!canUseChannel) {
@@ -140,6 +145,9 @@ class GeohashViewModel(
                 val liveLocationToken = locationChannelManager
                     ?.liveLocationTokenForSelectedChannel(channel)
                 if (isLiveDerived && liveLocationToken == null) return@launch
+                if (!relayManager.isAccountGenerationCurrent(accountGeneration)) {
+                    return@launch
+                }
                 val tempId = "temp_${System.currentTimeMillis()}_${kotlin.random.Random.nextInt(1000)}"
                 val pow = PoWPreferenceManager.getCurrentSettings()
                 val localMsg = com.bitchat.android.model.BitchatMessage(
@@ -166,13 +174,13 @@ class GeohashViewModel(
                     nickname,
                     teleported
                 )
-                val relayManager = NostrRelayManager.getInstance(getApplication())
                 relayManager.sendEventToGeohash(
                     event,
                     channel.geohash,
                     includeDefaults = false,
                     nRelays = 5,
-                    liveLocationToken = liveLocationToken
+                    liveLocationToken = liveLocationToken,
+                    expectedAccountGeneration = accountGeneration
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send geohash message: ${e.message}")
@@ -397,13 +405,16 @@ class GeohashViewModel(
         geohash: String,
         liveLocationToken: Long?
     ) {
+        val accountEpoch = NostrBackgroundRuntime.currentAccountEpoch() ?: return
         val subId = "geohash-presence-${UUID.randomUUID()}"; currentGeohashPresenceSubId = subId
         subscriptionManager.subscribeGeohashPresence(
             geohash = geohash,
             sinceMs = System.currentTimeMillis() - 3600000L,
             limit = 200,
             id = subId,
-            handler = { event -> geohashMessageHandler.onEvent(event, geohash) },
+            handler = { event ->
+                geohashMessageHandler.onEvent(event, geohash, accountEpoch)
+            },
             liveLocationToken = liveLocationToken
         )
     }
@@ -419,7 +430,6 @@ class GeohashViewModel(
 
     override fun onCleared() {
         shutdownUiSubscriptions()
-        super.onCleared()
     }
 
     fun shutdownUiSubscriptions() {
@@ -476,6 +486,7 @@ class GeohashViewModel(
     }
 
     private fun performSubscribeSampling(geohash: String) {
+        val accountEpoch = NostrBackgroundRuntime.currentAccountEpoch() ?: return
         val subscriptionId = samplingSubscriptionIds.getOrPut(geohash) {
             "sampling-${UUID.randomUUID()}"
         }
@@ -488,7 +499,9 @@ class GeohashViewModel(
                 sinceMs = System.currentTimeMillis() - 86400000L,
                 limit = 200,
                 id = subscriptionId,
-                handler = { event -> geohashMessageHandler.onEvent(event, geohash) }
+                handler = { event ->
+                    geohashMessageHandler.onEvent(event, geohash, accountEpoch)
+                }
             )
         }
 
@@ -508,7 +521,9 @@ class GeohashViewModel(
                     sinceMs = System.currentTimeMillis() - 86400000L,
                     limit = 200,
                     id = subscriptionId,
-                    handler = { event -> geohashMessageHandler.onEvent(event, geohash) },
+                    handler = { event ->
+                        geohashMessageHandler.onEvent(event, geohash, accountEpoch)
+                    },
                     liveLocationToken = token
                 )
             }

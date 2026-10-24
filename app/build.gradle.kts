@@ -37,6 +37,8 @@ android {
             "GITHUB_RELEASE_CERT_SHA256",
             "\"$normalizedGithubReleaseCertSha256\""
         )
+        // Negotiate pairwise NDR only with authenticated, capable mutual favorites.
+        buildConfigField("boolean", "NDR_ROLLOUT_ENABLED", "true")
 
         testInstrumentationRunner = "com.bitchat.android.ui.PerformanceTestRunner"
         vectorDrawables {
@@ -168,6 +170,7 @@ dependencies {
 
     // WebSocket
     implementation(libs.okhttp)
+    implementation("net.java.dev.jna:jna:5.19.1@aar")
 
     // WorkManager for background APK downloads
     implementation(libs.androidx.work.runtime.ktx)
@@ -195,6 +198,8 @@ dependencies {
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.espresso.core)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

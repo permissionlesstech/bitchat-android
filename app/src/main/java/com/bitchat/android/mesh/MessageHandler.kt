@@ -5,6 +5,7 @@ import com.bitchat.android.favorites.FavoriteControlMessage
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.model.AuthenticatedPeerState
+import com.bitchat.android.model.NdrFeatureGate
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
@@ -198,6 +199,16 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 }
                 com.bitchat.android.model.NoisePayloadType.VERIFY_RESPONSE -> {
                     delegate?.onVerifyResponseReceived(peerID, noisePayload.data, packet.timestamp.toLong())
+                }
+                com.bitchat.android.model.NoisePayloadType.NDR_EVENT -> {
+                    if (NdrFeatureGate.isEnabled()) {
+                        delegate?.onNdrEventReceived(
+                            peerID,
+                            noisePayload.data,
+                            packet.timestamp.toLong(),
+                            decryption.authenticatedSession
+                        )
+                    }
                 }
             }
             
@@ -738,4 +749,10 @@ interface MessageHandlerDelegate {
     fun onReadReceiptReceived(messageID: String, peerID: String)
     fun onVerifyChallengeReceived(peerID: String, payload: ByteArray, timestampMs: Long)
     fun onVerifyResponseReceived(peerID: String, payload: ByteArray, timestampMs: Long)
+    fun onNdrEventReceived(
+        peerID: String,
+        payload: ByteArray,
+        timestampMs: Long,
+        authenticatedSession: com.bitchat.android.noise.AuthenticatedNoiseSession
+    )
 }

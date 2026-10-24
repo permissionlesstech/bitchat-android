@@ -5,6 +5,8 @@ import android.os.Build
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.PeerInfo
+import com.bitchat.android.nostr.NostrSendAdmission
+import com.bitchat.android.nostr.NostrTransport
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -35,9 +37,22 @@ class MessageRouterTest {
     private val noiseKey = ByteArray(32) { 0x0B }
 
     private lateinit var mesh: MeshService
+    private lateinit var nostr: NostrTransport
     private lateinit var router: MessageRouter
+    private lateinit var identityManager: SecureIdentityStateManager
     private var fakeTime = 1_000_000L
     private val expired = mutableListOf<String>()
+    private val admitted = mutableListOf<String>()
+    private val failed = mutableListOf<String>()
+    private val pendingNostrSends = mutableListOf<PendingNostrSend>()
+    private var nostrAvailable = false
+
+    private data class PendingNostrSend(
+        val content: String,
+        val peerID: String,
+        val messageID: String,
+        val completion: (NostrSendAdmission) -> Unit
+    )
 
     @Before
     fun setup() {
@@ -46,10 +61,11 @@ class MessageRouterTest {
             "message-router-test-${UUID.randomUUID()}",
             Context.MODE_PRIVATE
         )
-        val identityManager = SecureIdentityStateManager(prefs, testOnly = true)
+        identityManager = SecureIdentityStateManager(prefs, testOnly = true)
         ContactDirectory.identityManagerProvider = { identityManager }
 
         mesh = mock()
+        nostr = mock()
         whenever(mesh.myPeerID).thenReturn(myPeerID)
         whenever(mesh.getPeerNicknames()).thenReturn(mapOf(peerID to "peer"))
 
@@ -59,10 +75,34 @@ class MessageRouterTest {
         MessageRouter.resetForTesting()
         fakeTime = 1_000_000L
         expired.clear()
+        admitted.clear()
+        failed.clear()
+        pendingNostrSends.clear()
+        nostrAvailable = false
 
-        router = MessageRouter.getInstance(context, mesh)
+        router = MessageRouter(
+            context = context,
+            mesh = mesh,
+            nostr = nostr,
+            privateNostrSender = NostrPrivateMessageSender {
+                    content,
+                    target,
+                    _,
+                    messageID,
+                    completion ->
+                pendingNostrSends += PendingNostrSend(
+                    content = content,
+                    peerID = target,
+                    messageID = messageID,
+                    completion = completion
+                )
+            },
+            canSendViaNostrOverride = { nostrAvailable }
+        )
         router.clock = { fakeTime }
         router.onMessageExpired = { expired.add(it) }
+        router.onMessageAdmitted = { admitted.add(it) }
+        router.onMessageFailed = { messageID, _ -> failed.add(messageID) }
     }
 
     @After
@@ -172,6 +212,274 @@ class MessageRouterTest {
         assertEquals(MessageRouter.RouteResult.MESH, result)
         verify(mesh, times(1)).sendPrivateMessage("direct", peerID, "peer", "msg-direct")
         verify(mesh, never()).initiateNoiseHandshake(any())
+    }
+
+    @Test
+    fun `retryable Nostr refusal remains queued until exactly one durable admission`() {
+        peerOffline()
+        nostrAvailable = true
+
+        assertEquals(
+            MessageRouter.RouteResult.NOSTR_PENDING,
+            router.sendPrivate("hello", peerID, "peer", "msg-ndr")
+        )
+        assertEquals(listOf("msg-ndr"), pendingNostrSends.map { it.messageID })
+        assertTrue(admitted.isEmpty())
+
+        pendingNostrSends.single().completion(NostrSendAdmission.RETRYABLE)
+        router.tickOutbox()
+        assertEquals(listOf("msg-ndr", "msg-ndr"), pendingNostrSends.map { it.messageID })
+        assertTrue(admitted.isEmpty())
+
+        val admittedAttempt = pendingNostrSends.last()
+        admittedAttempt.completion(NostrSendAdmission.ADMITTED)
+        admittedAttempt.completion(NostrSendAdmission.ADMITTED)
+        router.tickOutbox()
+
+        assertEquals(listOf("msg-ndr"), admitted)
+        assertEquals(2, pendingNostrSends.size)
+        assertTrue(failed.isEmpty())
+        verify(mesh, never()).sendPrivateMessage(any(), any(), any(), anyOrNull())
+    }
+
+    @Test
+    fun `one Nostr message per conversation is in flight and queued order is preserved`() {
+        peerOffline()
+        nostrAvailable = true
+
+        router.sendPrivate("first", peerID, "peer", "msg-1")
+        router.sendPrivate("second", peerID, "peer", "msg-2")
+        router.tickOutbox()
+
+        assertEquals(listOf("msg-1"), pendingNostrSends.map { it.messageID })
+
+        pendingNostrSends[0].completion(NostrSendAdmission.ADMITTED)
+        assertEquals(listOf("msg-1", "msg-2"), pendingNostrSends.map { it.messageID })
+
+        pendingNostrSends[1].completion(NostrSendAdmission.ADMITTED)
+        assertEquals(listOf("msg-1", "msg-2"), admitted)
+    }
+
+    @Test
+    fun `mesh and duplicate session callbacks cannot race an in-flight Nostr copy`() {
+        peerOffline()
+        nostrAvailable = true
+        router.sendPrivate("hello", peerID, "peer", "msg-race")
+
+        peerReady()
+        router.onSessionEstablished(peerID)
+        router.onSessionEstablished(peerID)
+
+        assertEquals(1, pendingNostrSends.size)
+        verify(mesh, never()).sendPrivateMessage(any(), any(), any(), anyOrNull())
+
+        pendingNostrSends.single().completion(NostrSendAdmission.RETRYABLE)
+        router.onSessionEstablished(peerID)
+        router.onSessionEstablished(peerID)
+
+        verify(mesh, times(1)).sendPrivateMessage("hello", peerID, "peer", "msg-race")
+        assertEquals(1, pendingNostrSends.size)
+    }
+
+    @Test
+    fun `terminal Nostr failure removes the entry and reports failure once`() {
+        peerOffline()
+        nostrAvailable = true
+        router.sendPrivate("invalid", peerID, "peer", "msg-failed")
+
+        val attempt = pendingNostrSends.single()
+        attempt.completion(NostrSendAdmission.TERMINAL_FAILED)
+        attempt.completion(NostrSendAdmission.TERMINAL_FAILED)
+        router.tickOutbox()
+
+        assertEquals(listOf("msg-failed"), failed)
+        assertTrue(admitted.isEmpty())
+        assertEquals(1, pendingNostrSends.size)
+    }
+
+    @Test
+    fun `duplicate session established callbacks flush a queued mesh message once`() {
+        peerOffline()
+        router.sendPrivate("hello", peerID, "peer", "msg-once")
+
+        peerReady()
+        router.onSessionEstablished(peerID)
+        router.onSessionEstablished(peerID)
+
+        verify(mesh, times(1)).sendPrivateMessage("hello", peerID, "peer", "msg-once")
+    }
+
+    @Test
+    fun `late result from an earlier Nostr attempt cannot complete its replacement`() {
+        peerOffline()
+        nostrAvailable = true
+        router.sendPrivate("hello", peerID, "peer", "msg-stale")
+
+        val first = pendingNostrSends.single()
+        first.completion(NostrSendAdmission.RETRYABLE)
+        router.tickOutbox()
+        val second = pendingNostrSends.last()
+
+        first.completion(NostrSendAdmission.ADMITTED)
+        assertTrue(admitted.isEmpty())
+        assertEquals(1, router.queuedMessageCount)
+        assertEquals(1, router.inFlightNostrAttemptCount)
+
+        second.completion(NostrSendAdmission.ADMITTED)
+        assertEquals(listOf("msg-stale"), admitted)
+        assertEquals(0, router.queuedMessageCount)
+        assertEquals(0, router.inFlightNostrAttemptCount)
+    }
+
+    @Test
+    fun `alias convergence migrates in-flight ownership without duplicate Nostr send`() {
+        whenever(mesh.getPeerInfo(peerID)).thenReturn(null)
+        nostrAvailable = true
+        router.sendPrivate("hello", peerID, "peer", "msg-alias")
+        assertEquals(1, pendingNostrSends.size)
+
+        identityManager.cachePeerNoiseKey(
+            peerID,
+            ContactIdentityResolver.noiseKeyHex(noiseKey)
+        )
+        router.flushOutboxFor(peerID)
+        router.tickOutbox()
+
+        assertEquals(1, pendingNostrSends.size)
+        pendingNostrSends.single().completion(NostrSendAdmission.ADMITTED)
+        assertEquals(listOf("msg-alias"), admitted)
+        assertEquals(0, router.queuedMessageCount)
+        assertEquals(0, router.inFlightNostrAttemptCount)
+    }
+
+    @Test
+    fun `synchronous Nostr admission is safe and leaves no in-flight token`() {
+        peerOffline()
+        val synchronous = MessageRouter(
+            context = RuntimeEnvironment.getApplication(),
+            mesh = mesh,
+            nostr = nostr,
+            privateNostrSender = NostrPrivateMessageSender {
+                    _,
+                    _,
+                    _,
+                    _,
+                    completion ->
+                completion(NostrSendAdmission.ADMITTED)
+            },
+            canSendViaNostrOverride = { true }
+        )
+        val synchronousAdmissions = mutableListOf<String>()
+        synchronous.onMessageAdmitted = synchronousAdmissions::add
+
+        synchronous.sendPrivate("first", peerID, "peer", "sync-1")
+        synchronous.sendPrivate("second", peerID, "peer", "sync-2")
+
+        assertEquals(listOf("sync-1", "sync-2"), synchronousAdmissions)
+        assertEquals(0, synchronous.queuedMessageCount)
+        assertEquals(0, synchronous.inFlightNostrAttemptCount)
+    }
+
+    @Test
+    fun `TTL and cap never evict an in-flight Nostr message`() {
+        peerOffline()
+        nostrAvailable = true
+        router.sendPrivate("first", peerID, "peer", "msg-0")
+        repeat(100) { index ->
+            router.sendPrivate("queued-$index", peerID, "peer", "msg-${index + 1}")
+        }
+
+        assertEquals(listOf("msg-1"), expired)
+        assertEquals("msg-0", pendingNostrSends.single().messageID)
+        assertEquals(100, router.queuedMessageCount)
+
+        fakeTime += 86_400_001L
+        router.tickOutbox()
+
+        assertFalse("msg-0" in expired)
+        assertEquals(1, router.queuedMessageCount)
+        assertEquals(1, router.inFlightNostrAttemptCount)
+
+        pendingNostrSends.single().completion(NostrSendAdmission.ADMITTED)
+        assertEquals(listOf("msg-0"), admitted)
+        assertEquals(0, router.queuedMessageCount)
+    }
+
+    @Test
+    fun `account reset discards plaintext and ignores every late callback`() {
+        peerOffline()
+        nostrAvailable = true
+        router.sendPrivate("old identity", peerID, "peer", "msg-old-account")
+        val oldAttempt = pendingNostrSends.single()
+
+        router.discardForAccountReset()
+
+        assertEquals(0, router.queuedMessageCount)
+        assertEquals(0, router.inFlightNostrAttemptCount)
+        assertEquals(
+            MessageRouter.RouteResult.DROPPED,
+            router.sendPrivate(
+                "must not survive reset",
+                peerID,
+                "peer",
+                "msg-reset-window"
+            )
+        )
+        assertEquals(0, router.queuedMessageCount)
+        oldAttempt.completion(NostrSendAdmission.ADMITTED)
+        oldAttempt.completion(NostrSendAdmission.RETRYABLE)
+        oldAttempt.completion(NostrSendAdmission.TERMINAL_FAILED)
+
+        assertTrue(admitted.isEmpty())
+        assertEquals(listOf("msg-reset-window"), failed)
+        router.tickOutbox()
+        assertEquals(1, pendingNostrSends.size)
+    }
+
+    @Test
+    fun `stale router reset cannot reopen a newer reset`() {
+        peerOffline()
+        val firstReset = router.discardForAccountReset()
+        val secondReset = router.discardForAccountReset()
+
+        assertFalse(router.completeAccountReset(firstReset))
+        assertEquals(
+            MessageRouter.RouteResult.DROPPED,
+            router.sendPrivate(
+                "blocked",
+                peerID,
+                "peer",
+                "msg-stale-reset"
+            )
+        )
+
+        assertTrue(router.completeAccountReset(secondReset))
+        assertEquals(
+            MessageRouter.RouteResult.QUEUED,
+            router.sendPrivate(
+                "fresh",
+                peerID,
+                "peer",
+                "msg-current-reset"
+            )
+        )
+    }
+
+    @Test
+    fun `normal scheduler stop preserves queued plaintext and in-flight ownership`() {
+        peerOffline()
+        nostrAvailable = true
+        router.sendPrivate("keep across service stop", peerID, "peer", "msg-pause")
+        val attempt = pendingNostrSends.single()
+
+        router.stopOutboxScheduler()
+
+        assertEquals(1, router.queuedMessageCount)
+        assertEquals(1, router.inFlightNostrAttemptCount)
+        attempt.completion(NostrSendAdmission.ADMITTED)
+        assertEquals(listOf("msg-pause"), admitted)
+        assertEquals(0, router.queuedMessageCount)
+        assertEquals(0, router.inFlightNostrAttemptCount)
     }
 
     @Test

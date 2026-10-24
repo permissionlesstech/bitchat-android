@@ -3,6 +3,7 @@ package com.bitchat.android.nostr
 import android.app.Application
 import android.util.Log
 import com.bitchat.android.geohash.LiveLocationPrivacyGate
+import kotlinx.coroutines.CoroutineScope
 
 /**
  * NostrSubscriptionManager
@@ -14,6 +15,8 @@ import com.bitchat.android.geohash.LiveLocationPrivacyGate
  */
 class NostrSubscriptionManager(
     private val application: Application,
+    @Suppress("UNUSED_PARAMETER")
+    private val scope: CoroutineScope? = null,
     private val owner: String = NostrRelayManager.OWNER_LEGACY
 ) {
     companion object { private const val TAG = "NostrSubscriptionManager" }
@@ -38,13 +41,15 @@ class NostrSubscriptionManager(
         liveLocationToken: Long? = null
     ) {
         if (!isAllowed(liveLocationToken)) return
+        val generation = relayManager.captureAccountGeneration()
         val filter = NostrFilter.giftWrapsFor(pubkey, sinceMs)
         relayManager.subscribe(
             filter = filter,
             id = id,
             handler = handler,
             owner = owner,
-            liveLocationToken = liveLocationToken
+            liveLocationToken = liveLocationToken,
+            expectedAccountGeneration = generation
         )
     }
 
@@ -58,6 +63,7 @@ class NostrSubscriptionManager(
         liveLocationToken: Long? = null
     ) {
         if (!isAllowed(liveLocationToken)) return
+        val generation = relayManager.captureAccountGeneration()
         val filter = NostrFilter.geohashMessages(geohash, sinceMs, limit)
         relayManager.subscribeForGeohash(
             geohash,
@@ -67,7 +73,8 @@ class NostrSubscriptionManager(
             includeDefaults = false,
             nRelays = 5,
             owner = owner,
-            liveLocationToken = liveLocationToken
+            liveLocationToken = liveLocationToken,
+            expectedAccountGeneration = generation
         )
     }
 
@@ -81,6 +88,7 @@ class NostrSubscriptionManager(
         liveLocationToken: Long? = null
     ) {
         if (!isAllowed(liveLocationToken)) return
+        val generation = relayManager.captureAccountGeneration()
         val filter = NostrFilter.geohashPresence(geohash, sinceMs, limit)
         relayManager.subscribeForGeohash(
             geohash,
@@ -90,16 +98,29 @@ class NostrSubscriptionManager(
             includeDefaults = false,
             nRelays = 5,
             owner = owner,
-            liveLocationToken = liveLocationToken
+            liveLocationToken = liveLocationToken,
+            expectedAccountGeneration = generation
         )
     }
 
     fun unsubscribe(id: String) {
-        runCatching { relayManager.unsubscribe(id) }
+        val generation = relayManager.captureAccountGeneration()
+        runCatching {
+            relayManager.unsubscribe(
+                id,
+                expectedAccountGeneration = generation
+            )
+        }
     }
 
     fun unsubscribeAllOwned() {
-        runCatching { relayManager.unsubscribeOwner(owner) }
+        val generation = relayManager.captureAccountGeneration()
+        runCatching {
+            relayManager.unsubscribeOwner(
+                owner,
+                expectedAccountGeneration = generation
+            )
+        }
     }
 
     private fun isAllowed(liveLocationToken: Long?): Boolean =

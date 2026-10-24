@@ -100,6 +100,17 @@ class MeshForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        if (AppShutdownCoordinator.isShutdownCommitted()) {
+            stopSelf()
+            return
+        }
+        if (!com.bitchat.android.nostr.NdrPanicStartupRecovery
+                .isNetworkStartupAllowed()
+        ) {
+            discardOldAccountNetworkWork()
+            stopSelf()
+            return
+        }
         notificationManager = NotificationManagerCompat.from(this)
         peerAvailabilityNotifier = PeerAvailabilityNotifier(
             context = applicationContext,
@@ -143,9 +154,17 @@ class MeshForegroundService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (isShuttingDown && intent?.action == ACTION_START) {
-            AppShutdownCoordinator.cancelPendingShutdown()
-            isShuttingDown = false
+        if (AppShutdownCoordinator.isShutdownCommitted()) {
+            isShuttingDown = true
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        if (!com.bitchat.android.nostr.NdrPanicStartupRecovery
+                .isNetworkStartupAllowed()
+        ) {
+            discardOldAccountNetworkWork()
+            stopSelf()
+            return START_NOT_STICKY
         }
         if (isShuttingDown && intent?.action != ACTION_QUIT) {
             return START_NOT_STICKY
@@ -158,7 +177,7 @@ class MeshForegroundService : Service() {
                 try { com.bitchat.android.services.MessageRouter.tryGetInstance()?.stopOutboxScheduler() } catch (_: Exception) { }
                 try { unifiedMeshService?.stopServices() ?: meshService?.stopServices() } catch (_: Exception) { }
                 try { MeshServiceHolder.clear() } catch (_: Exception) { }
-                try { stopForeground(true) } catch (_: Exception) { }
+                try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
                 clearMeshNotifications()
                 isInForeground = false
                 stopSelf()
@@ -168,7 +187,7 @@ class MeshForegroundService : Service() {
                 isShuttingDown = true
                 updateJob?.cancel()
                 updateJob = null
-                try { stopForeground(true) } catch (_: Exception) { }
+                try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
                 clearMeshNotifications()
                 isInForeground = false
                 // Fully stop all background activity, stop Tor (without changing setting), then kill the app
@@ -177,7 +196,7 @@ class MeshForegroundService : Service() {
                     mesh = unifiedMeshService,
                     notificationManager = notificationManager,
                     stopForeground = {
-                        try { stopForeground(true) } catch (_: Exception) { }
+                        try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
                         isInForeground = false
                     },
                     stopService = { stopSelf() }
@@ -240,13 +259,19 @@ class MeshForegroundService : Service() {
         }
         val count = getUnifiedActivePeerCount()
         if (MeshServicePreferences.isBackgroundEnabled(true) && hasAllRequiredPermissions()) {
+            if (Build.VERSION.SDK_INT >= 33 &&
+                androidx.core.content.ContextCompat.checkSelfPermission(
+                    this,
+                    android.Manifest.permission.POST_NOTIFICATIONS
+                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) return
             if (lastNotifiedPeerCount != count) {
                 startForegroundCompat(buildNotification(count))
                 lastNotifiedPeerCount = count
             }
         } else if (force) {
             // If disabled and forced, make sure to remove any prior foreground state
-            try { stopForeground(false) } catch (_: Exception) { }
+            try { stopForeground(STOP_FOREGROUND_DETACH) } catch (_: Exception) { }
             clearMeshNotifications()
             isInForeground = false
             lastNotifiedPeerCount = null
@@ -367,16 +392,43 @@ class MeshForegroundService : Service() {
     }
 
     override fun onDestroy() {
+        // Service teardown is normally transient: pause retries but preserve
+        // the outbox for a later service rebind. Panic/quit discard explicitly.
+        try {
+            com.bitchat.android.services.MessageRouter
+                .tryGetInstance()
+                ?.stopOutboxScheduler()
+        } catch (_: Exception) { }
         updateJob?.cancel()
         updateJob = null
         // Cancel the service coroutine scope to prevent leaks
         try { serviceJob.cancel() } catch (_: Exception) { }
         // Best-effort ensure we are not marked foreground
         if (isInForeground) {
-            try { stopForeground(true) } catch (_: Exception) { }
+            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
             isInForeground = false
         }
         super.onDestroy()
+    }
+
+    private fun discardOldAccountNetworkWork() {
+        val accountReset = runCatching {
+            com.bitchat.android.nostr.AccountResetCoordinator.begin(
+                application = application,
+                terminal = true
+            )
+        }.getOrNull()
+        try {
+            com.bitchat.android.nostr.NdrNostrService
+                .getInstance(applicationContext)
+                .shutdownForProcessExit()
+        } catch (_: Exception) { }
+        if (accountReset != null) {
+            runCatching {
+                com.bitchat.android.nostr.AccountResetCoordinator
+                    .discardRelay(accountReset)
+            }
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

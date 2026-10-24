@@ -5,6 +5,7 @@ import android.util.Log
 import com.bitchat.android.favorites.FavoriteControlMessage
 import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.model.NdrFeatureGate
 import com.bitchat.android.noise.NoiseSession
 import com.bitchat.android.wifiaware.WifiAwareController
 import kotlinx.coroutines.CoroutineScope
@@ -32,6 +33,7 @@ class UnifiedMeshService(
 
     companion object {
         private const val TAG = "UnifiedMeshService"
+        private const val BLE_NDR_TRANSPORT_ID = "BLE"
     }
 
     private val serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -148,6 +150,39 @@ class UnifiedMeshService(
             isBleReady(peerID) -> bluetooth.sendVerifyResponse(peerID, noiseKeyHex, nonceA)
             isWifiReady(peerID) -> wifiService()?.sendVerifyResponse(peerID, noiseKeyHex, nonceA)
         }
+    }
+
+    override fun currentNdrRoute(peerID: String, transportId: String?): NdrMeshRoute? {
+        if (!NdrFeatureGate.isEnabled()) return null
+        return when (transportId) {
+            null -> bluetooth.currentNdrRoute(peerID)
+                ?: wifiService()?.currentNdrRoute(peerID)
+            BLE_NDR_TRANSPORT_ID ->
+                bluetooth.currentNdrRoute(peerID, transportId)
+            else -> wifiService()?.currentNdrRoute(peerID, transportId)
+        }
+    }
+
+    override fun sendNdrEvent(
+        route: NdrMeshRoute,
+        payload: String,
+        isStillAuthorized: () -> Boolean,
+        completion: (admitted: Boolean) -> Unit
+    ) {
+        if (!NdrFeatureGate.isEnabled()) {
+            completion(false)
+            return
+        }
+        if (route.transportId == BLE_NDR_TRANSPORT_ID) {
+            bluetooth.sendNdrEvent(route, payload, isStillAuthorized, completion)
+            return
+        }
+        val wifi = wifiService()
+        if (wifi == null) {
+            completion(false)
+            return
+        }
+        wifi.sendNdrEvent(route, payload, isStillAuthorized, completion)
     }
 
     override fun sendFileBroadcast(file: BitchatFilePacket) {
@@ -301,6 +336,36 @@ class UnifiedMeshService(
         }
     }
 
+    override fun peerSupportsAuthenticatedCapability(
+        peerID: String,
+        capability: com.bitchat.android.model.PeerCapabilities
+    ): Boolean =
+        bleSupportsAuthenticatedCapability(peerID, capability) ||
+            wifiSupportsAuthenticatedCapability(peerID, capability)
+
+    private fun bleSupportsAuthenticatedCapability(
+        peerID: String,
+        capability: com.bitchat.android.model.PeerCapabilities
+    ): Boolean {
+        return try {
+            isBleReady(peerID) && bluetooth.peerSupportsAuthenticatedCapability(peerID, capability)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun wifiSupportsAuthenticatedCapability(
+        peerID: String,
+        capability: com.bitchat.android.model.PeerCapabilities
+    ): Boolean {
+        return try {
+            isWifiReady(peerID) &&
+                wifiService()?.peerSupportsAuthenticatedCapability(peerID, capability) == true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     override fun updatePeerInfo(
         peerID: String,
         nickname: String,
@@ -411,6 +476,10 @@ class UnifiedMeshService(
 
     override fun didReceiveVerifyResponse(peerID: String, payload: ByteArray, timestampMs: Long) {
         delegate?.didReceiveVerifyResponse(peerID, payload, timestampMs)
+    }
+
+    override fun didReceiveNdrEvent(route: NdrMeshRoute, payload: ByteArray, timestampMs: Long) {
+        delegate?.didReceiveNdrEvent(route, payload, timestampMs)
     }
 
     override fun didResolvePrivateMediaPolicy(peerID: String) {

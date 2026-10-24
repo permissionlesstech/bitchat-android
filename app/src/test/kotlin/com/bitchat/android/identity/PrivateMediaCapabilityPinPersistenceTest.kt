@@ -1,6 +1,7 @@
 package com.bitchat.android.identity
 
 import android.content.Context
+import android.content.SharedPreferences
 import com.bitchat.android.model.AuthenticatedPeerState
 import com.bitchat.android.model.PeerCapabilities
 import org.junit.Assert.assertArrayEquals
@@ -69,5 +70,63 @@ class PrivateMediaCapabilityPinPersistenceTest {
         val afterPanic = SecureIdentityStateManager(prefs, testOnly = true)
         assertEquals(null, afterPanic.getAuthenticatedPeerState(fingerprint))
         assertFalse(afterPanic.isPrivateMediaCapable(fingerprint))
+    }
+
+    @Test
+    fun `identity panic wipe preserves NDR protection until native reset succeeds`() {
+        val protected = mapOf(
+            "favorite_relationships" to """{"contact":"pinned"}""",
+            "favorite_peerid_index" to """{"peer":"npub"}""",
+            "favorite_ndr_rebind_v1" to """{"version":1}"""
+        )
+        protected.forEach { (key, value) ->
+            assertTrue(manager.storeSecureValueSynchronously(key, value))
+        }
+        assertTrue(manager.storeSecureValueSynchronously("unrelated_secret", "remove-me"))
+
+        assertTrue(manager.clearIdentityData())
+
+        protected.forEach { (key, value) ->
+            assertEquals(value, manager.getSecureValue(key))
+        }
+        assertEquals(null, manager.getSecureValue("unrelated_secret"))
+    }
+
+    @Test
+    fun `identity panic wipe reports a failed durable commit`() {
+        val failingPreferences = CommitFailingSharedPreferences(prefs)
+        val failingManager = SecureIdentityStateManager(failingPreferences, testOnly = true)
+        assertTrue(failingManager.storeSecureValueSynchronously("unrelated_secret", "keep"))
+
+        failingPreferences.failCommits = true
+
+        assertFalse(failingManager.clearIdentityData())
+        assertEquals("keep", failingManager.getSecureValue("unrelated_secret"))
+    }
+
+    private class CommitFailingSharedPreferences(
+        private val delegate: SharedPreferences
+    ) : SharedPreferences by delegate {
+        var failCommits = false
+
+        override fun edit(): SharedPreferences.Editor =
+            CommitFailingEditor(delegate.edit())
+
+        private inner class CommitFailingEditor(
+            private val delegateEditor: SharedPreferences.Editor
+        ) : SharedPreferences.Editor by delegateEditor {
+            override fun clear(): SharedPreferences.Editor {
+                delegateEditor.clear()
+                return this
+            }
+
+            override fun putString(key: String?, value: String?): SharedPreferences.Editor {
+                delegateEditor.putString(key, value)
+                return this
+            }
+
+            override fun commit(): Boolean =
+                if (failCommits) false else delegateEditor.commit()
+        }
     }
 }

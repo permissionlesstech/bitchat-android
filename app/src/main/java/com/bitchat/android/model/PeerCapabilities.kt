@@ -45,9 +45,19 @@ data class PeerCapabilities(val rawValue: Long) : Parcelable {
 
         /** Reserved by iOS; decode it but do not advertise or act on it. */
         val NON_DESTRUCTIVE_NOISE_REPLACEMENT = PeerCapabilities(1L shl 10)
+        /** Authenticated out-of-band bootstrap for the Nostr double ratchet. */
+        val NOSTR_DOUBLE_RATCHET = PeerCapabilities(1L shl 11)
 
         /** Capabilities implemented by this Android build. */
-        val LOCAL_SUPPORTED = PRIVATE_MEDIA
+        val LOCAL_SUPPORTED: PeerCapabilities
+            get() {
+                val ndrCapability = if (NdrFeatureGate.isEnabled()) {
+                    NOSTR_DOUBLE_RATCHET.rawValue
+                } else {
+                    0L
+                }
+                return PeerCapabilities(PRIVATE_MEDIA.rawValue or ndrCapability)
+            }
 
         /**
          * Decode the low 64 bits and ignore any future extension bytes, which

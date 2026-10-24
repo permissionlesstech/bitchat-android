@@ -16,14 +16,16 @@ internal class NostrPendingEventQueue(
     data class Delivery(
         val queueId: Long,
         val event: NostrEvent,
-        val liveLocationToken: Long?
+        val liveLocationToken: Long?,
+        val accountGeneration: Long
     )
 
     private data class Entry(
         val queueId: Long,
         val event: NostrEvent,
         val pendingRelayUrls: MutableSet<String>,
-        val liveLocationToken: Long?
+        val liveLocationToken: Long?,
+        val accountGeneration: Long
     )
 
     private val lock = Any()
@@ -33,7 +35,8 @@ internal class NostrPendingEventQueue(
     fun enqueue(
         event: NostrEvent,
         relayUrls: Collection<String>,
-        liveLocationToken: Long?
+        liveLocationToken: Long?,
+        accountGeneration: Long
     ): Long? {
         val pendingRelays = relayUrls.filterTo(linkedSetOf()) { it.isNotBlank() }
         if (pendingRelays.isEmpty()) return null
@@ -46,18 +49,32 @@ internal class NostrPendingEventQueue(
                     queueId = queueId,
                     event = event,
                     pendingRelayUrls = pendingRelays,
-                    liveLocationToken = liveLocationToken
+                    liveLocationToken = liveLocationToken,
+                    accountGeneration = accountGeneration
                 )
             )
             queueId
         }
     }
 
-    fun pendingForRelay(relayUrl: String): List<Delivery> = synchronized(lock) {
+    fun pendingForRelay(
+        relayUrl: String,
+        accountGeneration: Long
+    ): List<Delivery> = synchronized(lock) {
         entries
             .asSequence()
-            .filter { relayUrl in it.pendingRelayUrls }
-            .map { Delivery(it.queueId, it.event, it.liveLocationToken) }
+            .filter {
+                it.accountGeneration == accountGeneration &&
+                    relayUrl in it.pendingRelayUrls
+            }
+            .map {
+                Delivery(
+                    queueId = it.queueId,
+                    event = it.event,
+                    liveLocationToken = it.liveLocationToken,
+                    accountGeneration = it.accountGeneration
+                )
+            }
             .toList()
     }
 
@@ -74,9 +91,12 @@ internal class NostrPendingEventQueue(
         }
     }
 
-    fun removeLiveLocationEvents() {
+    fun removeLiveLocationEvents(accountGeneration: Long) {
         synchronized(lock) {
-            entries.removeAll { it.liveLocationToken != null }
+            entries.removeAll {
+                it.accountGeneration == accountGeneration &&
+                    it.liveLocationToken != null
+            }
         }
     }
 
