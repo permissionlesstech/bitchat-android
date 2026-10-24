@@ -9,12 +9,14 @@ local windows are not limits imposed by NIP-17 itself.
 Both comparisons are inclusive:
 
 - Inner rumor: `now - 87300 <= created_at <= now + 900`.
-- Outer gift wrap: `now - 260100 <= created_at <= now + 900`.
+- Outer gift wrap: `now - 260100 <= created_at <= now + 1800`.
 
 The outer maximum age includes 172800 seconds of randomization, 86400 seconds
-of delivery delay, and 900 seconds of clock tolerance. A rumor sent 24 hours
-ago with the full two-day randomization must survive the outer check. Checking
-only 48 hours would discard it before decrypting its valid inner timestamp.
+of delivery delay, and 900 seconds of clock tolerance. The future side is two
+skews (1800 seconds): iOS may place the wrapper 900 seconds ahead, and the
+receiver's clock may lag by another 900. A rumor sent 24 hours ago with the
+full two-day randomization must survive the outer check. Checking only 48
+hours would discard it before decrypting its valid inner timestamp.
 
 Account and background DM subscriptions use that same outer cutoff, converting
 the millisecond API value to seconds when encoding the Nostr filter. Both

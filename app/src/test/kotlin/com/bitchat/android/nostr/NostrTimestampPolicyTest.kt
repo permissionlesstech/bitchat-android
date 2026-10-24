@@ -68,8 +68,22 @@ class NostrTimestampPolicyTest {
     }
 
     @Test
-    fun `future-dated gift wrap beyond skew is rejected`() {
-        val createdAt = (now + skew + 1).toInt()
+    fun `gift wrap at sender now plus 900 is accepted when the receiver is 60s behind`() {
+        val receiverNow = now
+        val senderNow = now + 60
+        val createdAt = (senderNow + skew).toInt()
+        assertTrue(NostrTimestampPolicy.isAcceptableGiftWrapTimestamp(createdAt, receiverNow))
+    }
+
+    @Test
+    fun `future-dated gift wrap inside two skews is accepted`() {
+        val createdAt = (now + skew * 2).toInt()
+        assertTrue(NostrTimestampPolicy.isAcceptableGiftWrapTimestamp(createdAt, now))
+    }
+
+    @Test
+    fun `future-dated gift wrap beyond two skews is rejected`() {
+        val createdAt = (now + skew * 2 + 1).toInt()
         assertFalse(NostrTimestampPolicy.isAcceptableGiftWrapTimestamp(createdAt, now))
     }
 

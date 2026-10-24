@@ -41,7 +41,10 @@ object NostrTimestampPolicy {
     ): Boolean {
         val age = nowSeconds - createdAtSeconds.toLong()
         val skew = AppConstants.Nostr.DM_MAX_CLOCK_SKEW_SECONDS
+        // iOS sets the wrapper up to one skew into the future. Allow a second
+        // skew so a receiver whose clock is behind still accepts that wrap.
+        val future = skew * 2
         val maxAge = AppConstants.Nostr.DM_GIFT_WRAP_MAX_AGE_SECONDS
-        return age >= -skew && age <= maxAge
+        return age >= -future && age <= maxAge
     }
 }
