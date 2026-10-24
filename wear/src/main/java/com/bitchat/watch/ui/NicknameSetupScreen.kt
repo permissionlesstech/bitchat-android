@@ -31,7 +31,7 @@ import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.bitchat.watch.ui.theme.ChatVisualTokens
-import com.bitchat.watch.ui.theme.LocalBitchatPalette
+import com.bitchat.android.ui.theme.LocalBitchatPalette
 
 /**
  * Nickname entry, used both for first-run onboarding and for renaming later. The IME's

@@ -40,7 +40,7 @@ import androidx.wear.compose.material3.IconButton
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.bitchat.watch.ui.theme.ChatVisualTokens
-import com.bitchat.watch.ui.theme.LocalBitchatPalette
+import com.bitchat.android.ui.theme.LocalBitchatPalette
 
 /**
  * Full-screen text input: field auto-focused so the watch IME (with its built-in dictation)

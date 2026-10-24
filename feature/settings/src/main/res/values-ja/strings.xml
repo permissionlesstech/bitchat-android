@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 概要シート -->
+    <string name="about_offline_mesh_title">オフライン・メッシュチャット</string>
+    <string name="about_offline_mesh_desc">インターネットやサーバーなしで、Bluetooth LE 経由で直接通信します。近隣のデバイスを経由してメッセージを中継し、到達範囲を広げます。</string>
+    <string name="about_online_geohash_title">オンライン Geohash チャンネル</string>
+    <string name="about_online_geohash_desc">Geohash ベースのチャンネルで近くの人々とつながります。公開インターネットのリレーを介してメッシュを拡張します。</string>
+    <string name="about_e2e_title">エンドツーエンド暗号化</string>
+    <string name="about_e2e_desc">プライベートメッセージは暗号化されます。チャンネルメッセージは公開です。</string>
+    <string name="about_system">システム</string>
+    <string name="about_light">ライト</string>
+    <string name="about_dark">ダーク</string>
+    <string name="about_pow">Proof of Work</string>
+    <string name="about_pow_tip">スパム対策として Geohash メッセージに Proof of Work を追加します。</string>
+    <string name="about_pow_desc_none">Proof of Work は不要</string>
+    <string name="about_pow_desc_very_low">非常に低い – 最小限のスパム対策</string>
+    <string name="about_pow_desc_low">低い – 基本的なスパム対策</string>
+    <string name="about_pow_desc_medium">中 – 良好なスパム対策</string>
+    <string name="about_pow_desc_high">高い – 強力なスパム対策</string>
+    <string name="about_pow_desc_very_high">非常に高い – 遅延が発生する可能性</string>
+    <string name="about_pow_desc_extreme">極めて高い – 相当な計算資源が必要</string>
+    <string name="about_tor_route">プライバシー向上のため、インターネット通信を Tor 経由にします。</string>
+    <string name="about_debug_settings">デバッグ設定</string>
+    <string name="about_footer">オープンソース • プライバシーファースト • 分散型</string>
+    <string name="unknown">不明</string>
+
+    <!-- デバッグ / 診断 -->
+    <string name="debug_tools">デバッグツール</string>
+    <string name="debug_tools_desc">診断と制御のための開発者ツール</string>
+    <string name="debug_verbose_logging">詳細ログ</string>
+    <string name="debug_verbose_hint">ピアの参加/離脱、接続方向、パケット転送、リレーを記録</string>
+    <string name="debug_bluetooth_roles">Bluetooth ロール</string>
+    <string name="debug_gatt_server">GATT サーバー</string>
+    <string name="debug_connections_fmt">接続: %1$d / %2$d</string>
+    <string name="debug_max_server">最大サーバー</string>
+    <string name="debug_gatt_client">GATT クライアント</string>
+    <string name="debug_max_client">最大クライアント</string>
+    <string name="debug_overall_connections_fmt">接続: %1$d / %2$d</string>
+    <string name="debug_max_overall">合計最大</string>
+    <string name="debug_packet_relay">パケットリレー</string>
+    <string name="debug_roles_hint">ロールのオン/オフを切り替え、オフ時にすべての接続を閉じる</string>
+    <string name="debug_max_packets_per_sync_fmt">同期あたりの最大パケット: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">GCS フィルター最大サイズ: %1$d バイト (128–1024)</string>
+    <string name="debug_target_fpr_fmt">目標 FPR: %1$.2f%%</string>
+    <string name="debug_connected_devices">接続済みデバイス</string>
+    <string name="debug_our_device_id_fmt">自分のデバイス ID: %1$s</string>
+    <string name="debug_none">なし</string>
+    <string name="debug_disconnect">切断</string>
+    <string name="debug_recent_scan_results">最近スキャンしたデバイス</string>
+    <string name="debug_connect">接続</string>
+    <string name="debug_debug_console">デバッグコンソール</string>
+    <string name="debug_clear">クリア</string>
+    <string name="debug_derived_p_fmt">導出 P: %1$s • 推定最大アイテム: %2$s</string>
+    <string name="debug_direct_suffix"> • 直接</string>
+    <string name="debug_role_server">サーバーとして (自分がホスト)</string>
+    <string name="debug_role_client">クライアントとして (自分が接続)</string>
+
+    <string name="version_prefix">v%1$s</string>
+    <string name="about_language">言語</string>
+    <string name="about_app_language">アプリの言語</string>
+    <string name="about_system_default">システムのデフォルト</string>
+    <string name="about_select_language">言語を選択</string>
+</resources>

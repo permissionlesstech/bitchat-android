@@ -110,7 +110,12 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     private val securityManager = SecurityManager(encryptionService, myPeerID)
     private val storeForwardManager = StoreForwardManager()
     private val messageHandler = MessageHandler(myPeerID, context.applicationContext)
-    internal val connectionManager = BluetoothConnectionManager(context, myPeerID, fragmentManager) // Made internal for access
+    internal val connectionManager = BluetoothConnectionManager(
+        context,
+        myPeerID,
+        BluetoothPermissionManager(context, requireLocation = true),
+        fragmentManager
+    ) // Made internal for access
     private val packetProcessor = PacketProcessor(myPeerID)
     private data class VoiceFrameRequest(val recipientPeerID: String?, val payload: ByteArray)
     private val voiceFrameQueue = Channel<VoiceFrameRequest>(capacity = 128)
@@ -118,7 +123,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     // Service-level notification manager for background (no-UI) DMs
     private val serviceNotificationManager = com.bitchat.android.ui.NotificationManager(
         context.applicationContext,
-        androidx.core.app.NotificationManagerCompat.from(context.applicationContext)
+        androidx.core.app.NotificationManagerCompat.from(context.applicationContext),
+        com.bitchat.android.di.AppNotificationTargets,
     )
     
     // Service state management
@@ -1648,13 +1654,4 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             Log.e(TAG, "Error clearing encryption data: ${e.message}")
         }
     }
-}
-
-/**
- * Delegate interface for BLE mesh callbacks. Extends the shared mesh delegate so
- * transport-agnostic facades can receive the same callback stream.
- */
-interface BluetoothMeshDelegate : MeshDelegate {
-    override fun didReceiveVerifyChallenge(peerID: String, payload: ByteArray, timestampMs: Long)
-    override fun didReceiveVerifyResponse(peerID: String, payload: ByteArray, timestampMs: Long)
 }

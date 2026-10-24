@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 关于 -->
+    <string name="about_offline_mesh_title">离线 Mesh 聊天</string>
+    <string name="about_offline_mesh_desc">无需网络或服务器，通过 Bluetooth LE 直接通信。利用附近设备中继消息以扩展范围。</string>
+    <string name="about_online_geohash_title">在线 Geohash 频道</string>
+    <string name="about_online_geohash_desc">使用基于 geohash 的频道与附近的人交流。通过公共互联网中继扩展 mesh。</string>
+    <string name="about_e2e_title">端到端加密</string>
+    <string name="about_e2e_desc">私信加密；频道消息为公开。</string>
+    <string name="about_system">系统</string>
+    <string name="about_light">浅色</string>
+    <string name="about_dark">深色</string>
+    <string name="about_pow">工作量证明</string>
+    <string name="about_pow_tip">为 geohash 消息添加工作量证明以抑制垃圾信息。</string>
+    <string name="about_pow_desc_none">无需工作量证明</string>
+    <string name="about_pow_desc_very_low">很低——最低防护</string>
+    <string name="about_pow_desc_low">较低——基础防护</string>
+    <string name="about_pow_desc_medium">中等——良好防护</string>
+    <string name="about_pow_desc_high">高——强防护</string>
+    <string name="about_pow_desc_very_high">很高——可能延迟</string>
+    <string name="about_pow_desc_extreme">极高——需要大量计算</string>
+    <string name="about_tor_route">通过 Tor 路由互联网以提升隐私。</string>
+    <string name="about_debug_settings">调试设置</string>
+    <string name="about_footer">Open Source • Privacy First • 去中心化</string>
+    <string name="unknown">未知</string>
+
+    <!-- 调试/诊断 -->
+    <string name="debug_tools">调试工具</string>
+    <string name="debug_verbose_logging">详细日志</string>
+    <string name="debug_bluetooth_roles">Bluetooth 角色</string>
+    <string name="debug_gatt_server">GATT 服务器</string>
+    <string name="debug_connections_fmt">连接：%1$d / %2$d</string>
+    <string name="debug_max_server">最大服务器</string>
+    <string name="debug_gatt_client">GATT 客户端</string>
+    <string name="debug_max_client">最大客户端</string>
+    <string name="debug_overall_connections_fmt">连接：%1$d / %2$d</string>
+    <string name="debug_max_overall">最大总计</string>
+    <string name="debug_packet_relay">数据包中继</string>
+    <string name="debug_max_packets_per_sync_fmt">每次同步的最大包数：%1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">GCS 过滤器最大大小：%1$d 字节（128–1024）</string>
+    <string name="debug_target_fpr_fmt">目标 FPR：%1$.2f%%</string>
+    <string name="debug_connected_devices">已连接设备</string>
+    <string name="debug_our_device_id_fmt">我们的设备 ID：%1$s</string>
+    <string name="debug_none">无</string>
+    <string name="debug_disconnect">断开</string>
+    <string name="debug_recent_scan_results">最近扫描结果</string>
+    <string name="debug_connect">连接</string>
+    <string name="debug_debug_console">调试控制台</string>
+    <string name="debug_clear">清除</string>
+    <string name="debug_derived_p_fmt">导出 P：%1$s • 估算最大元素：%2$s</string>
+    <string name="debug_direct_suffix"> • 直连</string>
+    <string name="debug_question_mark">?</string>
+    <string name="debug_role_server">作为服务器（我们托管）</string>
+    <string name="debug_role_client">作为客户端（我们连接）</string>
+
+    <string name="version_prefix">v%1$s</string>
+    <string name="about_language">语言</string>
+    <string name="about_app_language">应用语言</string>
+    <string name="about_system_default">跟随系统</string>
+    <string name="about_select_language">选择语言</string>
+</resources>

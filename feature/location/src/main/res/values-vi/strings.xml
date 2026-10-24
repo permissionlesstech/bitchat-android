@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retry">Thử lại</string>
+    <string name="cd_add_bookmark">Thêm bookmark</string>
+
+    <string name="about_network">Mạng lưới</string>
+    <string name="cd_open_map">Mở bản đồ</string>
+    <string name="cd_remove_bookmark">Xóa bookmark</string>
+    <string name="cd_decrease_precision">Giảm độ chính xác</string>
+    <string name="cd_increase_precision">Tăng độ chính xác</string>
+    <string name="cd_select_geohash">Chọn geohash</string>
+    <!-- Sheet kênh geohash -->
+    <string name="location_channels_title">#Kênh vị trí</string>
+    <string name="location_channels_desc">Trò chuyện với những người gần bạn qua các kênh geohash. Chỉ geohash thô được chia sẻ, không phải dữ liệu GPS chính xác. Vui lòng không chụp màn hình hoặc chia sẻ chế độ xem này để bảo vệ quyền riêng tư.</string>
+    <string name="location_permission_denied">Quyền vị trí bị từ chối. Hãy bật trong Cài đặt để sử dụng kênh vị trí.</string>
+    <string name="finding_nearby_channels">Đang tìm kênh gần đó …</string>
+    <string name="bookmarked">Đã bookmark</string>
+    <string name="geohash_placeholder">Geohash</string>
+    <string name="invalid_geohash">Geohash không hợp lệ</string>
+    <string name="teleport">dịch chuyển</string>
+    <string name="disable_location_services">Tắt dịch vụ vị trí</string>
+    <string name="enable_location_services">Bật dịch vụ vị trí</string>
+    <string name="location_level_block">Khối</string>
+    <string name="location_level_neighborhood">Khu phố</string>
+    <string name="location_level_city">Thành phố</string>
+    <string name="location_level_province">Tỉnh</string>
+    <string name="location_level_region">Khu vực</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <string name="pan_zoom_instruction">di chuyển và zoom để chọn geohash</string>
+    <string name="select">chọn</string>
+    <plurals name="people_count">
+        <item quantity="one">1 người</item>
+        <item quantity="other">%d người</item>
+    </plurals>
+
+  <string name="nearby_notes_reveal">kiểm tra ghi chú để lại ở đây</string>
+</resources>

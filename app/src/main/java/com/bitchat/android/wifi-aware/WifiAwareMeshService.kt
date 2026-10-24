@@ -93,7 +93,8 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     // Service-level notification manager for background (no-UI) DMs
     private val serviceNotificationManager = com.bitchat.android.ui.NotificationManager(
         context.applicationContext,
-        androidx.core.app.NotificationManagerCompat.from(context.applicationContext)
+        androidx.core.app.NotificationManagerCompat.from(context.applicationContext),
+        com.bitchat.android.di.AppNotificationTargets,
     )
 
     // Wi-Fi Aware transport

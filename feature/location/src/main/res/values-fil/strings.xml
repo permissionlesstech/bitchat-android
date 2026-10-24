@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retry">Subukang muli</string>
+    <string name="cd_add_bookmark">Mag‑bookmark</string>
+
+    <string name="about_network">network</string>
+    <string name="cd_open_map">Buksan ang mapa</string>
+    <string name="cd_remove_bookmark">Alisin ang bookmark</string>
+    <string name="cd_decrease_precision">Bawasan ang precision</string>
+    <string name="cd_increase_precision">Dagdagan ang precision</string>
+    <string name="cd_select_geohash">Piliin ang geohash</string>
+    <!-- Location channels sheet -->
+    <string name="location_channels_title">#mga channel sa lokasyon</string>
+    <string name="location_channels_desc">makipag‑usap sa mga tao sa paligid gamit ang mga geohash na channel. tanging malabong geohash ang ibinabahagi, hindi eksaktong gps. huwag mag‑screenshot o ibahagi ang screen na ito para sa privacy.</string>
+    <string name="location_permission_denied">tinanggihan ang permiso sa lokasyon. i‑enable sa settings para magamit ang mga channel sa lokasyon.</string>
+    <string name="finding_nearby_channels">naghahanap ng kalapit na channel…</string>
+    <string name="bookmarked">na‑bookmark</string>
+    <string name="geohash_placeholder">geohash</string>
+    <string name="invalid_geohash">maling geohash</string>
+    <string name="teleport">teleport</string>
+    <string name="disable_location_services">i‑disable ang location services</string>
+    <string name="enable_location_services">i‑enable ang location services</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+    <string name="location_level_block">bloke</string>
+    <string name="location_level_neighborhood">barangay</string>
+    <string name="location_level_city">lungsod</string>
+    <string name="location_level_province">probinsya</string>
+    <string name="location_level_region">rehiyon</string>
+
+    <string name="pan_zoom_instruction">i‑pan at i‑zoom para pumili ng geohash</string>
+    <string name="select">piliin</string>
+    <string name="hash_symbol">#</string>
+    <plurals name="people_count">
+        <item quantity="one">1 tao</item>
+        <item quantity="other">%d tao</item>
+    </plurals>
+
+  <string name="nearby_notes_reveal">tingnan kung may mga note na naiwan dito</string>
+</resources>

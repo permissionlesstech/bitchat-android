@@ -56,7 +56,7 @@ import com.bitchat.android.features.voice.AudioWaveformExtractor
 import com.bitchat.android.features.voice.VoiceWaveformCache
 import com.bitchat.watch.ui.theme.ChatVisualTokens
 import com.bitchat.watch.ui.roundContentSide
-import com.bitchat.watch.ui.theme.LocalBitchatPalette
+import com.bitchat.android.ui.theme.LocalBitchatPalette
 import kotlinx.coroutines.delay
 import java.io.File
 

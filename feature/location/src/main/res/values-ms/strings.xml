@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retry">Cuba Lagi</string>
+  <string name="cd_add_bookmark">Tambah penanda buku</string>
+
+  <string name="about_network">rangkaian</string>
+  <string name="cd_open_map">Buka peta</string>
+  <string name="cd_remove_bookmark">Alih keluar penanda buku</string>
+  <string name="cd_decrease_precision">Kurangkan ketepatan</string>
+  <string name="cd_increase_precision">Tingkatkan ketepatan</string>
+  <string name="cd_select_geohash">Pilih geohash</string>
+  <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+  <!-- Location channels sheet -->
+  <string name="location_channels_title">#saluran lokasi</string>
+  <string name="location_channels_desc">berbual dengan orang berdekatan anda menggunakan saluran geohash. hanya geohash kasar dikongsi, tidak sekali-kali gps tepat. jangan ambil tangkapan skrin atau kongsi skrin ini untuk melindungi privasi anda.</string>
+  <string name="location_permission_denied">kebenaran lokasi ditolak. aktifkan dalam tetapan untuk menggunakan saluran lokasi.</string>
+
+  <string name="finding_nearby_channels">mencari saluran berdekatan…</string>
+  <string name="bookmarked">ditanda buku</string>
+  <string name="geohash_placeholder">geohash</string>
+  <string name="invalid_geohash">geohash tidak sah</string>
+  <string name="teleport">teleport</string>
+  <string name="disable_location_services">lumpuhkan perkhidmatan lokasi</string>
+  <string name="enable_location_services">aktifkan perkhidmatan lokasi</string>
+  <string name="location_level_block">blok</string>
+  <string name="location_level_neighborhood">kejiranan</string>
+  <string name="location_level_city">bandar</string>
+  <string name="location_level_province">wilayah</string>
+  <string name="location_level_region">rantau</string>
+
+  <!-- Location notes sheet -->
+  <plurals name="location_notes_title">
+    <item quantity="other">#%1$s ± 1 • %2$d nota</item>
+  </plurals>
+  <string name="location_notes_description">tambah nota kekal ringkas pada lokasi ini untuk pelawat lain temui.</string>
+  <string name="location_notes_relays_unavailable">geganti geo tidak tersedia; nota dijeda</string>
+  <string name="location_notes_no_relays_title">tiada geganti geo berdekatan</string>
+  <string name="location_notes_no_relays_desc">nota bergantung pada geganti geo. semak sambungan dan cuba lagi.</string>
+  <string name="loading_location_notes">memuatkan nota…</string>
+  <string name="location_notes_empty_title">belum ada nota</string>
+  <string name="location_notes_empty_desc">jadilah yang pertama menambah satu untuk tempat ini.</string>
+  <string name="dismiss">tolak</string>
+  <string name="location_notes_input_placeholder">tambah nota untuk tempat ini</string>
+
+  <string name="pan_zoom_instruction">gerak dan zum untuk memilih geohash</string>
+  <string name="select">pilih</string>
+  <string name="hash_symbol">#</string>
+  <plurals name="people_count">
+    <item quantity="other">%d orang</item>
+  </plurals>
+
+</resources>

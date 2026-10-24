@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retry">Hanandrana indray</string>
+    <string name="cd_add_bookmark">Hanampy bookmark</string>
+
+    <string name="about_network">tambazotry</string>
+    <string name="cd_open_map">Hanokatra sarintany</string>
+    <string name="cd_remove_bookmark">Hanesorana bookmark</string>
+    <string name="cd_decrease_precision">Hampihenana ny fahamarinana</string>
+    <string name="cd_increase_precision">Hampitombo ny fahamarinana</string>
+    <string name="cd_select_geohash">Hifidy geohash</string>
+    <!-- Takelaka fantsona toerana -->
+    <string name="location_channels_title">#fantsona toerana</string>
+    <string name="location_channels_desc">miresaka amin\'ny olona akaiky anao amin\'ny fampiasana fantsona geohash. geohash marivo ihany no zarainy, tsy GPS marina akory. aza maka sary an-efijery na mizara ity efijery ity mba hiarovana ny fiainanao manokana.</string>
+    <string name="location_permission_denied">nolavina ny alalana momba ny toerana. alefaso ao amin\'ny fametrahana mba hampiasa fantsona toerana.</string>
+    <string name="finding_nearby_channels">mitady fantsona akaiky…</string>
+    <string name="bookmarked">voaisy bookmark</string>
+    <string name="geohash_placeholder">geohash</string>
+    <string name="invalid_geohash">geohash tsy mety</string>
+    <string name="teleport">hamindra toerana</string>
+    <string name="disable_location_services">hanajanona sampan-draharaham-pitoerana</string>
+    <string name="enable_location_services">halefa sampan-draharaham-pitoerana</string>
+    <string name="location_level_block">sakana</string>
+    <string name="location_level_neighborhood">manodidina</string>
+    <string name="location_level_city">tanàna</string>
+    <string name="location_level_province">faritany</string>
+    <string name="location_level_region">faritra</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <string name="pan_zoom_instruction">ahetsika sy ataovy lehibe mba hifidianana geohash</string>
+    <string name="select">hifidy</string>
+    <string name="hash_symbol">#</string>
+    <plurals name="people_count">
+        <item quantity="one">Olona 1</item>
+        <item quantity="other">Olona %d</item>
+    </plurals>
+
+  <string name="nearby_notes_reveal">hizaha raha misy naoty navela teto</string>
+</resources>

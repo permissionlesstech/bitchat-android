@@ -7,6 +7,7 @@ import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.favorites.FavoriteControlMessage
 import com.bitchat.android.mesh.BluetoothConnectionManager
 import com.bitchat.android.mesh.BluetoothConnectionManagerDelegate
+import com.bitchat.android.mesh.BluetoothPermissionManager
 import com.bitchat.android.mesh.DirectLinkAnnouncementPolicy
 import com.bitchat.android.mesh.MeshCore
 import com.bitchat.android.mesh.MeshTransport
@@ -46,6 +47,10 @@ class WearMeshService private constructor(private val context: Context) {
     }
 
     val encryptionService = EncryptionService(context)
+
+    // The watch declares Bluetooth permissions only; see BluetoothPermissionManager.
+    private val permissionManager = BluetoothPermissionManager(context, requireLocation = false)
+
     val myPeerID: String = encryptionService.getIdentityFingerprint().take(16)
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -106,7 +111,7 @@ class WearMeshService private constructor(private val context: Context) {
                 leavePayloadProvider = { nickname.toByteArray(Charsets.UTF_8) }
             )
         )
-        connectionManager = BluetoothConnectionManager(context, myPeerID, meshCore.fragmentManager)
+        connectionManager = BluetoothConnectionManager(context, myPeerID, permissionManager, meshCore.fragmentManager)
         bleTransport.connectionManager = connectionManager
         wireBluetoothDelegate()
     }
@@ -231,6 +236,9 @@ class WearMeshService private constructor(private val context: Context) {
     private fun handleMessageReceived(
         message: com.bitchat.android.model.BitchatMessage
     ): Boolean = try {
+        // Read once: BitchatMessage comes from :core:domain, and Kotlin does not
+        // smart-cast a property declared in another module.
+        val channel = message.channel
         when {
             message.isPrivate -> {
                 val peer = message.senderPeerID ?: return false
@@ -238,8 +246,8 @@ class WearMeshService private constructor(private val context: Context) {
                 try { onPrivateMessage?.invoke(message) } catch (_: Exception) { }
                 true
             }
-            message.channel != null -> {
-                AppStateStore.addChannelMessage(message.channel, message)
+            channel != null -> {
+                AppStateStore.addChannelMessage(channel, message)
                 true
             }
             else -> {
@@ -261,7 +269,7 @@ class WearMeshService private constructor(private val context: Context) {
             // API marks such managers single-use, so build a fresh one instead of starting
             // a zombie mesh that reports active while scanning nothing.
             Log.i(TAG, "Recreating BluetoothConnectionManager after terminal stop")
-            connectionManager = BluetoothConnectionManager(context, myPeerID, meshCore.fragmentManager)
+            connectionManager = BluetoothConnectionManager(context, myPeerID, permissionManager, meshCore.fragmentManager)
             bleTransport.connectionManager = connectionManager
             wireBluetoothDelegate()
         }

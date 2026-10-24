@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="notification_messages_from_people">%2$d명에게서 %1$d개의 메시지</string>
+    <string name="notification_more_conversations">그리고 %1$d개의 대화 더</string>
+    <string name="notification_new_messages">새 메시지</string>
+    <string name="notification_new_location_messages">새 위치 메시지</string>
+    <string name="notification_mentions_in">%1$s에서 언급됨</string>
+    <string name="notification_mentions_in_more">%1$s에서 언급됨 (+%2$d)</string>
+    <string name="notification_mentions_in_plural">%2$s에서 %1$d회 언급</string>
+    <string name="notification_new_activity_in">%1$s의 새 활동</string>
+    <string name="notification_messages_in">%1$s의 메시지</string>
+    <string name="notification_joined_conversation">%1$s님이 대화에 참여했습니다</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d회 언급</string>
+    <string name="notification_geohash_summary_title">bitchat – 위치 채팅</string>
+    <string name="notification_geohash_summary_text">%2$d개의 장소에서 온 %1$d개의 메시지</string>
+    <string name="notification_mesh_mention_title_singular">메쉬 채팅에서 언급됨</string>
+    <string name="notification_mesh_mention_title_plural">메쉬 채팅에서 %1$d회 언급</string>
+    <string name="notification_more_locations">그리고 %1$d개의 장소 더</string>
+    <plurals name="notification_and_more">
+        <item quantity="one">그리고 %d개 더</item>
+        <item quantity="other">그리고 %d개 더</item>
+    </plurals>
+  <string name="verify_mutual_match_title">Mutual verification</string>
+  <string name="verify_mutual_match_body">You and %1$s verified each other</string>
+  <string name="verify_mutual_system_message">mutual verification with %1$s</string>
+  <string name="verify_success_title">Verified</string>
+  <string name="verify_success_body">You verified %1$s</string>
+  <string name="verify_success_system_message">verified %1$s</string>
+</resources>

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retry">আবার চেষ্টা করুন</string>
+    <string name="cd_add_bookmark">বুকমার্ক যোগ করুন</string>
+
+    <string name="about_network">নেটওয়ার্ক</string>
+    <string name="cd_open_map">মানচিত্র খুলুন</string>
+    <string name="cd_remove_bookmark">বুকমার্ক সরান</string>
+    <string name="cd_decrease_precision">নির্ভুলতা কমান</string>
+    <string name="cd_increase_precision">নির্ভুলতা বাড়ান</string>
+    <string name="cd_select_geohash">জিওহ্যাশ নির্বাচন করুন</string>
+    <!-- জিওহ্যাশ চ্যানেল শিট -->
+    <string name="location_channels_title">#অবস্থান চ্যানেল</string>
+    <string name="location_channels_desc">জিওহ্যাশ চ্যানেলের মাধ্যমে আপনার কাছাকাছি মানুষদের সাথে চ্যাট করুন। শুধুমাত্র রূঢ় জিওহ্যাশ শেয়ার করা হয়, সঠিক GPS ডেটা নয়। গোপনীয়তার জন্য দয়া করে এই ভিউ স্ক্রিনশট করবেন না বা শেয়ার করবেন না।</string>
+    <string name="location_permission_denied">অবস্থান অনুমতি প্রত্যাখ্যাত। অবস্থান চ্যানেল ব্যবহার করতে সেটিংসে সক্ষম করুন।</string>
+    <string name="finding_nearby_channels">কাছাকাছি চ্যানেল খোঁজা হচ্ছে …</string>
+    <string name="bookmarked">বুকমার্ক করা</string>
+    <string name="geohash_placeholder">জিওহ্যাশ</string>
+    <string name="invalid_geohash">অবৈধ জিওহ্যাশ</string>
+    <string name="teleport">টেলিপোর্ট</string>
+    <string name="disable_location_services">অবস্থান সেবা নিষ্ক্রিয় করুন</string>
+    <string name="enable_location_services">অবস্থান সেবা সক্রিয় করুন</string>
+    <string name="location_level_block">ব্লক</string>
+    <string name="location_level_neighborhood">আশপাশ</string>
+    <string name="location_level_city">শহর</string>
+    <string name="location_level_province">প্রদেশ</string>
+    <string name="location_level_region">অঞ্চল</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <string name="pan_zoom_instruction">জিওহ্যাশ নির্বাচন করতে প্যান এবং জুম করুন</string>
+    <string name="select">নির্বাচন করুন</string>
+    <plurals name="people_count">
+        <item quantity="one">১ জন</item>
+        <item quantity="other">%d জন</item>
+    </plurals>
+
+  <string name="nearby_notes_reveal">এখানে রাখা নোট আছে কি না দেখুন</string>
+</resources>

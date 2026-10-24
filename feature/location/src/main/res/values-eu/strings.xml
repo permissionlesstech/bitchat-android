@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retry">Saiatu berriro</string>
+    <string name="cd_add_bookmark">Gehitu laster-marka</string>
+
+    <string name="about_network">Sarea</string>
+    <string name="cd_open_map">Ireki mapa</string>
+    <string name="cd_remove_bookmark">Kendu laster-marka</string>
+    <string name="cd_decrease_precision">Txikitu zehaztasuna</string>
+    <string name="cd_increase_precision">Handitu zehaztasuna</string>
+    <string name="cd_select_geohash">Hautatu geohash-a</string>
+    <string name="location_bluetooth_subtitle">Bluetooth • %1$s</string>
+    <string name="location_bluetooth_wifi_subtitle">Bluetooth • Wifi • %1$s</string>
+
+    <!-- Location channels sheet -->
+    <string name="location_channels_title">Kanalak</string>
+    <string name="location_channels_heading">Kokapen-kanalak</string>
+    <string name="location_channels_desc">Txateatu gutxi gorabeherako kokapenaren arabera. Ez du inoiz GPS kokapen zehatza partekatzen.</string>
+    <string name="location_channels_nearby">Inguruan</string>
+    <string name="mesh_section_subtitle">Lineaz kanpoko mesh sarea. Ez da internetik behar.</string>
+
+    <string name="location_tor_routing_title">Tor bideratzea</string>
+    <string name="location_tor_routing_desc">Zure IPa ezkutatzen du kokapen-kanaletan.</string>
+    <string name="badge_recommended">Gomendatua</string>
+
+    <string name="location_permission_denied">Kokapen baimena ukatu da. Gaitu ezarpenetan kokapen-kanalak erabiltzeko.</string>
+
+    <string name="finding_nearby_channels">Inguruko kanalak bilatzen…</string>
+    <string name="bookmarked">Laster-marka gehituta</string>
+    <string name="geohash_placeholder">geohash</string>
+    <string name="invalid_geohash">Geohash baliogabea</string>
+    <string name="teleport">Teleportatu</string>
+    <string name="disable_location_services">Kendu kokapenerako sarbidea</string>
+    <string name="enable_location_services">Gaitu kokapen-zerbitzuak</string>
+    <string name="mesh_title">Mesh</string>
+    <string name="location_level_block">Etxadia</string>
+    <string name="location_level_neighborhood">Auzoa</string>
+    <string name="location_level_city">Hiria</string>
+    <string name="location_level_province">Probintzia</string>
+    <string name="location_level_region">Eskualdea</string>
+
+    <!-- Location notes sheet -->
+    <string name="nearby_notes_reveal">begiratu hemen utzitako oharrik dagoen</string>
+    <plurals name="location_notes_title">
+        <item quantity="one">#%1$s ± 1 • %2$d ohar</item>
+        <item quantity="other">#%1$s ± 1 • %2$d ohar</item>
+    </plurals>
+    <string name="location_notes_description">Gehitu ohar labur iraunkorrak kokapen honetan, beste bisitariek aurki ditzaten.</string>
+    <string name="location_notes_relays_unavailable">Geo-erreleak ez daude erabilgarri; oharrak pausatuta</string>
+    <string name="location_notes_no_relays_title">Ez dago geo-errelerik inguruan</string>
+    <string name="location_notes_no_relays_desc">Oharrak geo-erreleen mende daude. Egiaztatu konexioa eta saiatu berriro.</string>
+    <string name="loading_location_notes">Oharrak kargatzen…</string>
+    <string name="location_notes_empty_title">Oraindik ez dago oharrik</string>
+    <string name="location_notes_empty_desc">Izan zaitez leku honetan ohar bat gehitzen lehena.</string>
+    <string name="dismiss">Baztertu</string>
+    <string name="location_notes_input_placeholder">Gehitu ohar bat leku honetarako</string>
+
+    <string name="pan_zoom_instruction">Arrastatu biratzeko · Atximurkatu zoom egiteko · Sakatu fokatzeko</string>
+    <string name="select">Hautatu</string>
+    <plurals name="people_count">
+        <item quantity="one">Pertsona 1</item>
+        <item quantity="other">%d pertsona</item>
+    </plurals>
+
+</resources>

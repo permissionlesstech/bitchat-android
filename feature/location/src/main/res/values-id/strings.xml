@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retry">Coba lagi</string>
+    <string name="cd_add_bookmark">Tambah bookmark</string>
+
+    <string name="about_network">Jaringan</string>
+    <string name="cd_open_map">Buka peta</string>
+    <string name="cd_remove_bookmark">Hapus bookmark</string>
+    <string name="cd_decrease_precision">Kurangi presisi</string>
+    <string name="cd_increase_precision">Tingkatkan presisi</string>
+    <string name="cd_select_geohash">Pilih geohash</string>
+    <!-- Sheet channel geohash -->
+    <string name="location_channels_title">#Channel lokasi</string>
+    <string name="location_channels_desc">Chat dengan orang-orang di dekat Anda melalui channel geohash. Hanya geohash kasar yang dibagikan, bukan data GPS yang tepat. Harap jangan tangkap layar atau bagikan tampilan ini untuk privasi.</string>
+    <string name="location_permission_denied">Izin lokasi ditolak. Aktifkan di Pengaturan untuk menggunakan channel lokasi.</string>
+    <string name="finding_nearby_channels">Mencari channel terdekat …</string>
+    <string name="bookmarked">Dibookmark</string>
+    <string name="geohash_placeholder">Geohash</string>
+    <string name="invalid_geohash">Geohash tidak valid</string>
+    <string name="teleport">teleportasi</string>
+    <string name="disable_location_services">Nonaktifkan layanan lokasi</string>
+    <string name="enable_location_services">Aktifkan layanan lokasi</string>
+    <string name="location_level_block">Blok</string>
+    <string name="location_level_neighborhood">Lingkungan</string>
+    <string name="location_level_city">Kota</string>
+    <string name="location_level_province">Provinsi</string>
+    <string name="location_level_region">Wilayah</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <string name="pan_zoom_instruction">geser dan zoom untuk memilih geohash</string>
+    <string name="select">pilih</string>
+    <plurals name="people_count">
+        <item quantity="one">1 orang</item>
+        <item quantity="other">%d orang</item>
+    </plurals>
+
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d catatan</item>
+    <item quantity="other">#%1$s ± 1 • %2$d catatan</item>
+  </plurals>
+  <string name="location_notes_description">tambahkan catatan singkat permanen ke lokasi ini agar pengunjung lain dapat menemukannya.</string>
+  <string name="location_notes_relays_unavailable">relay geo tidak tersedia; catatan dijeda</string>
+  <string name="location_notes_no_relays_title">tidak ada relay geo di sekitar</string>
+  <string name="location_notes_no_relays_desc">catatan bergantung pada relay geo. periksa koneksi lalu coba lagi.</string>
+  <string name="loading_location_notes">memuat catatan…</string>
+  <string name="location_notes_empty_title">belum ada catatan</string>
+  <string name="location_notes_empty_desc">jadilah yang pertama menambahkan catatan untuk tempat ini.</string>
+  <string name="dismiss">tutup</string>
+  <string name="location_notes_input_placeholder">tambahkan catatan untuk tempat ini</string>
+  <string name="nearby_notes_reveal">periksa catatan yang ditinggalkan di sini</string>
+</resources>

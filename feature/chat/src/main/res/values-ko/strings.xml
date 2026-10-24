@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="channels">채널</string>
+    <string name="no_one_connected">연결된 사람이 없음</string>
+    <string name="your_network">네트워크</string>
+
+    <!-- 즐겨찾기 접근성 -->
+    <string name="cd_add_favorite">즐겨찾기에 추가</string>
+    <string name="cd_remove_favorite">즐겨찾기에서 제거</string>
+    <!-- 채팅 헤더 &amp; 접근성 -->
+    <string name="cd_nostr_reachable">Nostr로 연결 가능</string>
+    <string name="cd_unread_private_messages">읽지 않은 개인 메시지</string>
+    <string name="cd_open_location_channels">위치 및 채널 설정 열기</string>
+    <string name="cd_connected_peers">연결된 피어</string>
+    <string name="cd_geohash_participants">geohash 참여자</string>
+    <string name="cd_ready_for_handshake">핸드셰이크 준비됨</string>
+    <string name="cd_handshake_in_progress">핸드셰이크 진행 중</string>
+    <string name="cd_encrypted">종단간 암호화</string>
+    <string name="cd_handshake_failed">핸드셰이크 실패</string>
+
+    <!-- 파일 뷰어 대화상자 -->
+    <string name="file_viewer_title">📎 파일 수신</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="file_viewer_size">📏 크기: %1$s</string>
+    <string name="file_viewer_type">🏷️ 유형: %1$s</string>
+    <string name="file_viewer_open_save">📂 열기 / 저장</string>
+    <string name="close_with_emoji">❌ 닫기</string>
+    <string name="pick_image">이미지 선택</string>
+
+    <string name="cancel_lower">취소</string>
+
+    <string name="cd_unread_message">읽지 않은 메시지</string>
+    <string name="cd_reachable_via_nostr">Nostr로 연결 가능</string>
+    <string name="cd_offline_favorite">즐겨찾기 (오프라인)</string>
+    <string name="cd_scroll_to_bottom">아래로 스크롤</string>
+    <string name="cd_file">파일</string>
+    <string name="cd_image">이미지</string>
+    <string name="cd_cancel">취소</string>
+    <string name="cd_link">링크</string>
+    <string name="cd_pick_media">미디어 선택</string>
+    <string name="cd_pick_file">파일 선택</string>
+    <string name="cd_save_current_image">현재 이미지 저장</string>
+    <string name="cd_close">닫기</string>
+    <string name="cd_image_index_of">이미지 %1$d / %2$d</string>
+    <string name="cd_record_voice">음성 메시지 녹음</string>
+    <string name="image_unavailable">이미지를 사용할 수 없음</string>
+    <string name="toast_image_saved">이미지가 \"Downloads\"에 저장됨</string>
+    <string name="toast_failed_to_save_image">이미지를 저장하지 못했습니다</string>
+    <string name="file_unavailable">[파일을 사용할 수 없음]</string>
+    <!-- 사용자 작업 시트 -->
+    <string name="choose_action_message_or_user">이 메시지 또는 사용자에 대한 동작 선택</string>
+    <string name="choose_action_user">이 사용자에 대한 동작 선택</string>
+    <string name="action_copy_message_title">메시지 복사</string>
+    <string name="action_copy_message_subtitle">이 메시지를 클립보드에 복사</string>
+    <string name="action_slap_title">%1$s를 때리기</string>
+    <string name="action_slap_subtitle">장난스러운 따귀 보내기</string>
+    <string name="action_hug_title">%1$s를 안기</string>
+    <string name="action_hug_subtitle">친근한 포옹 보내기</string>
+    <string name="action_block_title">%1$s 차단</string>
+    <string name="action_block_subtitle">이 사용자의 모든 메시지 차단</string>
+
+    <string name="mesh_label">mesh</string>
+    <string name="nobody_around">주변에 아무도 없음 …</string>
+    <string name="you_suffix"> (나)</string>
+    <string name="type_a_message_placeholder">메시지 입력 …</string>
+    <string name="mention">멘션</string>
+    <string name="media_type_image">이미지</string>
+    <string name="media_type_file">파일</string>
+
+    <!-- 알림 텍스트 도우미 -->
+    <string name="notification_sent_image">📷 이미지 보냄</string>
+    <string name="notification_sent_voice">🎤 음성 메시지 보냄</string>
+    <string name="notification_sent_file">📎 파일 보냄</string>
+
+    <!-- 비밀번호 대화상자 -->
+    <string name="pwd_prompt_title">채널 비밀번호 입력</string>
+    <string name="pwd_prompt_message">채널 %1$s은 비밀번호로 보호됩니다. 참여하려면 비밀번호를 입력하세요.</string>
+    <string name="pwd_label">비밀번호</string>
+    <string name="join">참가</string>
+  <string name="verify_title">verify</string>
+  <string name="verify_my_qr_title">scan to verify me</string>
+  <string name="verify_scan_prompt_friend">scan someone elses qr</string>
+  <string name="verify_remove">remove verification</string>
+  <string name="verify_qr_unavailable">qr unavailable</string>
+  <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
+  <string name="verify_request_camera">enable camera</string>
+  <string name="security_verification_title">security verification</string>
+  <string name="fingerprint_their">their fingerprint</string>
+  <string name="fingerprint_yours">your fingerprint</string>
+  <string name="fingerprint_pending">handshake pending</string>
+  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
+  <string name="fingerprint_status_encrypted">encrypted</string>
+  <string name="fingerprint_status_handshaking">handshaking</string>
+  <string name="fingerprint_status_failed">handshake failed</string>
+  <string name="fingerprint_status_uninitialized">not encrypted</string>
+  <string name="fingerprint_verified_message">you have verified this persons identity.</string>
+  <string name="fingerprint_not_verified_label">not verified</string>
+  <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
+  <string name="fingerprint_mark_verified">mark as verified</string>
+  <string name="fingerprint_start_handshake">start handshake</string>
+  <string name="fingerprint_copy">copy</string>
+    <string name="cd_open_about">정보 열기</string>
+</resources>

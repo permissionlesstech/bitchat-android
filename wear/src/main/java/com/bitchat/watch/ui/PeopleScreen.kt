@@ -37,8 +37,9 @@ import com.bitchat.android.services.AppStateStore
 import com.bitchat.watch.R
 import com.bitchat.watch.mesh.WearMeshService
 import com.bitchat.watch.ui.theme.ChatVisualTokens
-import com.bitchat.watch.ui.theme.LocalBitchatPalette
-import com.bitchat.watch.ui.theme.colorForPeer
+import com.bitchat.android.ui.PeerIdentity
+import com.bitchat.android.ui.theme.LocalBitchatPalette
+import com.bitchat.android.ui.theme.colorForPeer
 
 @Composable
 fun PeopleScreen(onOpenDm: (String) -> Unit, onEditNickname: () -> Unit) {
@@ -202,7 +203,7 @@ private fun PersonRow(
                     Text(
                         text = nickname,
                         style = ChatVisualTokens.SenderStyle,
-                        color = colorForPeer(nickname + peerID, palette),
+                        color = colorForPeer(PeerIdentity.mesh(peerID).stableKey, palette),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)

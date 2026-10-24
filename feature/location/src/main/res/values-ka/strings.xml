@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retry">კვლავ ცდა</string>
+    <string name="cd_add_bookmark">სანიშნეს დამატება</string>
+
+    <string name="about_network">ქსელი</string>
+    <string name="cd_open_map">რუკის გახსნა</string>
+    <string name="cd_remove_bookmark">სანიშნეს წაშლა</string>
+    <string name="cd_decrease_precision">სიზუსტის შემცირება</string>
+    <string name="cd_increase_precision">სიზუსტის გაზრდა</string>
+    <string name="cd_select_geohash">აირჩიეთ geohash</string>
+    <!-- geohash არხების შიტი -->
+    <string name="location_channels_title">#მდებარეობის არხები</string>
+    <string name="location_channels_desc">ესაუბრეთ თქვენს ახლოს მყოფ ადამიანებს geohash არხებით. იზიარება მხოლოდApprox geohash, არასოდეს ზუსტი GPS მონაცემები. თქვენი კონფიდენციალურობის დასაცავად ნუ გადაიღებთ სკრინშოტებს და ნუ გააზიარებთ ამ ეკრანს.</string>
+    <string name="location_permission_denied">მდებარეობის ნებართვა უარყოფილია. ჩართეთ პარამეტრებში მდებარეობის არხების გამოსაყენებლად.</string>
+    <string name="finding_nearby_channels">ახლომდებარე არხების ძიება…</string>
+    <string name="bookmarked">სანიშნეები</string>
+    <string name="geohash_placeholder">Geohash</string>
+    <string name="invalid_geohash">არასწორი geohash</string>
+    <string name="teleport">ტელეპორტი</string>
+    <string name="disable_location_services">მდებარეობის სერვისების გამორთვა</string>
+    <string name="enable_location_services">მდებარეობის სერვისების ჩართვა</string>
+    <string name="location_level_block">კვარტალი</string>
+    <string name="location_level_neighborhood">ახლომდებარე რაიონი</string>
+    <string name="location_level_city">ქალაქი</string>
+    <string name="location_level_province">პროვინცია</string>
+    <string name="location_level_region">რეგიონი</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <string name="pan_zoom_instruction">პანორამირება/ზუმი geohash-ის ასარჩევად</string>
+    <string name="select">არჩევა</string>
+    <plurals name="people_count">
+        <item quantity="one">1 ადამიანი</item>
+        <item quantity="other">%d ადამიანი</item>
+    </plurals>
+
+  <string name="nearby_notes_reveal">აქ დატოვებული ჩანაწერების შემოწმება</string>
+</resources>

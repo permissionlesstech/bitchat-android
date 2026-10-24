@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- შიტი "შესახებ" -->
+    <string name="about_offline_mesh_title">ოფლაინ mesh-ჩათი</string>
+    <string name="about_offline_mesh_desc">ესაუბრეთ პირდაპირ Bluetooth LE-ის საშუალებით ინტერნეტის ან სერვერების გარეშე. შეტყობინებები გადაიგზავნება ახლომდებარე მოწყობილობებზე, რათა გაიზარდოს დაფარვა.</string>
+    <string name="about_online_geohash_title">ონლაინ geohash არხები</string>
+    <string name="about_online_geohash_desc">დაუკავშირდით ახლომდებარე ხალხს geohash-ზე დაფუძნებული არხებით. გააფართოვეთ mesh საჯარო ინტერნეტ რილეებით.</string>
+    <string name="about_e2e_title">ბოლო-მდე დაშიფვრა</string>
+    <string name="about_e2e_desc">პირადი შეტყობინებები დაშიფრულია. არხის შეტყობინებები საჯაროა.</string>
+    <string name="about_system">სისტემა</string>
+    <string name="about_light">ღია</string>
+    <string name="about_dark">მუქი</string>
+    <string name="about_pow">Proof of Work</string>
+    <string name="about_pow_tip">დაამატეთ Proof of Work geohash შეტყობინებებს სპამის შესამცირებლად.</string>
+    <string name="about_pow_desc_none">Proof of Work საჭირო არ არის</string>
+    <string name="about_pow_desc_very_low">ძალიან დაბალი – მინიმალური სპამის დაცვა</string>
+    <string name="about_pow_desc_low">დაბალი – საბაზისო დაცვა</string>
+    <string name="about_pow_desc_medium">საშუალო – კარგი დაცვა</string>
+    <string name="about_pow_desc_high">მაღალი – ძლიერი დაცვა</string>
+    <string name="about_pow_desc_very_high">ძალიან მაღალი – შეიძლება გამოიწვიოს დაყოვნება</string>
+    <string name="about_pow_desc_extreme">ექსტრემალური – საჭიროებს დიდ გამოთვლით რესურსს</string>
+    <string name="about_tor_route">ინტერნეტ ტრაფიკის Tor-ით მარშრუტიზაცია პერსონალურობისთვის.</string>
+    <string name="about_debug_settings">დebug პარამეტრები</string>
+    <string name="about_footer">ღია კოდი • კონფიდენციალობა პირველია • დეცენტრალიზებული</string>
+    <string name="unknown">უცნობი</string>
+
+    <!-- დებაგი / დიაგნოსტიკა -->
+    <string name="debug_tools">დაბაგირების ხელსაწყოები</string>
+    <string name="debug_tools_desc">დეველოპერის ხელსაწყოები დიაგნოზისთვის და კონტროლისთვის</string>
+    <string name="debug_verbose_logging">გაფართოებული ლოგირება</string>
+    <string name="debug_verbose_hint">იწერება პირების ჩართვა/გამორთვა, კავშირის მიმართულება, პაკეტების გადაცემა და რილეები</string>
+    <string name="debug_bluetooth_roles">Bluetooth როლები</string>
+    <string name="debug_gatt_server">GATT სერვერი</string>
+    <string name="debug_connections_fmt">კავშირები: %1$d / %2$d</string>
+    <string name="debug_max_server">მაქს. სერვერი</string>
+    <string name="debug_gatt_client">GATT კლიენტი</string>
+    <string name="debug_max_client">მაქს. კლიენტი</string>
+    <string name="debug_overall_connections_fmt">კავშირები: %1$d / %2$d</string>
+    <string name="debug_max_overall">მაქს. სულ</string>
+    <string name="debug_packet_relay">პაკეტების რელე</string>
+    <string name="debug_roles_hint">როლების გადართვა და გამორთვისას ყველა კავშირის დახურვა</string>
+    <string name="debug_max_packets_per_sync_fmt">მაქს. პაკეტი სინქრონიზაციაზე: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">მაქს. GCS ფილტრის ზომა: %1$d ბაიტი (128–1024)</string>
+    <string name="debug_target_fpr_fmt">სამიზნე FPR: %1$.2f%%</string>
+    <string name="debug_connected_devices">დაკავშირებული მოწყობილობები</string>
+    <string name="debug_our_device_id_fmt">ჩვენი მოწყობილობის ID: %1$s</string>
+    <string name="debug_none">არცერთი</string>
+    <string name="debug_disconnect">გათიშვა</string>
+    <string name="debug_recent_scan_results">ბოლო სკანირებული მოწყობილობები</string>
+    <string name="debug_connect">დაკავშირება</string>
+    <string name="debug_debug_console">დაბაგ კონსოლი</string>
+    <string name="debug_clear">გასუფთავება</string>
+    <string name="debug_derived_p_fmt">განმუხტული P: %1$s • სავარაუდო მაქს. ელემენტები: %2$s</string>
+    <string name="debug_direct_suffix"> • პირდაპირ</string>
+    <string name="debug_role_server">სერვერის როლში (ჩვენ ვმასპინძლობთ)</string>
+    <string name="debug_role_client">კლიენტის როლში (ჩვენ ვუკავშირდებით)</string>
+
+    <string name="version_prefix">v%1$s</string>
+    <string name="about_language">ენა</string>
+    <string name="about_app_language">აპის ენა</string>
+    <string name="about_system_default">სისტემის ნაგულისხმევი</string>
+    <string name="about_select_language">ენის არჩევა</string>
+</resources>

@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="channels">Canales</string>
+    <string name="no_one_connected">Nadie conectado</string>
+    <string name="your_network">Tu red</string>
+
+    <!-- Accesibilidad de favoritos -->
+    <string name="cd_add_favorite">Agregar a favoritos</string>
+    <string name="cd_remove_favorite">Quitar de favoritos</string>
+    <!-- Encabezado de chat y accesibilidad -->
+    <string name="cd_nostr_reachable">Accesible vía Nostr</string>
+    <string name="cd_unread_private_messages">Mensajes privados sin leer</string>
+    <string name="cd_open_location_channels">Abrir ajustes de ubicación y canales</string>
+    <string name="cd_connected_peers">Pares conectados</string>
+    <string name="cd_geohash_participants">Participantes geohash</string>
+    <string name="cd_ready_for_handshake">Listo para handshake</string>
+    <string name="cd_handshake_in_progress">Handshake en progreso</string>
+    <string name="cd_encrypted">Cifrado de extremo a extremo</string>
+    <string name="cd_handshake_failed">Handshake fallido</string>
+
+    <!-- Diálogo de visor de archivos -->
+    <string name="file_viewer_title">📎 Archivo recibido</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="file_viewer_size">📏 Tamaño: %1$s</string>
+    <string name="file_viewer_type">🏷️ Tipo: %1$s</string>
+    <string name="file_viewer_open_save">📂 Abrir / Guardar</string>
+    <string name="close_with_emoji">❌ Cerrar</string>
+    <string name="pick_image">Elegir imagen</string>
+
+    <string name="cancel_lower">cancelar</string>
+
+    <string name="cd_unread_message">Mensaje sin leer</string>
+    <string name="cd_reachable_via_nostr">Accesible vía Nostr</string>
+    <string name="cd_offline_favorite">Favorito (sin conexión)</string>
+    <string name="cd_scroll_to_bottom">Desplazar al final</string>
+    <string name="cd_file">Archivo</string>
+    <string name="cd_image">Imagen</string>
+    <string name="cd_cancel">Cancelar</string>
+    <string name="cd_link">Enlace</string>
+    <string name="cd_pick_media">Elegir medios</string>
+    <string name="cd_pick_file">Elegir archivo</string>
+    <string name="cd_save_current_image">Guardar imagen actual</string>
+    <string name="cd_close">Cerrar</string>
+    <string name="cd_image_index_of">Imagen %1$d de %2$d</string>
+    <string name="cd_record_voice">Grabar nota de voz</string>
+    <string name="image_unavailable">Imagen no disponible</string>
+    <string name="toast_image_saved">Imagen guardada en "Descargas"</string>
+    <string name="toast_failed_to_save_image">No se pudo guardar la imagen</string>
+    <string name="file_unavailable">[Archivo no disponible]</string>
+    <!-- Hoja de acciones de usuario -->
+    <string name="choose_action_message_or_user">Elegir acción para este mensaje o usuario</string>
+    <string name="choose_action_user">Elegir acción para este usuario</string>
+    <string name="action_copy_message_title">Copiar mensaje</string>
+    <string name="action_copy_message_subtitle">Copiar este mensaje al portapapeles</string>
+    <string name="action_slap_title">Abofetear a %1$s</string>
+    <string name="action_slap_subtitle">Enviar una bofetada juguetona</string>
+    <string name="action_hug_title">Abrazar a %1$s</string>
+    <string name="action_hug_subtitle">Enviar un abrazo amistoso</string>
+    <string name="action_block_title">Bloquear a %1$s</string>
+    <string name="action_block_subtitle">Bloquear todos los mensajes de este usuario</string>
+
+    <string name="mesh_label">mesh</string>
+    <string name="nobody_around">nadie por aquí…</string>
+    <string name="you_suffix"> (tú)</string>
+    <string name="type_a_message_placeholder">Escribe un mensaje…</string>
+    <string name="mention">mencionar</string>
+    <string name="media_type_image">Imagen</string>
+    <string name="media_type_file">Archivo</string>
+
+    <!-- Ayudantes de texto de notificación -->
+    <string name="notification_sent_image">📷 envió una imagen</string>
+    <string name="notification_sent_voice">🎤 envió una nota de voz</string>
+    <string name="notification_sent_file">📎 envió un archivo</string>
+
+    <!-- Diálogo de contraseña -->
+    <string name="pwd_prompt_title">Ingresar contraseña del canal</string>
+    <string name="pwd_prompt_message">El canal %1$s está protegido con contraseña. Ingresa la contraseña para unirte.</string>
+    <string name="pwd_label">Contraseña</string>
+    <string name="join">Unirse</string>
+  <string name="verify_title">verificar</string>
+  <string name="verify_my_qr_title">escanear para verificarme</string>
+  <string name="verify_scan_prompt_friend">escanear qr de otro</string>
+  <string name="verify_remove">eliminar verificación</string>
+  <string name="verify_qr_unavailable">qr no disponible</string>
+  <string name="verify_camera_permission">se necesita permiso de cámara</string>
+  <string name="verify_request_camera">activar cámara</string>
+  <string name="security_verification_title">verificación de seguridad</string>
+  <string name="fingerprint_their">su huella digital</string>
+  <string name="fingerprint_yours">tu huella digital</string>
+  <string name="fingerprint_pending">intercambio pendiente</string>
+  <string name="fingerprint_status_verified">cifrado y verificado</string>
+  <string name="fingerprint_status_encrypted">cifrado</string>
+  <string name="fingerprint_status_handshaking">negociando</string>
+  <string name="fingerprint_status_failed">falló negociación</string>
+  <string name="fingerprint_status_uninitialized">no cifrado</string>
+  <string name="fingerprint_verified_message">has verificado esta identidad.</string>
+  <string name="fingerprint_not_verified_label">no verificado</string>
+  <string name="fingerprint_not_verified_message_fmt">compara huellas con %1$s por canal seguro.</string>
+  <string name="fingerprint_mark_verified">marcar verificado</string>
+  <string name="fingerprint_start_handshake">iniciar handshake</string>
+  <string name="fingerprint_copy">copiar</string>
+    <string name="cd_open_about">Abrir Acerca de</string>
+</resources>

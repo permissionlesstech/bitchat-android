@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="channels">Mga Channel</string>
+    <string name="no_one_connected">Walang nakakonekta</string>
+    <string name="your_network">Network</string>
+
+    <!-- Paborito / Accessibility -->
+    <string name="cd_add_favorite">Idagdag sa paborito</string>
+    <string name="cd_remove_favorite">Alisin sa paborito</string>
+    <!-- Header at accessibility -->
+    <string name="cd_nostr_reachable">Maabot sa Nostr</string>
+    <string name="cd_unread_private_messages">Hindi nabasang pribadong mensahe</string>
+    <string name="cd_open_location_channels">Buksan ang mga setting ng lokasyon at channel</string>
+    <string name="cd_connected_peers">Nakakonektang peers</string>
+    <string name="cd_geohash_participants">Mga kalahok sa geohash</string>
+    <string name="cd_ready_for_handshake">Handa para sa handshake</string>
+    <string name="cd_handshake_in_progress">Isinasagawa ang handshake</string>
+    <string name="cd_encrypted">End‑to‑end naka‑encrypt</string>
+    <string name="cd_handshake_failed">Bigo ang handshake</string>
+
+    <!-- Dialog ng file -->
+    <string name="file_viewer_title">📎 Nakakuha ng file</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="file_viewer_size">📏 Laki: %1$s</string>
+    <string name="file_viewer_type">🏷️ Uri: %1$s</string>
+    <string name="file_viewer_open_save">📂 Buksan / I‑save</string>
+    <string name="close_with_emoji">❌ Isara</string>
+    <string name="pick_image">Pumili ng larawan</string>
+
+    <string name="cancel_lower">kanselahin</string>
+
+    <string name="cd_unread_message">Hindi nabasang mensahe</string>
+    <string name="cd_reachable_via_nostr">Maabot sa Nostr</string>
+    <string name="cd_offline_favorite">Paborito (offline)</string>
+    <string name="cd_scroll_to_bottom">Mag‑scroll pababa</string>
+    <string name="cd_file">File</string>
+    <string name="cd_image">Larawan</string>
+    <string name="cd_cancel">Kanselahin</string>
+    <string name="cd_link">Link</string>
+    <string name="cd_pick_media">Pumili ng media</string>
+    <string name="cd_record_voice">Mag‑record ng voice note</string>
+    <string name="image_unavailable">Hindi available ang larawan</string>
+    <string name="file_unavailable">[hindi available ang file]</string>
+    <!-- User action sheet -->
+    <string name="choose_action_message_or_user">pumili ng aksyon para sa mensaheng ito o user</string>
+    <string name="choose_action_user">pumili ng aksyon para sa user na ito</string>
+    <string name="action_copy_message_title">kopyahin ang mensahe</string>
+    <string name="action_copy_message_subtitle">kopyahin ang mensaheng ito sa clipboard</string>
+    <string name="action_slap_title">sapakin si %1$s</string>
+    <string name="action_slap_subtitle">magpadala ng birong sampal</string>
+    <string name="action_hug_title">yakapin si %1$s</string>
+    <string name="action_hug_subtitle">magpadala ng magiliw na yakap</string>
+    <string name="action_block_title">harangan si %1$s</string>
+    <string name="action_block_subtitle">harangan ang lahat ng mensahe mula sa user na ito</string>
+
+    <string name="mesh_label">mesh</string>
+    <string name="at_symbol">@</string>
+    <string name="channel_count_prefix"> · ⧉ </string>
+    <string name="nobody_around">walang tao sa paligid…</string>
+    <string name="you_suffix"> (ikaw)</string>
+    <string name="type_a_message_placeholder">magtype ng mensahe…</string>
+    <string name="mention_suggestion_at">@%1$s</string>
+    <string name="mention">banggit</string>
+    <string name="image_counter">%1$d / %2$d</string>
+    <string name="at_nickname">@%1$s</string>
+    <string name="underscore">_</string>
+    <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
+    <string name="progress_filled">█</string>
+    <string name="progress_empty">░</string>
+    <string name="media_type_image">Larawan</string>
+    <string name="media_type_file">File</string>
+
+    <!-- Tulong na text sa abiso -->
+    <string name="notification_sent_image">📷 nagpadala ng larawan</string>
+    <string name="notification_sent_voice">🎤 nagpadala ng voice message</string>
+    <string name="notification_sent_file">📎 nagpadala ng file</string>
+    <!-- Dialog ng password -->
+    <string name="pwd_prompt_title">Ilagay ang password ng channel</string>
+    <string name="pwd_prompt_message">Ang channel na %1$s ay protektado. Ilagay ang password para sumali.</string>
+    <string name="pwd_label">Password</string>
+    <string name="join">Sumali</string>
+  <string name="verify_title">verify</string>
+  <string name="verify_my_qr_title">scan to verify me</string>
+  <string name="verify_scan_prompt_friend">scan someone elses qr</string>
+  <string name="verify_remove">remove verification</string>
+  <string name="verify_qr_unavailable">qr unavailable</string>
+  <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
+  <string name="verify_request_camera">enable camera</string>
+  <string name="security_verification_title">security verification</string>
+  <string name="fingerprint_their">their fingerprint</string>
+  <string name="fingerprint_yours">your fingerprint</string>
+  <string name="fingerprint_pending">handshake pending</string>
+  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
+  <string name="fingerprint_status_encrypted">encrypted</string>
+  <string name="fingerprint_status_handshaking">handshaking</string>
+  <string name="fingerprint_status_failed">handshake failed</string>
+  <string name="fingerprint_status_uninitialized">not encrypted</string>
+  <string name="fingerprint_verified_message">you have verified this persons identity.</string>
+  <string name="fingerprint_not_verified_label">not verified</string>
+  <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
+  <string name="fingerprint_mark_verified">mark as verified</string>
+  <string name="fingerprint_start_handshake">start handshake</string>
+  <string name="fingerprint_copy">copy</string>
+    <string name="cd_open_about">Buksan ang Tungkol</string>
+</resources>

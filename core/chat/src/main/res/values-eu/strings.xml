@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notification_messages_from_people">%1$d mezu %2$d pertsonarengandik</string>
+    <string name="notification_more_conversations">eta beste %1$d elkarrizketa</string>
+    <string name="notification_new_messages">Mezu berriak</string>
+    <string name="notification_new_location_messages">Kokapeneko mezu berriak</string>
+    <string name="notification_mentions_in">Aipatu zaituzte hemen: %1$s</string>
+    <string name="notification_mentions_in_more">Aipatu zaituzte hemen: %1$s (+%2$d gehiago)</string>
+    <string name="notification_mentions_in_plural">%1$d aipamen hemen: %2$s</string>
+    <string name="notification_new_activity_in">Jarduera berria hemen: %1$s</string>
+    <string name="notification_messages_in">Mezuak hemen: %1$s</string>
+    <string name="notification_joined_conversation">%1$s elkarrizketara batu da</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat - %1$d aipamen</string>
+    <string name="notification_geohash_summary_title">bitchat - Kokapeneko txatak</string>
+    <string name="notification_geohash_summary_text">%1$d mezu %2$d kokapenetatik</string>
+    <string name="notification_mesh_mention_title_singular">Mesh txatean aipatu zaituzte</string>
+    <string name="notification_mesh_mention_title_plural">%1$d aipamen mesh txatean</string>
+    <string name="notification_more_locations">eta beste %1$d kokapen</string>
+    <string name="notification_reply">Erantzun</string>
+    <string name="notification_mark_read">Markatu irakurrita</string>
+    <string name="notification_private_message">Mezu pribatu berria</string>
+    <string name="notification_content_hidden">Ireki bitchat ikusteko</string>
+    <string name="notification_channel_direct_messages">Mezu zuzenak</string>
+    <string name="notification_channel_direct_messages_description">Beste erabiltzaileen mezu pribatuen jakinarazpenak</string>
+    <string name="notification_channel_geohash">Geohash txatak</string>
+    <string name="notification_channel_geohash_description">Geohash kokapen-kanaletako aipamen eta mezuen jakinarazpenak</string>
+    <string name="you">Zu</string>
+    <string name="verify_mutual_match_title">Elkarren arteko egiaztapena</string>
+    <string name="verify_mutual_match_body">Zuk eta %1$s erabiltzaileak elkar egiaztatu duzue</string>
+    <string name="verify_mutual_system_message">Elkarren arteko egiaztapena %1$s erabiltzailearekin</string>
+    <string name="verify_success_title">Egiaztatua</string>
+    <string name="verify_success_body">%1$s egiaztatu duzu</string>
+    <string name="verify_success_system_message">%1$s egiaztatuta</string>
+
+</resources>
