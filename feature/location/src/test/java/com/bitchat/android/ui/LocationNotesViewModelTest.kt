@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import androidx.lifecycle.SavedStateHandle
 import com.bitchat.android.geohash.GeohashChannel
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.GeohashChannelLevel.BLOCK
@@ -7,6 +8,8 @@ import com.bitchat.android.geohash.GeohashChannelLevel.BUILDING
 import com.bitchat.android.geohash.LocationChannelManager.PermissionState
 import com.bitchat.android.nostr.LocationNotesManager
 import com.bitchat.android.nostr.LocationNotesManager.State
+import com.bitchat.android.nostr.NoteSendResult
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,7 +27,7 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * Pins LocationNotesViewModel and the decisions under it (inventory N1-N13, Q-N3, Q-N10,
+ * Pins LocationNotesViewModel and the decisions under it (inventory N1-N13, F3, Q-N10,
  * Q-N11) against fake ports. Synthetic geohashes only; nothing touches location services.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -49,8 +52,8 @@ class LocationNotesViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun newViewModel() =
-        LocationNotesViewModel(location, store, gate, NotesClock { NOW }, nickname)
+    private fun newViewModel(savedState: SavedStateHandle = SavedStateHandle()) =
+        LocationNotesViewModel(location, store, gate, NotesClock { NOW }, nickname, savedState)
 
     private fun withBuilding() {
         location.availableChannels.value = listOf(
@@ -165,7 +168,7 @@ class LocationNotesViewModelTest {
         assertFalse(vm.uiState.value.sendEnabled)
     }
 
-    // N4, Q-N3
+    // N4, F3
 
     @Test
     fun send_trimsAndPassesNickname_thenClearsDraft() {
@@ -218,11 +221,12 @@ class LocationNotesViewModelTest {
     }
 
     @Test
-    fun sendFails_draftCleared_currentBehaviour_QN3() {
+    fun sendFails_draftKept() {
         withBuilding()
         store.onSend = {
             store.state.value = State.NO_RELAYS
             store.errorMessage.value = "No relays available"
+            NoteSendResult.Failed(NoteSendResult.Reason.NO_RELAYS)
         }
         val vm = newViewModel()
         vm.onAction(LocationNotesAction.DraftChanged("synthetic note"))
@@ -230,8 +234,51 @@ class LocationNotesViewModelTest {
         vm.onAction(LocationNotesAction.SendClicked)
 
         assertEquals(1, store.sent.size)
-        assertEquals("", vm.uiState.value.draft)
+        assertEquals("synthetic note", vm.uiState.value.draft)
         assertEquals(State.NO_RELAYS, vm.uiState.value.notes().loadState)
+    }
+
+    @Test
+    fun sendSucceeds_draftCleared() {
+        withBuilding()
+        val vm = newViewModel()
+        vm.onAction(LocationNotesAction.DraftChanged("synthetic note"))
+
+        vm.onAction(LocationNotesAction.SendClicked)
+
+        assertEquals(1, store.sent.size)
+        assertEquals("", vm.uiState.value.draft)
+    }
+
+    @Test
+    fun draftSurvivesNewViewModelInstance_viaSavedStateHandle() {
+        withBuilding()
+        val handle = SavedStateHandle()
+        newViewModel(handle).onAction(LocationNotesAction.DraftChanged("synthetic note"))
+
+        val restored = newViewModel(handle)
+
+        assertEquals("synthetic note", handle.get<String>("notes_draft"))
+        assertEquals("synthetic note", restored.uiState.value.draft)
+        assertTrue(restored.uiState.value.sendEnabled)
+    }
+
+    @Test
+    fun sendInFlight_secondSendIgnored_andTextTypedMeanwhileKept() {
+        withBuilding()
+        val pending = CompletableDeferred<NoteSendResult>()
+        store.onSend = { pending.await() }
+        val vm = newViewModel()
+        vm.onAction(LocationNotesAction.DraftChanged("synthetic note"))
+
+        vm.onAction(LocationNotesAction.SendClicked)
+        vm.onAction(LocationNotesAction.SendClicked)
+        assertEquals(1, store.sent.size)
+
+        vm.onAction(LocationNotesAction.DraftChanged("synthetic note, more"))
+        pending.complete(NoteSendResult.Sent)
+
+        assertEquals("synthetic note, more", vm.uiState.value.draft)
     }
 
     // N5, N6, N8
@@ -443,11 +490,11 @@ class LocationNotesViewModelTest {
         override val errorMessage = MutableStateFlow<String?>(null)
         override val initialLoadComplete = MutableStateFlow(true)
         val sent = mutableListOf<Pair<String, String?>>()
-        var onSend: () -> Unit = {}
+        var onSend: suspend () -> NoteSendResult = { NoteSendResult.Sent }
 
-        override fun send(content: String, nickname: String?) {
+        override suspend fun send(content: String, nickname: String?): NoteSendResult {
             sent += content to nickname
-            onSend()
+            return onSend()
         }
 
         override fun refresh() { calls += "refresh" }

@@ -208,23 +208,27 @@ class LocationNotesManager private constructor() {
     }
     
     /**
-     * Send a new location note
+     * Send a new location note.
+     *
+     * The checks run on the caller's thread, as before; the identity, signing and relay
+     * hand-off still run in this manager's scope, so a caller that stops waiting does not
+     * cancel a send in progress. The result says whether the note went out.
      */
-    fun send(content: String, nickname: String?) {
+    suspend fun send(content: String, nickname: String?): NoteSendResult {
         val token = LiveLocationPrivacyGate.captureToken() ?: run {
             stop()
-            return
+            return NoteSendResult.Failed(NoteSendResult.Reason.PRIVACY_GATE_CLOSED)
         }
         val currentGeohash = _geohash.value
         if (currentGeohash == null) {
             Log.w(TAG, "Cannot send note - no geohash set")
             _errorMessage.value = "No location set"
-            return
+            return NoteSendResult.Failed(NoteSendResult.Reason.NO_LOCATION)
         }
         
         val trimmed = content.trim()
         if (trimmed.isEmpty()) {
-            return
+            return NoteSendResult.Failed(NoteSendResult.Reason.NOT_SENT)
         }
         
         // CRITICAL FIX: Get geo-specific relays for sending (matching iOS pattern)
@@ -239,7 +243,7 @@ class LocationNotesManager private constructor() {
         }
         if (!LiveLocationPrivacyGate.accepts(token)) {
             stop()
-            return
+            return NoteSendResult.Failed(NoteSendResult.Reason.PRIVACY_GATE_CLOSED)
         }
         
         // Check if we have relays (iOS pattern: guard !relays.isEmpty())
@@ -247,17 +251,17 @@ class LocationNotesManager private constructor() {
             Log.w(TAG, "Location-note send blocked because no relays are available")
             _state.value = State.NO_RELAYS
             _errorMessage.value = "No relays available"
-            return
+            return NoteSendResult.Failed(NoteSendResult.Reason.NO_RELAYS)
         }
         
         val deriveIdentity = deriveIdentityFunc
         if (deriveIdentity == null) {
             Log.e(TAG, "Cannot send note - deriveIdentity not initialized")
             _errorMessage.value = "Not initialized"
-            return
+            return NoteSendResult.Failed(NoteSendResult.Reason.NOT_INITIALIZED)
         }
         
-        scope.launch {
+        return scope.async {
             try {
                 var identity: NostrIdentity? = null
                 val identityPrepared = withContext(Dispatchers.IO) {
@@ -266,9 +270,12 @@ class LocationNotesManager private constructor() {
                     }
                 }
                 val preparedIdentity = identity
-                if (!identityPrepared || preparedIdentity == null ||
-                    !LiveLocationPrivacyGate.accepts(token)
-                ) return@launch
+                if (!identityPrepared || !LiveLocationPrivacyGate.accepts(token)) {
+                    return@async NoteSendResult.Failed(NoteSendResult.Reason.PRIVACY_GATE_CLOSED)
+                }
+                if (preparedIdentity == null) {
+                    return@async NoteSendResult.Failed(NoteSendResult.Reason.NO_IDENTITY)
+                }
 
                 val preparedEvent = withContext(Dispatchers.IO) {
                     NostrProtocol.createGeohashTextNote(
@@ -278,7 +285,9 @@ class LocationNotesManager private constructor() {
                             nickname = nickname
                         )
                 }
-                if (!LiveLocationPrivacyGate.accepts(token)) return@launch
+                if (!LiveLocationPrivacyGate.accepts(token)) {
+                    return@async NoteSendResult.Failed(NoteSendResult.Reason.PRIVACY_GATE_CLOSED)
+                }
 
                 // Optimistic local echo - add note immediately to UI
                 val localNote = Note(
@@ -302,22 +311,30 @@ class LocationNotesManager private constructor() {
                 
                 // CRITICAL FIX: Send to geo-specific relays (matching iOS pattern)
                 // iOS: dependencies.sendEvent(event, relays)
+                var handedOff = false
                 val sent = withContext(Dispatchers.IO) {
                     LiveLocationPrivacyGate.runIfAllowed(token) {
-                        sendEventFunc?.invoke(preparedEvent, relays, token)
+                        sendEventFunc?.invoke(preparedEvent, relays, token)?.also { handedOff = true }
                     }
                 }
-                if (!sent) return@launch
+                if (!sent) {
+                    return@async NoteSendResult.Failed(NoteSendResult.Reason.NOT_SENT)
+                }
                 
                 // Clear any error messages on successful send
                 _errorMessage.value = null
                 _state.value = State.READY
-                
+                if (handedOff) {
+                    NoteSendResult.Sent
+                } else {
+                    NoteSendResult.Failed(NoteSendResult.Reason.NOT_INITIALIZED)
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send note: ${e.message}")
                 _errorMessage.value = "Failed to send: ${e.message}"
+                NoteSendResult.Failed(NoteSendResult.Reason.ERROR)
             }
-        }
+        }.await()
     }
     
     /**

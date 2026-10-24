@@ -6,6 +6,7 @@ import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.geohash.LocationChannelManager.PermissionState
 import com.bitchat.android.nostr.LocationNotesManager
 import com.bitchat.android.nostr.NearbyNotesController
+import com.bitchat.android.nostr.NoteSendResult
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -37,7 +38,7 @@ interface NotesStore {
     val state: StateFlow<LocationNotesManager.State>
     val errorMessage: StateFlow<String?>
     val initialLoadComplete: StateFlow<Boolean>
-    fun send(content: String, nickname: String?)
+    suspend fun send(content: String, nickname: String?): NoteSendResult
     fun refresh()
     fun clearError()
 }
@@ -77,7 +78,8 @@ internal class ManagerNotesStore @Inject constructor() : NotesStore {
     override val errorMessage: StateFlow<String?> get() = manager.errorMessage
     override val initialLoadComplete: StateFlow<Boolean> get() = manager.initialLoadComplete
 
-    override fun send(content: String, nickname: String?) = manager.send(content, nickname)
+    override suspend fun send(content: String, nickname: String?): NoteSendResult =
+        manager.send(content, nickname)
     override fun refresh() = manager.refresh()
     override fun clearError() = manager.clearError()
 }

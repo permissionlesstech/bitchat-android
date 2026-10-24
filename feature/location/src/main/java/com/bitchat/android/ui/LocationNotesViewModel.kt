@@ -1,11 +1,14 @@
 package com.bitchat.android.ui
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.bitchat.android.nostr.NoteSendResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Locale
 import java.util.TimeZone
 import javax.inject.Inject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +18,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.launch
 
 /**
  * The location notes destination: which of its three screens to show, the notes, and the
@@ -33,6 +37,7 @@ class LocationNotesViewModel internal constructor(
     private val gate: NearbyNotesGate,
     private val clock: NotesClock,
     private val nickname: StateFlow<String>,
+    private val savedState: SavedStateHandle,
 ) : ViewModel() {
 
     @Inject
@@ -42,9 +47,17 @@ class LocationNotesViewModel internal constructor(
         gate: NearbyNotesGate,
         clock: NotesClock,
         chatState: ChatState,
-    ) : this(location, store, gate, clock, chatState.nickname)
+        savedState: SavedStateHandle,
+    ) : this(location, store, gate, clock, chatState.nickname, savedState)
 
-    private var draft = ""
+    /** Kept in [savedState] so a half-typed note outlives the process (F3). */
+    private var draft: String
+        get() = savedState[DRAFT_KEY] ?: ""
+        set(value) {
+            savedState[DRAFT_KEY] = value
+        }
+
+    private var sending: Job? = null
 
     private val _uiState = MutableStateFlow(buildState())
     val uiState: StateFlow<LocationNotesUiState> = _uiState.asStateFlow()
@@ -96,14 +109,21 @@ class LocationNotesViewModel internal constructor(
         }
     }
 
-    /** N4: a non-blank draft is sent trimmed, then cleared whatever the send did (Q-N3). */
+    /**
+     * N4, F3: a non-blank draft is sent trimmed and cleared only once it is sent; a failed
+     * send keeps it. One send at a time, and text typed while it runs is kept.
+     */
     private fun send() {
-        if (!_uiState.value.sendEnabled) return
-        val content = draft.trim()
-        if (content.isNotEmpty()) {
-            store.send(content, nickname.value)
-            draft = ""
-            rebuild()
+        if (!_uiState.value.sendEnabled || sending?.isActive == true) return
+        val sentDraft = draft
+        val content = sentDraft.trim()
+        if (content.isEmpty()) return
+        sending = viewModelScope.launch {
+            val result = store.send(content, nickname.value)
+            if (result == NoteSendResult.Sent && draft == sentDraft) {
+                draft = ""
+                rebuild()
+            }
         }
     }
 
@@ -127,4 +147,8 @@ class LocationNotesViewModel internal constructor(
         locale = Locale.getDefault(),
         timeZone = TimeZone.getDefault(),
     )
+
+    private companion object {
+        const val DRAFT_KEY = "notes_draft"
+    }
 }
