@@ -4,7 +4,8 @@
 
 This log records what the Navigation 3, Hilt and modularization refactor decided, why, and
 what it left open. It is written for the maintainer, who will receive the whole refactor once,
-at the end. Read section 2 for the summary. Read section 3 only for the phase you want to
+at the end. For only the gains, on one page, read
+[`refactor-benefits.md`](refactor-benefits.md). Read section 2 for the summary. Read section 3 only for the phase you want to
 question. Sections 5 and 6 list what is still owed.
 
 In the decision tables, **(D)** marks a decision the developer made. **(R)** marks a ruling made
@@ -373,6 +374,7 @@ behaviour.
 | End of Phase 7.5 | Wear ongoing activity, icons, Wear 0.1.4. | One conflict, in `gradle/verification-metadata.xml`. Resolution checked by hand. |
 | During Phase 8: 2.0.3 / Wear 0.1.5 (#977, #979, #981) | Chat workload bounds under heavy activity; geohash presence UI stalls. | See below. |
 | Phase 9 | None. Upstream had not moved. | — |
+| After Phase 9 (#985, #986, #989, #991) | Cashu display amounts; missing geohash channel participants; onboarding margins and colors; a Basque translation. | See below. |
 
 The 2.0.3 merge re-homed each change to where its subject now lives:
 - `:core:mesh`: the batched identity cache, packet processor and gossip sync load bounds, the
@@ -386,6 +388,18 @@ The 2.0.3 merge re-homed each change to where its subject now lives:
 - `:feature:chat`: the chat UI and participant list changes.
 - New tests sit with their subjects. Upstream's instrumented participant-list test later moved
   to `:feature:chat`'s device tests.
+
+The merge after Phase 9 re-homed:
+- `:core:nostr`: the new `GeohashParticipantStore`, ported onto this branch's
+  `GeohashRepository`, which publishes its own flows instead of writing `ChatState`.
+  `NostrBackgroundRuntime.participants` is public, because `:core:chat` reads it.
+- `:core:chat`: `GeohashSession` and `NostrBackgroundEventProcessor` share that store. Upstream's
+  `GeohashParticipantTrackingTest` moved here, since it drives the processor; its one
+  assertion on `sectionGeohashPeople` (internal to `:feature:chat`) became an assertion on
+  `teleportedGeo`, the input that function sections by.
+- `:feature:onboarding`: the margin and color changes merged without conflict.
+- The Basque `strings.xml` was split across the eight modules that own its strings. Its
+  `fingerprint_no_peer` was dropped: that string was deleted as unused in Phase 4.
 
 PRs #912 and #913 were open upstream at last record, and this branch contains both. If they
 merge first, expect a Back-handling conflict in `MainActivity`. Keep this branch's handler
