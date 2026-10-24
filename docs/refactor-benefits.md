@@ -62,8 +62,8 @@ kept out of the refactor so it changes no behaviour it did not have to. Details 
 - A Nostr private message's sender can show as "anon" instead of the favourite's nickname.
 - `BluetoothPacketBroadcaster` spins at about 100 failures a second while Bluetooth is off.
 - The favourite star has no accessibility label.
-- A geohash channel shows two different "N people" counts: the channel list and the peer
-  list's header count everyone seen in five minutes, silent heartbeats included, while the
+- A geohash channel shows two different "N people" counts: the channel list and the chat
+  screen's top bar count everyone seen in five minutes, silent heartbeats included, while the
   people list counts only people with a known name, so the two can differ by an order of
   magnitude.
 
