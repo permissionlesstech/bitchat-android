@@ -43,7 +43,7 @@ fun OnboardingRouteContent(
     viewModel: OnboardingViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val onAction = viewModel::onAction
 
     val bluetoothEnable = rememberLauncherForActivityResult(
@@ -78,9 +78,9 @@ fun OnboardingRouteContent(
         onAction(OnboardingAction.BackgroundResult(granted))
     }
 
-    ObserveEffects(viewModel.effects) { effect ->
-        when (effect) {
-            OnboardingEffect.LaunchBluetoothEnable -> {
+    ObserveEvents(viewModel.events) { event ->
+        when (event) {
+            OnboardingEvent.LaunchBluetoothEnable -> {
                 Log.d(BLUETOOTH_TAG, "Requesting user to enable Bluetooth")
                 try {
                     bluetoothEnable.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
@@ -97,7 +97,7 @@ fun OnboardingRouteContent(
                     onAction(OnboardingAction.BluetoothLaunchFailed("Failed to request Bluetooth enable: ${e.message}"))
                 }
             }
-            OnboardingEffect.LaunchLocationSettings -> {
+            OnboardingEvent.LaunchLocationSettings -> {
                 Log.d(LOCATION_TAG, "Requesting user to enable location services")
                 try {
                     locationSettings.launch(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
@@ -106,7 +106,7 @@ fun OnboardingRouteContent(
                     onAction(OnboardingAction.LocationLaunchFailed("Failed to open location settings: ${e.message}"))
                 }
             }
-            OnboardingEffect.LaunchBatteryOptimization -> {
+            OnboardingEvent.LaunchBatteryOptimization -> {
                 Log.d(BATTERY_TAG, "Requesting to disable battery optimization")
                 val intents = batteryOptimizationIntents(context)
                 // The last is the fallback and is launched without a resolve check.
@@ -127,23 +127,23 @@ fun OnboardingRouteContent(
                     onAction(OnboardingAction.BatteryLaunchFailed("$prefix: ${e.message}"))
                 }
             }
-            is OnboardingEffect.RequestPermissions -> permissions.launch(effect.permissions.toTypedArray())
-            is OnboardingEffect.RequestBackgroundLocation -> backgroundLocation.launch(effect.permission)
-            OnboardingEffect.OpenAppSettings -> openAppSettings(context)
+            is OnboardingEvent.RequestPermissions -> permissions.launch(event.permissions.toTypedArray())
+            is OnboardingEvent.RequestBackgroundLocation -> backgroundLocation.launch(event.permission)
+            OnboardingEvent.OpenAppSettings -> openAppSettings(context)
         }
     }
 
-    when (state.step) {
+    when (uiState.step) {
         // Onboarding has not picked its step yet, or has finished: a spinner,
         // so first launch and Try again do not show a blank screen (F8).
         OnboardingStep.CHECKING,
         OnboardingStep.PERMISSION_REQUESTING -> InitializingScreen(modifier)
-        OnboardingStep.BLUETOOTH -> BluetoothCheckScreen(modifier, state, onAction)
-        OnboardingStep.LOCATION -> LocationCheckScreen(modifier, state, onAction)
-        OnboardingStep.BATTERY_OPTIMIZATION -> BatteryOptimizationScreen(modifier, state, onAction)
-        OnboardingStep.PERMISSION_EXPLANATION -> PermissionExplanationScreen(modifier, state, onAction)
-        OnboardingStep.BACKGROUND_LOCATION -> BackgroundLocationPermissionScreen(modifier, state, onAction)
-        OnboardingStep.ERROR -> InitializationErrorScreen(modifier, state, onAction)
+        OnboardingStep.BLUETOOTH -> BluetoothCheckScreen(modifier, uiState, onAction)
+        OnboardingStep.LOCATION -> LocationCheckScreen(modifier, uiState, onAction)
+        OnboardingStep.BATTERY_OPTIMIZATION -> BatteryOptimizationScreen(modifier, uiState, onAction)
+        OnboardingStep.PERMISSION_EXPLANATION -> PermissionExplanationScreen(modifier, uiState, onAction)
+        OnboardingStep.BACKGROUND_LOCATION -> BackgroundLocationPermissionScreen(modifier, uiState, onAction)
+        OnboardingStep.ERROR -> InitializationErrorScreen(modifier, uiState, onAction)
     }
 }
 
@@ -166,18 +166,18 @@ fun batteryOptimizationIntents(context: Context): List<Intent> = listOf(
 )
 
 /**
- * Collects the view model's effects while the route is at least started, on
- * Main.immediate so an effect sent from a tap launches before the next frame.
- * Effects sent while stopped wait in the view model's channel.
+ * Collects the view model's events while the route is at least started, on
+ * Main.immediate so an event sent from a tap launches before the next frame.
+ * Events sent while stopped wait in the view model's channel.
  */
 @Composable
-private fun <T> ObserveEffects(effects: Flow<T>, onEffect: (T) -> Unit) {
+private fun <T> ObserveEvents(events: Flow<T>, onEvent: (T) -> Unit) {
     val lifecycleOwner = LocalLifecycleOwner.current
-    val currentOnEffect by rememberUpdatedState(onEffect)
-    LaunchedEffect(effects, lifecycleOwner) {
+    val currentOnEvent by rememberUpdatedState(onEvent)
+    LaunchedEffect(events, lifecycleOwner) {
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
             withContext(Dispatchers.Main.immediate) {
-                effects.collect { currentOnEffect(it) }
+                events.collect { currentOnEvent(it) }
             }
         }
     }

@@ -46,7 +46,7 @@ class OnboardingViewModelTest {
 
     private lateinit var vm: OnboardingViewModel
 
-    private val state get() = vm.state.value
+    private val state get() = vm.uiState.value
     private val step get() = state.step
 
     @Before
@@ -63,17 +63,17 @@ class OnboardingViewModelTest {
     private fun TestScope.newViewModel() {
         vm = OnboardingViewModel(system, skip, host, cards)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            vm.effects.collect { system.effects += describe(it) }
+            vm.events.collect { system.effects += describe(it) }
         }
     }
 
-    private fun describe(effect: OnboardingEffect) = when (effect) {
-        OnboardingEffect.LaunchBluetoothEnable -> "launchBluetoothEnable"
-        OnboardingEffect.LaunchLocationSettings -> "launchLocationSettings"
-        OnboardingEffect.LaunchBatteryOptimization -> "launchBatteryOptimization"
-        is OnboardingEffect.RequestPermissions -> "launchPermissions:${effect.permissions}"
-        is OnboardingEffect.RequestBackgroundLocation -> "launchBackgroundLocation:${effect.permission}"
-        OnboardingEffect.OpenAppSettings -> "openAppSettings"
+    private fun describe(event: OnboardingEvent) = when (event) {
+        OnboardingEvent.LaunchBluetoothEnable -> "launchBluetoothEnable"
+        OnboardingEvent.LaunchLocationSettings -> "launchLocationSettings"
+        OnboardingEvent.LaunchBatteryOptimization -> "launchBatteryOptimization"
+        is OnboardingEvent.RequestPermissions -> "launchPermissions:${event.permissions}"
+        is OnboardingEvent.RequestBackgroundLocation -> "launchBackgroundLocation:${event.permission}"
+        OnboardingEvent.OpenAppSettings -> "openAppSettings"
     }
 
     private fun act(action: OnboardingAction) = vm.onAction(action)

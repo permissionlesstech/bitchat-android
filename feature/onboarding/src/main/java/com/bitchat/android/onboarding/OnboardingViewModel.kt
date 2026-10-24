@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
 /**
  * The onboarding steps, scoped to the onboarding route. Same checks, order,
  * delays and log lines as the flow it replaces. It reads the device only
- * through [readiness], opens system dialogs through [effects], and tells [host]
+ * through [readiness], opens system dialogs through [events], and tells [host]
  * when onboarding is done.
  *
  * - **Opening.** The step comes from readiness when the view model is created,
@@ -64,11 +64,11 @@ class OnboardingViewModel @Inject constructor(
         data object Finish : Work
     }
 
-    private val _state = MutableStateFlow(OnboardingUiState())
-    val state: StateFlow<OnboardingUiState> = _state.asStateFlow()
+    private val _uiState = MutableStateFlow(OnboardingUiState())
+    val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
 
-    private val _effects = Channel<OnboardingEffect>(Channel.BUFFERED)
-    val effects: Flow<OnboardingEffect> = _effects.receiveAsFlow()
+    private val _events = Channel<OnboardingEvent>(Channel.BUFFERED)
+    val events: Flow<OnboardingEvent> = _events.receiveAsFlow()
 
     private val work = Channel<Work>(Channel.UNLIMITED)
 
@@ -86,14 +86,14 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
-    fun onAction(a: OnboardingAction) {
-        work.trySend(Work.Act(a))
+    fun onAction(action: OnboardingAction) {
+        work.trySend(Work.Act(action))
     }
 
     private suspend fun handleWork(item: Work) {
         when (item) {
             is Work.Act -> handleAction(item.action)
-            is Work.Event -> if (_state.value.step !in PERMISSION_PHASE) handleEvent(item.event)
+            is Work.Event -> if (_uiState.value.step !in PERMISSION_PHASE) handleEvent(item.event)
             Work.Finish -> host.onboardingFinished()
         }
     }
@@ -101,8 +101,8 @@ class OnboardingViewModel @Inject constructor(
     private suspend fun handleAction(action: OnboardingAction) {
         when (action) {
             OnboardingAction.BluetoothEnableTapped -> {
-                _state.update { it.copy(bluetoothLoading = true) }
-                _effects.send(OnboardingEffect.LaunchBluetoothEnable)
+                _uiState.update { it.copy(bluetoothLoading = true) }
+                _events.send(OnboardingEvent.LaunchBluetoothEnable)
             }
             OnboardingAction.BluetoothSkipTapped -> {
                 skip.skip()
@@ -119,8 +119,8 @@ class OnboardingViewModel @Inject constructor(
             is OnboardingAction.BluetoothLaunchFailed -> handleBluetoothDisabled(action.message)
 
             OnboardingAction.LocationOpenSettingsTapped -> {
-                _state.update { it.copy(locationLoading = true) }
-                _effects.send(OnboardingEffect.LaunchLocationSettings)
+                _uiState.update { it.copy(locationLoading = true) }
+                _events.send(OnboardingEvent.LaunchLocationSettings)
             }
             OnboardingAction.LocationCheckAgainTapped -> checkLocationAndProceed()
             is OnboardingAction.LocationResult -> {
@@ -133,8 +133,8 @@ class OnboardingViewModel @Inject constructor(
             is OnboardingAction.LocationLaunchFailed -> handleLocationDisabled(action.message)
 
             OnboardingAction.BatteryDisableTapped -> {
-                _state.update { it.copy(batteryLoading = true) }
-                _effects.send(OnboardingEffect.LaunchBatteryOptimization)
+                _uiState.update { it.copy(batteryLoading = true) }
+                _events.send(OnboardingEvent.LaunchBatteryOptimization)
             }
             OnboardingAction.BatteryCheckAgainTapped -> checkBatteryOptimizationAndProceed()
             OnboardingAction.BatterySkipTapped -> {
@@ -161,11 +161,11 @@ class OnboardingViewModel @Inject constructor(
                 // reopens on their step, as a new view model would.
                 setStep(OnboardingStep.CHECKING)
                 if (host.retry()) {
-                    _state.value = OnboardingUiState()
+                    _uiState.value = OnboardingUiState()
                     open()
                 }
             }
-            OnboardingAction.OpenSettingsTapped -> _effects.send(OnboardingEffect.OpenAppSettings)
+            OnboardingAction.OpenSettingsTapped -> _events.send(OnboardingEvent.OpenAppSettings)
         }
     }
 
@@ -175,7 +175,7 @@ class OnboardingViewModel @Inject constructor(
             // Both, in this order: re-run the check if its screen is showing,
             // then take the Bluetooth-enabled path.
             SystemEvent.BluetoothOn -> {
-                if (_state.value.step == OnboardingStep.BLUETOOTH) {
+                if (_uiState.value.step == OnboardingStep.BLUETOOTH) {
                     checkBluetoothAndProceed()
                 }
                 handleBluetoothEnabled()
@@ -204,7 +204,7 @@ class OnboardingViewModel @Inject constructor(
         val initError = host.initError.value
         when {
             initError != null -> {
-                _state.update { it.copy(errorMessage = initError) }
+                _uiState.update { it.copy(errorMessage = initError) }
                 setStep(OnboardingStep.ERROR)
             }
             host.takeBluetoothTurnedOff() && r.bluetooth != BluetoothStatus.ENABLED ->
@@ -245,7 +245,7 @@ class OnboardingViewModel @Inject constructor(
     }
 
     private fun setStep(step: OnboardingStep) {
-        _state.update {
+        _uiState.update {
             if (step == OnboardingStep.PERMISSION_EXPLANATION) {
                 it.copy(step = step, permissionCards = cards.categories())
             } else {
@@ -255,21 +255,21 @@ class OnboardingViewModel @Inject constructor(
     }
 
     private fun showBluetoothStep(status: BluetoothStatus) {
-        _state.update { it.copy(bluetooth = status) }
+        _uiState.update { it.copy(bluetooth = status) }
         setStep(OnboardingStep.BLUETOOTH)
-        _state.update { it.copy(bluetoothLoading = false) }
+        _uiState.update { it.copy(bluetoothLoading = false) }
     }
 
     private fun showLocationStep(status: LocationStatus) {
-        _state.update { it.copy(location = status) }
+        _uiState.update { it.copy(location = status) }
         setStep(OnboardingStep.LOCATION)
-        _state.update { it.copy(locationLoading = false) }
+        _uiState.update { it.copy(locationLoading = false) }
     }
 
     private fun showBatteryStep(status: BatteryOptimizationStatus) {
-        _state.update { it.copy(battery = status) }
+        _uiState.update { it.copy(battery = status) }
         setStep(OnboardingStep.BATTERY_OPTIMIZATION)
-        _state.update { it.copy(batteryLoading = false) }
+        _uiState.update { it.copy(batteryLoading = false) }
     }
 
     /**
@@ -293,7 +293,7 @@ class OnboardingViewModel @Inject constructor(
 
         // For existing users, check Bluetooth status first
         logBluetoothDiagnostics(r)
-        _state.update { it.copy(bluetooth = r.bluetooth) }
+        _uiState.update { it.copy(bluetooth = r.bluetooth) }
 
         if (!r.bleRequired) {
             // Skip BLE checks entirely when BLE is disabled in debug settings
@@ -343,7 +343,7 @@ class OnboardingViewModel @Inject constructor(
      * Handle Bluetooth enabled callback
      */
     private suspend fun handleBluetoothEnabled() {
-        _state.update { it.copy(bluetoothLoading = false, bluetooth = BluetoothStatus.ENABLED) }
+        _uiState.update { it.copy(bluetoothLoading = false, bluetooth = BluetoothStatus.ENABLED) }
         checkLocationAndProceed()
     }
 
@@ -362,7 +362,7 @@ class OnboardingViewModel @Inject constructor(
 
         // For existing users, check location status
         logLocationDiagnostics(r)
-        _state.update { it.copy(location = r.location) }
+        _uiState.update { it.copy(location = r.location) }
 
         when (r.location) {
             LocationStatus.ENABLED -> {
@@ -385,7 +385,7 @@ class OnboardingViewModel @Inject constructor(
      * Handle Location enabled callback
      */
     private suspend fun handleLocationEnabled() {
-        _state.update { it.copy(locationLoading = false, location = LocationStatus.ENABLED) }
+        _uiState.update { it.copy(locationLoading = false, location = LocationStatus.ENABLED) }
         // Ensure Wi-Fi Aware starts now that location is enabled
         host.locationServicesEnabled()
         checkBatteryOptimizationAndProceed()
@@ -397,11 +397,11 @@ class OnboardingViewModel @Inject constructor(
     private fun handleLocationDisabled(message: String) {
         Log.w(ACTIVITY_TAG, "Location services disabled or failed: $message")
         val status = readiness.snapshot().location
-        _state.update { it.copy(locationLoading = false, location = status) }
+        _uiState.update { it.copy(locationLoading = false, location = status) }
 
         if (status == LocationStatus.NOT_AVAILABLE) {
             // Show permanent error for devices without location services
-            _state.update { it.copy(errorMessage = message) }
+            _uiState.update { it.copy(errorMessage = message) }
             setStep(OnboardingStep.ERROR)
         } else {
             // Stay on location check screen for retry
@@ -415,12 +415,12 @@ class OnboardingViewModel @Inject constructor(
     private fun handleBluetoothDisabled(message: String) {
         Log.w(ACTIVITY_TAG, "Bluetooth disabled or failed: $message")
         val status = readiness.snapshot().bluetooth
-        _state.update { it.copy(bluetoothLoading = false, bluetooth = status) }
+        _uiState.update { it.copy(bluetoothLoading = false, bluetooth = status) }
 
         // No message says "Permission": the one about permissions says "permissions" (Q3).
         if (status == BluetoothStatus.NOT_SUPPORTED) {
             // Show permanent error for unsupported devices
-            _state.update { it.copy(errorMessage = message) }
+            _uiState.update { it.copy(errorMessage = message) }
             setStep(OnboardingStep.ERROR)
         } else {
             // Stay on Bluetooth check screen for retry
@@ -448,7 +448,7 @@ class OnboardingViewModel @Inject constructor(
 
     private fun handleOnboardingFailed(message: String) {
         Log.e(ACTIVITY_TAG, "Onboarding failed: $message")
-        _state.update { it.copy(errorMessage = message) }
+        _uiState.update { it.copy(errorMessage = message) }
         setStep(OnboardingStep.ERROR)
     }
 
@@ -473,7 +473,7 @@ class OnboardingViewModel @Inject constructor(
 
         // For existing users, check battery optimization status
         logBatteryDiagnostics(r)
-        _state.update { it.copy(battery = r.batteryOptimization) }
+        _uiState.update { it.copy(battery = r.batteryOptimization) }
 
         when (r.batteryOptimization) {
             BatteryOptimizationStatus.DISABLED, BatteryOptimizationStatus.NOT_SUPPORTED -> {
@@ -498,7 +498,7 @@ class OnboardingViewModel @Inject constructor(
             showBatteryStep(status)
             return
         }
-        _state.update { it.copy(batteryLoading = false, battery = status) }
+        _uiState.update { it.copy(batteryLoading = false, battery = status) }
         proceedWithPermissionCheck()
     }
 
@@ -508,7 +508,7 @@ class OnboardingViewModel @Inject constructor(
     private fun handleBatteryOptimizationFailed(message: String) {
         Log.w(ACTIVITY_TAG, "Battery optimization disable failed: $message")
         val status = readiness.snapshot().batteryOptimization
-        _state.update { it.copy(batteryLoading = false, battery = status) }
+        _uiState.update { it.copy(batteryLoading = false, battery = status) }
 
         // Stay on battery optimization check screen for retry
         setStep(OnboardingStep.BATTERY_OPTIMIZATION)
@@ -543,7 +543,7 @@ class OnboardingViewModel @Inject constructor(
 
         Log.d(COORDINATOR_TAG, "Requesting ${missingPermissions.size} permissions")
         readiness.markOptionalPermissionsRequested(optionalToRequest)
-        _effects.send(OnboardingEffect.RequestPermissions(missingPermissions))
+        _events.send(OnboardingEvent.RequestPermissions(missingPermissions))
     }
 
     /**
@@ -591,7 +591,7 @@ class OnboardingViewModel @Inject constructor(
             return
         }
         Log.d(COORDINATOR_TAG, "Requesting background location permission")
-        _effects.send(OnboardingEffect.RequestBackgroundLocation(permission))
+        _events.send(OnboardingEvent.RequestBackgroundLocation(permission))
     }
 
     private suspend fun handleBackgroundLocationResult(granted: Boolean) {
