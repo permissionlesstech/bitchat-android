@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -43,9 +44,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -53,12 +54,15 @@ import androidx.compose.ui.unit.sp
 import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.feature.settings.R
 import com.bitchat.android.core.ui.component.screen.BitchatScreenTopBar
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.net.ArtiTorManager
-import com.bitchat.android.net.TorPreferenceManager
+import com.bitchat.android.net.TorMode
 import com.bitchat.android.nostr.NostrProofOfWork
-import com.bitchat.android.nostr.PoWPreferenceManager
-import com.bitchat.android.settings.BackgroundMeshSetting
 import com.bitchat.android.share.ShareAppSection
+import com.bitchat.android.ui.theme.BitchatTheme
+import com.bitchat.android.ui.theme.ChatUiMode
+import com.bitchat.android.ui.theme.ThemePreference
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 
@@ -275,31 +279,23 @@ private fun SettingsToggleRow(
 }
 
 /**
- * About's tabs and their list, under a top bar with a back arrow that calls
- * [onClose]. [onShowDebug] opens debug settings from the Settings tab; when it
- * is null the entry is not offered. [shareAppSection] renders the APK-sharing
- * rows of the Settings card, and [backgroundMesh] backs its background-mode
- * switch.
+ * About's tabs and their list, under a top bar with a back arrow.
+ * [shareSection] renders the APK-sharing rows of the Settings card. The Settings
+ * tab offers Debug settings only when [debugEntryAvailable].
  *
  * Takes no window insets of its own: [AboutScreen] passes them in through
  * [modifier].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun AboutContent(
-    shareAppSection: ShareAppSection,
-    backgroundMesh: BackgroundMeshSetting,
-    onClose: () -> Unit,
-    onShowDebug: (() -> Unit)? = null,
+private fun AboutContent(
+    uiState: AboutUiState,
+    onAction: (AboutAction) -> Unit,
+    shareSection: @Composable () -> Unit,
+    debugEntryAvailable: Boolean,
+    initialTab: AboutTab,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    
-    // Get version name from package info
-    val versionName = remember {
-        aboutVersionLabel { context.packageManager.getPackageInfo(context.packageName, 0).versionName }
-    }
-
     val lazyListState = rememberLazyListState()
     val isScrolled by remember {
         derivedStateOf {
@@ -316,13 +312,7 @@ internal fun AboutContent(
     val palette = LocalBitchatPalette.current
     // Saveable: Debug is pushed over About from the Settings tab and replaces it rather than
     // covering it, so a remembered tab reset to Info on the way back.
-    var selectedTab by rememberSaveable { mutableStateOf(AboutTab.Info) }
-    val supportedLanguages = remember(context) {
-        LanguagePreferenceManager.supportedLanguages(context)
-    }
-    var selectedLanguageTag by remember {
-        mutableStateOf(LanguagePreferenceManager.currentLanguageTag())
-    }
+    var selectedTab by rememberSaveable { mutableStateOf(initialTab) }
     var showLanguagePicker by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxWidth()) {
@@ -334,7 +324,7 @@ internal fun AboutContent(
         ) {
             // Header Section - App Identity
             item(key = "hero") {
-                AboutHero(versionName = versionName)
+                AboutHero(versionName = uiState.versionName)
             }
 
             item(key = "tabs") {
@@ -365,8 +355,8 @@ internal fun AboutContent(
             item(key = "appearance") {
                 Column {
                     AboutSectionLabel(text = stringResource(R.string.about_section_theme))
-                    val themePref by com.bitchat.android.ui.theme.ThemePreferenceManager.themeFlow.collectAsState()
-                    val chatUiMode by com.bitchat.android.ui.theme.ChatUiModeManager.modeFlow.collectAsState()
+                    val themePref = uiState.theme
+                    val chatUiMode = uiState.chatUiMode
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -387,19 +377,19 @@ internal fun AboutContent(
                                 ThemeChip(
                                     label = stringResource(R.string.about_system),
                                     selected = themePref.isSystem,
-                                    onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.System) },
+                                    onClick = { onAction(AboutAction.ThemeSelected(ThemePreference.System)) },
                                     modifier = Modifier.weight(1f)
                                 )
                                 ThemeChip(
                                     label = stringResource(R.string.about_light),
                                     selected = themePref.isLight,
-                                    onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Light) },
+                                    onClick = { onAction(AboutAction.ThemeSelected(ThemePreference.Light)) },
                                     modifier = Modifier.weight(1f)
                                 )
                                 ThemeChip(
                                     label = stringResource(R.string.about_dark),
                                     selected = themePref.isDark,
-                                    onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Dark) },
+                                    onClick = { onAction(AboutAction.ThemeSelected(ThemePreference.Dark)) },
                                     modifier = Modifier.weight(1f)
                                 )
                             }
@@ -410,13 +400,13 @@ internal fun AboutContent(
                                 ThemeChip(
                                     label = stringResource(R.string.chat_ui_bubbles),
                                     selected = chatUiMode.isBubbles,
-                                    onClick = { com.bitchat.android.ui.theme.ChatUiModeManager.set(context, com.bitchat.android.ui.theme.ChatUiMode.Bubbles) },
+                                    onClick = { onAction(AboutAction.ChatUiModeSelected(ChatUiMode.Bubbles)) },
                                     modifier = Modifier.weight(1f)
                                 )
                                 ThemeChip(
                                     label = stringResource(R.string.chat_ui_matrix),
                                     selected = chatUiMode.isMatrix,
-                                    onClick = { com.bitchat.android.ui.theme.ChatUiModeManager.set(context, com.bitchat.android.ui.theme.ChatUiMode.Matrix) },
+                                    onClick = { onAction(AboutAction.ChatUiModeSelected(ChatUiMode.Matrix)) },
                                     modifier = Modifier.weight(1f)
                                 )
                             }
@@ -426,7 +416,7 @@ internal fun AboutContent(
             }
 
             item(key = "language") {
-                val selectedLanguageName = selectedLanguageEndonym(supportedLanguages, selectedLanguageTag)
+                val selectedLanguageName = selectedLanguageEndonym(uiState.languages, uiState.selectedLanguageTag)
                     ?: stringResource(R.string.about_system_default)
 
                 Column {
@@ -453,26 +443,20 @@ internal fun AboutContent(
                         ) {
                             LanguageMenuItem(
                                 label = stringResource(R.string.about_system_default),
-                                selected = isSystemDefaultSelected(selectedLanguageTag),
+                                selected = isSystemDefaultSelected(uiState.selectedLanguageTag),
                                 onClick = {
                                     showLanguagePicker = false
-                                    languageChangeFor(selectedLanguageTag, "")?.let { tag ->
-                                        selectedLanguageTag = tag
-                                        LanguagePreferenceManager.setLanguage(tag)
-                                    }
+                                    onAction(AboutAction.LanguageSelected(""))
                                 },
                             )
                             HorizontalDivider()
-                            supportedLanguages.forEach { language ->
+                            uiState.languages.forEach { language ->
                                 LanguageMenuItem(
                                     label = language.endonym,
-                                    selected = isLanguageSelected(language, selectedLanguageTag),
+                                    selected = isLanguageSelected(language, uiState.selectedLanguageTag),
                                     onClick = {
                                         showLanguagePicker = false
-                                        languageChangeFor(selectedLanguageTag, language.languageTag)?.let { tag ->
-                                            selectedLanguageTag = tag
-                                            LanguagePreferenceManager.setLanguage(tag)
-                                        }
+                                        onAction(AboutAction.LanguageSelected(language.languageTag))
                                     },
                                 )
                             }
@@ -483,17 +467,8 @@ internal fun AboutContent(
 
             // Settings Section - Unified Card with Toggles
             item(key = "settings") {
-                LaunchedEffect(Unit) { PoWPreferenceManager.init(context) }
-                val powEnabled by PoWPreferenceManager.powEnabled.collectAsState()
-                val powDifficulty by PoWPreferenceManager.powDifficulty.collectAsState()
-                var backgroundEnabled by remember { mutableStateOf(backgroundMesh.isEnabled()) }
-                var liveVoiceEnabled by remember {
-                    mutableStateOf(com.bitchat.android.features.voice.LiveVoicePreferences.isEnabled(context))
-                }
-                val torMode = remember { mutableStateOf(TorPreferenceManager.get(context)) }
-                val torProvider = remember { ArtiTorManager.getInstance() }
-                val torStatus by torProvider.statusFlow.collectAsState()
-                val torAvailable = remember { torProvider.isTorAvailable() }
+                val torStatus = uiState.torStatus
+                val torAvailable = uiState.torAvailable
 
                 Column {
                     AboutSectionLabel(text = stringResource(R.string.about_section_settings))
@@ -510,11 +485,8 @@ internal fun AboutContent(
                                 icon = Icons.Filled.Bluetooth,
                                 title = stringResource(R.string.about_background_title),
                                 subtitle = stringResource(R.string.about_background_desc),
-                                checked = backgroundEnabled,
-                                onCheckedChange = { enabled ->
-                                    backgroundEnabled = enabled
-                                    backgroundMesh.setEnabled(enabled)
-                                }
+                                checked = uiState.backgroundEnabled,
+                                onCheckedChange = { enabled -> onAction(AboutAction.BackgroundToggled(enabled)) }
                             )
 
                             HorizontalDivider(
@@ -527,11 +499,8 @@ internal fun AboutContent(
                                 icon = Icons.Filled.Mic,
                                 title = "Live push-to-talk",
                                 subtitle = "Play voice bursts live on the mesh; voice notes are always sent on release",
-                                checked = liveVoiceEnabled,
-                                onCheckedChange = { enabled ->
-                                    liveVoiceEnabled = enabled
-                                    com.bitchat.android.features.voice.LiveVoicePreferences.setEnabled(context, enabled)
-                                }
+                                checked = uiState.liveVoiceEnabled,
+                                onCheckedChange = { enabled -> onAction(AboutAction.LiveVoiceToggled(enabled)) }
                             )
 
                             HorizontalDivider(
@@ -545,8 +514,8 @@ internal fun AboutContent(
                                 icon = Icons.Filled.Speed,
                                 title = stringResource(R.string.about_pow),
                                 subtitle = stringResource(R.string.about_pow_tip),
-                                checked = powEnabled,
-                                onCheckedChange = { PoWPreferenceManager.setPowEnabled(it) }
+                                checked = uiState.powEnabled,
+                                onCheckedChange = { onAction(AboutAction.PowToggled(it)) }
                             )
 
                             HorizontalDivider(
@@ -560,15 +529,10 @@ internal fun AboutContent(
                                 icon = Icons.Filled.Security,
                                 title = stringResource(R.string.about_tor_title),
                                 subtitle = stringResource(R.string.about_tor_route),
-                                checked = torSwitchChecked(torMode.value),
-                                onCheckedChange = { enabled ->
-                                    if (torAvailable) {
-                                        torMode.value = torModeFor(enabled)
-                                        TorPreferenceManager.set(context, torMode.value)
-                                    }
-                                },
+                                checked = torSwitchChecked(uiState.torMode),
+                                onCheckedChange = { enabled -> onAction(AboutAction.TorToggled(enabled)) },
                                 enabled = torAvailable,
-                                statusIndicator = if (torStatusShown(torMode.value)) {
+                                statusIndicator = if (torStatusShown(uiState.torMode)) {
                                     {
                                         val statusColor = when (torStatusLevel(torStatus)) {
                                             TorStatusLevel.Ready -> colorScheme.primary
@@ -589,7 +553,7 @@ internal fun AboutContent(
                                 color = colorScheme.outline.copy(alpha = 0.12f)
                             )
 
-                            shareAppSection.Content(Modifier)
+                            shareSection()
 
                         }
                     }
@@ -612,10 +576,9 @@ internal fun AboutContent(
 
             // PoW Difficulty Slider (when enabled)
             item(key = "pow_slider") {
-                val powEnabled by PoWPreferenceManager.powEnabled.collectAsState()
-                val powDifficulty by PoWPreferenceManager.powDifficulty.collectAsState()
+                val powDifficulty = uiState.powDifficulty
 
-                if (powEnabled) {
+                if (uiState.powEnabled) {
                     Column(modifier = Modifier.padding(top = 12.dp)) {
                         Surface(
                             modifier = Modifier
@@ -655,7 +618,7 @@ internal fun AboutContent(
 
                                 Slider(
                                     value = powDifficulty.toFloat(),
-                                    onValueChange = { PoWPreferenceManager.setPowDifficulty(powDifficultyFromSlider(it)) },
+                                    onValueChange = { onAction(AboutAction.PowDifficultyChanged(powDifficultyFromSlider(it))) },
                                     valueRange = 0f..32f,
                                     steps = 31,
                                     colors = SliderDefaults.colors(
@@ -680,11 +643,9 @@ internal fun AboutContent(
 
             // Tor Status (when enabled)
             item(key = "tor_status") {
-                val torMode = remember { mutableStateOf(TorPreferenceManager.get(context)) }
-                val torProvider = remember { ArtiTorManager.getInstance() }
-                val torStatus by torProvider.statusFlow.collectAsState()
+                val torStatus = uiState.torStatus
 
-                if (torStatusShown(torMode.value)) {
+                if (torStatusShown(uiState.torMode)) {
                     Column(modifier = Modifier.padding(top = 12.dp)) {
                         Surface(
                             modifier = Modifier
@@ -749,8 +710,8 @@ internal fun AboutContent(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    if (debugEntryShown(selectedTab, debugAvailable = onShowDebug != null)) {
-                        TextButton(onClick = { onShowDebug?.invoke() }) {
+                    if (debugEntryShown(selectedTab, debugEntryAvailable)) {
+                        TextButton(onClick = { onAction(AboutAction.DebugSettingsClicked) }) {
                             Text(
                                 text = stringResource(R.string.about_debug_settings),
                                 fontSize = 13.sp,
@@ -772,7 +733,7 @@ internal fun AboutContent(
 
         // TopBar
         BitchatScreenTopBar(
-            onBack = onClose,
+            onBack = { onAction(AboutAction.BackClicked) },
             title = {},
             modifier = Modifier.align(Alignment.TopCenter),
             backgroundAlpha = topBarAlpha
@@ -781,30 +742,111 @@ internal fun AboutContent(
 }
 
 /**
- * About as a full-screen destination.
- *
- * Applies the system-bar insets itself: a route gets none from a sheet host.
+ * About as a full-screen destination: collects [viewModel], routes its events to
+ * [onClose] and [onShowDebug], and renders [shareAppSection] in the Settings card.
+ * When [onShowDebug] is null the Debug settings entry is not offered.
+ */
+@Composable
+fun AboutRoot(
+    shareAppSection: ShareAppSection,
+    onClose: () -> Unit,
+    onShowDebug: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+    viewModel: AboutViewModel = hiltViewModel(),
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    ObserveAsEvents(viewModel.events) { event ->
+        when (event) {
+            AboutEvent.Close -> onClose()
+            AboutEvent.NavigateToDebug -> onShowDebug?.invoke()
+        }
+    }
+    AboutScreen(
+        uiState = uiState,
+        onAction = viewModel::onAction,
+        shareSection = { shareAppSection.Content(Modifier) },
+        debugEntryAvailable = onShowDebug != null,
+        modifier = modifier,
+    )
+}
+
+/**
+ * About's stateless screen. Applies the system-bar insets itself: a route gets none
+ * from a sheet host. [initialTab] is the tab a fresh screen opens on (previews and
+ * tests); the tab the user picks is kept across a Debug round trip.
  */
 @Composable
 fun AboutScreen(
-    shareAppSection: ShareAppSection,
-    backgroundMesh: BackgroundMeshSetting,
-    onClose: () -> Unit,
-    onShowDebug: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    uiState: AboutUiState,
+    onAction: (AboutAction) -> Unit,
+    shareSection: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    debugEntryAvailable: Boolean = true,
+    initialTab: AboutTab = AboutTab.Info,
 ) {
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
         AboutContent(
-            shareAppSection = shareAppSection,
-            backgroundMesh = backgroundMesh,
-            onClose = onClose,
-            onShowDebug = onShowDebug,
+            uiState = uiState,
+            onAction = onAction,
+            shareSection = shareSection,
+            debugEntryAvailable = debugEntryAvailable,
+            initialTab = initialTab,
             modifier = Modifier.windowInsetsPadding(
                 WindowInsets.systemBars.union(WindowInsets.displayCutout)
             )
+        )
+    }
+}
+
+// --- Previews ---
+
+/** Synthetic state for previews and screen tests: Tor on and bootstrapping, PoW on. */
+internal fun previewAboutUiState(): AboutUiState = AboutUiState(
+    theme = ThemePreference.System,
+    chatUiMode = ChatUiMode.Bubbles,
+    languages = listOf(
+        AppLanguage(languageTag = "de", endonym = "Deutsch"),
+        AppLanguage(languageTag = "fr", endonym = "Français"),
+    ),
+    selectedLanguageTag = "",
+    powEnabled = true,
+    powDifficulty = 12,
+    backgroundEnabled = true,
+    liveVoiceEnabled = true,
+    torMode = TorMode.ON,
+    torStatus = ArtiTorManager.TorStatus(
+        mode = TorMode.ON,
+        running = true,
+        bootstrapPercent = 60,
+        lastLogLine = "Synthetic bootstrap log line",
+        state = ArtiTorManager.TorState.BOOTSTRAPPING,
+    ),
+    torAvailable = true,
+    versionName = "1.2.3",
+)
+
+@Preview(name = "Info")
+@Preview(name = "Info (dark)", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun AboutInfoPreview() {
+    BitchatTheme {
+        AboutScreen(uiState = previewAboutUiState(), onAction = {}, shareSection = {})
+    }
+}
+
+@Preview(name = "Settings, Tor on")
+@Preview(name = "Settings, Tor on (dark)", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun AboutSettingsPreview() {
+    BitchatTheme {
+        AboutScreen(
+            uiState = previewAboutUiState(),
+            onAction = {},
+            shareSection = {},
+            initialTab = AboutTab.Settings,
         )
     }
 }

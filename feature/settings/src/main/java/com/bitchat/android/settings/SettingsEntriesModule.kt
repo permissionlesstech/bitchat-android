@@ -6,7 +6,7 @@ import com.bitchat.android.navigation.EntryProviderInstaller
 import com.bitchat.android.navigation.Navigator
 import com.bitchat.android.share.AppBuildInfo
 import com.bitchat.android.share.ShareAppSection
-import com.bitchat.android.ui.AboutScreen
+import com.bitchat.android.ui.AboutRoot
 import com.bitchat.android.ui.debug.DebugSettingsScreen
 import dagger.Module
 import dagger.Provides
@@ -24,14 +24,12 @@ object SettingsEntriesModule {
     fun settingsEntries(
         navigator: Navigator,
         share: ShareAppSection,
-        backgroundMesh: BackgroundMeshSetting,
         diagnostics: TransportDiagnostics,
         buildInfo: AppBuildInfo,
     ): EntryProviderInstaller = {
         entry<AboutRoute> {
-            AboutScreen(
+            AboutRoot(
                 shareAppSection = share,
-                backgroundMesh = backgroundMesh,
                 onClose = { navigator.goBack() },
                 onShowDebug = { navigator.goTo(DebugSettingsRoute) },
             )

@@ -57,7 +57,6 @@ class EveryRouteHasAnEntryTest {
             SettingsEntriesModule.settingsEntries(
                 navigator = navigator,
                 share = mock(),
-                backgroundMesh = mock(),
                 diagnostics = mock(),
                 buildInfo = AppBuildInfo(versionName = "0.0.0", isDebug = true, githubReleaseCertSha256 = ""),
             ),

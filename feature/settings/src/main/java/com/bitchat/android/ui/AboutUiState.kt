@@ -4,6 +4,67 @@ import androidx.annotation.StringRes
 import com.bitchat.android.feature.settings.R
 import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.net.TorMode
+import com.bitchat.android.ui.theme.ChatUiMode
+import com.bitchat.android.ui.theme.ThemePreference
+
+/**
+ * Everything About shows. [languages] and [versionName] start empty and fill in once
+ * they have been read off the main thread.
+ */
+data class AboutUiState(
+    val theme: ThemePreference,
+    val chatUiMode: ChatUiMode,
+    val languages: List<AppLanguage>,
+    /** "" is the system default. */
+    val selectedLanguageTag: String,
+    val powEnabled: Boolean,
+    val powDifficulty: Int,
+    val backgroundEnabled: Boolean,
+    val liveVoiceEnabled: Boolean,
+    /** The stored Tor mode; both the switch and the status card read it. */
+    val torMode: TorMode,
+    val torStatus: ArtiTorManager.TorStatus,
+    val torAvailable: Boolean,
+    val versionName: String,
+)
+
+/** What the user does on About (inventory AA1-AA16; the tab and the language menu stay in the UI). */
+sealed interface AboutAction {
+    /** AA1 */
+    data object BackClicked : AboutAction
+
+    /** AA3 */
+    data class ThemeSelected(val theme: ThemePreference) : AboutAction
+
+    /** AA4 */
+    data class ChatUiModeSelected(val mode: ChatUiMode) : AboutAction
+
+    /** AA7 and AA8: [languageTag] is "" for the system default. */
+    data class LanguageSelected(val languageTag: String) : AboutAction
+
+    /** AA9 */
+    data class BackgroundToggled(val enabled: Boolean) : AboutAction
+
+    /** AA10 */
+    data class LiveVoiceToggled(val enabled: Boolean) : AboutAction
+
+    /** AA11 */
+    data class PowToggled(val enabled: Boolean) : AboutAction
+
+    /** AA12 */
+    data class TorToggled(val enabled: Boolean) : AboutAction
+
+    /** AA14 */
+    data class PowDifficultyChanged(val difficulty: Int) : AboutAction
+
+    /** AA15 */
+    data object DebugSettingsClicked : AboutAction
+}
+
+sealed interface AboutEvent {
+    data object NavigateToDebug : AboutEvent
+    data object Close : AboutEvent
+}
 
 // The pure decisions About makes (inventory A1-A15), kept out of the composables so
 // they can be pinned without a device.

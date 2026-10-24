@@ -23,6 +23,9 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.bundles.lifecycle)
     implementation(libs.androidx.hilt.navigation.compose)
+    // @Preview for the stateless screens; the renderer is debug-only.
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(testFixtures(project(":core:mesh")))
     testImplementation(libs.bundles.testing)

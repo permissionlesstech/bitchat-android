@@ -74,21 +74,7 @@ class AboutLogicTest {
         assertFalse(torStatusShown(TorMode.OFF))
     }
 
-    // QA1: the switch and the status card each seed their own copy of the mode from
-    // storage. Flipping the switch updates its copy and storage, never the card's.
-    @Test
-    fun torSwitchAndCard_readSeparately_currentBehaviour_QA1() {
-        var stored = TorMode.ON
-        var switchMode = stored
-        val cardMode = stored
-
-        switchMode = torModeFor(enabled = false)
-        stored = switchMode
-
-        assertEquals(TorMode.OFF, stored)
-        assertFalse(torSwitchChecked(switchMode))
-        assertTrue(torStatusShown(cardMode))
-    }
+    // QA1 is gone (R1): see AboutViewModelTest.torModeChangedExternally_switchAndCardFollow.
 
     // A8
     @Test
