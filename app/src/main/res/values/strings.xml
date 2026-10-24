@@ -136,6 +136,13 @@
   <string name="private_media_legacy_body" tools:ignore="MissingTranslation">%1$s cannot be sent encrypted to %2$s because their client is older. %3$s</string>
   <string name="private_media_legacy_send_once" tools:ignore="MissingTranslation">Send this file once</string>
 
+  <!-- Panic wipe confirmation and outcome -->
+  <string name="panic_confirm_title" tools:ignore="MissingTranslation">Wipe all data?</string>
+  <string name="panic_confirm_body" tools:ignore="MissingTranslation">This permanently deletes your identity, keys, messages, and media on this device and creates a new identity. It can\'t be undone.</string>
+  <string name="panic_confirm_action" tools:ignore="MissingTranslation">Wipe</string>
+  <string name="system_panic_completed" tools:ignore="MissingTranslation">all data wiped — new identity created</string>
+  <string name="system_panic_incomplete" tools:ignore="MissingTranslation">wipe incomplete — some data may remain. triple-tap the logo to try again.</string>
+
   <!-- File viewer dialog -->
   <string name="file_viewer_title">📎 File Received</string>
   <string name="file_viewer_name">📄 %1$s</string>

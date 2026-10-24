@@ -1008,7 +1008,7 @@ class BinaryProtocolTest {
     @Test
     fun `v2 compression bomb is rejected`() {
         // Valid raw deflate final empty stored block (1 byte).
-        // Claim a huge original size to exceed the 50,000:1 ratio guard.
+        // Claim a huge original size to exceed DEFLATE's 1032:1 expansion bound.
         // ratio = 10,000,000 / 1 = 10,000,000:1
         val compressedData = byteArrayOf(0x03)
         val declaredOriginalSize = 10_000_000
@@ -1042,7 +1042,7 @@ class BinaryProtocolTest {
         val padded = MessagePadding.pad(raw, MessagePadding.optimalBlockSize(raw.size))
         val result = BinaryProtocol.decode(padded)
 
-        assertNull("v2 compression bomb (ratio > 50,000:1) must be rejected", result)
+        assertNull("v2 compression bomb (ratio > 1032:1) must be rejected", result)
     }
 
     @Test
@@ -1051,7 +1051,9 @@ class BinaryProtocolTest {
         val raw = compressedPacket(
             version = 2u,
             originalSize = max,
-            compressedData = ByteArray(256) { it.toByte() }
+            // Enough deflate bytes that the declared size stays within DEFLATE's 1032:1 bound.
+            compressedData = ByteArray(max / PacketPayloadLimits.MAX_DEFLATE_RATIO + 1) { it.toByte() },
+            type = MessageType.FILE_TRANSFER.value
         )
         var calls = 0
 
@@ -1071,7 +1073,8 @@ class BinaryProtocolTest {
         val raw = compressedPacket(
             version = 2u,
             originalSize = max + 1,
-            compressedData = ByteArray(256) { it.toByte() }
+            compressedData = ByteArray(max / PacketPayloadLimits.MAX_DEFLATE_RATIO + 1) { it.toByte() },
+            type = MessageType.FILE_TRANSFER.value
         )
         var calls = 0
 
@@ -1144,7 +1147,7 @@ class BinaryProtocolTest {
         val raw = compressedPacket(
             version = 1u,
             originalSize = originalSize,
-            compressedData = byteArrayOf(0x01, 0x02)
+            compressedData = ByteArray(64) { it.toByte() }
         )
         var calls = 0
 
@@ -1359,20 +1362,19 @@ class BinaryProtocolTest {
      *
      * Crafts a packet where the declared original size in the compressed
      * payload section is absurdly large relative to the compressed data,
-     * exceeding the 50,000:1 ratio guard in decodeCore(). Verifies the
+     * exceeding DEFLATE's 1032:1 expansion bound in decodeCore(). Verifies the
      * decoder returns null instead of attempting decompression.
      *
      * Without this check, an attacker could send a tiny packet claiming
      * to decompress into gigabytes, causing an OOM crash that kills the
-     * mesh service and disconnects all peers. The 50,000:1 threshold
-     * blocks this while still allowing legitimate compression ratios
-     * (typical text compresses ~3:1 to ~10:1).
+     * mesh service and disconnects all peers. No raw DEFLATE stream can
+     * expand past 1032:1, so the bound rejects only impossible declarations.
      */
     @Test
     fun `compression bomb is rejected`() {
         // Valid raw deflate final empty stored block (1 byte).
         // v1 uses a 2-byte (UShort) original-size field, so declared size
-        // must fit in 0..65535. ratio = 60,000 / 1 = 60,000:1 > 50,000:1
+        // must fit in 0..65535. ratio = 60,000 / 1 = 60,000:1 > 1032:1
         val tinyCompressed = byteArrayOf(0x03)
         val declaredOriginalSize = 60_000
 
@@ -1406,7 +1408,7 @@ class BinaryProtocolTest {
         val padded = MessagePadding.pad(raw, MessagePadding.optimalBlockSize(raw.size))
         val result = BinaryProtocol.decode(padded)
 
-        assertNull("Compression bomb (ratio > 50,000:1) must be rejected", result)
+        assertNull("Compression bomb (ratio > 1032:1) must be rejected", result)
     }
 
     /**

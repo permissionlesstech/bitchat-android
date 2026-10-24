@@ -1519,6 +1519,11 @@ class ChatViewModel(
             // Privacy wins over availability: keep private-message admission and transports
             // stopped if SQLite could not prove that the conversation history was erased.
             Log.e(TAG, "🚨 PANIC MODE INCOMPLETE - conversation database wipe failed")
+            // A wipe that does not commit must be as visible as the wipe itself: the
+            // person who triggered it may be relying on the device being clean.
+            messageManager.addSystemMessage(
+                getApplication<Application>().getString(com.bitchat.android.R.string.system_panic_incomplete)
+            )
             return
         }
 
@@ -1526,6 +1531,12 @@ class ChatViewModel(
         com.bitchat.android.services.AppStateStore
             .resumePrivateConversationsAfterPanic()
         recreateMeshServiceAfterPanic()
+
+        // In a duress scenario "did it work?" must not be a guess: the natural
+        // response to uncertainty is to trigger the wipe again.
+        messageManager.addSystemMessage(
+            getApplication<Application>().getString(com.bitchat.android.R.string.system_panic_completed)
+        )
 
         Log.w(TAG, "🚨 PANIC MODE COMPLETED - New identity: ${mesh.myPeerID}")
     }
