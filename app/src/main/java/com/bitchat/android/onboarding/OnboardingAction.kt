@@ -16,9 +16,6 @@ sealed interface OnboardingAction {
     data class BluetoothResult(val enabled: Boolean) : OnboardingAction
     data class BluetoothLaunchFailed(val message: String) : OnboardingAction
 
-    /** No Bluetooth adapter when onboarding opens: the error step (T2). */
-    data object BluetoothNotSupportedAtStart : OnboardingAction
-
     // Location services
     data object LocationOpenSettingsTapped : OnboardingAction
     data object LocationCheckAgainTapped : OnboardingAction

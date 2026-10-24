@@ -46,8 +46,6 @@ class OnboardingViewModel @Inject constructor(
         const val BLUETOOTH_DECLINED_MESSAGE =
             "Bluetooth is required for bitchat to discover and connect to nearby users. Please enable Bluetooth to continue."
         const val BLUETOOTH_TURNED_OFF_MESSAGE = "User has turned off their Bluetooth"
-        const val BLUETOOTH_NOT_SUPPORTED_MESSAGE =
-            "This device doesn't support Bluetooth, which is required for bitchat to function."
         const val LOCATION_DECLINED_MESSAGE =
             "Location services are required for Bluetooth scanning on Android. Please enable location services to continue."
         const val LOCATION_TURNED_OFF_MESSAGE = "Location services have been disabled."
@@ -119,7 +117,6 @@ class OnboardingViewModel @Inject constructor(
                 }
             }
             is OnboardingAction.BluetoothLaunchFailed -> handleBluetoothDisabled(action.message)
-            OnboardingAction.BluetoothNotSupportedAtStart -> handleBluetoothDisabled(BLUETOOTH_NOT_SUPPORTED_MESSAGE)
 
             OnboardingAction.LocationOpenSettingsTapped -> {
                 _state.update { it.copy(locationLoading = true) }
@@ -195,8 +192,9 @@ class OnboardingViewModel @Inject constructor(
     }
 
     /**
-     * The step onboarding opens on. An adapter missing at start is the error
-     * step (T2); so is the app's init failure. Bluetooth turned off in chat
+     * The step onboarding opens on. The app's init failure is the error step;
+     * a missing adapter is not (F4): it gets the Bluetooth step, which lets
+     * the user continue. Bluetooth turned off in chat
      * opens on the Bluetooth step whatever the skips say (T12). Otherwise the
      * step readiness implies.
      */
@@ -204,8 +202,6 @@ class OnboardingViewModel @Inject constructor(
         val r = readiness.snapshot()
         val initError = host.initError.value
         when {
-            r.bluetooth == BluetoothStatus.NOT_SUPPORTED ->
-                handleBluetoothDisabled(BLUETOOTH_NOT_SUPPORTED_MESSAGE)
             initError != null -> {
                 _state.update { it.copy(errorMessage = initError) }
                 setStep(OnboardingStep.ERROR)

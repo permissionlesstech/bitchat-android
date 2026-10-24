@@ -174,17 +174,14 @@ class OnboardingViewModelTest {
     }
 
     @Test
-    fun t2_noBluetoothAdapterAtStart_errorWithMessage_currentBehaviour() = runTest {
+    fun bluetoothNotSupported_showsBluetoothStepNotError() = runTest {
         system.bluetooth = BluetoothStatus.NOT_SUPPORTED
 
         newViewModel()
 
-        assertEquals(OnboardingStep.ERROR, step)
-        assertEquals(
-            "This device doesn't support Bluetooth, which is required for bitchat to function.",
-            state.errorMessage,
-        )
+        assertEquals(OnboardingStep.BLUETOOTH, step)
         assertEquals(BluetoothStatus.NOT_SUPPORTED, state.bluetooth)
+        assertEquals("", state.errorMessage)
         assertFalse(state.bluetoothLoading)
     }
 
