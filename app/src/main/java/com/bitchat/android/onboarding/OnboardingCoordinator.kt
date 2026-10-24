@@ -1,26 +1,20 @@
 package com.bitchat.android.onboarding
 
-import android.app.Activity
-import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.launch
 
 /**
- * Coordinates the complete onboarding flow including permission explanation,
- * permission requests, and initialization of the mesh service
+ * Owns the two runtime-permission launchers and the app-settings shortcut.
+ * What to request and what a result means is [OnboardingFlow]'s.
  */
 class OnboardingCoordinator(
     private val activity: ComponentActivity,
-    private val permissionManager: PermissionManager,
-    private val onOnboardingComplete: () -> Unit,
-    private val onBackgroundLocationRequired: () -> Unit,
-    private val onOnboardingFailed: (String) -> Unit
+    private val onPermissionResults: (Map<String, Boolean>) -> Unit,
+    private val onBackgroundLocationResult: (Boolean) -> Unit
 ) {
 
     companion object {
@@ -42,7 +36,7 @@ class OnboardingCoordinator(
         permissionLauncher = activity.registerForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions()
         ) { permissions ->
-            handlePermissionResults(permissions)
+            onPermissionResults(permissions)
         }
     }
 
@@ -50,203 +44,16 @@ class OnboardingCoordinator(
         backgroundLocationLauncher = activity.registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { granted ->
-            handleBackgroundLocationResult(granted)
+            onBackgroundLocationResult(granted)
         }
     }
 
-    /**
-     * Start the onboarding process
-     */
-    fun startOnboarding() {
-        Log.d(TAG, "Starting onboarding process")
-        permissionManager.logPermissionStatus()
-
-        if (permissionManager.areRequiredPermissionsGranted()) {
-            if (shouldRequestBackgroundLocation()) {
-                Log.d(TAG, "Foreground permissions granted; background location recommended")
-                onBackgroundLocationRequired()
-            } else {
-                Log.d(TAG, "Required permissions already granted, completing onboarding")
-                completeOnboarding()
-            }
-        } else {
-            Log.d(TAG, "Missing permissions, need to start explanation flow")
-            // The explanation screen will be shown by the calling activity
-        }
+    fun launchPermissions(permissions: List<String>) {
+        permissionLauncher?.launch(permissions.toTypedArray())
     }
 
-    /**
-     * Called when user accepts the permission explanation
-     */
-    fun requestPermissions() {
-        Log.d(TAG, "User accepted permission explanation, requesting permissions")
-        
-        // Required permissions
-        val missingRequired = permissionManager.getMissingPermissions()
-
-        // Optional permissions (ask, but do not block if denied)
-        val optionalToRequest = permissionManager.getUnrequestedOptionalPermissions()
-
-        val missingPermissions = (missingRequired + optionalToRequest).distinct()
-
-        if (missingPermissions.isEmpty()) {
-            if (shouldRequestBackgroundLocation()) {
-                onBackgroundLocationRequired()
-            } else {
-                completeOnboarding()
-            }
-            return
-        }
-
-        Log.d(TAG, "Requesting ${missingPermissions.size} permissions")
-        permissionManager.markOptionalPermissionsRequested(optionalToRequest)
-        permissionLauncher?.launch(missingPermissions.toTypedArray())
-    }
-
-    /**
-     * Handle permission request results
-     */
-    private fun handlePermissionResults(permissions: Map<String, Boolean>) {
-        Log.d(TAG, "Received permission results:")
-        permissions.forEach { (permission, granted) ->
-            Log.d(TAG, "  $permission: ${if (granted) "GRANTED" else "DENIED"}")
-        }
-
-        val allGranted = permissions.values.all { it }
-        val criticalPermissions = getCriticalPermissions()
-        // The launcher result only contains permissions requested in this round. Returning
-        // users may be asked for POST_NOTIFICATIONS alone, so re-check required permissions
-        // against package state instead of treating absent result-map entries as denials.
-        val criticalGranted = criticalPermissions.all(permissionManager::isPermissionGranted)
-
-        when {
-            criticalGranted -> {
-                if (shouldRequestBackgroundLocation()) {
-                    Log.d(TAG, "Foreground permissions granted; requesting background location next")
-                    onBackgroundLocationRequired()
-                    return
-                }
-                if (allGranted) {
-                    Log.d(TAG, "All permissions granted successfully")
-                    completeOnboarding()
-                } else {
-                    Log.d(TAG, "Critical permissions granted, can proceed with limited functionality")
-                    showPartialPermissionWarning(permissions)
-                }
-            }
-            else -> {
-                Log.d(TAG, "Critical permissions denied")
-                handlePermissionDenial(permissions)
-            }
-        }
-    }
-
-    fun requestBackgroundLocation() {
-        val permission = permissionManager.getBackgroundLocationPermission()
-        if (permission == null) {
-            completeOnboarding()
-            return
-        }
-        Log.d(TAG, "Requesting background location permission")
+    fun launchBackgroundLocation(permission: String) {
         backgroundLocationLauncher?.launch(permission)
-    }
-
-    private fun handleBackgroundLocationResult(granted: Boolean) {
-        if (granted) {
-            Log.d(TAG, "Background location permission granted")
-        } else {
-            Log.w(TAG, "Background location permission denied; continuing without it")
-        }
-        completeOnboarding()
-    }
-
-    fun skipBackgroundLocation() {
-        Log.d(TAG, "User skipped background location permission")
-        BackgroundLocationPreferenceManager.setSkipped(activity, true)
-        completeOnboarding()
-    }
-
-    fun checkBackgroundLocationAndProceed() {
-        if (!shouldRequestBackgroundLocation()) {
-            completeOnboarding()
-        }
-    }
-
-    private fun shouldRequestBackgroundLocation(): Boolean {
-        return permissionManager.needsBackgroundLocationPermission() &&
-            !permissionManager.isBackgroundLocationGranted() &&
-            !BackgroundLocationPreferenceManager.isSkipped(activity)
-    }
-
-    /**
-     * Get the list of critical permissions that are absolutely required
-     */
-    private fun getCriticalPermissions(): List<String> {
-        // For bitchat, Bluetooth and location permissions are critical
-        // Notifications are nice-to-have but not critical and are not included in getRequiredPermissions()
-        return permissionManager.getRequiredPermissions()
-    }
-
-    /**
-     * Show warning when some permissions are granted but others are denied
-     */
-    private fun showPartialPermissionWarning(permissions: Map<String, Boolean>) {
-        val deniedPermissions = permissions.filter { !it.value }.keys
-        val message = buildString {
-            append("Some permissions were denied:\n")
-            deniedPermissions.forEach { permission ->
-                append("- ${getPermissionDisplayName(permission)}\n")
-            }
-            append("\nbitchat may not work properly without all permissions.")
-        }
-        
-        Log.w(TAG, "Partial permissions granted: $message")
-        
-        // For now, we'll proceed anyway and let the user experience the limitations
-        // In a production app, you might want to show a dialog explaining the limitations
-        completeOnboarding()
-    }
-
-    /**
-     * Handle permission denial scenarios
-     */
-    private fun handlePermissionDenial(permissions: Map<String, Boolean>) {
-        val deniedCritical = permissions.filter { !it.value && getCriticalPermissions().contains(it.key) }
-        
-        if (deniedCritical.isNotEmpty()) {
-            val message = buildString {
-                append("Critical permissions were denied. bitchat requires these permissions to function:\n")
-                deniedCritical.keys.forEach { permission ->
-                    append("- ${getPermissionDisplayName(permission)}\n")
-                }
-                append("\nPlease grant these permissions in Settings to use bitchat.")
-            }
-            
-            Log.e(TAG, "Critical permissions denied: $deniedCritical")
-            onOnboardingFailed(message)
-        } else {
-            // Shouldn't happen given our logic above, but handle gracefully
-            completeOnboarding()
-        }
-    }
-
-    /**
-     * Complete the onboarding process and initialize the app
-     */
-    private fun completeOnboarding() {
-        Log.d(TAG, "Completing onboarding process")
-        
-        // Mark onboarding as complete
-        permissionManager.markOnboardingComplete()
-        
-        // Log final permission status
-        permissionManager.logPermissionStatus()
-        
-        // Notify completion with a small delay to ensure everything is ready
-        activity.lifecycleScope.launch {
-            kotlinx.coroutines.delay(100) // Small delay for UI state to settle
-            onOnboardingComplete()
-        }
     }
 
     /**
@@ -262,33 +69,6 @@ class OnboardingCoordinator(
             Log.d(TAG, "Opened app settings for manual permission management")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to open app settings", e)
-        }
-    }
-
-    /**
-     * Convert permission string to user-friendly display name
-     */
-    private fun getPermissionDisplayName(permission: String): String {
-        return when {
-            permission.contains("BLUETOOTH") -> "Bluetooth/Nearby Devices"
-            permission.contains("BACKGROUND") -> "Background Location"
-            permission.contains("LOCATION") -> "Location (for Bluetooth scanning)"
-            permission.contains("NEARBY_WIFI") -> "Nearby Wi‑Fi Devices (for Wi‑Fi Aware)"
-            permission.contains("NOTIFICATION") -> "Notifications"
-            else -> permission.substringAfterLast(".")
-        }
-    }
-
-    /**
-     * Get diagnostic information for troubleshooting
-     */
-    fun getDiagnostics(): String {
-        return buildString {
-            appendLine("Onboarding Coordinator Diagnostics:")
-            appendLine("Activity: ${activity::class.simpleName}")
-            appendLine("Permission launcher: ${permissionLauncher != null}")
-            appendLine()
-            append(permissionManager.getPermissionDiagnostics())
         }
     }
 }
