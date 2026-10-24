@@ -1,10 +1,9 @@
 package com.bitchat.android.hotspot
 
-import android.app.Application
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bitchat.android.share.HotspotRadioLease
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,9 +19,10 @@ import java.io.File
  */
 @HiltViewModel
 class HotspotViewModel @Inject constructor(
-    application: Application,
-    private val radioLease: HotspotRadioLease
-) : AndroidViewModel(application) {
+    private val radioLease: HotspotRadioLease,
+    private val controllerFactory: HotspotControllerFactory,
+    private val webServingFactory: ApkWebServingFactory
+) : ViewModel() {
 
     companion object {
         private const val TAG = "HotspotViewModel"
@@ -35,8 +35,8 @@ class HotspotViewModel @Inject constructor(
     private val _state = MutableStateFlow<HotspotState>(HotspotState.Intro)
     val state: StateFlow<HotspotState> = _state.asStateFlow()
 
-    private var hotspotManager: HotspotManager? = null
-    private var webServer: ApkWebServer? = null
+    private var hotspotManager: HotspotController? = null
+    private var webServer: ApkWebServing? = null
 
     /** APK waiting on the user's answer to the disconnect confirmation. */
     private var pendingApk: File? = null
@@ -46,7 +46,6 @@ class HotspotViewModel @Inject constructor(
 
     /** Once-releasable radio claim owned by the current hotspot session. */
     private var awareLease: AutoCloseable? = null
-    private val context = application.applicationContext
 
     /**
      * Start the hotspot with the provided APK file.
@@ -71,7 +70,7 @@ class HotspotViewModel @Inject constructor(
                 awareLease = radioLease.acquire()
 
                 // Start hotspot
-                val manager = HotspotManager(context)
+                val manager = controllerFactory.create()
                 hotspotManager = manager
 
                 manager.startHotspot(object : HotspotManager.HotspotCallback {
@@ -88,7 +87,7 @@ class HotspotViewModel @Inject constructor(
 
                             // Start web server
                             try {
-                                val server = ApkWebServer(context, apkFile)
+                                val server = webServingFactory.create(apkFile)
                                 server.startServer()
                                 webServer = server
 
