@@ -362,6 +362,7 @@
   <string name="verify_paste_label">colar url de verificação</string>
   <string name="verify_validate">validar</string>
   <string name="verify_scanned">verificação solicitada</string>
+  <string name="verify_scan_failed">Código inválido ou expirado, ou esta pessoa não está ligada por perto</string>
   <string name="security_verification_title">verificação de segurança</string>
   <string name="fingerprint_their">impressão digital deles</string>
   <string name="fingerprint_yours">sua impressão digital</string>

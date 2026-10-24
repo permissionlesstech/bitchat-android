@@ -389,6 +389,7 @@
   <string name="verify_paste_label">incolla url verifica</string>
   <string name="verify_validate">convalida</string>
   <string name="verify_scanned">verifica richiesta</string>
+  <string name="verify_scan_failed">Codice non valido o scaduto, oppure questa persona non è connessa nelle vicinanze</string>
   <string name="security_verification_title">verifica sicurezza</string>
   <string name="fingerprint_their">loro impronta</string>
   <string name="fingerprint_yours">tua impronta</string>

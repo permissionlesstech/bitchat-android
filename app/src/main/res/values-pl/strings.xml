@@ -32,6 +32,7 @@
   <string name="verify_paste_label">wklej link weryfikacyjny</string>
   <string name="verify_validate">zweryfikuj</string>
   <string name="verify_scanned">poproszono o weryfikację</string>
+  <string name="verify_scan_failed">Nieprawidłowy lub wygasły kod albo ta osoba nie jest połączona w pobliżu</string>
   <string name="security_verification_title">weryfikacja bezpieczeństwa</string>
   <string name="fingerprint_their">odcisk drugiej osoby</string>
   <string name="fingerprint_yours">twój odcisk</string>

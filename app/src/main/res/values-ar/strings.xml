@@ -362,6 +362,7 @@
   <string name="verify_paste_label">paste verification url</string>
   <string name="verify_validate">validate</string>
   <string name="verify_scanned">verification requested</string>
+  <string name="verify_scan_failed">Invalid or expired code, or this person isn\'t connected nearby</string>
   <string name="security_verification_title">security verification</string>
   <string name="fingerprint_their">their fingerprint</string>
   <string name="fingerprint_yours">your fingerprint</string>

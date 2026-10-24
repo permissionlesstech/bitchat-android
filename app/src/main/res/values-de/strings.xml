@@ -363,6 +363,7 @@
   <string name="verify_paste_label">verifizierungs-url einfügen</string>
   <string name="verify_validate">validieren</string>
   <string name="verify_scanned">verifizierung angefordert</string>
+  <string name="verify_scan_failed">Ungültiger oder abgelaufener Code, oder diese Person ist nicht in der Nähe verbunden</string>
   <string name="security_verification_title">sicherheitsüberprüfung</string>
   <string name="fingerprint_their">ihr fingerabdruck</string>
   <string name="fingerprint_yours">dein fingerabdruck</string>

@@ -17,6 +17,7 @@
   <string name="verify_paste_label">சரிபார்ப்பு இணைப்பை ஒட்டவும்</string>
   <string name="verify_validate">சரிபார்</string>
   <string name="verify_scanned">சரிபார்ப்பு கோரப்பட்டது</string>
+  <string name="verify_scan_failed">குறியீடு தவறானது அல்லது காலாவதியானது, அல்லது இவர் அருகில் இணைக்கப்படவில்லை</string>
   <string name="security_verification_title">பாதுகாப்பு சரிபார்ப்பு</string>
   <string name="fingerprint_their">அவர்களின் கைரேகை</string>
   <string name="fingerprint_yours">உங்கள் கைரேகை</string>
