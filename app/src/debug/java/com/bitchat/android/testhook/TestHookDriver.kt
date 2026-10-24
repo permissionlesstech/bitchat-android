@@ -12,6 +12,9 @@ import com.bitchat.android.features.voice.LiveVoiceScope
 import com.bitchat.android.features.voice.LiveVoiceTarget
 import com.bitchat.android.features.voice.LiveVoiceCapture
 import com.bitchat.android.identity.SecureIdentityStateManager
+import com.bitchat.android.mesh.BleLinkDiagnostics
+import com.bitchat.android.mesh.BleLongRangeMode
+import com.bitchat.android.mesh.BleLongRangePolicy
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.PrivateMediaPreparation
 import com.bitchat.android.mesh.TransferProgressManager
@@ -25,6 +28,7 @@ import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.ui.DataManager
 import com.bitchat.android.ui.PrivateMediaRecipientResolver
+import com.bitchat.android.ui.debug.DebugSettingsManager
 import com.bitchat.android.util.AppConstants
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -90,6 +94,7 @@ object TestHookDriver {
             "ptt_recv" -> pttRecv(context, intent)
             "raw_send" -> rawSend(context, intent)
             "ble" -> setBle(intent.getBooleanExtra("enabled", true))
+            "ble_long_range" -> setBleLongRange(intent)
             "inject_peers" -> injectPeers(intent.getStringExtra("peers"))
             "state" -> state(context)
             "clear_results" -> clearResults(context)
@@ -659,6 +664,44 @@ object TestHookDriver {
         val ble = MeshServiceHolder.meshService ?: return err("ble", "BLE service not running")
         ble.setBleTransportEnabled(enabled)
         return ok("ble").put("enabled", enabled)
+    }
+
+    /**
+     * Change long-range settings live, as the debug sheet does: optional extras `mode`
+     * (OFF / ADAPTIVE / MAX_RANGE), `enter_dbm` + `leave_dbm` (ints), `reset_thresholds`.
+     */
+    private fun setBleLongRange(intent: Intent): JSONObject {
+        val settings = DebugSettingsManager.getInstance()
+        intent.getStringExtra("mode")?.let { name ->
+            val mode = BleLongRangeMode.entries.firstOrNull { it.name == name }
+                ?: return err("ble_long_range", "unknown mode $name")
+            settings.setBleLongRangeMode(mode)
+        }
+        if (intent.getBooleanExtra("reset_thresholds", false)) {
+            settings.resetBleAdaptiveThresholds()
+        } else if (intent.hasExtra("enter_dbm") && intent.hasExtra("leave_dbm")) {
+            settings.setBleAdaptiveThresholds(intent.getIntExtra("enter_dbm", 0), intent.getIntExtra("leave_dbm", 0))
+        }
+        val tuning = settings.bleAdaptiveTuning.value
+        // Per-link radio state for scripted checks; peers by peer ID, never by Bluetooth address.
+        val links = JSONArray()
+        BleLinkDiagnostics.snapshot().links.forEach { link ->
+            links.put(
+                JSONObject()
+                    .put("peer", link.peerID ?: "unknown")
+                    .put("role", if (link.isClient) "outgoing" else "incoming")
+                    .put("tx", BleLongRangePolicy.phyName(link.txPhy))
+                    .put("rx", BleLongRangePolicy.phyName(link.rxPhy))
+                    .put("rssi", link.smoothedRssi ?: link.rssi ?: JSONObject.NULL)
+                    .put("requested", link.lastPhyRequest ?: JSONObject.NULL)
+                    .put("note", link.adaptiveNote ?: JSONObject.NULL)
+            )
+        }
+        return ok("ble_long_range")
+            .put("mode", settings.bleLongRangeMode.value.name)
+            .put("enter_dbm", tuning.enterCodedBelowDbm)
+            .put("leave_dbm", tuning.leaveCodedAboveDbm)
+            .put("links", links)
     }
 
     private fun state(context: Context): JSONObject {
