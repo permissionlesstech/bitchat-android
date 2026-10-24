@@ -18,6 +18,7 @@ data class FavoriteRelationship(
     val peerNickname: String,
     val isFavorite: Boolean,              // We favorited them
     val theyFavoritedUs: Boolean,         // They favorited us
+    val isPrivateContact: Boolean = false, // Private contacts are kept in a dedicated list
     val favoritedAt: Date,
     val lastUpdated: Date
 ) {
@@ -34,6 +35,7 @@ data class FavoriteRelationship(
         if (peerNickname != other.peerNickname) return false
         if (isFavorite != other.isFavorite) return false
         if (theyFavoritedUs != other.theyFavoritedUs) return false
+        if (isPrivateContact != other.isPrivateContact) return false
 
         return true
     }
@@ -44,6 +46,7 @@ data class FavoriteRelationship(
         result = 31 * result + peerNickname.hashCode()
         result = 31 * result + isFavorite.hashCode()
         result = 31 * result + theyFavoritedUs.hashCode()
+        result = 31 * result + isPrivateContact.hashCode()
         return result
     }
 }
@@ -62,6 +65,25 @@ internal fun FavoriteRelationship?.withPeerFavoritedUs(
         peerNickname = "Unknown",
         isFavorite = false,
         theyFavoritedUs = theyFavoritedUs,
+        favoritedAt = now,
+        lastUpdated = now
+    )
+}
+
+internal fun FavoriteRelationship?.withPrivateContactStatus(
+    isPrivateContact: Boolean,
+    now: Date = Date()
+): FavoriteRelationship {
+    return this?.copy(
+        isPrivateContact = isPrivateContact,
+        lastUpdated = now
+    ) ?: FavoriteRelationship(
+        peerNoisePublicKey = ByteArray(0),
+        peerNostrPublicKey = null,
+        peerNickname = "Unknown",
+        isFavorite = false,
+        theyFavoritedUs = false,
+        isPrivateContact = isPrivateContact,
         favoritedAt = now,
         lastUpdated = now
     )
@@ -264,7 +286,20 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 
     fun getMutualFavorites(): List<FavoriteRelationship> = favorites.values.filter { it.isMutual }
     fun getOurFavorites(): List<FavoriteRelationship> = favorites.values.filter { it.isFavorite }
+    fun getPrivateContacts(): List<FavoriteRelationship> = favorites.values.filter { it.isPrivateContact }
     fun getAllRelationships(): List<FavoriteRelationship> = favorites.values.toList()
+
+    fun updatePrivateContactStatus(noisePublicKey: ByteArray, isPrivateContact: Boolean) {
+        val keyHex = ContactIdentityResolver.noiseKeyHex(noisePublicKey)
+        val existing = favorites[keyHex]
+        val updated = existing.withPrivateContactStatus(isPrivateContact, Date())
+        favorites[keyHex] = updated.copy(
+            peerNoisePublicKey = noisePublicKey,
+            peerNickname = existing?.peerNickname ?: updated.peerNickname
+        )
+        saveFavorites()
+        notifyChanged(keyHex)
+    }
 
     fun clearAllFavorites() {
         favorites.clear()
@@ -377,6 +412,7 @@ private data class FavoriteRelationshipData(
     val peerNickname: String,
     val isFavorite: Boolean,
     val theyFavoritedUs: Boolean,
+    val isPrivateContact: Boolean,
     val favoritedAt: Long,
     val lastUpdated: Long
 ) {
@@ -388,6 +424,7 @@ private data class FavoriteRelationshipData(
                 peerNickname = relationship.peerNickname,
                 isFavorite = relationship.isFavorite,
                 theyFavoritedUs = relationship.theyFavoritedUs,
+                isPrivateContact = relationship.isPrivateContact,
                 favoritedAt = relationship.favoritedAt.time,
                 lastUpdated = relationship.lastUpdated.time
             )
@@ -402,6 +439,7 @@ private data class FavoriteRelationshipData(
             peerNickname = peerNickname,
             isFavorite = isFavorite,
             theyFavoritedUs = theyFavoritedUs,
+            isPrivateContact = isPrivateContact,
             favoritedAt = Date(favoritedAt),
             lastUpdated = Date(lastUpdated)
         )
