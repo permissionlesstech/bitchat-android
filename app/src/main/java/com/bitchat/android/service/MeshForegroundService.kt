@@ -36,35 +36,42 @@ class MeshForegroundService : Service() {
         const val ACTION_QUIT = "com.bitchat.android.service.QUIT"
         const val ACTION_UPDATE_NOTIFICATION = "com.bitchat.android.service.UPDATE_NOTIFICATION"
 
-        fun start(context: Context) {
+        /** Returns true when the service start request was accepted. */
+        fun start(context: Context): Boolean {
             val intent = Intent(context, MeshForegroundService::class.java).apply { action = ACTION_START }
 
             // Only launch as an FGS when onStartCommand can promote immediately.
             val shouldStartForeground = shouldStartAsForeground(context)
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 if (shouldStartForeground) {
                     try {
                         context.startForegroundService(intent)
+                        true
                     } catch (_: IllegalStateException) {
                         // Boot/background starts can be denied even with permissions.
                         // A later user-visible start can retry; never fall back to an
                         // illegal background service or crash the receiver/activity.
                         Log.i("MeshForegroundService", "Foreground service start deferred by system")
+                        false
                     } catch (_: SecurityException) {
                         Log.i("MeshForegroundService", "Foreground service permission no longer available")
+                        false
                     }
                 } else {
                     android.util.Log.i(
                         "MeshForegroundService",
                         "Not starting service on API>=26 (shouldStartForeground=$shouldStartForeground)"
                     )
+                    false
                 }
             } else {
                 if (MeshServicePreferences.isBackgroundEnabled(true)) {
                     context.startService(intent)
+                    true
                 } else {
                     android.util.Log.i("MeshForegroundService", "Background disabled; not starting service (pre-O)")
+                    false
                 }
             }
         }

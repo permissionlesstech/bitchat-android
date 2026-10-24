@@ -49,7 +49,7 @@ class MeshForegroundServiceStartupTest {
         whenever(caller.checkPermission(any(), any(), any())).thenReturn(PackageManager.PERMISSION_GRANTED)
         whenever(caller.startForegroundService(any())).thenThrow(
             ForegroundServiceStartNotAllowedException("synthetic background denial"))
-        MeshForegroundService.start(caller)
+        assertFalse(MeshForegroundService.start(caller))
         verify(caller).startForegroundService(any())
         verify(caller, never()).startService(any())
     }
