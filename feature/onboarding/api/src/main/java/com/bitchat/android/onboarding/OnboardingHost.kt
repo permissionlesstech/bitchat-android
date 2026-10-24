@@ -21,7 +21,8 @@ interface OnboardingHost {
     /**
      * True once after Bluetooth turning off while the app was ready sent it back
      * to onboarding. Onboarding then opens on the Bluetooth step whatever the
-     * session skip and the debug switch say, as it always has (T12).
+     * session skip and the debug switch say, as it always has (T12), if
+     * Bluetooth is still off by then.
      */
     fun takeBluetoothTurnedOff(): Boolean
 

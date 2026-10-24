@@ -195,8 +195,9 @@ class OnboardingViewModel @Inject constructor(
      * The step onboarding opens on. The app's init failure is the error step;
      * a missing adapter is not (F4): it gets the Bluetooth step, which lets
      * the user continue. Bluetooth turned off in chat
-     * opens on the Bluetooth step whatever the skips say (T12). Otherwise the
-     * step readiness implies.
+     * opens on the Bluetooth step whatever the skips say (T12), but only while
+     * it is still off: back on in the background, the flag is stale. Otherwise
+     * the step readiness implies.
      */
     private fun open() {
         val r = readiness.snapshot()
@@ -206,7 +207,8 @@ class OnboardingViewModel @Inject constructor(
                 _state.update { it.copy(errorMessage = initError) }
                 setStep(OnboardingStep.ERROR)
             }
-            host.takeBluetoothTurnedOff() -> handleBluetoothDisabled(BLUETOOTH_TURNED_OFF_MESSAGE)
+            host.takeBluetoothTurnedOff() && r.bluetooth != BluetoothStatus.ENABLED ->
+                handleBluetoothDisabled(BLUETOOTH_TURNED_OFF_MESSAGE)
             else -> showStepReadinessImplies(r)
         }
     }

@@ -798,6 +798,19 @@ class OnboardingViewModelTest {
     }
 
     @Test
+    fun bluetoothOffThenOnBeforeOpen_doesNotStrandOnBluetoothStep() = runTest {
+        // Off while ready, back on while the app was in the background: the
+        // flag is stale by the time the view model opens.
+        host.bluetoothTurnedOff = true
+        system.bluetooth = BluetoothStatus.ENABLED
+
+        newViewModel()
+
+        assertFinished()
+        assertFalse(host.bluetoothTurnedOff)
+    }
+
+    @Test
     fun t12_bluetoothTurnedOffDuringOnboarding_showsBluetoothCheck() = runTest {
         onLocationStep()
         system.bluetooth = BluetoothStatus.DISABLED
