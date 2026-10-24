@@ -603,8 +603,8 @@ class MainActivity : OrientationAwareActivity() {
         }
 
         try {
-            com.bitchat.android.service.MeshForegroundService.start(applicationContext)
-            pendingMeshForegroundServiceStart = false
+            pendingMeshForegroundServiceStart =
+                !com.bitchat.android.service.MeshForegroundService.start(applicationContext)
         } catch (e: Exception) {
             pendingMeshForegroundServiceStart = true
             Log.w("MainActivity", "Unable to start foreground mesh service; will retry when activity is started", e)
