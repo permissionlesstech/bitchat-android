@@ -3,14 +3,18 @@ package com.bitchat.android.hotspot
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bitchat.android.share.HotspotRadioLease
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -19,6 +23,7 @@ import java.io.File
  */
 @HiltViewModel
 class HotspotViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     private val radioLease: HotspotRadioLease,
     private val controllerFactory: HotspotControllerFactory,
     private val webServingFactory: ApkWebServingFactory
@@ -32,8 +37,15 @@ class HotspotViewModel @Inject constructor(
         private const val TEARDOWN_FALLBACK_MILLIS = 10_000L
     }
 
-    private val _state = MutableStateFlow<HotspotState>(HotspotState.Intro)
-    val state: StateFlow<HotspotState> = _state.asStateFlow()
+    private val _uiState = MutableStateFlow<HotspotUiState>(HotspotUiState.Intro)
+    val uiState: StateFlow<HotspotUiState> = _uiState.asStateFlow()
+
+    private val _events = Channel<HotspotEvent>(Channel.BUFFERED)
+    val events: Flow<HotspotEvent> = _events.receiveAsFlow()
+
+    /** The APK to serve: the Activity's intent extra, which it has already checked exists. */
+    private val apkFile: File? =
+        savedStateHandle.get<String>(HotspotActivity.EXTRA_APK_PATH)?.let(::File)
 
     private var hotspotManager: HotspotController? = null
     private var webServer: ApkWebServing? = null
@@ -47,21 +59,25 @@ class HotspotViewModel @Inject constructor(
     /** Once-releasable radio claim owned by the current hotspot session. */
     private var awareLease: AutoCloseable? = null
 
-    /**
-     * Start the hotspot with the provided APK file.
-     */
-    fun startHotspot(apkFile: File) {
-        startHotspot(apkFile, confirmedGroupName = null)
+    fun onAction(action: HotspotAction) {
+        when (action) {
+            HotspotAction.StartClicked -> apkFile?.let { startHotspot(it, confirmedGroupName = null) }
+            HotspotAction.ConfirmDisconnect -> confirmDisconnectAndStart()
+            HotspotAction.CancelDisconnect -> cancelDisconnect()
+            HotspotAction.RetryClicked -> resetToIntro()
+            HotspotAction.CloseClicked -> _events.trySend(HotspotEvent.Close)
+            HotspotAction.StopRequested -> stopHotspot()
+        }
     }
 
     private fun startHotspot(apkFile: File, confirmedGroupName: String?) {
-        if (_state.value is HotspotState.Starting || _state.value is HotspotState.Active) {
+        if (_uiState.value is HotspotUiState.Starting || _uiState.value is HotspotUiState.Active) {
             Log.w(TAG, "Hotspot already starting or active")
             return
         }
 
         Log.d(TAG, "Starting hotspot with APK: ${apkFile.name}")
-        _state.value = HotspotState.Starting
+        _uiState.value = HotspotUiState.Starting
 
         viewModelScope.launch {
             try {
@@ -94,7 +110,7 @@ class HotspotViewModel @Inject constructor(
                                 Log.d(TAG, "Web server started on port ${ApkWebServer.DEFAULT_PORT}")
 
                                 // Update state with connection info
-                                _state.value = HotspotState.Active(
+                                _uiState.value = HotspotUiState.Active(
                                     ssid = info.ssid,
                                     password = info.password,
                                     ipAddress = info.ipAddress,
@@ -111,9 +127,9 @@ class HotspotViewModel @Inject constructor(
                     override fun onConnectionInfoUpdated(info: HotspotManager.ConnectionInfo?) {
                         viewModelScope.launch {
                             // Update peer count if we're active
-                            val currentState = _state.value
-                            if (currentState is HotspotState.Active && info != null) {
-                                _state.value = currentState.copy(connectedPeers = info.connectedPeers)
+                            val currentState = _uiState.value
+                            if (currentState is HotspotUiState.Active && info != null) {
+                                _uiState.value = currentState.copy(connectedPeers = info.connectedPeers)
                             }
                         }
                     }
@@ -125,7 +141,7 @@ class HotspotViewModel @Inject constructor(
                             teardown()
                             pendingApk = apkFile
                             pendingGroupName = groupName
-                            _state.value = HotspotState.ConfirmDisconnect
+                            _uiState.value = HotspotUiState.ConfirmDisconnect
                         }
                     }
 
@@ -142,8 +158,8 @@ class HotspotViewModel @Inject constructor(
     }
 
     /** The user agreed that starting may disconnect the existing Wi-Fi Direct group. */
-    fun confirmDisconnectAndStart() {
-        if (_state.value !is HotspotState.ConfirmDisconnect) return
+    private fun confirmDisconnectAndStart() {
+        if (_uiState.value !is HotspotUiState.ConfirmDisconnect) return
         val apk = pendingApk ?: return
         val groupName = pendingGroupName
         pendingApk = null
@@ -151,26 +167,26 @@ class HotspotViewModel @Inject constructor(
         startHotspot(apk, confirmedGroupName = groupName)
     }
 
-    fun cancelDisconnect() {
+    private fun cancelDisconnect() {
         // A tap landing late (e.g. through an exit animation) must not tear down
         // the session a just-processed confirmation is starting.
-        if (_state.value !is HotspotState.ConfirmDisconnect) return
+        if (_uiState.value !is HotspotUiState.ConfirmDisconnect) return
         pendingApk = null
         pendingGroupName = null
         // The conflict path already tore down; this only covers a stray state.
         teardown()
-        _state.value = HotspotState.Intro
+        _uiState.value = HotspotUiState.Intro
     }
 
     /**
      * Stop the hotspot and web server.
      */
-    fun stopHotspot() {
+    private fun stopHotspot() {
         Log.d(TAG, "Stopping hotspot")
         pendingApk = null
         pendingGroupName = null
         teardown()
-        _state.value = HotspotState.Intro
+        _uiState.value = HotspotUiState.Intro
     }
 
     /**
@@ -186,7 +202,7 @@ class HotspotViewModel @Inject constructor(
         pendingApk = null
         pendingGroupName = null
         teardown()
-        _state.value = HotspotState.Error(message)
+        _uiState.value = HotspotUiState.Error(message)
     }
 
     /** Releases every resource startHotspot may have acquired. Safe to call twice. */
@@ -227,34 +243,14 @@ class HotspotViewModel @Inject constructor(
     /**
      * Reset to intro state (for retry after error).
      */
-    fun resetToIntro() {
+    private fun resetToIntro() {
         stopHotspot()
-        _state.value = HotspotState.Intro
+        _uiState.value = HotspotUiState.Intro
     }
 
     override fun onCleared() {
         super.onCleared()
         Log.d(TAG, "ViewModel cleared, stopping hotspot")
         stopHotspot()
-    }
-
-    /**
-     * Hotspot state sealed class.
-     */
-    sealed class HotspotState {
-        object Intro : HotspotState()
-        object Starting : HotspotState()
-
-        /** A foreign Wi-Fi Direct group is up; waiting for the user's go-ahead. */
-        object ConfirmDisconnect : HotspotState()
-
-        data class Active(
-            val ssid: String,
-            val password: String,
-            val ipAddress: String,
-            val port: Int,
-            val connectedPeers: Int
-        ) : HotspotState()
-        data class Error(val message: String) : HotspotState()
     }
 }
