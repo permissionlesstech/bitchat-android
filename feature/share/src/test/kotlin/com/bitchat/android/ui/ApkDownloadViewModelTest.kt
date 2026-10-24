@@ -67,13 +67,13 @@ class ApkDownloadViewModelTest {
         val statusWhenMetadataStarted = CompletableDeferred<ApkPreparationStatus>()
         val metadata = object : LatestReleaseProvider {
             override suspend fun latestRelease(): Result<GitHubReleaseClient.ReleaseSnapshot> {
-                statusWhenMetadataStarted.complete(viewModel.state.value.apkStatus)
+                statusWhenMetadataStarted.complete(viewModel.uiState.value.apkStatus)
                 return Result.failure(IllegalStateException("synthetic offline response"))
             }
         }
         viewModel = ApkDownloadViewModel(application, manager, downloader, metadata)
 
-        viewModel.onEvent(ApkUiEvent.CheckStatus)
+        viewModel.onAction(ApkAction.SectionShown)
         val ready = awaitReady(viewModel)
 
         assertEquals("1.7.5", ready.version)
@@ -91,12 +91,12 @@ class ApkDownloadViewModelTest {
             offlineMetadata()
         )
 
-        viewModel.onEvent(ApkUiEvent.CheckStatus)
+        viewModel.onAction(ApkAction.SectionShown)
         val originalReady = awaitReady(viewModel)
-        viewModel.onEvent(ApkUiEvent.PrepareRowClicked)
-        viewModel.onEvent(ApkUiEvent.ConfirmDownload)
+        viewModel.onAction(ApkAction.PrepareRowClicked)
+        viewModel.onAction(ApkAction.ConfirmDownload)
 
-        val downloading = viewModel.state.value.apkStatus as ApkPreparationStatus.Downloading
+        val downloading = viewModel.uiState.value.apkStatus as ApkPreparationStatus.Downloading
         assertSame(originalReady, downloading.shareableFallback)
         assertEquals(1, downloader.startCount)
 
@@ -175,10 +175,10 @@ class ApkDownloadViewModelTest {
                 offlineMetadata()
             )
 
-            val restored = viewModel.state.value.apkStatus as ApkPreparationStatus.Downloading
+            val restored = viewModel.uiState.value.apkStatus as ApkPreparationStatus.Downloading
             assertNull(restored.shareableFallback)
 
-            viewModel.onEvent(ApkUiEvent.CheckStatus)
+            viewModel.onAction(ApkAction.SectionShown)
 
             val adopted = awaitFallback(viewModel)
             assertEquals("1.7.5", adopted.version)
@@ -196,14 +196,14 @@ class ApkDownloadViewModelTest {
             offlineMetadata()
         )
 
-        viewModel.onEvent(ApkUiEvent.CheckStatus)
+        viewModel.onAction(ApkAction.SectionShown)
         val originalReady = awaitReady(viewModel)
-        viewModel.onEvent(ApkUiEvent.PrepareRowClicked)
-        viewModel.onEvent(ApkUiEvent.ConfirmDownload)
+        viewModel.onAction(ApkAction.PrepareRowClicked)
+        viewModel.onAction(ApkAction.ConfirmDownload)
 
-        viewModel.onEvent(ApkUiEvent.CheckStatus)
+        viewModel.onAction(ApkAction.SectionShown)
 
-        val downloading = viewModel.state.value.apkStatus as ApkPreparationStatus.Downloading
+        val downloading = viewModel.uiState.value.apkStatus as ApkPreparationStatus.Downloading
         assertSame(originalReady, downloading.shareableFallback)
     }
 
@@ -218,10 +218,10 @@ class ApkDownloadViewModelTest {
             FakeDownloader(),
             offlineMetadata()
         )
-        installed.onEvent(ApkUiEvent.CheckStatus)
+        installed.onAction(ApkAction.SectionShown)
         awaitReady(installed)
-        installed.onEvent(ApkUiEvent.DownloadUniversalClicked)
-        assertTrue(installed.state.value.showPrepareDialog)
+        installed.onAction(ApkAction.DownloadUniversalClicked)
+        assertTrue(installed.uiState.value.showPrepareDialog)
 
         // A current downloaded APK has nothing to replace it with.
         val downloaded = ApkDownloadViewModel(
@@ -230,10 +230,10 @@ class ApkDownloadViewModelTest {
             FakeDownloader(),
             offlineMetadata()
         )
-        downloaded.onEvent(ApkUiEvent.CheckStatus)
+        downloaded.onAction(ApkAction.SectionShown)
         awaitReady(downloaded)
-        downloaded.onEvent(ApkUiEvent.DownloadUniversalClicked)
-        assertFalse(downloaded.state.value.showPrepareDialog)
+        downloaded.onAction(ApkAction.DownloadUniversalClicked)
+        assertFalse(downloaded.uiState.value.showPrepareDialog)
     }
 
     @Test
@@ -243,16 +243,16 @@ class ApkDownloadViewModelTest {
         whenever(manager.getPartialDownloadProgress()).thenReturn(42)
         val downloader = FakeDownloader(emitOnStart = false)
         val viewModel = ApkDownloadViewModel(application, manager, downloader, offlineMetadata())
-        viewModel.onEvent(ApkUiEvent.CheckStatus)
+        viewModel.onAction(ApkAction.SectionShown)
         val ready = awaitReady(viewModel)
 
-        viewModel.onEvent(ApkUiEvent.PrepareRowClicked)
-        viewModel.onEvent(ApkUiEvent.ConfirmDownload)
+        viewModel.onAction(ApkAction.PrepareRowClicked)
+        viewModel.onAction(ApkAction.ConfirmDownload)
 
-        val downloading = viewModel.state.value.apkStatus as ApkPreparationStatus.Downloading
+        val downloading = viewModel.uiState.value.apkStatus as ApkPreparationStatus.Downloading
         assertEquals(ApkDownloader.DownloadPhase.SelectingSource, downloading.phase)
         assertSame(ready, downloading.shareableFallback)
-        assertEquals(42, viewModel.state.value.downloadProgress)
+        assertEquals(42, viewModel.uiState.value.downloadProgress)
         assertEquals(1, downloader.startCount)
     }
 
@@ -266,28 +266,28 @@ class ApkDownloadViewModelTest {
             downloader,
             offlineMetadata()
         )
-        viewModel.onEvent(ApkUiEvent.CheckStatus)
+        viewModel.onAction(ApkAction.SectionShown)
         awaitReady(viewModel)
 
-        viewModel.onEvent(ApkUiEvent.DeleteClicked)
-        assertTrue(viewModel.state.value.showDeleteDialog)
-        viewModel.onEvent(ApkUiEvent.DismissDeleteDialog)
-        assertFalse(viewModel.state.value.showDeleteDialog)
+        viewModel.onAction(ApkAction.DeleteClicked)
+        assertTrue(viewModel.uiState.value.showDeleteDialog)
+        viewModel.onAction(ApkAction.DismissDeleteDialog)
+        assertFalse(viewModel.uiState.value.showDeleteDialog)
 
-        viewModel.onEvent(ApkUiEvent.AppShareClicked)
-        assertTrue(viewModel.state.value.showShareApkDialog)
-        viewModel.onEvent(ApkUiEvent.DismissShareDialog)
-        assertFalse(viewModel.state.value.showShareApkDialog)
+        viewModel.onAction(ApkAction.AppShareClicked)
+        assertTrue(viewModel.uiState.value.showShareApkDialog)
+        viewModel.onAction(ApkAction.DismissShareDialog)
+        assertFalse(viewModel.uiState.value.showShareApkDialog)
 
-        viewModel.onEvent(ApkUiEvent.PrepareRowClicked)
-        assertTrue(viewModel.state.value.showPrepareDialog)
-        viewModel.onEvent(ApkUiEvent.DismissPrepareDialog)
-        assertFalse(viewModel.state.value.showPrepareDialog)
+        viewModel.onAction(ApkAction.PrepareRowClicked)
+        assertTrue(viewModel.uiState.value.showPrepareDialog)
+        viewModel.onAction(ApkAction.DismissPrepareDialog)
+        assertFalse(viewModel.uiState.value.showPrepareDialog)
         assertEquals(0, downloader.startCount)
 
-        viewModel.onEvent(ApkUiEvent.PrepareRowClicked)
-        viewModel.onEvent(ApkUiEvent.ConfirmDownload)
-        assertFalse(viewModel.state.value.showPrepareDialog)
+        viewModel.onAction(ApkAction.PrepareRowClicked)
+        viewModel.onAction(ApkAction.ConfirmDownload)
+        assertFalse(viewModel.uiState.value.showPrepareDialog)
         assertEquals(1, downloader.startCount)
     }
 
@@ -309,13 +309,13 @@ class ApkDownloadViewModelTest {
         }
         val downloader = FakeDownloader(onCancel = { calls += "cancel" })
         val viewModel = ApkDownloadViewModel(application, manager, downloader, offlineMetadata())
-        viewModel.onEvent(ApkUiEvent.CheckStatus)
+        viewModel.onAction(ApkAction.SectionShown)
         awaitReady(viewModel)
-        viewModel.onEvent(ApkUiEvent.DeleteClicked)
+        viewModel.onAction(ApkAction.DeleteClicked)
 
-        viewModel.onEvent(ApkUiEvent.ConfirmDelete)
+        viewModel.onAction(ApkAction.ConfirmDelete)
 
-        assertFalse(viewModel.state.value.showDeleteDialog)
+        assertFalse(viewModel.uiState.value.showDeleteDialog)
         awaitStatus(viewModel) { it is ApkPreparationStatus.NotDownloaded }
         assertEquals(listOf("resolve", "cancel", "delete", "resolve"), calls.toList())
     }
@@ -328,9 +328,9 @@ class ApkDownloadViewModelTest {
         whenever(manager.getCachedApk()).thenReturn(apk)
         val viewModel = ApkDownloadViewModel(application, manager, FakeDownloader(), offlineMetadata())
 
-        viewModel.onEvent(ApkUiEvent.HotspotShareClicked)
+        viewModel.onAction(ApkAction.HotspotShareClicked)
 
-        assertEquals(ApkUiEffect.NavigateToHotspot(apk.absolutePath), awaitEffect(viewModel))
+        assertEquals(ApkEvent.NavigateToHotspot(apk.absolutePath), awaitEffect(viewModel))
     }
 
     @Test
@@ -340,10 +340,10 @@ class ApkDownloadViewModelTest {
         whenever(manager.getCachedApk()).thenReturn(null)
         val viewModel = ApkDownloadViewModel(application, manager, FakeDownloader(), offlineMetadata())
 
-        viewModel.onEvent(ApkUiEvent.HotspotShareClicked)
+        viewModel.onAction(ApkAction.HotspotShareClicked)
 
         assertEquals(
-            ApkUiEffect.ShowToast(syntheticString(R.string.apk_not_ready_please_prepare_it_first)),
+            ApkEvent.ShowToast(syntheticString(R.string.apk_not_ready_please_prepare_it_first)),
             awaitEffect(viewModel)
         )
     }
@@ -356,13 +356,13 @@ class ApkDownloadViewModelTest {
             File(application.cacheDir, "synthetic-missing.apk")
         )
         val viewModel = ApkDownloadViewModel(application, manager, FakeDownloader(), offlineMetadata())
-        viewModel.onEvent(ApkUiEvent.AppShareClicked)
+        viewModel.onAction(ApkAction.AppShareClicked)
 
-        viewModel.onEvent(ApkUiEvent.ConfirmAppShare)
+        viewModel.onAction(ApkAction.ConfirmAppShare)
 
-        assertFalse(viewModel.state.value.showShareApkDialog)
+        assertFalse(viewModel.uiState.value.showShareApkDialog)
         assertEquals(
-            ApkUiEffect.ShowToast(syntheticString(R.string.apk_not_ready_please_prepare_it_first)),
+            ApkEvent.ShowToast(syntheticString(R.string.apk_not_ready_please_prepare_it_first)),
             awaitEffect(viewModel)
         )
     }
@@ -377,10 +377,10 @@ class ApkDownloadViewModelTest {
         whenever(manager.getCachedApk()).thenReturn(apk)
         val viewModel = ApkDownloadViewModel(application, manager, FakeDownloader(), offlineMetadata())
 
-        viewModel.onEvent(ApkUiEvent.ConfirmAppShare)
+        viewModel.onAction(ApkAction.ConfirmAppShare)
 
         assertEquals(
-            ApkUiEffect.ShowToast(syntheticString(R.string.share_apk_error)),
+            ApkEvent.ShowToast(syntheticString(R.string.share_apk_error)),
             awaitEffect(viewModel)
         )
     }
@@ -395,16 +395,16 @@ class ApkDownloadViewModelTest {
             downloader,
             offlineMetadata()
         )
-        viewModel.onEvent(ApkUiEvent.CheckStatus)
+        viewModel.onAction(ApkAction.SectionShown)
         val ready = awaitReady(viewModel)
-        viewModel.onEvent(ApkUiEvent.PrepareRowClicked)
-        viewModel.onEvent(ApkUiEvent.ConfirmDownload)
+        viewModel.onAction(ApkAction.PrepareRowClicked)
+        viewModel.onAction(ApkAction.ConfirmDownload)
 
-        viewModel.onEvent(ApkUiEvent.CancelDownload)
+        viewModel.onAction(ApkAction.CancelDownload)
 
         assertEquals(1, downloader.cancelCount)
-        assertSame(ready, viewModel.state.value.apkStatus)
-        assertEquals(0, viewModel.state.value.downloadProgress)
+        assertSame(ready, viewModel.uiState.value.apkStatus)
+        assertEquals(0, viewModel.uiState.value.downloadProgress)
     }
 
     @Test
@@ -417,19 +417,19 @@ class ApkDownloadViewModelTest {
             downloader,
             offlineMetadata()
         )
-        viewModel.onEvent(ApkUiEvent.CheckStatus)
+        viewModel.onAction(ApkAction.SectionShown)
         awaitStatus(viewModel) { it is ApkPreparationStatus.NotDownloaded }
-        viewModel.onEvent(ApkUiEvent.PrepareRowClicked)
-        viewModel.onEvent(ApkUiEvent.ConfirmDownload)
+        viewModel.onAction(ApkAction.PrepareRowClicked)
+        viewModel.onAction(ApkAction.ConfirmDownload)
         assertNull(
-            (viewModel.state.value.apkStatus as ApkPreparationStatus.Downloading).shareableFallback
+            (viewModel.uiState.value.apkStatus as ApkPreparationStatus.Downloading).shareableFallback
         )
 
-        viewModel.onEvent(ApkUiEvent.CancelDownload)
+        viewModel.onAction(ApkAction.CancelDownload)
 
         assertEquals(1, downloader.cancelCount)
         awaitStatus(viewModel) { it is ApkPreparationStatus.NotDownloaded }
-        assertEquals(0, viewModel.state.value.downloadProgress)
+        assertEquals(0, viewModel.uiState.value.downloadProgress)
     }
 
     @Test
@@ -443,13 +443,13 @@ class ApkDownloadViewModelTest {
             offlineMetadata()
         )
         downloader.emit(ApkDownloader.DownloadState.Downloading(progressPercent = 10))
-        assertTrue(viewModel.state.value.apkStatus is ApkPreparationStatus.Downloading)
+        assertTrue(viewModel.uiState.value.apkStatus is ApkPreparationStatus.Downloading)
 
         downloader.emit(ApkDownloader.DownloadState.Idle)
 
         awaitStatus(viewModel) { it is ApkPreparationStatus.NotDownloaded }
         assertEquals(0, downloader.cancelCount)
-        assertEquals(0, viewModel.state.value.downloadProgress)
+        assertEquals(0, viewModel.uiState.value.downloadProgress)
     }
 
     @Test
@@ -467,8 +467,8 @@ class ApkDownloadViewModelTest {
 
         downloader.emit(ApkDownloader.DownloadState.Idle)
 
-        assertSame(ready, viewModel.state.value.apkStatus)
-        assertEquals(100, viewModel.state.value.downloadProgress)
+        assertSame(ready, viewModel.uiState.value.apkStatus)
+        assertEquals(100, viewModel.uiState.value.downloadProgress)
     }
 
     @Test
@@ -481,7 +481,7 @@ class ApkDownloadViewModelTest {
             downloader,
             offlineMetadata()
         )
-        viewModel.onEvent(ApkUiEvent.CheckStatus)
+        viewModel.onAction(ApkAction.SectionShown)
         val ready = awaitReady(viewModel)
 
         downloader.emit(
@@ -490,15 +490,15 @@ class ApkDownloadViewModelTest {
                 phase = ApkDownloader.DownloadPhase.Transferring
             )
         )
-        val first = viewModel.state.value.apkStatus as ApkPreparationStatus.Downloading
+        val first = viewModel.uiState.value.apkStatus as ApkPreparationStatus.Downloading
         assertEquals(ApkDownloader.DownloadPhase.Transferring, first.phase)
         assertSame(ready, first.shareableFallback)
-        assertEquals(37, viewModel.state.value.downloadProgress)
+        assertEquals(37, viewModel.uiState.value.downloadProgress)
 
         downloader.emit(ApkDownloader.DownloadState.Downloading(progressPercent = 55))
-        val second = viewModel.state.value.apkStatus as ApkPreparationStatus.Downloading
+        val second = viewModel.uiState.value.apkStatus as ApkPreparationStatus.Downloading
         assertSame(ready, second.shareableFallback)
-        assertEquals(55, viewModel.state.value.downloadProgress)
+        assertEquals(55, viewModel.uiState.value.downloadProgress)
     }
 
     @Test
@@ -514,7 +514,7 @@ class ApkDownloadViewModelTest {
         )
         val downloader = FakeDownloader()
         val viewModel = ApkDownloadViewModel(application, manager, downloader, releaseMetadata("1.7.6"))
-        viewModel.onEvent(ApkUiEvent.CheckStatus)
+        viewModel.onAction(ApkAction.SectionShown)
         awaitReady(viewModel)
         val known = awaitKnownRelease(viewModel)
         assertTrue(known.isNewerThanSharedApk)
@@ -527,8 +527,8 @@ class ApkDownloadViewModelTest {
         assertEquals(20, ready.sizeMB)
         assertEquals(UniversalApkManager.ApkSource.DOWNLOADED, ready.source)
         assertEquals(ShareableApkVariant.UNIVERSAL, ready.variant)
-        assertEquals(100, viewModel.state.value.downloadProgress)
-        assertFalse((viewModel.state.value.releaseStatus as ApkReleaseStatus.Known).isNewerThanSharedApk)
+        assertEquals(100, viewModel.uiState.value.downloadProgress)
+        assertFalse((viewModel.uiState.value.releaseStatus as ApkReleaseStatus.Known).isNewerThanSharedApk)
     }
 
     @Test
@@ -553,7 +553,7 @@ class ApkDownloadViewModelTest {
             ),
             awaitReady(viewModel)
         )
-        assertEquals(100, viewModel.state.value.downloadProgress)
+        assertEquals(100, viewModel.uiState.value.downloadProgress)
     }
 
     @Test
@@ -566,10 +566,10 @@ class ApkDownloadViewModelTest {
             downloader,
             offlineMetadata()
         )
-        viewModel.onEvent(ApkUiEvent.CheckStatus)
+        viewModel.onAction(ApkAction.SectionShown)
         val ready = awaitReady(viewModel)
-        viewModel.onEvent(ApkUiEvent.PrepareRowClicked)
-        viewModel.onEvent(ApkUiEvent.ConfirmDownload)
+        viewModel.onAction(ApkAction.PrepareRowClicked)
+        viewModel.onAction(ApkAction.ConfirmDownload)
 
         downloader.emit(
             ApkDownloader.DownloadState.Failed(
@@ -580,11 +580,11 @@ class ApkDownloadViewModelTest {
         )
 
         assertEquals(
-            ApkUiEffect.ShowToast(syntheticString(R.string.prepare_apk_error_all_sources)),
+            ApkEvent.ShowToast(syntheticString(R.string.prepare_apk_error_all_sources)),
             awaitEffect(viewModel)
         )
-        assertSame(ready, viewModel.state.value.apkStatus)
-        assertEquals(0, viewModel.state.value.downloadProgress)
+        assertSame(ready, viewModel.uiState.value.apkStatus)
+        assertEquals(0, viewModel.uiState.value.downloadProgress)
     }
 
     @Test
@@ -611,7 +611,7 @@ class ApkDownloadViewModelTest {
         } as ApkPreparationStatus.Resumable
         assertEquals(30, resumable.progressPercent)
         assertEquals(R.string.prepare_apk_error_all_sources, resumable.failure.messageRes)
-        assertEquals(30, viewModel.state.value.downloadProgress)
+        assertEquals(30, viewModel.uiState.value.downloadProgress)
         assertNull(awaitNoEffect(viewModel))
     }
 
@@ -626,10 +626,10 @@ class ApkDownloadViewModelTest {
             downloader,
             offlineMetadata()
         )
-        viewModel.onEvent(ApkUiEvent.CheckStatus)
+        viewModel.onAction(ApkAction.SectionShown)
         awaitReady(viewModel)
-        viewModel.onEvent(ApkUiEvent.PrepareRowClicked)
-        viewModel.onEvent(ApkUiEvent.ConfirmDownload)
+        viewModel.onAction(ApkAction.PrepareRowClicked)
+        viewModel.onAction(ApkAction.ConfirmDownload)
         downloader.emit(
             ApkDownloader.DownloadState.Failed(
                 reason = ApkDownloadFailureReason.AllSourcesFailed,
@@ -640,10 +640,40 @@ class ApkDownloadViewModelTest {
         awaitReady(viewModel)
 
         assertEquals(
-            ApkUiEffect.ShowToast(syntheticString(R.string.prepare_apk_error_all_sources)),
+            ApkEvent.ShowToast(syntheticString(R.string.prepare_apk_error_all_sources)),
             awaitEffect(viewModel)
         )
         assertNull(awaitNoEffect(viewModel))
+    }
+
+    @Test
+    fun derivedFields_followStatusAndRelease() = runTest {
+        // The values ShareAppSectionImpl derived inline before the MVI split.
+        val downloader = FakeDownloader(emitOnStart = false)
+        val viewModel = ApkDownloadViewModel(
+            application,
+            managerWithLocalApk(),
+            downloader,
+            releaseMetadata("1.7.6")
+        )
+        assertNull(viewModel.uiState.value.shareableApk)
+
+        viewModel.onAction(ApkAction.SectionShown)
+        val ready = awaitReady(viewModel)
+        val known = awaitKnownRelease(viewModel)
+
+        val state = viewModel.uiState.value
+        assertSame(ready, state.shareableApk)
+        assertSame(known, state.availableUpdate)
+        assertTrue(state.canShare)
+        assertTrue(state.prepareRowEnabled)
+
+        viewModel.onAction(ApkAction.PrepareRowClicked)
+        viewModel.onAction(ApkAction.ConfirmDownload)
+        val downloading = viewModel.uiState.value
+        assertSame(ready, downloading.shareableApk)
+        assertTrue(downloading.canShare)
+        assertFalse(downloading.prepareRowEnabled)
     }
 
     // --- Helpers ---
@@ -656,7 +686,7 @@ class ApkDownloadViewModelTest {
         predicate: (ApkPreparationStatus) -> Boolean
     ): ApkPreparationStatus = withContext(Dispatchers.Default) {
         withTimeout(5_000L) {
-            viewModel.state.map { it.apkStatus }.first(predicate)
+            viewModel.uiState.map { it.apkStatus }.first(predicate)
         }
     }
 
@@ -681,20 +711,20 @@ class ApkDownloadViewModelTest {
         viewModel: ApkDownloadViewModel
     ): ApkReleaseStatus.Known = withContext(Dispatchers.Default) {
         withTimeout(5_000L) {
-            viewModel.state.map { it.releaseStatus }.first { it is ApkReleaseStatus.Known }
+            viewModel.uiState.map { it.releaseStatus }.first { it is ApkReleaseStatus.Known }
                 as ApkReleaseStatus.Known
         }
     }
 
-    private suspend fun awaitEffect(viewModel: ApkDownloadViewModel): ApkUiEffect =
+    private suspend fun awaitEffect(viewModel: ApkDownloadViewModel): ApkEvent =
         withContext(Dispatchers.Default) {
-            withTimeout(5_000L) { viewModel.effect.first() }
+            withTimeout(5_000L) { viewModel.events.first() }
         }
 
     /** Null when no effect arrives within a short real-time window. */
-    private suspend fun awaitNoEffect(viewModel: ApkDownloadViewModel): ApkUiEffect? =
+    private suspend fun awaitNoEffect(viewModel: ApkDownloadViewModel): ApkEvent? =
         withContext(Dispatchers.Default) {
-            withTimeoutOrNull(300L) { viewModel.effect.first() }
+            withTimeoutOrNull(300L) { viewModel.events.first() }
         }
 
     /**

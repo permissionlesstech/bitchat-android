@@ -2,6 +2,8 @@ package com.bitchat.android.ui
 
 import android.app.Application
 import android.content.Context
+import android.content.res.Resources
+import android.net.Uri
 import android.util.Log
 import androidx.annotation.StringRes
 import androidx.core.content.FileProvider
@@ -21,6 +23,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -63,7 +66,10 @@ data class ApkFailureMessage(
  * independently, so an argument list that does not match the format string is possible; a row
  * showing generic text beats one that throws while formatting.
  */
-internal fun Context.resolveApkFailureMessage(failure: ApkFailureMessage): String {
+internal fun Context.resolveApkFailureMessage(failure: ApkFailureMessage): String =
+    resources.resolveApkFailureMessage(failure)
+
+internal fun Resources.resolveApkFailureMessage(failure: ApkFailureMessage): String {
     return runCatching {
         getString(
             failure.messageRes,
@@ -92,24 +98,51 @@ data class ApkUiState(
     val showPrepareDialog: Boolean = false,
     val showDeleteDialog: Boolean = false,
     val showShareApkDialog: Boolean = false
-)
+) {
+    /** The APK that can be shared now: a ready one, or the one a running download replaces. */
+    val shareableApk: ApkPreparationStatus.Ready?
+        get() = when (apkStatus) {
+            is ApkPreparationStatus.Ready -> apkStatus
+            is ApkPreparationStatus.Downloading -> apkStatus.shareableFallback
+            else -> null
+        }
 
-// --- Events (UI → ViewModel) ---
+    /** A GitHub release newer than [shareableApk], or null. */
+    val availableUpdate: ApkReleaseStatus.Known?
+        get() = (releaseStatus as? ApkReleaseStatus.Known)?.takeIf { it.isNewerThanSharedApk }
 
-sealed class ApkUiEvent {
-    object CheckStatus : ApkUiEvent()
-    object PrepareRowClicked : ApkUiEvent()
-    object DownloadUniversalClicked : ApkUiEvent()
-    object ConfirmDownload : ApkUiEvent()
-    object DismissPrepareDialog : ApkUiEvent()
-    object DeleteClicked : ApkUiEvent()
-    object ConfirmDelete : ApkUiEvent()
-    object DismissDeleteDialog : ApkUiEvent()
-    object HotspotShareClicked : ApkUiEvent()
-    object AppShareClicked : ApkUiEvent()
-    object ConfirmAppShare : ApkUiEvent()
-    object DismissShareDialog : ApkUiEvent()
-    object CancelDownload : ApkUiEvent()
+    /**
+     * Whether the share rows show. A GitHub update is optional, so sharing stays visible while
+     * the replacement downloads or while metadata refreshes.
+     */
+    val canShare: Boolean
+        get() = shareableApk != null
+
+    /**
+     * Enabled by the same mapping that decides what a tap does, so the prepare row can never
+     * look tappable and do nothing.
+     */
+    val prepareRowEnabled: Boolean
+        get() = prepareRowTapAction(apkStatus, releaseStatus) != null
+}
+
+// --- Actions (UI → ViewModel) ---
+
+sealed interface ApkAction {
+    /** The section was composed; sent every time About shows it, to re-check the local APK. */
+    data object SectionShown : ApkAction
+    data object PrepareRowClicked : ApkAction
+    data object DownloadUniversalClicked : ApkAction
+    data object ConfirmDownload : ApkAction
+    data object DismissPrepareDialog : ApkAction
+    data object DeleteClicked : ApkAction
+    data object ConfirmDelete : ApkAction
+    data object DismissDeleteDialog : ApkAction
+    data object HotspotShareClicked : ApkAction
+    data object AppShareClicked : ApkAction
+    data object ConfirmAppShare : ApkAction
+    data object DismissShareDialog : ApkAction
+    data object CancelDownload : ApkAction
 }
 
 // --- Row tap ---
@@ -142,17 +175,17 @@ internal fun prepareRowTapAction(
     else -> null
 }
 
-// --- Effects (ViewModel → UI, one-shot) ---
+// --- Events (ViewModel → UI, one-shot) ---
 
-sealed class ApkUiEffect {
-    data class NavigateToHotspot(val apkPath: String) : ApkUiEffect()
-    data class ShareApk(val apkUri: android.net.Uri, val chooserTitle: String) : ApkUiEffect()
-    data class ShowToast(val message: String) : ApkUiEffect()
+sealed interface ApkEvent {
+    data class NavigateToHotspot(val apkPath: String) : ApkEvent
+    data class ShareApk(val apkUri: Uri, val chooserTitle: String) : ApkEvent
+    data class ShowToast(val message: String) : ApkEvent
 }
 
 /**
  * ViewModel for APK download/status/share logic following MVI pattern.
- * UI sends [ApkUiEvent], observes [ApkUiState], and collects [ApkUiEffect].
+ * UI sends [ApkAction], observes [ApkUiState], and collects [ApkEvent].
  */
 @HiltViewModel
 class ApkDownloadViewModel internal constructor(
@@ -179,10 +212,12 @@ class ApkDownloadViewModel internal constructor(
     }
 
     private val _state = MutableStateFlow(ApkUiState())
-    val state: StateFlow<ApkUiState> = _state.asStateFlow()
+    val uiState: StateFlow<ApkUiState> = _state.asStateFlow()
 
-    private val _effect = Channel<ApkUiEffect>(Channel.BUFFERED)
-    val effect = _effect.receiveAsFlow()
+    // Buffered on an Activity-scoped ViewModel: an event raised while About is closed waits
+    // here and is delivered once, the next time the section collects.
+    private val _events = Channel<ApkEvent>(Channel.BUFFERED)
+    val events: Flow<ApkEvent> = _events.receiveAsFlow()
 
     private var metadataRefreshJob: Job? = null
 
@@ -190,21 +225,21 @@ class ApkDownloadViewModel internal constructor(
         observeDownloader()
     }
 
-    fun onEvent(event: ApkUiEvent) {
-        when (event) {
-            is ApkUiEvent.CheckStatus -> checkStatus()
-            is ApkUiEvent.PrepareRowClicked -> onPrepareRowClicked()
-            is ApkUiEvent.DownloadUniversalClicked -> onDownloadUniversalClicked()
-            is ApkUiEvent.ConfirmDownload -> onConfirmDownload()
-            is ApkUiEvent.DismissPrepareDialog -> _state.update { it.copy(showPrepareDialog = false) }
-            is ApkUiEvent.DeleteClicked -> _state.update { it.copy(showDeleteDialog = true) }
-            is ApkUiEvent.ConfirmDelete -> onConfirmDelete()
-            is ApkUiEvent.DismissDeleteDialog -> _state.update { it.copy(showDeleteDialog = false) }
-            is ApkUiEvent.HotspotShareClicked -> onHotspotShareClicked()
-            is ApkUiEvent.AppShareClicked -> _state.update { it.copy(showShareApkDialog = true) }
-            is ApkUiEvent.ConfirmAppShare -> onConfirmAppShare()
-            is ApkUiEvent.DismissShareDialog -> _state.update { it.copy(showShareApkDialog = false) }
-            is ApkUiEvent.CancelDownload -> onCancelDownload()
+    fun onAction(action: ApkAction) {
+        when (action) {
+            ApkAction.SectionShown -> checkStatus()
+            ApkAction.PrepareRowClicked -> onPrepareRowClicked()
+            ApkAction.DownloadUniversalClicked -> onDownloadUniversalClicked()
+            ApkAction.ConfirmDownload -> onConfirmDownload()
+            ApkAction.DismissPrepareDialog -> _state.update { it.copy(showPrepareDialog = false) }
+            ApkAction.DeleteClicked -> _state.update { it.copy(showDeleteDialog = true) }
+            ApkAction.ConfirmDelete -> onConfirmDelete()
+            ApkAction.DismissDeleteDialog -> _state.update { it.copy(showDeleteDialog = false) }
+            ApkAction.HotspotShareClicked -> onHotspotShareClicked()
+            ApkAction.AppShareClicked -> _state.update { it.copy(showShareApkDialog = true) }
+            ApkAction.ConfirmAppShare -> onConfirmAppShare()
+            ApkAction.DismissShareDialog -> _state.update { it.copy(showShareApkDialog = false) }
+            ApkAction.CancelDownload -> onCancelDownload()
         }
     }
 
@@ -241,18 +276,22 @@ class ApkDownloadViewModel internal constructor(
     private fun onConfirmDelete() {
         _state.update { it.copy(showDeleteDialog = false) }
         downloader.cancelDownload()
-        apkManager.deleteCachedApk()
-        checkStatus()
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { apkManager.deleteCachedApk() }
+            checkStatus()
+        }
     }
 
     private fun onHotspotShareClicked() {
-        val apkFile = apkManager.getCachedApk()
-        if (apkFile != null) {
-            viewModelScope.launch {
-                _effect.send(ApkUiEffect.NavigateToHotspot(apkFile.absolutePath))
+        viewModelScope.launch {
+            val apkFile = withContext(Dispatchers.IO) { apkManager.getCachedApk() }
+            if (apkFile != null) {
+                _events.send(ApkEvent.NavigateToHotspot(apkFile.absolutePath))
+            } else {
+                _events.send(
+                    ApkEvent.ShowToast(getString(R.string.apk_not_ready_please_prepare_it_first))
+                )
             }
-        } else {
-            sendToast(getString(R.string.apk_not_ready_please_prepare_it_first))
         }
     }
 
@@ -272,8 +311,8 @@ class ApkDownloadViewModel internal constructor(
                     "${context.packageName}.fileprovider",
                     apkFile
                 )
-                _effect.send(
-                    ApkUiEffect.ShareApk(
+                _events.send(
+                    ApkEvent.ShareApk(
                         apkUri = uri,
                         chooserTitle = getString(R.string.share_apk_chooser_title)
                     )
@@ -417,7 +456,7 @@ class ApkDownloadViewModel internal constructor(
                         }
                     }
                     is ApkDownloader.DownloadState.Success -> {
-                        val info = apkManager.getCachedApkInfo()
+                        val info = withContext(Dispatchers.IO) { apkManager.getCachedApkInfo() }
                         _state.update {
                             val ready = ApkPreparationStatus.Ready(
                                 version = info?.version ?: downloadState.version,
@@ -438,7 +477,8 @@ class ApkDownloadViewModel internal constructor(
                         val failure = downloadState.toFailureMessage()
                         val fallback = (_state.value.apkStatus as? ApkPreparationStatus.Downloading)
                             ?.shareableFallback
-                            ?: apkManager.getCachedApkInfo()?.toReady()
+                            ?: withContext(Dispatchers.IO) { apkManager.getCachedApkInfo() }
+                                ?.toReady()
                         if (fallback != null) {
                             _state.update {
                                 it.copy(
@@ -447,8 +487,8 @@ class ApkDownloadViewModel internal constructor(
                                     downloadProgress = 0
                                 )
                             }
-                            _effect.send(
-                                ApkUiEffect.ShowToast(
+                            _events.send(
+                                ApkEvent.ShowToast(
                                     getApplication<Application>().resolveApkFailureMessage(
                                         failure
                                     )
@@ -477,7 +517,7 @@ class ApkDownloadViewModel internal constructor(
 
     private fun sendToast(message: String) {
         viewModelScope.launch {
-            _effect.send(ApkUiEffect.ShowToast(message))
+            _events.send(ApkEvent.ShowToast(message))
         }
     }
 

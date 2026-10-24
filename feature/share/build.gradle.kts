@@ -21,6 +21,9 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.bundles.lifecycle)
     implementation(libs.androidx.hilt.navigation.compose)
+    // @Preview for the section's stateless content; the renderer is debug-only.
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    debugImplementation(libs.androidx.compose.ui.tooling)
     implementation(libs.accompanist.permissions)
     implementation(libs.zxing.core)
 
