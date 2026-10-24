@@ -38,6 +38,13 @@ class LocationNotesManager private constructor() {
         internal fun hasExpired(expiresAtSeconds: Long, nowMillis: Long): Boolean =
             expiresAtSeconds <= Math.floorDiv(nowMillis, 1000L)
 
+        /**
+         * NIP-40 is an integer, but iOS accepts a fractional tag and still
+         * expires the note. `toLongOrNull` would treat that as no expiry.
+         */
+        internal fun parseExpirationSeconds(raw: String): Long? =
+            raw.toLongOrNull() ?: raw.toDoubleOrNull()?.takeIf { it.isFinite() }?.toLong()
+
         @Volatile
         private var INSTANCE: LocationNotesManager? = null
         
@@ -510,7 +517,7 @@ class LocationNotesManager private constructor() {
     private fun expirationSeconds(event: NostrEvent): Long? {
         val tag = event.tags.firstOrNull { it.size >= 2 && it[0].lowercase() == "expiration" }
             ?: return null
-        return tag[1].toLongOrNull()
+        return parseExpirationSeconds(tag[1])
     }
 
     /**

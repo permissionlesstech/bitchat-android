@@ -63,6 +63,12 @@ class LocationNotesCaseAndExpiryTest {
     }
 
     @Test
+    fun `a fractional expiration is still an expiry`() {
+        assertEquals(1_700_000_000L, LocationNotesManager.parseExpirationSeconds("1700000000.5"))
+        assertEquals(null, LocationNotesManager.parseExpirationSeconds("soon"))
+    }
+
+    @Test
     fun `pruning at the expiry instant drops the note`() {
         val notes = listOf(note("edge", expiresAtSeconds = 1_700_000_000L))
 
