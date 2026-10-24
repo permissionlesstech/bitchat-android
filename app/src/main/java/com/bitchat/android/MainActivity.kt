@@ -402,10 +402,14 @@ class MainActivity : OrientationAwareActivity() {
         locationChannelManager.syncPermissionState()
 
         // Check Bluetooth and Location status on resume and handle accordingly
-        if (startupGate.phase.value == AppPhase.READY) {
-            // Reattach the session's mesh delegate, detached in onPause
+        // Reattach the session's mesh delegate, detached in onPause. Also while
+        // starting up: the INITIALIZING branch attached it once, on entry.
+        val phase = startupGate.phase.value
+        if (phase == AppPhase.READY || phase == AppPhase.INITIALIZING) {
             try { meshDelegateBinding.attach() } catch (_: Exception) { }
+        }
 
+        if (startupGate.phase.value == AppPhase.READY) {
             // Back to onboarding if Bluetooth or location services went off
             // while the app was in the background (T42/T43)
             startupGate.onResumed()
