@@ -52,7 +52,7 @@ fun InitializingScreen(modifier: Modifier) {
     }
 
     Box(
-        modifier = modifier.padding(32.dp),
+        modifier = modifier.padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -162,7 +162,7 @@ fun InitializationErrorScreen(
     val onOpenSettings = { onAction(OnboardingAction.OpenSettingsTapped) }
 
     Box(
-        modifier = modifier.padding(32.dp),
+        modifier = modifier.padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(

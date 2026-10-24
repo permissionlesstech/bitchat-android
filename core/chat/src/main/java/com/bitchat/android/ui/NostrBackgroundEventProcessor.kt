@@ -4,8 +4,10 @@ import android.app.Application
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.nostr.GeohashConversationRegistry
 import com.bitchat.android.nostr.GeohashMessageHandler
+import com.bitchat.android.nostr.GeohashParticipantStore
 import com.bitchat.android.nostr.GeohashRepository
 import com.bitchat.android.nostr.NostrBackgroundEvents
+import com.bitchat.android.nostr.NostrBackgroundRuntime
 import com.bitchat.android.nostr.NostrDirectMessageHandler
 import com.bitchat.android.nostr.NostrEvent
 import com.bitchat.android.nostr.NostrIdentity
@@ -23,7 +25,8 @@ import kotlinx.coroutines.launch
  */
 class NostrBackgroundEventProcessor(
     application: Application,
-    parentScope: CoroutineScope
+    parentScope: CoroutineScope,
+    participantStore: GeohashParticipantStore = NostrBackgroundRuntime.participants
 ) : NostrBackgroundEvents {
     private val scope = CoroutineScope(
         parentScope.coroutineContext + Dispatchers.IO.limitedParallelism(1)
@@ -35,7 +38,9 @@ class NostrBackgroundEventProcessor(
         loadGeohashBlockedUsers()
     }
     private val messageManager = MessageManager(state)
-    private val geohashRepository = GeohashRepository(application, dataManager, scope) { state.getNicknameValue() }
+    private val geohashRepository = GeohashRepository(application, dataManager, scope, participantStore) {
+        state.getNicknameValue()
+    }
     private val privateChatManager = PrivateChatManager(
         state = state,
         messageManager = messageManager,

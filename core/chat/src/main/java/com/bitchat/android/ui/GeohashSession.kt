@@ -53,7 +53,9 @@ class GeohashSession(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
-    private val repo = GeohashRepository(application, dataManager, scope) { state.getNicknameValue() }
+    private val repo = GeohashRepository(
+        application, dataManager, scope, NostrBackgroundRuntime.participants
+    ) { state.getNicknameValue() }
     private val uiSubscriptionOwner = "geohash-ui-${UUID.randomUUID()}"
     private val subscriptionManager = NostrSubscriptionManager(
         application,
@@ -70,6 +72,7 @@ class GeohashSession(
     // Presence heartbeat firehose (kind 20001). High-volume; paused while backgrounded.
     private var currentGeohashPresenceSubId: String? = null
     private var geoTimer: Job? = null
+    private val participantUpdatesJob = repo.observeParticipants()
     private var locationChannelManager: com.bitchat.android.geohash.LocationChannelManager? = null
     private val activeSamplingGeohashes = mutableSetOf<String>()
     private val samplingSubscriptionIds = mutableMapOf<String, String>()
@@ -433,6 +436,7 @@ class GeohashSession(
     fun shutdownUiSubscriptions() {
         if (uiSubscriptionsShutdown) return
         uiSubscriptionsShutdown = true
+        participantUpdatesJob.cancel()
         subscriptionManager.unsubscribeAllOwned()
         geoTimer?.cancel()
         geoTimer = null
