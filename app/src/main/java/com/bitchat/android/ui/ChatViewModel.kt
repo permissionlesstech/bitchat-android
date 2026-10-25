@@ -1482,6 +1482,9 @@ class ChatViewModel(
         try {
             com.bitchat.android.services.MessageRouter.tryGetInstance()?.clearAll()
         } catch (_: Exception) { }
+
+        // The spam filter keeps recent message text and sender keys for its repeat checks
+        com.bitchat.android.spam.SpamFilter.shared.reset()
         
         // Clear all cryptographic data
         clearAllCryptographicData()
