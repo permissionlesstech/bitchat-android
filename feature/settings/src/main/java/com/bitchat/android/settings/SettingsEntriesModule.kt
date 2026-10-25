@@ -4,10 +4,9 @@ import com.bitchat.android.navigation.AboutRoute
 import com.bitchat.android.navigation.DebugSettingsRoute
 import com.bitchat.android.navigation.EntryProviderInstaller
 import com.bitchat.android.navigation.Navigator
-import com.bitchat.android.share.AppBuildInfo
 import com.bitchat.android.share.ShareAppSection
 import com.bitchat.android.ui.AboutRoot
-import com.bitchat.android.ui.debug.DebugSettingsScreen
+import com.bitchat.android.ui.debug.DebugSettingsRoot
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -24,8 +23,6 @@ object SettingsEntriesModule {
     fun settingsEntries(
         navigator: Navigator,
         share: ShareAppSection,
-        diagnostics: TransportDiagnostics,
-        buildInfo: AppBuildInfo,
     ): EntryProviderInstaller = {
         entry<AboutRoute> {
             AboutRoot(
@@ -35,9 +32,7 @@ object SettingsEntriesModule {
             )
         }
         entry<DebugSettingsRoute> {
-            DebugSettingsScreen(
-                diagnostics = diagnostics,
-                buildInfo = buildInfo,
+            DebugSettingsRoot(
                 onClose = { navigator.popTo(DebugSettingsRoute, inclusive = true) },
             )
         }

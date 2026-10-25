@@ -7,7 +7,6 @@ import com.bitchat.android.chat.ChatEntriesModule
 import com.bitchat.android.location.LocationEntriesModule
 import com.bitchat.android.onboarding.OnboardingEntriesModule
 import com.bitchat.android.settings.SettingsEntriesModule
-import com.bitchat.android.share.AppBuildInfo
 import com.bitchat.android.ui.ChatState
 import kotlinx.coroutines.test.TestScope
 import org.junit.Assert.assertEquals
@@ -57,8 +56,6 @@ class EveryRouteHasAnEntryTest {
             SettingsEntriesModule.settingsEntries(
                 navigator = navigator,
                 share = mock(),
-                diagnostics = mock(),
-                buildInfo = AppBuildInfo(versionName = "0.0.0", isDebug = true, githubReleaseCertSha256 = ""),
             ),
             LocationEntriesModule.locationEntries(navigator = navigator),
             ChatEntriesModule.chatEntries(navigator = navigator, chatState = chatState),

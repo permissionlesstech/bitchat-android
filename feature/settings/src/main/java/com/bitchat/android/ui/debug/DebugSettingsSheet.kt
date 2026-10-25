@@ -33,36 +33,33 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.rotate
 import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.services.meshgraph.MeshGraphService
-import kotlinx.coroutines.launch
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.res.stringResource
 import com.bitchat.android.feature.settings.R
 import androidx.compose.ui.platform.LocalContext
 import android.content.pm.PackageManager
+import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.core.ui.component.screen.BitchatScreenTopBar
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
-import com.bitchat.android.settings.MeshSnapshot
-import com.bitchat.android.settings.TransportDiagnostics
-import com.bitchat.android.share.AppBuildInfo
+import com.bitchat.android.settings.WifiAwareStatus
+import com.bitchat.android.ui.ObserveAsEvents
+import com.bitchat.android.ui.theme.BitchatTheme
 import com.bitchat.android.util.DistributionInfoProvider
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 @Composable
-fun MeshTopologySection(
-    diagnostics: TransportDiagnostics,
+internal fun MeshTopologySection(
+    snapshot: MeshGraphService.GraphSnapshot,
+    wifiAwareConnected: Map<String, String>,
     localPeerID: String? = null,
     blePeerIDs: Set<String> = emptySet(),
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val graphService = remember { MeshGraphService.getInstance() }
-    val snapshot by graphService.graphState.collectAsState()
-    val wifiAwareConnected by diagnostics.wifiAwareConnectedPeers.collectAsState()
     val wifiAwarePeerIDs = remember(wifiAwareConnected) { wifiAwareConnected.keys.toSet() }
 
     Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
@@ -110,8 +107,10 @@ fun MeshTopologySection(
 }
 
 @Composable
-private fun DistributionInfoSection(info: DistributionInfoProvider.DistributionInfo?) {
-    val context = LocalContext.current
+private fun DistributionInfoSection(
+    info: DistributionInfoProvider.DistributionInfo?,
+    onCopyCertificate: (String) -> Unit,
+) {
     val colorScheme = MaterialTheme.colorScheme
 
     Surface(
@@ -147,18 +146,10 @@ private fun DistributionInfoSection(info: DistributionInfoProvider.DistributionI
                     DistributionInfoRow(label, value)
                 }
 
-                if (info.certificateSha256 != null) {
+                val certificate = info.certificateSha256
+                if (certificate != null) {
                     TextButton(
-                        onClick = {
-                            val clipboard = context.getSystemService(ClipboardManager::class.java)
-                            clipboard?.setPrimaryClip(
-                                ClipData.newPlainText(
-                                    "BitChat signing certificate SHA-256",
-                                    info.certificateSha256
-                                )
-                            )
-                            Toast.makeText(context, "Certificate fingerprint copied", Toast.LENGTH_SHORT).show()
-                        },
+                        onClick = { onCopyCertificate(certificate) },
                         contentPadding = PaddingValues(horizontal = 0.dp)
                     ) {
                         Text("Copy certificate fingerprint", fontFamily = BitchatFontFamily)
@@ -219,46 +210,34 @@ private val RelayGraphSamplerSaver = listSaver<RelayGraphSampler, Any>(
     },
 )
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+/**
+ * Debug settings' Root: owns the ViewModel, the clipboard, the Wi-Fi Aware
+ * permission request and the shown/hidden effect.
+ */
 @Composable
-fun DebugSettingsScreen(
-    diagnostics: TransportDiagnostics,
-    buildInfo: AppBuildInfo,
+fun DebugSettingsRoot(
     onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: DebugSettingsViewModel = hiltViewModel(),
 ) {
-    val colorScheme = MaterialTheme.colorScheme
-    val manager = remember { DebugSettingsManager.getInstance() }
-
-    val verboseLogging by manager.verboseLoggingEnabled.collectAsState()
-    val gattServerEnabled by manager.gattServerEnabled.collectAsState()
-    val gattClientEnabled by manager.gattClientEnabled.collectAsState()
-    val packetRelayed by manager.packetRelayEnabled.collectAsState()
-    val maxOverall by manager.maxConnectionsOverall.collectAsState()
-    val maxServer by manager.maxServerConnections.collectAsState()
-    val maxClient by manager.maxClientConnections.collectAsState()
-    val debugMessages by manager.debugMessages.collectAsState()
-    val scanResults by manager.scanResults.collectAsState()
-    val connectedDevices by manager.connectedDevices.collectAsState()
-    val relayStats by manager.relayStats.collectAsState()
-    val seenCapacity by manager.seenPacketCapacity.collectAsState()
-    val gcsMaxBytes by manager.gcsMaxBytes.collectAsState()
-    val gcsFpr by manager.gcsFprPercent.collectAsState()
+    // CREATED, not STARTED: the screen has always kept reading in the background,
+    // and its relay card samples what it reads.
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.CREATED)
     val context = LocalContext.current
-    // Resolved rather than passed in. A panic clear replaces the mesh service, so
-    // a reference captured when the screen was opened could be a stale instance;
-    // the holder always has the current one.
-    val mesh = remember(context) { diagnostics.openMesh() }
-    var distributionInfo by remember {
-        mutableStateOf<DistributionInfoProvider.DistributionInfo?>(null)
+    ObserveAsEvents(viewModel.events) { event ->
+        when (event) {
+            DebugSettingsEvent.Close -> onClose()
+        }
     }
-
-    val bleEnabled by manager.bleEnabled.collectAsState()
-    val wifiAwareEnabled by manager.wifiAwareEnabled.collectAsState()
-    val wifiAwareVerbose by manager.wifiAwareVerbose.collectAsState()
+    // While composed, the background included; a rotation hides then shows it again.
+    DisposableEffect(Unit) {
+        viewModel.onAction(DebugSettingsAction.ScreenShown)
+        onDispose { viewModel.onAction(DebugSettingsAction.ScreenHidden) }
+    }
 
     // Onboarding only asks for these when the toggle is already on, and it defaults to off,
     // so enabling from here has to request them or the controller never starts.
-    val wifiAwarePermissions = remember { diagnostics.wifiAwarePermissions() }
+    val wifiAwarePermissions = uiState.wifiAwarePermissions
     val isGranted: (String) -> Boolean = {
         ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
     }
@@ -267,25 +246,74 @@ fun DebugSettingsScreen(
     ) { _ ->
         // Check live state, not the result map — already-held permissions are filtered out
         // before launching. Only NEARBY_WIFI_DEVICES blocks startup; the other is defensive.
-        if (canEnableWifiAwareAfterRequest(wifiAwarePermissions, isGranted)) {
-            manager.setWifiAwareEnabled(true)
-        } else {
-            manager.addDebugMessage(
-                DebugMessage.SystemMessage("Wi‑Fi Aware needs the Nearby devices permission")
+        viewModel.onAction(
+            DebugSettingsAction.WifiAwareEnableResolved(
+                canEnableWifiAwareAfterRequest(wifiAwarePermissions, isGranted)
             )
-        }
+        )
     }
-    val enableWifiAware: () -> Unit = {
-        val missing = missingPermissions(wifiAwarePermissions, isGranted)
-        if (missing.isEmpty()) {
-            manager.setWifiAwareEnabled(true)
-        } else {
-            wifiAwarePermissionLauncher.launch(missing.toTypedArray())
-        }
-    }
-    val wifiAwareDiscovered by manager.wifiAwareDiscovered.collectAsState()
-    val wifiAwareConnected by manager.wifiAwareConnected.collectAsState()
-    val wifiAwareStatus by diagnostics.wifiAwareStatus.collectAsState()
+
+    DebugSettingsScreen(
+        uiState = uiState,
+        onAction = { action ->
+            when (action) {
+                is DebugSettingsAction.CopyCertificateClicked -> {
+                    val clipboard = context.getSystemService(ClipboardManager::class.java)
+                    clipboard?.setPrimaryClip(
+                        ClipData.newPlainText(
+                            "BitChat signing certificate SHA-256",
+                            action.fingerprint
+                        )
+                    )
+                    Toast.makeText(context, "Certificate fingerprint copied", Toast.LENGTH_SHORT).show()
+                }
+                DebugSettingsAction.WifiAwareEnableClicked -> {
+                    val missing = missingPermissions(wifiAwarePermissions, isGranted)
+                    if (missing.isEmpty()) {
+                        viewModel.onAction(DebugSettingsAction.WifiAwareEnableResolved(permitted = true))
+                    } else {
+                        wifiAwarePermissionLauncher.launch(missing.toTypedArray())
+                    }
+                }
+                else -> viewModel.onAction(action)
+            }
+        },
+        modifier = modifier,
+    )
+}
+
+/** Debug settings' stateless screen. The relay card keeps its own sampling loop. */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun DebugSettingsScreen(
+    uiState: DebugSettingsUiState,
+    onAction: (DebugSettingsAction) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+
+    val verboseLogging = uiState.verboseLogging
+    val gattServerEnabled = uiState.gattServerEnabled
+    val gattClientEnabled = uiState.gattClientEnabled
+    val packetRelayed = uiState.packetRelayEnabled
+    val maxOverall = uiState.maxConnectionsOverall
+    val maxServer = uiState.maxServerConnections
+    val maxClient = uiState.maxClientConnections
+    val debugMessages = uiState.debugMessages
+    val scanResults = uiState.scanResults
+    val connectedDevices = uiState.connectedDevices
+    val relayStats = uiState.relayStats
+    val seenCapacity = uiState.seenPacketCapacity
+    val gcsMaxBytes = uiState.gcsMaxBytes
+    val gcsFpr = uiState.gcsFprPercent
+    val bleEnabled = uiState.bleEnabled
+    val wifiAwareEnabled = uiState.wifiAwareEnabled
+    val wifiAwareVerbose = uiState.wifiAwareVerbose
+    val wifiAwareDiscovered = uiState.wifiAwareDiscovered
+    val wifiAwareConnected = uiState.wifiAwareConnected
+    val wifiAwareStatus = uiState.wifiAwareStatus
+    // The relay card's loops read these each second, so they read the latest state.
+    val currentState by rememberUpdatedState(uiState)
     // Persistent notification is now controlled solely by MeshServicePreferences.isBackgroundEnabled
     val listState = rememberLazyListState()
     val isScrolled by remember {
@@ -298,35 +326,10 @@ fun DebugSettingsScreen(
         label = "topBarAlpha"
     )
 
-    // The poll's latest mesh snapshot; the relay card's legend reads its address map.
-    val latestSnapshot = remember { mutableStateOf<MeshSnapshot?>(null) }
-
-    // Push live connected devices from mesh service whenever sheet is visible
-    LaunchedEffect(Unit) {
-        // Poll device list periodically for now (TODO: add callbacks)
-        while (true) {
-            pollOnce(mesh, diagnostics, manager)?.let { latestSnapshot.value = it }
-            kotlinx.coroutines.delay(1000)
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        distributionInfo = withContext(Dispatchers.IO) {
-            runCatching { DistributionInfoProvider.inspect(context, buildInfo) }.getOrNull()
-        }
-    }
-
-    val scope = rememberCoroutineScope()
-
     Surface(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
     ) {
-        // Mark debug sheet visible/invisible to gate heavy work
-        LaunchedEffect(Unit) { DebugSettingsManager.getInstance().setDebugSheetVisible(true) }
-        DisposableEffect(Unit) {
-            onDispose { DebugSettingsManager.getInstance().setDebugSheetVisible(false) }
-        }
         // A sheet applied the status bar inset; a full-screen destination has to, or the list,
         // whose top padding was sized for a sheet, starts under the top bar.
         Box(
@@ -351,7 +354,7 @@ fun DebugSettingsScreen(
                     )
                 }
             item {
-                DistributionInfoSection(distributionInfo)
+                DistributionInfoSection(uiState.distributionInfo) { onAction(DebugSettingsAction.CopyCertificateClicked(it)) }
             }
             // Verbose logging toggle
             item {
@@ -361,7 +364,7 @@ fun DebugSettingsScreen(
                             Icon(Icons.Filled.SettingsEthernet, contentDescription = null, tint = Color(0xFF00C851))
                             Text(stringResource(R.string.debug_verbose_logging), fontFamily = BitchatFontFamily, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                             Spacer(Modifier.weight(1f))
-                            Switch(checked = verboseLogging, onCheckedChange = { manager.setVerboseLoggingEnabled(it) })
+                            Switch(checked = verboseLogging, onCheckedChange = { onAction(DebugSettingsAction.VerboseLoggingToggled(it)) })
                         }
                         Text(
                             stringResource(R.string.debug_verbose_hint),
@@ -377,8 +380,9 @@ fun DebugSettingsScreen(
             item {
                 val blePeerIDs = remember(connectedDevices) { blePeerIDs(connectedDevices) }
                 MeshTopologySection(
-                    diagnostics = diagnostics,
-                    localPeerID = mesh?.myPeerID,
+                    snapshot = uiState.meshGraph,
+                    wifiAwareConnected = uiState.wifiAwareLivePeers,
+                    localPeerID = uiState.localPeerID,
                     blePeerIDs = blePeerIDs,
                 )
             }
@@ -391,11 +395,11 @@ fun DebugSettingsScreen(
                             Icon(Icons.Filled.Bluetooth, contentDescription = null, tint = Color(0xFF007AFF))
                             Text(stringResource(R.string.debug_bluetooth_roles), fontFamily = BitchatFontFamily, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         }
+                        if (!uiState.meshAvailable) NoMeshText()
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(stringResource(R.string.debug_gatt_server), fontFamily = BitchatFontFamily, modifier = Modifier.weight(1f))
                             Switch(checked = gattServerEnabled, onCheckedChange = {
-                                manager.setGattServerEnabled(it)
-                                scope.launch { mesh?.setGattServerRunning(it) }
+                                onAction(DebugSettingsAction.GattServerToggled(it))
                             })
                         }
                         val counts = connectionCounts(connectedDevices)
@@ -404,7 +408,7 @@ fun DebugSettingsScreen(
                             Text(stringResource(R.string.debug_max_server), fontFamily = BitchatFontFamily, modifier = Modifier.width(90.dp))
                             Slider(
                                 value = maxServer.toFloat(),
-                                onValueChange = { manager.setMaxServerConnections(connectionLimitFromSlider(it)) },
+                                onValueChange = { onAction(DebugSettingsAction.MaxServerConnectionsChanged(it)) },
                                 valueRange = 1f..32f,
                                 steps = 30
                             )
@@ -412,8 +416,7 @@ fun DebugSettingsScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(stringResource(R.string.debug_gatt_client), fontFamily = BitchatFontFamily, modifier = Modifier.weight(1f))
                             Switch(checked = gattClientEnabled, onCheckedChange = {
-                                manager.setGattClientEnabled(it)
-                                scope.launch { mesh?.setGattClientRunning(it) }
+                                onAction(DebugSettingsAction.GattClientToggled(it))
                             })
                         }
                         Text(stringResource(R.string.debug_connections_fmt, counts.client, maxClient), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
@@ -421,7 +424,7 @@ fun DebugSettingsScreen(
                             Text(stringResource(R.string.debug_max_client), fontFamily = BitchatFontFamily, modifier = Modifier.width(90.dp))
                             Slider(
                                 value = maxClient.toFloat(),
-                                onValueChange = { manager.setMaxClientConnections(connectionLimitFromSlider(it)) },
+                                onValueChange = { onAction(DebugSettingsAction.MaxClientConnectionsChanged(it)) },
                                 valueRange = 1f..32f,
                                 steps = 30
                             )
@@ -431,7 +434,7 @@ fun DebugSettingsScreen(
                             Text(stringResource(R.string.debug_max_overall), fontFamily = BitchatFontFamily, modifier = Modifier.width(90.dp))
                             Slider(
                                 value = maxOverall.toFloat(),
-                                onValueChange = { manager.setMaxConnectionsOverall(connectionLimitFromSlider(it)) },
+                                onValueChange = { onAction(DebugSettingsAction.MaxOverallConnectionsChanged(it)) },
                                 valueRange = 1f..32f,
                                 steps = 30
                             )
@@ -459,7 +462,7 @@ fun DebugSettingsScreen(
                             Spacer(Modifier.width(8.dp))
                             Text("BLE", fontFamily = BitchatFontFamily, modifier = Modifier.weight(1f))
                             Switch(checked = bleEnabled, onCheckedChange = {
-                                manager.setBleEnabled(it)
+                                onAction(DebugSettingsAction.BleToggled(it))
                             })
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -477,14 +480,14 @@ fun DebugSettingsScreen(
                                 checked = wifiAwareSwitchChecked(wifiAwareEnabled, wifiAwareStatus),
                                 enabled = wifiAwareStatus.supported,
                                 onCheckedChange = { on ->
-                                    if (on) enableWifiAware() else manager.setWifiAwareEnabled(false)
+                                    onAction(if (on) DebugSettingsAction.WifiAwareEnableClicked else DebugSettingsAction.WifiAwareDisableClicked)
                                 }
                             )
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Spacer(Modifier.width(24.dp))
                             Text("Wi‑Fi Aware verbose logging", fontFamily = BitchatFontFamily, modifier = Modifier.weight(1f))
-                            Switch(checked = wifiAwareVerbose, onCheckedChange = { manager.setWifiAwareVerbose(it) })
+                            Switch(checked = wifiAwareVerbose, onCheckedChange = { onAction(DebugSettingsAction.WifiAwareVerboseToggled(it)) })
                         }
                     }
                 }
@@ -500,23 +503,23 @@ fun DebugSettingsScreen(
                             Icon(Icons.Filled.PowerSettingsNew, contentDescription = null, tint = Color(0xFFFF9500))
                             Text(stringResource(R.string.debug_packet_relay), fontFamily = BitchatFontFamily, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                             Spacer(Modifier.weight(1f))
-                            Switch(checked = packetRelayed, onCheckedChange = { manager.setPacketRelayEnabled(it) })
+                            Switch(checked = packetRelayed, onCheckedChange = { onAction(DebugSettingsAction.PacketRelayToggled(it)) })
                         }
                         // Removed aggregate labels; we will show per-direction compact labels below titles
                         // Toggle: overall vs per-connection vs per-peer
                         var graphMode by rememberSaveable { mutableStateOf(GraphMode.OVERALL) }
-                        val perDeviceIncoming by manager.perDeviceIncomingLastSecond.collectAsState()
-                        val perPeerIncoming by manager.perPeerIncomingLastSecond.collectAsState()
-                        val perDeviceOutgoing by manager.perDeviceOutgoingLastSecond.collectAsState()
-                        val perPeerOutgoing by manager.perPeerOutgoingLastSecond.collectAsState()
-                        val perDeviceIncoming1m by manager.perDeviceIncomingLastMinute.collectAsState()
-                        val perDeviceOutgoing1m by manager.perDeviceOutgoingLastMinute.collectAsState()
-                        val perPeerIncoming1m by manager.perPeerIncomingLastMinute.collectAsState()
-                        val perPeerOutgoing1m by manager.perPeerOutgoingLastMinute.collectAsState()
-                        val perDeviceIncomingTotal by manager.perDeviceIncomingTotal.collectAsState()
-                        val perDeviceOutgoingTotal by manager.perDeviceOutgoingTotal.collectAsState()
-                        val perPeerIncomingTotal by manager.perPeerIncomingTotal.collectAsState()
-                        val perPeerOutgoingTotal by manager.perPeerOutgoingTotal.collectAsState()
+                        val perDeviceIncoming = uiState.perDeviceIncoming.lastSecond
+                        val perPeerIncoming = uiState.perPeerIncoming.lastSecond
+                        val perDeviceOutgoing = uiState.perDeviceOutgoing.lastSecond
+                        val perPeerOutgoing = uiState.perPeerOutgoing.lastSecond
+                        val perDeviceIncoming1m = uiState.perDeviceIncoming.lastMinute
+                        val perDeviceOutgoing1m = uiState.perDeviceOutgoing.lastMinute
+                        val perPeerIncoming1m = uiState.perPeerIncoming.lastMinute
+                        val perPeerOutgoing1m = uiState.perPeerOutgoing.lastMinute
+                        val perDeviceIncomingTotal = uiState.perDeviceIncoming.total
+                        val perDeviceOutgoingTotal = uiState.perDeviceOutgoing.total
+                        val perPeerIncomingTotal = uiState.perPeerIncoming.total
+                        val perPeerOutgoingTotal = uiState.perPeerOutgoing.total
                         val nicknameMap = remember { mutableStateOf<Map<String, String?>>(emptyMap()) }
                         val devicePeerMap = remember { mutableStateOf<Map<String, String>>(emptyMap()) }
                         LaunchedEffect(Unit) {
@@ -524,7 +527,7 @@ fun DebugSettingsScreen(
                             // composition of this card (QD4), the device->peer map every second.
                             var nicknamesRead = false
                             while (true) {
-                                latestSnapshot.value?.let { snap ->
+                                currentState.latestSnapshot?.let { snap ->
                                     if (!nicknamesRead) {
                                         nicknameMap.value = snap.nicknames
                                         nicknamesRead = true
@@ -579,9 +582,15 @@ fun DebugSettingsScreen(
                                 while (true) {
                                     sampler.sample(
                                         mode = graphMode,
-                                        stats = relayStats,
-                                        perDevice = RelayCounts(perDeviceIncoming, perDeviceOutgoing),
-                                        perPeer = RelayCounts(perPeerIncoming, perPeerOutgoing),
+                                        stats = currentState.relayStats,
+                                        perDevice = RelayCounts(
+                                            currentState.perDeviceIncoming.lastSecond,
+                                            currentState.perDeviceOutgoing.lastSecond,
+                                        ),
+                                        perPeer = RelayCounts(
+                                            currentState.perPeerIncoming.lastSecond,
+                                            currentState.perPeerOutgoing.lastSecond,
+                                        ),
                                     )
                                     series = sampler.series
                                     kotlinx.coroutines.delay(1000)
@@ -670,13 +679,13 @@ fun DebugSettingsScreen(
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             AssistChip(
-                                onClick = enableWifiAware,
+                                onClick = { onAction(DebugSettingsAction.WifiAwareEnableClicked) },
                                 enabled = wifiAwareStatus.supported,
                                 label = { Text("Start") }
                             )
-                            AssistChip(onClick = { manager.setWifiAwareEnabled(false) }, label = { Text("Stop") })
+                            AssistChip(onClick = { onAction(DebugSettingsAction.WifiAwareDisableClicked) }, label = { Text("Stop") })
                             AssistChip(
-                                onClick = { diagnostics.sendWifiAwareAnnounce() },
+                                onClick = { onAction(DebugSettingsAction.WifiAwareAnnounceClicked) },
                                 enabled = wifiAwareStatus.running,
                                 label = { Text("Announce") }
                             )
@@ -711,11 +720,11 @@ fun DebugSettingsScreen(
                             Text("Sync settings", fontFamily = BitchatFontFamily, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         }
                         Text(stringResource(R.string.debug_max_packets_per_sync_fmt, seenCapacity), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
-                        Slider(value = seenCapacity.toFloat(), onValueChange = { manager.setSeenPacketCapacity(it.toInt()) }, valueRange = 10f..1000f, steps = 99)
+                        Slider(value = seenCapacity.toFloat(), onValueChange = { onAction(DebugSettingsAction.SeenPacketCapacityChanged(it)) }, valueRange = 10f..1000f, steps = 99)
                         Text(stringResource(R.string.debug_max_gcs_filter_size_fmt, gcsMaxBytes), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
-                        Slider(value = gcsMaxBytes.toFloat(), onValueChange = { manager.setGcsMaxBytes(it.toInt()) }, valueRange = 128f..1024f, steps = 0)
+                        Slider(value = gcsMaxBytes.toFloat(), onValueChange = { onAction(DebugSettingsAction.GcsMaxBytesChanged(it)) }, valueRange = 128f..1024f, steps = 0)
                         Text(stringResource(R.string.debug_target_fpr_fmt, gcsFpr), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
-                        Slider(value = gcsFpr.toFloat(), onValueChange = { manager.setGcsFprPercent(it.toDouble()) }, valueRange = 0.1f..5.0f, steps = 49)
+                        Slider(value = gcsFpr.toFloat(), onValueChange = { onAction(DebugSettingsAction.GcsFprChanged(it)) }, valueRange = 0.1f..5.0f, steps = 49)
                         val gcs = remember(gcsFpr, gcsMaxBytes) { gcsDerived(gcsFpr, gcsMaxBytes) }
                         Text(stringResource(R.string.debug_derived_p_fmt, gcs.p.toString(), gcs.maxElements.toString()), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                     }
@@ -730,22 +739,26 @@ fun DebugSettingsScreen(
                             Icon(Icons.Filled.Devices, contentDescription = null, tint = Color(0xFF4CAF50))
                             Text(stringResource(R.string.debug_connected_devices), fontFamily = BitchatFontFamily, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         }
-                        val localAddr = remember { mesh?.localAdapterAddress() }
-                        Text(stringResource(R.string.debug_our_device_id_fmt, localAddr ?: stringResource(R.string.unknown)), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
-                        if (connectedDevices.isEmpty()) {
-                            Text("None", fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
+                        if (!uiState.meshAvailable) {
+                            NoMeshText()
                         } else {
-                            connectedDevices.forEach { dev ->
-                                Surface(shape = RoundedCornerShape(8.dp), color = colorScheme.surface.copy(alpha = 0.6f)) {
-                                    Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Column(Modifier.weight(1f)) {
-                                            Text(deviceRowTitle(dev.peerID, dev.deviceAddress, stringResource(R.string.unknown)), fontFamily = BitchatFontFamily, fontSize = 12.sp)
-                                            val roleLabel = if (dev.connectionType == ConnectionType.GATT_SERVER) stringResource(R.string.debug_role_server) else stringResource(R.string.debug_role_client)
-                                            Text("${dev.nickname ?: ""} • " + stringResource(R.string.debug_rssi_fmt, dev.rssi ?: stringResource(R.string.debug_question_mark)) + " • $roleLabel" + (if (dev.isDirectConnection) stringResource(R.string.debug_direct_suffix) else ""), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                            val localAddr = uiState.localAdapterAddress
+                            Text(stringResource(R.string.debug_our_device_id_fmt, localAddr ?: stringResource(R.string.unknown)), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                            if (connectedDevices.isEmpty()) {
+                                Text("None", fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
+                            } else {
+                                connectedDevices.forEach { dev ->
+                                    Surface(shape = RoundedCornerShape(8.dp), color = colorScheme.surface.copy(alpha = 0.6f)) {
+                                        Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Column(Modifier.weight(1f)) {
+                                                Text(deviceRowTitle(dev.peerID, dev.deviceAddress, stringResource(R.string.unknown)), fontFamily = BitchatFontFamily, fontSize = 12.sp)
+                                                val roleLabel = if (dev.connectionType == ConnectionType.GATT_SERVER) stringResource(R.string.debug_role_server) else stringResource(R.string.debug_role_client)
+                                                Text("${dev.nickname ?: ""} • " + stringResource(R.string.debug_rssi_fmt, dev.rssi ?: stringResource(R.string.debug_question_mark)) + " • $roleLabel" + (if (dev.isDirectConnection) stringResource(R.string.debug_direct_suffix) else ""), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                                            }
+                                            Text(stringResource(R.string.debug_disconnect), color = Color(0xFFBF1A1A), fontFamily = BitchatFontFamily, modifier = Modifier.clickable {
+                                                onAction(DebugSettingsAction.DisconnectClicked(dev.deviceAddress))
+                                            })
                                         }
-                                        Text(stringResource(R.string.debug_disconnect), color = Color(0xFFBF1A1A), fontFamily = BitchatFontFamily, modifier = Modifier.clickable {
-                                            mesh?.disconnectDevice(dev.deviceAddress)
-                                        })
                                     }
                                 }
                             }
@@ -773,7 +786,7 @@ fun DebugSettingsScreen(
                                             Text(stringResource(R.string.debug_rssi_fmt, res.rssi.toString()), fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                                         }
                                         Text(stringResource(R.string.debug_connect), color = Color(0xFF00C851), fontFamily = BitchatFontFamily, modifier = Modifier.clickable {
-                                            mesh?.connectToDevice(res.deviceAddress)
+                                            onAction(DebugSettingsAction.ConnectClicked(res.deviceAddress))
                                         })
                                     }
                                 }
@@ -792,7 +805,7 @@ fun DebugSettingsScreen(
                             Text(stringResource(R.string.debug_debug_console), fontFamily = BitchatFontFamily, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                             Spacer(Modifier.weight(1f))
                             Text(stringResource(R.string.debug_clear), color = Color(0xFFBF1A1A), fontFamily = BitchatFontFamily, modifier = Modifier.clickable {
-                                manager.clearDebugMessages()
+                                onAction(DebugSettingsAction.ClearConsoleClicked)
                             })
                         }
                         Column(Modifier.heightIn(max = 260.dp).background(colorScheme.surface.copy(alpha = 0.5f)).padding(8.dp)) {
@@ -808,7 +821,7 @@ fun DebugSettingsScreen(
             }
 
             BitchatScreenTopBar(
-                onBack = onClose,
+                onBack = { onAction(DebugSettingsAction.BackClicked) },
                 modifier = Modifier.align(Alignment.TopCenter),
                 backgroundAlpha = topBarAlpha,
                 title = {
@@ -829,6 +842,17 @@ fun DebugSettingsScreen(
             )
         }
     }
+}
+
+/** Shown in the mesh-backed cards when there is no mesh service. */
+@Composable
+private fun NoMeshText() {
+    Text(
+        "No mesh running",
+        fontFamily = BitchatFontFamily,
+        fontSize = 11.sp,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+    )
 }
 
 @Composable
@@ -961,5 +985,109 @@ private fun DrawGraphBlock(
                 }
             }
         }
+    }
+}
+
+/** Synthetic Debug state for previews and screen tests. */
+internal fun previewDebugSettingsUiState(): DebugSettingsUiState = DebugSettingsUiState(
+    verboseLogging = false,
+    gattServerEnabled = true,
+    gattClientEnabled = true,
+    packetRelayEnabled = true,
+    maxConnectionsOverall = 8,
+    maxServerConnections = 8,
+    maxClientConnections = 8,
+    debugMessages = listOf(DebugMessage.SystemMessage("🟢 BLE enabled")),
+    scanResults = emptyList(),
+    connectedDevices = emptyList(),
+    relayStats = PacketRelayStats(
+        lastSecondIncoming = 2,
+        lastMinuteIncoming = 40,
+        last15MinuteIncoming = 300,
+        totalIncomingCount = 1200,
+        lastSecondOutgoing = 1,
+        lastMinuteOutgoing = 25,
+        last15MinuteOutgoing = 180,
+        totalOutgoingCount = 800,
+    ),
+    seenPacketCapacity = 500,
+    gcsMaxBytes = 400,
+    gcsFprPercent = 1.0,
+    bleEnabled = true,
+    wifiAwareEnabled = false,
+    wifiAwareVerbose = false,
+    wifiAwareDiscovered = mapOf("fedcba9876543210" to "alice"),
+    wifiAwareConnected = mapOf("fedcba9876543210" to "192.0.2.1"),
+    wifiAwareStatus = WifiAwareStatus(supported = true, available = true, running = true, unsupportedReason = null),
+    wifiAwareLivePeers = mapOf("fedcba9876543210" to "192.0.2.1"),
+    wifiAwarePermissions = emptyList(),
+    meshGraph = MeshGraphService.GraphSnapshot(
+        nodes = listOf(
+            MeshGraphService.GraphNode("0123456789abcdef", "me"),
+            MeshGraphService.GraphNode("fedcba9876543210", "alice"),
+        ),
+        edges = listOf(MeshGraphService.GraphEdge("0123456789abcdef", "fedcba9876543210", isConfirmed = true)),
+    ),
+    localPeerID = "0123456789abcdef",
+    localAdapterAddress = "00:11:22:33:44:55",
+    distributionInfo = DistributionInfoProvider.DistributionInfo(
+        installSource = "Sideloaded",
+        installerPackage = null,
+        packageFormat = "Standalone APK",
+        architecture = "Universal",
+        sharingSource = "Current installed APK",
+        versionName = "0.0.0",
+        versionCode = 1,
+        signingChannel = "Debug",
+        certificateSha256 = "00:00:00:00:00:00:00:00",
+    ),
+)
+
+private fun previewWithDevices(): DebugSettingsUiState {
+    val device = ConnectedDevice(
+        deviceAddress = "00:11:22:33:44:55",
+        peerID = "fedcba9876543210",
+        nickname = "alice",
+        rssi = -60,
+        connectionType = ConnectionType.GATT_CLIENT,
+        isDirectConnection = true,
+    )
+    return previewDebugSettingsUiState().copy(
+        connectedDevices = listOf(device),
+        scanResults = listOf(DebugScanResult(null, "00:11:22:33:44:55", -60, "fedcba9876543210")),
+    )
+}
+
+private fun previewWifiAwareUnsupported(): DebugSettingsUiState = previewDebugSettingsUiState().copy(
+    wifiAwareStatus = WifiAwareStatus(supported = false, available = false, running = false, unsupportedReason = null),
+    wifiAwareDiscovered = emptyMap(),
+    wifiAwareConnected = emptyMap(),
+    wifiAwareLivePeers = emptyMap(),
+)
+
+@Preview(name = "Overall graph")
+@Preview(name = "Overall graph (dark)", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun DebugSettingsOverallPreview() {
+    BitchatTheme {
+        DebugSettingsScreen(uiState = previewDebugSettingsUiState(), onAction = {})
+    }
+}
+
+@Preview(name = "With devices")
+@Preview(name = "With devices (dark)", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun DebugSettingsDevicesPreview() {
+    BitchatTheme {
+        DebugSettingsScreen(uiState = previewWithDevices(), onAction = {})
+    }
+}
+
+@Preview(name = "Wi-Fi Aware unsupported")
+@Preview(name = "Wi-Fi Aware unsupported (dark)", uiMode = UI_MODE_NIGHT_YES)
+@Composable
+private fun DebugSettingsWifiAwareUnsupportedPreview() {
+    BitchatTheme {
+        DebugSettingsScreen(uiState = previewWifiAwareUnsupported(), onAction = {})
     }
 }
