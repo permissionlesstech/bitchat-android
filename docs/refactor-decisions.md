@@ -550,7 +550,7 @@ classes.
 | Characterization tests first, then the move, then ViewModel tests; one device test per screen. | The restructure commits change no behaviour; a failing test shows where one did. | Writing the tests after the move. | The Debug ViewModel tests were written after the code, not red first. |
 | Screen tests live in each feature's own `src/androidTest`. `AGENTS.md` now says `:app` keeps only the app-wiring device tests. | `XScreen`, `XUiState` and the preview fakes stay `internal`. | Keeping every device test in `:app`. | `gate.sh` has one install-and-instrument block per feature APK. |
 | `ObserveAsEvents` moved to `:core:designsystem:phone`, same package. | Settings, location and share all need it; no import changed. | One copy per feature. | It collects only while STARTED, so an event sent while the screen is stopped waits (this removes Q-K2). |
-| Singletons are reached through feature-side ports with adapters in `:app`, or a `@Provides` that returns the existing instance. No singleton class changed. | ViewModels take everything in their constructor and tests can fake it. | Converting the singletons now (that is 10c). | The adapters must keep working when 10c swaps `getInstance()` for injection. |
+| Singletons are reached through feature-side ports with adapters mostly in the features (only `TransportDiagnostics` and `BackgroundMeshSetting` are in `:app`), or a `@Provides` that returns the existing instance. No singleton class changed. | ViewModels take everything in their constructor and tests can fake it. | Converting the singletons now (that is 10c). | The adapters must keep working when 10c swaps `getInstance()` for injection. |
 | Hotspot stays a separate Activity, with `HotspotRoot` and a stateless `HotspotScreen`. The APK path comes from `SavedStateHandle`. | It is launched by intent with an APK path and has its own task semantics. | Making it a Nav3 route. | `HotspotScreen` takes two extra defaulted parameters (`showPermissionRationale`, `onCopy`) so the clipboard and permission request stay in the Root. |
 | Hotspot test seams first: factories for `HotspotManager` and `ApkWebServer`, the 10 s fallback driven by `ShadowLooper`. | The teardown lease logic was untestable. | Testing through the real radio classes. | None. |
 | `TransportDiagnostics` and `MeshDiagnostics` slimmed from 23 to 13 members: one Wi-Fi Aware status flow, one discovered-peers map, one `snapshot()`, `setGattServerRunning` and `setGattClientRunning`. The old total is 23, not the 24 the survey counted. | The wide port was the thing Phase 8 flagged. The mesh calls underneath are the same calls. | Moving `BluetoothMeshService` out of `:app`. | `MeshSnapshot.assemble` is a public function in the port file so the app and the tests build the snapshot the same way. |
@@ -559,7 +559,7 @@ classes.
 | `CombinedStateFlow` in `app/.../di/` derives a StateFlow without a scope. | The adapter has no scope, and `stateIn` could serve a stale first value. | `stateIn` with an app scope. | It opts into `ExperimentalForInheritanceCoroutinesApi`; a coroutines bump may change it. |
 | Effects tied to the screen being shown stay in the Root: Debug's `LifecycleStartEffect`, and Location Notes' `activate`, `reveal`, `deactivate` pair. | Those effects are tied to the screen being shown, not to ViewModel lifetime. | Moving them into the ViewModel. | Q-N8 (flicker) stays. |
 | `LocationNotesManager.send()` is now `suspend` and returns a result. The notes screen is its only caller. | F3 needs a real success or failure; the old code returned silently on several paths. | A boolean on the existing call. | A `:core:nostr` API change with no relay or wire change, so no Mesh Lab. |
-| Debug stays reachable in release builds. | Moe: it is left in for people to use. | Hiding it. | None; intentional. |
+| Debug stays reachable in release builds. | The developer's choice: it is left in for people to use. | Hiding it. | None; intentional. |
 
 #### What Phase 10a changed
 
@@ -583,7 +583,7 @@ Notes a reader should know:
 - **Q-K4 leftover.** `getPartialDownloadProgress()` in `startDownload` stays on Main; moving it
   changes the visible status ordering. One small file stat remains.
 - **QA7 first frame.** About shows an empty version and the "System default" language label for
-  a few ms, until the IO read lands. The language row is on the non-default tab. Fix, if it
+  a few ms, until the IO read lands. The version label is in the hero above the tabs, so an empty version shows briefly on every About open. Fix, if it
   shows: seed the tag synchronously.
 - **QA5.** `PoWPreferenceManager.init` moved into `AboutViewModel`'s init rather than being
   dropped: `AppInitializer` runs from the startup gate, so it is not provably first. Idempotent.
@@ -621,7 +621,7 @@ transport or foreground-service change.
 
 #### Follow-ups from Phase 10a
 
-- The chat screens stay unsplit and keep their singleton calls in Phase 10 (Moe's narrowing):
+- The chat screens stay unsplit and keep their singleton calls in Phase 10 (narrowed by the developer):
   `ChatScreen.kt`, `PrivateChatScreen.kt`, `ChatHeader.kt`, `LocationNotesButton.kt`,
   `MessageComponents.kt`, `media/AudioMessageItem.kt`, `MessageInteractionUtils.kt`,
   `GeohashPickerActivity.kt` (no ViewModel) and `MeshGraph.kt` (a rendering-only

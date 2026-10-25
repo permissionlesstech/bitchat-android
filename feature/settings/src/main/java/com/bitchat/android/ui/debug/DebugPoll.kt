@@ -14,6 +14,8 @@ private const val TAG = "DebugSettings"
  * connected peers into it. A failed read is logged and skipped, so the poll
  * goes on; the manager keeps the last value it had.
  *
+ * With no mesh the connected devices are cleared, so the counts do not outlive it.
+ *
  * Returns the mesh snapshot, or null when there is no mesh or the read failed.
  */
 internal fun pollOnce(
@@ -31,6 +33,7 @@ internal fun pollOnce(
             null
         }
     }
+    if (mesh == null) manager.updateConnectedDevices(emptyList())
     snapshot?.let { manager.updateConnectedDevices(it.devices) }
     try {
         manager.updateWifiAwareDiscovered(diagnostics.wifiAwareDiscoveredPeers.value)

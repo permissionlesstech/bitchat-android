@@ -36,7 +36,7 @@ import com.bitchat.android.nostr.LocationNotesManager
  * their own, and each is a full screen with a back arrow and its own insets.
  */
 @Composable
-fun LocationNotesScreen(
+internal fun LocationNotesScreen(
     uiState: LocationNotesUiState,
     onAction: (LocationNotesAction) -> Unit,
     modifier: Modifier = Modifier,

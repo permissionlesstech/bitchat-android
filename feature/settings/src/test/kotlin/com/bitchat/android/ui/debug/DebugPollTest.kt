@@ -98,12 +98,12 @@ class DebugPollTest {
     }
 
     @Test
-    fun noMesh_skipsTheDevices_stillMirrorsWifiAware() {
+    fun noMesh_clearsConnectedDevicesMirror_stillMirrorsWifiAware() {
         manager.updateConnectedDevices(listOf(earlierDevice))
 
         assertNull(pollOnce(null, diagnostics, manager))
 
-        assertEquals(listOf(earlierDevice), manager.connectedDevices.value)
+        assertEquals(emptyList<ConnectedDevice>(), manager.connectedDevices.value)
         assertEquals(mapOf(peerB to "192.0.2.1"), manager.wifiAwareConnected.value)
     }
 }

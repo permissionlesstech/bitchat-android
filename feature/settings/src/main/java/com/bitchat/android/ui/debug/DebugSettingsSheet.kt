@@ -252,7 +252,7 @@ fun DebugSettingsRoot(
 /** Debug settings' stateless screen. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun DebugSettingsScreen(
+internal fun DebugSettingsScreen(
     uiState: DebugSettingsUiState,
     onAction: (DebugSettingsAction) -> Unit,
     modifier: Modifier = Modifier,

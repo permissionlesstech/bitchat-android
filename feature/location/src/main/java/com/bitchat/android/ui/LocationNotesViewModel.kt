@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
@@ -95,7 +96,9 @@ class LocationNotesViewModel internal constructor(
             LocationNotesAction.ScreenHidden -> gate.deactivate()
             is LocationNotesAction.DraftChanged -> {
                 draft = action.text
-                rebuild()
+                _uiState.update {
+                    it.copy(draft = action.text, sendEnabled = notesSendEnabled(action.text, store.state.value))
+                }
             }
             LocationNotesAction.SendClicked -> send()
             LocationNotesAction.RetryClicked -> store.refresh()

@@ -776,7 +776,7 @@ fun AboutRoot(
  * tests); the tab the user picks is kept across a Debug round trip.
  */
 @Composable
-fun AboutScreen(
+internal fun AboutScreen(
     uiState: AboutUiState,
     onAction: (AboutAction) -> Unit,
     shareSection: @Composable () -> Unit,
