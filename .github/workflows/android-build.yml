@@ -2,6 +2,11 @@ name: Android CI
 
 on:
   workflow_dispatch:
+    inputs:
+      skip_release_replicas:
+        description: Reuse previously verified release evidence for a test-harness-only change
+        type: boolean
+        default: false
   push:
     branches: [main, develop]
   pull_request:
@@ -79,6 +84,12 @@ jobs:
           distribution: temurin
           java-version: ${{ env.SETUP_JAVA_VERSION }}
 
+      - name: Verify disposable Android emulator startup
+        timeout-minutes: 8
+        run: |
+          sudo chmod a+rw /dev/kvm
+          bash tools/jna-build/test-android.sh --boot-only
+
       - name: Set up and validate Gradle
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
 
@@ -102,16 +113,22 @@ jobs:
           ./app/src/main/ndr-ffi/build-android.sh --check-bindings
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleDebug :app:assembleDebugAndroidTest
 
       - name: Verify JNA packaging
         run: bash tools/jna-build/verify-packaging.sh app/build/outputs/apk/debug
 
+      - name: Upload debug and test APKs
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Debug-apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/androidTest/debug/*.apk
+
       - name: Exercise source-built JNA and pairwise FFI on Android
         timeout-minutes: 12
-        run: |
-          sudo chmod a+rw /dev/kvm
-          bash tools/jna-build/test-android.sh
+        run: bash tools/jna-build/test-android.sh
 
       - name: Upload native runtime test reports
         if: always()
@@ -120,16 +137,11 @@ jobs:
           name: native-runtime-tests
           path: app/build/outputs/androidTest-results/connected/
 
-      - name: Upload debug APK
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: Debug-apk
-          path: app/build/outputs/apk/debug/*.apk
-
   reproducible-build:
     name: Reproducible release build ${{ matrix.replica }}
     runs-on: ubuntu-24.04
     needs: verify
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.skip_release_replicas }}
     strategy:
       fail-fast: false
       matrix:
