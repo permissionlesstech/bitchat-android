@@ -53,6 +53,14 @@ find src -name '*.java' -print | LC_ALL=C sort > build/java-sources
 javac --release 8 -encoding UTF-8 -h build/headers -d build/classes @build/java-sources
 grep -hoE 'Java_com_sun_jna_[A-Za-z0-9_]+' build/headers/*.h | LC_ALL=C sort -u > build/required-exports
 
+# Command-line Make variables propagate into libffi's configure and recursive
+# make. Its compiler probes must not inherit JNA's shared-library output flags.
+cat > build/Android.mk <<'MAKEFILE'
+include Makefile
+LDFLAGS = -o $@ -shared -Wl,-soname,libjnidispatch.so -Wl,-Bsymbolic,--build-id=sha1,-z,max-page-size=16384,-z,common-page-size=16384
+unexport LDFLAGS LD
+MAKEFILE
+
 export AR="$LLVM_BIN/llvm-ar"
 export RANLIB="$LLVM_BIN/llvm-ranlib"
 export READELF="$LLVM_BIN/llvm-readelf"
@@ -68,16 +76,26 @@ for ABI in arm64-v8a armeabi-v7a x86_64 x86; do
     # Override only the upstream Makefile's obsolete GCC/NDK paths. Preserve its
     # Android definitions and bundled libffi implementation; use relative output
     # paths and a neutral SONAME at link time, never post-process embedded paths.
-    make -C native -j2 "../build/$ABI/libjnidispatch.so" \
+    if ! make -C native -f ../build/Android.mk -j2 "../build/$ABI/libjnidispatch.so" \
         OS=android ARCH="$ARCH" HOST="$HOST_TARGET" BUILD="../build/$ABI" \
-        JAVAH=../build/headers CC="$CC" LD="$CC" CPP="$CC -E" \
+        JAVAH=../build/headers CC="$CC" CPP="$CC -E" \
         AR="$AR" RANLIB="$RANLIB" STRIP="$LLVM_BIN/llvm-strip -x" \
         JNA_JNI_VERSION="$JNA_JNI_VERSION" CHECKSUM="$JNA_JNI_CHECKSUM" \
         FFI_CONFIG="--enable-static --disable-shared --with-pic=yes --disable-docs --host=$HOST_TARGET" \
         CINCLUDES='-I../build/headers -I$(FFI_BUILD)/include' \
         COPT="-O2 -fno-omit-frame-pointer -fno-strict-aliasing -fPIC -ffunction-sections -funwind-tables -fno-short-enums -ffile-prefix-map=$BUILD_DIR=/usr/src/jna" \
-        LIBS='-lc -ldl -lm' \
-        LDFLAGS='-o $@ -shared -Wl,-soname,libjnidispatch.so -Wl,-Bsymbolic,--build-id=sha1,-z,max-page-size=16384,-z,common-page-size=16384'
+        LIBS='-lc -ldl -lm'; then
+        echo "error: JNA native build failed ($ABI)" >&2
+        if [[ -f "build/$ABI/libffi/config.log" ]]; then
+            # Only compiler/linker errors, never Autoconf's host/environment dump.
+            JNA_DIAGNOSTIC_BUILD="$BUILD_DIR" JNA_DIAGNOSTIC_NDK="$JNA_NDK" \
+                perl -ne 'next unless /^(?:clang(?:-\d+)?|ld\.lld): (?:fatal )?error:/;
+                    s/\Q$ENV{JNA_DIAGNOSTIC_BUILD}\E/<build>/g;
+                    s/\Q$ENV{JNA_DIAGNOSTIC_NDK}\E/<ndk>/g;
+                    print if ++$lines <= 12' "build/$ABI/libffi/config.log" >&2
+        fi
+        exit 1
+    fi
 
     LIBRARY="build/$ABI/libjnidispatch.so"
     case "$ABI" in
