@@ -32,13 +32,15 @@ internal object FormattingAbuseDetector {
             if (sameRun >= 128) return true
             whitespaceRun = if (isWhitespace(point)) whitespaceRun + 1 else 0
             if (whitespaceRun >= 512) return true
-            if (isInvisible(point)) invisible++
+            val invisiblePoint = isInvisible(point)
+            if (invisiblePoint) invisible++
             if (isMark(point)) {
                 marks++
                 markRun++
                 if (markRun >= 32) return true
                 if (markRun == 8) stackedRuns++
-            } else {
+            } else if (!invisiblePoint) {
+                // Invisible controls must not split one mark stack into smaller runs.
                 markRun = 0
             }
         }

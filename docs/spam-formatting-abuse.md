@@ -11,8 +11,8 @@ The detector uses fixed, conservative thresholds:
 
 | Signal | Rejection threshold |
 | --- | --- |
-| Consecutive combining marks | 32 marks |
-| Distributed mark stacks | At least four runs of eight marks, at least 64 marks total, and at least 40% marks |
+| Consecutive combining marks | 32 marks, ignoring invisible controls between marks |
+| Distributed mark stacks | At least four runs of eight marks, ignoring invisible controls within each run, at least 64 marks total, and at least 40% marks |
 | Consecutive identical code points | 128 code points |
 | Consecutive whitespace | 512 code points, including mixed whitespace |
 | Invisible formatting or non-whitespace controls | At least 128 code points and at least 60% of the message |

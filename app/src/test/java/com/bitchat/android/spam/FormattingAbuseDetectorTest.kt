@@ -28,6 +28,37 @@ class FormattingAbuseDetectorTest {
     }
 
     @Test
+    fun `zero width joiners cannot split an extreme mark stack`() {
+        val payload = ("\u0301".repeat(7) + "\u200d").repeat(1_024)
+        assertTrue(FormattingAbuseDetector.isAbusive(payload))
+    }
+
+    @Test
+    fun `invisible controls preserve mark counts without counting as marks`() {
+        val controls = listOf("\u200d", "\u200c", "\u200b", "\u2060", "\u200e", "\u200f", "\u00ad", "\ufeff", "\u0000")
+        controls.forEach { control ->
+            val prefix = (marks.take(7) + control).repeat(4)
+            assertFalse(FormattingAbuseDetector.isAbusive(prefix + marks.take(3)))
+            assertTrue(FormattingAbuseDetector.isAbusive(prefix + marks.take(4)))
+        }
+    }
+
+    @Test
+    fun `distributed mark stacks survive invisible separators inside each stack`() {
+        val stack = (marks.take(4) + "\u200d").repeat(4)
+        assertTrue(FormattingAbuseDetector.isAbusive(("a" + stack).repeat(4)))
+    }
+
+    @Test
+    fun `rendered bases and whitespace still separate small mark stacks`() {
+        listOf("a", " ", "\n", "🚀").forEach { separator ->
+            val text = (separator + marks.take(7) + "\u200d").repeat(32)
+            assertFalse(FormattingAbuseDetector.isAbusive(text))
+        }
+        assertFalse(FormattingAbuseDetector.isAbusive("क्\u200dष नमस्ते 👩‍👩‍👧‍👦"))
+    }
+
+    @Test
     fun `invisible floods include mixed controls while ordinary bidi remains allowed`() {
         val invisible = "\u200b\u200e"
         assertFalse(FormattingAbuseDetector.isAbusive(invisible.repeat(63) + "\u200b"))

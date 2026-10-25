@@ -275,6 +275,7 @@ class SpamFilterTest {
     fun `formatting abuse is rejected without prior history and before character limits`() {
         val examples = listOf(
             "Example a" + "\u0301".repeat(40),
+            ("\u0301".repeat(7) + "\u200d").repeat(1_024),
             "\u200b\u200e".repeat(64),
             "🚀🌈🎉".repeat(200),
             "Synthetic repeated phrase. ".repeat(40),
