@@ -20,6 +20,16 @@ The remaining implementation work and milestone progress are tracked in
 | Nostr | Bech32, secp256k1 key derivation, NIP-01 event IDs/signatures, NIP-44 authenticated encryption, NIP-13 PoW, authenticated NIP-17 seals, 22h outbound envelope randomization | `ClientRewriteNostrContractTest`, `NostrProtocolTest` |
 | Application state | Peer unions, canonical private conversations, chronological history, delivery/read behavior, media migration policy | `AppStateStoreTest`, `PrivateChatManagerTest`, `MediaSendingManagerMigrationTest` |
 
+## Store-forward recipient identity
+
+The recipient of a cached mesh packet is its eight-byte wire ID, rendered as
+16 lowercase hexadecimal characters for cache and peer lookups. It is not a
+UTF-8 string. The synthetic bytes `aa aa bb bb cc cc dd dd` therefore identify
+`aaaabbbbccccdddd` for regular queues, favorite queues, cache counts, and the
+already-sent latch. Caching new mail for that identity releases its latch so a
+later reconnect can deliver it. `StoreForwardManagerTest` uses this fixed wire
+identity and a controlled coroutine scheduler for the reconnect contract.
+
 ## Golden-vector policy
 
 Golden vectors compare literal externally visible bytes or hashes. Do not update
