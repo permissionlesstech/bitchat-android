@@ -202,6 +202,8 @@
   <string name="about_pow_off">PoW Off</string>
   <string name="about_pow_on">PoW On</string>
   <string name="about_pow_tip">Add proof of work to geohash messages for spam deterrence.</string>
+  <string name="about_spam_filter_title">Spam Filter</string>
+  <string name="about_spam_filter_desc">Hide public messages from people who post too fast, repeat themselves, or flood links.</string>
   <string name="about_pow_difficulty">Difficulty: %1$d bits (~%2$s)</string>
   <string name="about_pow_difficulty_attempts">Difficulty %1$d requires ~%2$s hash attempts</string>
   <string name="about_pow_desc_none">No proof of work required</string>
