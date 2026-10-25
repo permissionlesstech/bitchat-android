@@ -2,6 +2,10 @@ package com.bitchat.android.spam
 
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlin.math.abs
 
 enum class SpamVerdict {
@@ -27,11 +31,31 @@ enum class SpamVerdict {
  * or through both geohash handlers, is judged once and counted once.
  */
 class SpamFilter(
-    private val config: SpamFilterConfig = SpamFilterConfig(),
+    config: SpamFilterConfig = SpamFilterConfig(),
     private val clock: () -> Long = System::currentTimeMillis
 ) {
     @Volatile
     var enabled: Boolean = true
+
+    /** Changing the limits forgets every sender, so new budgets start full. */
+    @Volatile
+    var config: SpamFilterConfig = config
+        set(value) {
+            synchronized(this) {
+                field = value
+                senders.clear()
+                verdicts.clear()
+            }
+        }
+
+    /** Debug: let spam through and record its verdict in [flagged] so the chat can mark it. */
+    @Volatile
+    var debugBypass: Boolean = false
+
+    private val _flagged = MutableStateFlow<Map<String, SpamVerdict>>(emptyMap())
+
+    /** Verdicts of spam shown because of [debugBypass], by message ID. */
+    val flagged: StateFlow<Map<String, SpamVerdict>> = _flagged.asStateFlow()
 
     private class HistoryEntry(val timeMs: Long, val text: IntArray)
 
@@ -50,6 +74,24 @@ class SpamFilter(
     private val verdicts = object : LinkedHashMap<String, SpamVerdict>(256, 0.75f, false) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, SpamVerdict>) =
             size > config.maxRememberedVerdicts
+    }
+
+    /**
+     * Returns true when [message] must be kept out of the chat. With [debugBypass] on, spam is
+     * let through and recorded in [flagged] instead.
+     */
+    fun shouldHide(message: BitchatMessage, senderKey: String): Boolean {
+        val verdict = check(message, senderKey)
+        if (!verdict.isSpam) return false
+        if (!debugBypass) return true
+        _flagged.update { current ->
+            if (current[message.id] == verdict) current
+            else (current + (message.id to verdict)).entries
+                .toList()
+                .takeLast(MAX_FLAGGED)
+                .associate { it.key to it.value }
+        }
+        return false
     }
 
     /** Checks a received message; [senderKey] must identify the author stably within a transport. */
@@ -101,6 +143,7 @@ class SpamFilter(
             senders.clear()
             verdicts.clear()
         }
+        _flagged.value = emptyMap()
     }
 
     private fun hasRepeatedCharacters(text: IntArray): Boolean {
@@ -136,6 +179,8 @@ class SpamFilter(
     }
 
     companion object {
+        private const val MAX_FLAGGED = 500
+
         /** Process-wide filter shared by every transport and geohash handler. */
         val shared = SpamFilter()
 

@@ -240,7 +240,7 @@ class WearMeshService private constructor(private val context: Context) {
                 true
             }
             message.sender != "system" &&
-                SpamFilter.shared.check(message, SpamFilter.meshSenderKey(message)).isSpam -> false
+                SpamFilter.shared.shouldHide(message, SpamFilter.meshSenderKey(message)) -> false
             message.channel != null -> {
                 AppStateStore.addChannelMessage(message.channel, message)
                 true

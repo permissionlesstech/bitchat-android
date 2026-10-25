@@ -1,6 +1,8 @@
 package com.bitchat.android.spam
 
+import com.bitchat.android.model.BitchatMessage
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.random.Random
@@ -227,5 +229,45 @@ class SpamFilterTest {
         assertEquals(SpamVerdict.MESSAGE_RATE, strict.check("a", "3", prose(), now))
         advanceSeconds(1)
         assertEquals(SpamVerdict.ALLOWED, strict.check("a", "4", prose(), now))
+    }
+
+    @Test
+    fun `debug bypass shows spam and records why it would be hidden`() {
+        filter.debugBypass = true
+        val messages = (1..7).map {
+            BitchatMessage(id = "b$it", sender = "flooder", content = "hi $it", timestamp = java.util.Date(now))
+        }
+
+        val hidden = messages.map { filter.shouldHide(it, "flooder") }
+
+        assertTrue(hidden.none { it })
+        assertEquals(mapOf("b7" to SpamVerdict.MESSAGE_RATE), filter.flagged.value)
+    }
+
+    @Test
+    fun `spam is hidden without the debug bypass`() {
+        val messages = (1..7).map {
+            BitchatMessage(id = "h$it", sender = "flooder", content = "hi $it", timestamp = java.util.Date(now))
+        }
+
+        assertEquals(listOf(false, false, false, false, false, false, true), messages.map { filter.shouldHide(it, "flooder") })
+        assertTrue(filter.flagged.value.isEmpty())
+    }
+
+    @Test
+    fun `changing limits starts every sender with a full budget`() {
+        repeat(6) { send() }
+        assertEquals(SpamVerdict.MESSAGE_RATE, send())
+
+        filter.config = SpamTuning.DEFAULT.copy(messageBurst = 10).toConfig()
+
+        repeat(10) { assertEquals(SpamVerdict.ALLOWED, send()) }
+        assertEquals(SpamVerdict.MESSAGE_RATE, send())
+    }
+
+    @Test
+    fun `default tuning matches the code defaults`() {
+        assertEquals(SpamFilterConfig(), SpamTuning.DEFAULT.toConfig())
+        assertFalse(SpamTuning.DEFAULT.copy(linksPerMinute = 5).toConfig() == SpamFilterConfig())
     }
 }

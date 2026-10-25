@@ -112,9 +112,8 @@ class GeohashMessageHandler(
                         if (hasNonce) NostrProofOfWork.calculateDifficulty(event.id).takeIf { it > 0 } else null
                     } catch (_: Exception) { null }
                 )
-                val verdict = SpamFilter.shared.check(msg, SpamFilter.nostrSenderKey(pubkey))
-                if (verdict.isSpam) {
-                    Log.d(TAG, "Hiding geohash message ${event.id.take(8)}...: $verdict")
+                if (SpamFilter.shared.shouldHide(msg, SpamFilter.nostrSenderKey(pubkey))) {
+                    Log.d(TAG, "Hiding geohash spam ${event.id.take(8)}...")
                     return@launch
                 }
                 addChannelMessage("geo:$subscribedGeohash", msg)
