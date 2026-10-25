@@ -83,7 +83,7 @@ for ABI in arm64-v8a armeabi-v7a x86_64 x86; do
         JNA_JNI_VERSION="$JNA_JNI_VERSION" CHECKSUM="$JNA_JNI_CHECKSUM" \
         FFI_CONFIG="--enable-static --disable-shared --with-pic=yes --disable-docs --host=$HOST_TARGET" \
         CINCLUDES='-I../build/headers -I$(FFI_BUILD)/include' \
-        COPT="-O2 -fno-omit-frame-pointer -fno-strict-aliasing -fPIC -ffunction-sections -funwind-tables -fno-short-enums -ffile-prefix-map=$BUILD_DIR=/usr/src/jna" \
+        COPT="-O2 -fno-omit-frame-pointer -fno-strict-aliasing -Wno-implicit-function-declaration -fPIC -ffunction-sections -funwind-tables -fno-short-enums -ffile-prefix-map=$BUILD_DIR=/usr/src/jna" \
         LIBS='-lc -ldl -lm'; then
         echo "error: JNA native build failed ($ABI)" >&2
         if [[ -f "build/$ABI/libffi/config.log" ]]; then
