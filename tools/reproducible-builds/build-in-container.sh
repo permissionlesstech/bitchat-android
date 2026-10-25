@@ -67,6 +67,14 @@ docker run \
   --rm \
   --platform linux/amd64 \
   --user "$(id -u):$(id -g)" \
+  --volume "$staging_root:/workspace" \
+  --entrypoint /bin/bash \
+  "$NATIVE_IMAGE_NAME" \
+  tools/jna-build/build-android.sh
+docker run \
+  --rm \
+  --platform linux/amd64 \
+  --user "$(id -u):$(id -g)" \
   --env BITCHAT_SOURCE_TREE_VERIFIED=1 \
   --env BITCHAT_NDR_SOURCE_REVISION="$NDR_GITLINK_REVISION" \
   --env CARGO_TARGET_DIR=/tmp/ndr-target \

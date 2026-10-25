@@ -35,6 +35,7 @@ jobs:
         run: |
           python3 tools/reproducible-builds/test_native_source_build.py
           python3 tools/reproducible-builds/test_native_path_checks.py
+          python3 tools/jna-build/test_packaging.py
 
       - name: Verify native library inputs
         run: tools/arti-build/verify-checksums.sh
@@ -81,7 +82,7 @@ jobs:
       - name: Set up and validate Gradle
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
 
-      - name: Build NDR FFI from pinned source
+      - name: Build native libraries from pinned source
         run: |
           source tools/arti-build/TOOLCHAIN.env
           rustup toolchain install "$RUST_VERSION" --profile minimal
@@ -93,11 +94,31 @@ jobs:
             exit 1
           fi
           "$sdkmanager" "ndk;$ANDROID_NDK_VERSION"
+          sudo apt-get update
+          sudo apt-get install -y autoconf automake libtool
+          ANDROID_NDK_HOME="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}/ndk/$ANDROID_NDK_VERSION" \
+            bash tools/jna-build/build-android.sh
           cargo "+$RUST_VERSION" install cargo-ndk --version "$CARGO_NDK_VERSION" --locked
           ./app/src/main/ndr-ffi/build-android.sh --check-bindings
 
       - name: Build debug APK
         run: ./gradlew assembleDebug
+
+      - name: Verify JNA packaging
+        run: bash tools/jna-build/verify-packaging.sh app/build/outputs/apk/debug
+
+      - name: Exercise source-built JNA and pairwise FFI on Android
+        timeout-minutes: 12
+        run: |
+          sudo chmod a+rw /dev/kvm
+          bash tools/jna-build/test-android.sh
+
+      - name: Upload native runtime test reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-runtime-tests
+          path: app/build/outputs/androidTest-results/connected/
 
       - name: Upload debug APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

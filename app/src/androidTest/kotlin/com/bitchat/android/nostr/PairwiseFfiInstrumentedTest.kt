@@ -2,6 +2,8 @@ package com.bitchat.android.nostr
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.sun.jna.Memory
+import com.sun.jna.Native
 import java.io.File
 import java.util.UUID
 import org.json.JSONArray
@@ -21,6 +23,19 @@ import uniffi.ndr_ffi.generateKeypair
 
 @RunWith(AndroidJUnit4::class)
 class PairwiseFfiInstrumentedTest {
+    @Test
+    fun sourceBuiltJnaLoadsWithThePinnedJavaApi() {
+        assertEquals("5.19.1", Native.VERSION)
+        assertEquals("7.0.4", Native.VERSION_NATIVE)
+        val nativeVersion = Native::class.java.getDeclaredMethod("getNativeVersion")
+        nativeVersion.isAccessible = true
+        assertEquals("7.0.4", nativeVersion.invoke(null))
+        Memory(16).use { memory ->
+            memory.setLong(0, 0x123456789abcdefL)
+            assertEquals(0x123456789abcdefL, memory.getLong(0))
+        }
+    }
+
     @Test
     fun directFfiHandshakeSendRestartDeduplicateExpiryAndRetirement() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext

@@ -136,10 +136,11 @@ else:
         revision = self.record_fixture_tree(self.root / SOURCE)
         self.put(Path("app/src/main/ndr-ffi/SOURCE_REVISION"),
                  ("b" * 40 if mismatch else revision) + "\n")
-        self.put(Path(".gitignore"), ".reproducible-build/\n**/libndr_ffi.so\n")
+        self.put(Path(".gitignore"), ".reproducible-build/\n**/libndr_ffi.so\n**/libjnidispatch.so\n")
         self.record_fixture_tree(self.root)
         self.put(SOURCE / "committed.txt", "uncommitted source\n")
         self.put(Path("app/src/main/jniLibs/arm64-v8a/libndr_ffi.so"), "poisoned host binary")
+        self.put(Path("app/src/main/jniLibs/arm64-v8a/libjnidispatch.so"), "poisoned host JNA binary")
         self.calls = Path(self.temporary.name) / "docker-calls"
         self.tool("docker", '''
 args = sys.argv[1:]
@@ -150,6 +151,7 @@ if args[0] == 'run':
     root = Path(next(mount[:-11] for mount in mounts if mount.endswith(':/workspace')))
     assert (root / 'vendor/nostr-double-ratchet/committed.txt').read_text() == 'committed source\\n'
     native = 'app/src/main/ndr-ffi/build-android.sh' in args
+    jna = 'tools/jna-build/build-android.sh' in args
     for abi in ('arm64-v8a', 'armeabi-v7a', 'x86_64', 'x86'):
         library = root / 'app/src/main/jniLibs' / abi / 'libndr_ffi.so'
         if native:
@@ -159,8 +161,16 @@ if args[0] == 'run':
             assert 'HOME=/tmp/ndr-home' in args
             library.parent.mkdir(parents=True, exist_ok=True)
             library.write_text('container-built fixture')
-        else:
+        elif not jna:
             assert library.read_text() == 'container-built fixture'
+        jna_library = library.with_name('libjnidispatch.so')
+        if jna:
+            assert not library.exists(), 'JNA must build before NDR'
+            assert not jna_library.exists(), 'Imported host JNA binary'
+            jna_library.parent.mkdir(parents=True, exist_ok=True)
+            jna_library.write_text('source-built JNA fixture')
+        else:
+            assert jna_library.read_text() == 'source-built JNA fixture'
 ''')
 
     def container(self):
@@ -174,7 +184,7 @@ if args[0] == 'run':
         self.prepare_container_fixture()
         result = self.container()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.calls.read_text().splitlines(), ["build", "run", "build", "run"])
+        self.assertEqual(self.calls.read_text().splitlines(), ["build", "run", "run", "build", "run"])
 
     def test_gitlink_mismatch_fails_before_starting_containers(self):
         self.prepare_container_fixture(mismatch=True)
