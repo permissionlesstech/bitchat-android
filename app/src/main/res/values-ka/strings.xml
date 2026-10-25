@@ -380,4 +380,6 @@
     <string name="about_app_language">აპის ენა</string>
     <string name="about_system_default">სისტემის ნაგულისხმევი</string>
     <string name="about_select_language">ენის არჩევა</string>
+    <string name="about_spam_filter_title">სპამის ფილტრი</string>
+    <string name="about_spam_filter_desc">დამალე იმ ადამიანების საჯარო შეტყობინებები, რომლებიც ზედმეტად სწრაფად წერენ, იმეორებენ შეტყობინებებს ან აგზავნიან ზედმეტად ბევრ ბმულს.</string>
 </resources>

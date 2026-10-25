@@ -378,4 +378,6 @@
     <string name="about_app_language">Uygulama dili</string>
     <string name="about_system_default">Sistem varsayılanı</string>
     <string name="about_select_language">Dil seçin</string>
+    <string name="about_spam_filter_title">Spam filtresi</string>
+    <string name="about_spam_filter_desc">Çok hızlı mesaj gönderen, kendini tekrarlayan veya çok fazla bağlantı paylaşan kişilerin herkese açık mesajlarını gizle.</string>
 </resources>

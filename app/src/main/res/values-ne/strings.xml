@@ -391,4 +391,6 @@
     <string name="about_app_language">एपको भाषा</string>
     <string name="about_system_default">प्रणालीको पूर्वनिर्धारित</string>
     <string name="about_select_language">भाषा छान्नुहोस्</string>
+    <string name="about_spam_filter_title">स्प्याम फिल्टर</string>
+    <string name="about_spam_filter_desc">धेरै छिटो सन्देश पठाउने, एउटै कुरा दोहोर्‍याउने वा धेरै लिङ्क पठाउने व्यक्तिका सार्वजनिक सन्देशहरू लुकाउनुहोस्।</string>
 </resources>

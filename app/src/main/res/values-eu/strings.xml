@@ -619,4 +619,10 @@
     <string name="about_app_language">Aplikazioaren hizkuntza</string>
     <string name="about_system_default">Sistemaren lehenetsia</string>
     <string name="about_select_language">Hautatu hizkuntza</string>
+    <string name="app_name">bitchat</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="version_prefix">v%1$s</string>
+    <string name="image_star">image/*</string>
+    <string name="about_spam_filter_title">Spam-iragazkia</string>
+    <string name="about_spam_filter_desc">Ezkutatu azkarregi idazten duten, mezuak errepikatzen dituzten edo esteka gehiegi bidaltzen dituzten pertsonen mezu publikoak.</string>
 </resources>

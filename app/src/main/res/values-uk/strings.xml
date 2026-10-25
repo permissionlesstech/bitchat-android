@@ -400,4 +400,6 @@
     <string name="about_app_language">Мова застосунку</string>
     <string name="about_system_default">Системна мова</string>
     <string name="about_select_language">Вибрати мову</string>
+    <string name="about_spam_filter_title">Спам-фільтр</string>
+    <string name="about_spam_filter_desc">Приховувати публічні повідомлення від тих, хто пише надто швидко, повторюється або надсилає забагато посилань.</string>
 </resources>

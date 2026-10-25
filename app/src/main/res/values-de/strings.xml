@@ -394,4 +394,6 @@
     <string name="about_app_language">App-Sprache</string>
     <string name="about_system_default">Systemstandard</string>
     <string name="about_select_language">Sprache auswählen</string>
+    <string name="about_spam_filter_title">Spamfilter</string>
+    <string name="about_spam_filter_desc">Öffentliche Nachrichten von Personen ausblenden, die zu schnell schreiben, sich wiederholen oder zu viele Links senden.</string>
 </resources>

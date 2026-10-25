@@ -390,4 +390,6 @@
     <string name="about_app_language">பயன்பாட்டு மொழி</string>
     <string name="about_system_default">கணினி இயல்புநிலை</string>
     <string name="about_select_language">மொழியைத் தேர்ந்தெடுக்கவும்</string>
+    <string name="about_spam_filter_title">ஸ்பேம் வடிகட்டி</string>
+    <string name="about_spam_filter_desc">மிக வேகமாகச் செய்திகளை அனுப்புபவர்கள், ஒரே கருத்தைத் திரும்பத் திரும்பக் கூறுபவர்கள் அல்லது அதிக இணைப்புகளை அனுப்புபவர்களின் பொதுச் செய்திகளை மறைக்கவும்.</string>
 </resources>
