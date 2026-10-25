@@ -13,8 +13,16 @@ if adb -s "$EMULATOR_SERIAL" get-state >/dev/null 2>&1; then
     echo 'error: emulator port is already occupied' >&2
     exit 1
 fi
+# avdmanager and emulator can otherwise resolve different default user roots.
+export ANDROID_AVD_HOME="${RUNNER_TEMP:?}/jna-avd"
+mkdir -p "$ANDROID_AVD_HOME"
 "$SDK/cmdline-tools/latest/bin/sdkmanager" emulator "$IMAGE"
-printf 'no\n' | "$SDK/cmdline-tools/latest/bin/avdmanager" create avd --name "$AVD_NAME" --package "$IMAGE"
+printf 'no\n' | "$SDK/cmdline-tools/latest/bin/avdmanager" create avd \
+    --name "$AVD_NAME" --package "$IMAGE" --path "$ANDROID_AVD_HOME/$AVD_NAME.avd"
+if [[ ! -f "$ANDROID_AVD_HOME/$AVD_NAME.ini" ]]; then
+    echo 'error: AVD registration is missing from the shared test directory' >&2
+    exit 1
+fi
 "$SDK/emulator/emulator" -avd "$AVD_NAME" -port 5554 -no-window -no-audio \
     -no-boot-anim -no-snapshot -gpu swiftshader > "${RUNNER_TEMP:?}/jna-emulator.log" 2>&1 &
 EMULATOR_PID=$!

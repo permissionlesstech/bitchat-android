@@ -33,6 +33,12 @@ jobs:
           distribution: temurin
           java-version: ${{ env.SETUP_JAVA_VERSION }}
 
+      - name: Verify disposable Android emulator startup
+        timeout-minutes: 8
+        run: |
+          sudo chmod a+rw /dev/kvm
+          bash tools/jna-build/test-android.sh --boot-only
+
       - name: Set up and validate Gradle
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
 
@@ -84,12 +90,6 @@ jobs:
           distribution: temurin
           java-version: ${{ env.SETUP_JAVA_VERSION }}
 
-      - name: Verify disposable Android emulator startup
-        timeout-minutes: 8
-        run: |
-          sudo chmod a+rw /dev/kvm
-          bash tools/jna-build/test-android.sh --boot-only
-
       - name: Set up and validate Gradle
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
 
@@ -128,7 +128,9 @@ jobs:
 
       - name: Exercise source-built JNA and pairwise FFI on Android
         timeout-minutes: 12
-        run: bash tools/jna-build/test-android.sh
+        run: |
+          sudo chmod a+rw /dev/kvm
+          bash tools/jna-build/test-android.sh
 
       - name: Upload native runtime test reports
         if: always()
