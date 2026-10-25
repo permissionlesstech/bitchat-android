@@ -137,9 +137,11 @@ class RelayGraphSamplerTest {
         assertEquals(0, sampler.topLabel(GraphMode.PER_PEER, incoming = false))
     }
 
-    // The saved series come back as they were; the colours start over (QD17).
+    // Saved series come back as they were, and only the colours start over. That happens only
+    // after process death now: a rotation keeps the ViewModel's sampler and its colours (B2,
+    // QD17 removed; see DebugSettingsViewModelTest.relayColours_stayAcrossHideAndShow).
     @Test
-    fun restoredSeries_continue_withNoColours_currentBehaviour_QD17() {
+    fun restoredSeries_continue_coloursStartOver() {
         val sampler = RelayGraphSampler()
         sampler.tick(GraphMode.PER_PEER, perPeer = RelayCounts(incoming = mapOf(peerA to 1)))
 

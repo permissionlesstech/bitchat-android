@@ -1,5 +1,6 @@
 package com.bitchat.android.ui.debug
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
@@ -60,7 +61,7 @@ class DebugSettingsViewModelTest {
         directPeers = setOf(peerA),
     )
 
-    private class FakeMesh(private val snapshot: MeshSnapshot) : MeshDiagnostics {
+    private class FakeMesh(var snapshot: MeshSnapshot) : MeshDiagnostics {
         var snapshotCalls = 0
         val calls = mutableListOf<String>()
         override val myPeerID: String = "0123456789abcdef"
@@ -107,9 +108,13 @@ class DebugSettingsViewModelTest {
         certificateSha256 = null,
     )
 
-    private fun newViewModel(diagnostics: TransportDiagnostics = FakeDiagnostics(mesh)): DebugSettingsViewModel {
+    private fun newViewModel(
+        diagnostics: TransportDiagnostics = FakeDiagnostics(mesh),
+        savedState: SavedStateHandle = SavedStateHandle(),
+    ): DebugSettingsViewModel {
         val vm = DebugSettingsViewModel(
             manager = manager,
+            savedState = savedState,
             graph = graph,
             diagnostics = diagnostics,
             inspectDistribution = { distribution },
@@ -158,6 +163,7 @@ class DebugSettingsViewModelTest {
         manager.updateConnectedDevices(emptyList())
         manager.updateWifiAwareDiscovered(emptyMap())
         manager.updateWifiAwareConnected(emptyMap())
+        manager.updateRelayStats(PacketRelayStats())
         manager.clearDebugMessages()
         Dispatchers.resetMain()
     }
@@ -224,6 +230,105 @@ class DebugSettingsViewModelTest {
         assertTrue(state.meshAvailable)
         assertEquals(peerA, state.localPeerID)
         assertEquals(address, state.localAdapterAddress)
+        vm.onAction(DebugSettingsAction.ScreenHidden)
+    }
+
+    // B2: the relay graph samples once a second the whole time Debug is shown; no card needs to be on screen.
+    @Test
+    fun relaySampler_runsWhileShown_regardlessOfCardVisibility() {
+        val vm = newViewModel()
+        shown(vm)
+
+        manager.updateRelayStats(PacketRelayStats(lastSecondIncoming = 3, lastSecondOutgoing = 4))
+        scheduler.advanceTimeBy(1000)
+        scheduler.runCurrent()
+        assertEquals(listOf(0f, 3f), vm.uiState.value.relayGraph.overallIncoming.takeLast(2))
+        assertEquals(listOf(0f, 4f), vm.uiState.value.relayGraph.overallOutgoing.takeLast(2))
+
+        scheduler.advanceTimeBy(2000)
+        scheduler.runCurrent()
+        assertEquals(listOf(0f, 3f, 3f, 3f), vm.uiState.value.relayGraph.overallIncoming.takeLast(4))
+        assertEquals(RelayGraphSampler.WINDOW, vm.uiState.value.relayGraph.overallIncoming.size)
+
+        vm.onAction(DebugSettingsAction.ScreenHidden)
+        scheduler.advanceTimeBy(5000)
+        scheduler.runCurrent()
+        assertEquals(listOf(0f, 3f, 3f, 3f), vm.uiState.value.relayGraph.overallIncoming.takeLast(4))
+    }
+
+    // B2: choosing a mode samples it at once, then once a second, as the card's loop did.
+    @Test
+    fun relayGraphModeSelected_samplesThatModeNow() {
+        val vm = newViewModel()
+        shown(vm)
+        manager.updateRelayStats(PacketRelayStats(lastSecondIncoming = 5))
+
+        vm.onAction(DebugSettingsAction.RelayGraphModeSelected(GraphMode.PER_PEER))
+        scheduler.runCurrent()
+        assertEquals(GraphMode.PER_PEER, vm.uiState.value.relayGraphMode)
+        // The overall series froze when the mode left it (QD6).
+        assertEquals(0f, vm.uiState.value.relayGraph.overallIncoming.last())
+
+        vm.onAction(DebugSettingsAction.RelayGraphModeSelected(GraphMode.OVERALL))
+        scheduler.runCurrent()
+        assertEquals(5f, vm.uiState.value.relayGraph.overallIncoming.last())
+        vm.onAction(DebugSettingsAction.ScreenHidden)
+    }
+
+    // B2 (QD17 removed): the colours live with the sampler in the ViewModel, so a rotation keeps them.
+    @Test
+    fun relayColours_stayAcrossHideAndShow() {
+        val vm = newViewModel()
+        shown(vm)
+        manager.logOutgoing("MESSAGE", toPeerID = peerB, toNickname = null, toDeviceAddress = null)
+        manager.logOutgoing("MESSAGE", toPeerID = peerA, toNickname = null, toDeviceAddress = null)
+        vm.onAction(DebugSettingsAction.RelayGraphModeSelected(GraphMode.PER_PEER))
+        scheduler.runCurrent()
+        val colours = vm.uiState.value.relayColorSlots
+        assertEquals(mapOf(peerA to 0, peerB to 1), colours.filterKeys { it == peerA || it == peerB })
+
+        vm.onAction(DebugSettingsAction.ScreenHidden)
+        vm.onAction(DebugSettingsAction.ScreenShown)
+        scheduler.runCurrent()
+
+        assertEquals(colours, vm.uiState.value.relayColorSlots)
+        vm.onAction(DebugSettingsAction.ScreenHidden)
+    }
+
+    // The series and the mode outlive the process, as the card's saveable state did.
+    @Test
+    fun relayGraph_restoredFromSavedState() {
+        val savedState = SavedStateHandle()
+        val first = newViewModel(savedState = savedState)
+        shown(first)
+        manager.updateRelayStats(PacketRelayStats(lastSecondIncoming = 2))
+        scheduler.advanceTimeBy(1000)
+        scheduler.runCurrent()
+        first.onAction(DebugSettingsAction.RelayGraphModeSelected(GraphMode.PER_DEVICE))
+        scheduler.runCurrent()
+        first.onAction(DebugSettingsAction.ScreenHidden)
+        scheduler.runCurrent()
+        val series = first.uiState.value.relayGraph
+        store.clear()
+
+        val restored = newViewModel(savedState = savedState)
+
+        assertEquals(GraphMode.PER_DEVICE, restored.uiState.value.relayGraphMode)
+        assertEquals(series, restored.uiState.value.relayGraph)
+    }
+
+    // B2 (QD4 removed): the legend's nicknames come from each poll's snapshot.
+    @Test
+    fun legendNicknames_refreshOnEveryPoll() {
+        val vm = newViewModel()
+        shown(vm)
+        assertEquals(mapOf(peerA to "alice"), vm.uiState.value.latestSnapshot?.nicknames)
+
+        mesh.snapshot = snapshot.copy(nicknames = mapOf(peerA to "alice", peerB to "alice"))
+        scheduler.advanceTimeBy(1000)
+        scheduler.runCurrent()
+
+        assertEquals(mapOf(peerA to "alice", peerB to "alice"), vm.uiState.value.latestSnapshot?.nicknames)
         vm.onAction(DebugSettingsAction.ScreenHidden)
     }
 

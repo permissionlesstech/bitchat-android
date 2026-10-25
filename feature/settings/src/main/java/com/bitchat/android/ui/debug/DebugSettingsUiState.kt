@@ -54,15 +54,21 @@ data class DebugSettingsUiState(
     val localPeerID: String? = null,
     /** "Our device ID", read once each time the mesh is opened. */
     val localAdapterAddress: String? = null,
-    /** The poll's latest mesh read; the relay card's legend reads its lookups. */
+    /** The poll's latest mesh read; the relay card's legend reads its nicknames and device map. */
     val latestSnapshot: MeshSnapshot? = null,
+    /** What the relay graph plots (DA14). */
+    val relayGraphMode: GraphMode = GraphMode.OVERALL,
+    /** The relay graph's series, sampled once a second while Debug is shown (B2). */
+    val relayGraph: RelayGraphSeries = RelayGraphSeries(),
+    /** Each stacked key's palette slot; a key missing here takes its hash hue. */
+    val relayColorSlots: Map<String, Int> = emptyMap(),
     /** Null until the installed package has been inspected, or if that failed. */
     val distributionInfo: DistributionInfoProvider.DistributionInfo? = null,
 )
 
 /**
- * What the user does on Debug (inventory DA1-DA24). Graph mode (DA14), the
- * legend highlight (DA15) and node drags (DA25) stay in the UI.
+ * What the user does on Debug (inventory DA1-DA24). The legend highlight
+ * (DA15) and node drags (DA25) stay in the UI.
  */
 sealed interface DebugSettingsAction {
     /** The screen entered composition: open the mesh, start the poll, mark Debug visible. */
@@ -136,6 +142,9 @@ sealed interface DebugSettingsAction {
 
     /** DA24 */
     data object ClearConsoleClicked : DebugSettingsAction
+
+    /** DA14: the relay graph's Overall / Per Device / Per Peer chips. */
+    data class RelayGraphModeSelected(val mode: GraphMode) : DebugSettingsAction
 }
 
 sealed interface DebugSettingsEvent {

@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -180,37 +179,6 @@ private fun DistributionInfoRow(label: String, value: String) {
 }
 
 /**
- * Saves the relay graph's series, as the card's saveable state always held
- * them, and not its colours, which were never saved (QD17).
- */
-private val RelayGraphSamplerSaver = listSaver<RelayGraphSampler, Any>(
-    save = { sampler ->
-        val series = sampler.series
-        listOf(
-            ArrayList(series.overallIncoming),
-            ArrayList(series.overallOutgoing),
-            ArrayList(series.keysIncoming),
-            ArrayList(series.keysOutgoing),
-            LinkedHashMap(series.stackedIncoming.mapValues { ArrayList(it.value) }),
-            LinkedHashMap(series.stackedOutgoing.mapValues { ArrayList(it.value) }),
-        )
-    },
-    restore = { saved ->
-        @Suppress("UNCHECKED_CAST")
-        RelayGraphSampler(
-            initial = RelayGraphSeries(
-                overallIncoming = saved[0] as List<Float>,
-                overallOutgoing = saved[1] as List<Float>,
-                keysIncoming = saved[2] as List<String>,
-                keysOutgoing = saved[3] as List<String>,
-                stackedIncoming = saved[4] as Map<String, List<Float>>,
-                stackedOutgoing = saved[5] as Map<String, List<Float>>,
-            ),
-        )
-    },
-)
-
-/**
  * Debug settings' Root: owns the ViewModel, the clipboard, the Wi-Fi Aware
  * permission request and the shown/hidden effect.
  */
@@ -282,7 +250,7 @@ fun DebugSettingsRoot(
     )
 }
 
-/** Debug settings' stateless screen. The relay card keeps its own sampling loop. */
+/** Debug settings' stateless screen. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun DebugSettingsScreen(
@@ -312,8 +280,6 @@ fun DebugSettingsScreen(
     val wifiAwareDiscovered = uiState.wifiAwareDiscovered
     val wifiAwareConnected = uiState.wifiAwareConnected
     val wifiAwareStatus = uiState.wifiAwareStatus
-    // The relay card's loops read these each second, so they read the latest state.
-    val currentState by rememberUpdatedState(uiState)
     // Persistent notification is now controlled solely by MeshServicePreferences.isBackgroundEnabled
     val listState = rememberLazyListState()
     val isScrolled by remember {
@@ -507,7 +473,7 @@ fun DebugSettingsScreen(
                         }
                         // Removed aggregate labels; we will show per-direction compact labels below titles
                         // Toggle: overall vs per-connection vs per-peer
-                        var graphMode by rememberSaveable { mutableStateOf(GraphMode.OVERALL) }
+                        val graphMode = uiState.relayGraphMode
                         val perDeviceIncoming = uiState.perDeviceIncoming.lastSecond
                         val perPeerIncoming = uiState.perPeerIncoming.lastSecond
                         val perDeviceOutgoing = uiState.perDeviceOutgoing.lastSecond
@@ -520,41 +486,27 @@ fun DebugSettingsScreen(
                         val perDeviceOutgoingTotal = uiState.perDeviceOutgoing.total
                         val perPeerIncomingTotal = uiState.perPeerIncoming.total
                         val perPeerOutgoingTotal = uiState.perPeerOutgoing.total
-                        val nicknameMap = remember { mutableStateOf<Map<String, String?>>(emptyMap()) }
-                        val devicePeerMap = remember { mutableStateOf<Map<String, String>>(emptyMap()) }
-                        LaunchedEffect(Unit) {
-                            // Legend lookups from the poll's snapshot: nicknames once per
-                            // composition of this card (QD4), the device->peer map every second.
-                            var nicknamesRead = false
-                            while (true) {
-                                currentState.latestSnapshot?.let { snap ->
-                                    if (!nicknamesRead) {
-                                        nicknameMap.value = snap.nicknames
-                                        nicknamesRead = true
-                                    }
-                                    devicePeerMap.value = snap.addressToPeer
-                                }
-                                kotlinx.coroutines.delay(1000)
-                            }
-                        }
+                        // Legend lookups from the poll's latest snapshot, so nicknames refresh (B2).
+                        val legendNicknames = uiState.latestSnapshot?.nicknames.orEmpty()
+                        val legendDevicePeers = uiState.latestSnapshot?.addressToPeer.orEmpty()
 
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             // Mode selector
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 FilterChip(
                                     selected = graphMode == GraphMode.OVERALL,
-                                    onClick = { graphMode = GraphMode.OVERALL },
+                                    onClick = { onAction(DebugSettingsAction.RelayGraphModeSelected(GraphMode.OVERALL)) },
                                     label = { Text("Overall") }
                                 )
                                 FilterChip(
                                     selected = graphMode == GraphMode.PER_DEVICE,
-                                    onClick = { graphMode = GraphMode.PER_DEVICE },
+                                    onClick = { onAction(DebugSettingsAction.RelayGraphModeSelected(GraphMode.PER_DEVICE)) },
                                     label = { Text("Per Device") },
                                     leadingIcon = { Icon(Icons.Filled.Devices, contentDescription = null) }
                                 )
                                 FilterChip(
                                     selected = graphMode == GraphMode.PER_PEER,
-                                    onClick = { graphMode = GraphMode.PER_PEER },
+                                    onClick = { onAction(DebugSettingsAction.RelayGraphModeSelected(GraphMode.PER_PEER)) },
                                     label = { Text("Per Peer") },
                                     leadingIcon = { Icon(Icons.Filled.SettingsEthernet, contentDescription = null) }
                                 )
@@ -568,34 +520,12 @@ fun DebugSettingsScreen(
                                     Color(0xFFFFCC00), Color(0xFF5856D6)
                                 )
                             }
-                            // Time series state. The series survive rotation; the colours do not (QD17).
-                            val sampler = rememberSaveable(saver = RelayGraphSamplerSaver) {
-                                RelayGraphSampler(paletteSize = palette.size)
-                            }
-                            var series by remember(sampler) { mutableStateOf(sampler.series) }
+                            // The ViewModel samples the series and assigns the colours (B2).
+                            val series = uiState.relayGraph
                             var highlightedKey by rememberSaveable { mutableStateOf<String?>(null) }
                             fun colorFor(key: String): Color =
-                                palette.getOrNull(sampler.colorIndexFor(key))
+                                palette.getOrNull(uiState.relayColorSlots[key] ?: RelayGraphSampler.NO_SLOT)
                                     ?: Color.hsv(RelayGraphSampler.fallbackHue(key), 0.65f, 0.95f)
-
-                            LaunchedEffect(graphMode) {
-                                while (true) {
-                                    sampler.sample(
-                                        mode = graphMode,
-                                        stats = currentState.relayStats,
-                                        perDevice = RelayCounts(
-                                            currentState.perDeviceIncoming.lastSecond,
-                                            currentState.perDeviceOutgoing.lastSecond,
-                                        ),
-                                        perPeer = RelayCounts(
-                                            currentState.perPeerIncoming.lastSecond,
-                                            currentState.perPeerOutgoing.lastSecond,
-                                        ),
-                                    )
-                                    series = sampler.series
-                                    kotlinx.coroutines.delay(1000)
-                                }
-                            }
 
                             // Render two blocks: Incoming and Outgoing
                             Text("Incoming", fontFamily = BitchatFontFamily, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
@@ -609,12 +539,12 @@ fun DebugSettingsScreen(
                                 stackedSeries = series.stackedIncoming,
                                 overallSeries = if (graphMode == GraphMode.OVERALL) series.overallIncoming else null,
                                 graphMode = graphMode,
-                                topLabel = sampler.topLabel(graphMode, incoming = true),
+                                topLabel = RelayGraphSampler.topLabel(series, graphMode, incoming = true),
                                 highlightedKey = highlightedKey,
                                 onToggleHighlight = { key -> highlightedKey = toggleHighlight(highlightedKey, key) },
                                 colorForKey = ::colorFor,
                                 legendTitleFor = { key ->
-                                    legendTitle(graphMode, key, nicknameMap.value, connectedDevices, devicePeerMap.value)
+                                    legendTitle(graphMode, key, legendNicknames, connectedDevices, legendDevicePeers)
                                 },
                                 legendMetricsFor = { key ->
                                     if (graphMode == GraphMode.PER_PEER) {
@@ -638,12 +568,12 @@ fun DebugSettingsScreen(
                                 stackedSeries = series.stackedOutgoing,
                                 overallSeries = if (graphMode == GraphMode.OVERALL) series.overallOutgoing else null,
                                 graphMode = graphMode,
-                                topLabel = sampler.topLabel(graphMode, incoming = false),
+                                topLabel = RelayGraphSampler.topLabel(series, graphMode, incoming = false),
                                 highlightedKey = highlightedKey,
                                 onToggleHighlight = { key -> highlightedKey = toggleHighlight(highlightedKey, key) },
                                 colorForKey = ::colorFor,
                                 legendTitleFor = { key ->
-                                    legendTitle(graphMode, key, nicknameMap.value, connectedDevices, devicePeerMap.value)
+                                    legendTitle(graphMode, key, legendNicknames, connectedDevices, legendDevicePeers)
                                 },
                                 legendMetricsFor = { key ->
                                     if (graphMode == GraphMode.PER_PEER) {

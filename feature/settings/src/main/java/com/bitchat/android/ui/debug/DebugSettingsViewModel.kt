@@ -1,6 +1,7 @@
 package com.bitchat.android.ui.debug
 
 import android.content.Context
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bitchat.android.settings.MeshDiagnostics
@@ -20,6 +21,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -32,13 +35,17 @@ import kotlinx.coroutines.withContext
  * graph. While the screen is shown ([DebugSettingsAction.ScreenShown] until
  * [DebugSettingsAction.ScreenHidden]) one job marks Debug visible and polls
  * once a second (inventory DE1, DE3), looking up the running mesh on every
- * poll. With no mesh it shows "no mesh" and never creates one (B1). That job and the
+ * poll. With no mesh it shows "no mesh" and never creates one (B1). The
+ * relay graph's sampler runs alongside it, once a second, so the graph and its
+ * colours do not depend on the card being on screen (B2). That job and the
  * visibility writes run in order on one background thread, so a rotation's
  * hide-then-show lands as false then true, as it always has.
  */
 @HiltViewModel
 class DebugSettingsViewModel internal constructor(
     private val manager: DebugSettingsManager,
+    /** Keeps the relay graph's mode and series, as the card's saveable state did. */
+    private val savedState: SavedStateHandle,
     graph: MeshGraphSource,
     private val diagnostics: TransportDiagnostics,
     private val inspectDistribution: () -> DistributionInfoProvider.DistributionInfo,
@@ -51,12 +58,14 @@ class DebugSettingsViewModel internal constructor(
     @Inject
     constructor(
         manager: DebugSettingsManager,
+        savedState: SavedStateHandle,
         graph: MeshGraphSource,
         diagnostics: TransportDiagnostics,
         buildInfo: AppBuildInfo,
         @ApplicationContext context: Context,
     ) : this(
         manager = manager,
+        savedState = savedState,
         graph = graph,
         diagnostics = diagnostics,
         inspectDistribution = { DistributionInfoProvider.inspect(context, buildInfo) },
@@ -66,6 +75,12 @@ class DebugSettingsViewModel internal constructor(
 
     // One worker at a time, in submission order.
     private val meshDispatcher = defaultDispatcher.limitedParallelism(1)
+
+    // Touched only on meshDispatcher once the screen is shown.
+    private val sampler = RelayGraphSampler(
+        paletteSize = RELAY_PALETTE_SIZE,
+        initial = relayGraphSeriesFrom(savedState[KEY_RELAY_SERIES]) ?: RelayGraphSeries(),
+    )
 
     private val _uiState = MutableStateFlow(
         DebugSettingsUiState(
@@ -112,6 +127,10 @@ class DebugSettingsViewModel internal constructor(
                 manager.perPeerOutgoingLastMinute.value,
                 manager.perPeerOutgoingTotal.value,
             ),
+            relayGraphMode = savedState.get<String>(KEY_RELAY_MODE)
+                ?.let { name -> GraphMode.entries.firstOrNull { it.name == name } }
+                ?: GraphMode.OVERALL,
+            relayGraph = sampler.series,
         )
     )
     val uiState: StateFlow<DebugSettingsUiState> = _uiState.asStateFlow()
@@ -120,6 +139,7 @@ class DebugSettingsViewModel internal constructor(
     val events: Flow<DebugSettingsEvent> = _events.receiveAsFlow()
 
     private var shownJob: Job? = null
+    private var samplerJob: Job? = null
 
     /** The mesh the latest poll found; null if there is none. */
     @Volatile
@@ -161,6 +181,12 @@ class DebugSettingsViewModel internal constructor(
         follow(manager.perPeerOutgoingLastSecond) { copy(perPeerOutgoing = perPeerOutgoing.copy(lastSecond = it)) }
         follow(manager.perPeerOutgoingLastMinute) { copy(perPeerOutgoing = perPeerOutgoing.copy(lastMinute = it)) }
         follow(manager.perPeerOutgoingTotal) { copy(perPeerOutgoing = perPeerOutgoing.copy(total = it)) }
+
+        viewModelScope.launch {
+            _uiState.map { it.relayGraph }.distinctUntilChanged().collect { series ->
+                savedState[KEY_RELAY_SERIES] = series.toSaveable()
+            }
+        }
 
         viewModelScope.launch {
             val info = withContext(ioDispatcher) { runCatching { inspectDistribution() }.getOrNull() }
@@ -211,11 +237,18 @@ class DebugSettingsViewModel internal constructor(
             is DebugSettingsAction.DisconnectClicked -> mesh?.disconnectDevice(action.address)
             is DebugSettingsAction.ConnectClicked -> mesh?.connectToDevice(action.address)
             DebugSettingsAction.ClearConsoleClicked -> manager.clearDebugMessages()
+            is DebugSettingsAction.RelayGraphModeSelected -> {
+                _uiState.update { it.copy(relayGraphMode = action.mode) }
+                savedState[KEY_RELAY_MODE] = action.mode.name
+                // Restart the sampler so the new mode is sampled now, as the card's loop restarted.
+                if (shownJob != null) startSampler()
+            }
         }
     }
 
     private fun startShown() {
         shownJob?.cancel()
+        startSampler()
         shownJob = viewModelScope.launch(meshDispatcher) {
             manager.setDebugSheetVisible(true)
             var first = true
@@ -244,9 +277,33 @@ class DebugSettingsViewModel internal constructor(
         }
     }
 
+    private fun startSampler() {
+        samplerJob?.cancel()
+        samplerJob = viewModelScope.launch(meshDispatcher) {
+            while (true) {
+                sampler.sample(
+                    mode = _uiState.value.relayGraphMode,
+                    stats = manager.relayStats.value,
+                    perDevice = RelayCounts(
+                        manager.perDeviceIncomingLastSecond.value,
+                        manager.perDeviceOutgoingLastSecond.value,
+                    ),
+                    perPeer = RelayCounts(
+                        manager.perPeerIncomingLastSecond.value,
+                        manager.perPeerOutgoingLastSecond.value,
+                    ),
+                )
+                _uiState.update { it.copy(relayGraph = sampler.series, relayColorSlots = sampler.colorSlots) }
+                delay(SAMPLE_INTERVAL_MS)
+            }
+        }
+    }
+
     private fun stopShown() {
         shownJob?.cancel()
         shownJob = null
+        samplerJob?.cancel()
+        samplerJob = null
         // Atomic: it runs even when the ViewModel is cleared right after the screen goes.
         viewModelScope.launch(meshDispatcher, start = CoroutineStart.ATOMIC) {
             manager.setDebugSheetVisible(false)
@@ -259,5 +316,9 @@ class DebugSettingsViewModel internal constructor(
 
     private companion object {
         const val POLL_INTERVAL_MS = 1000L
+        const val SAMPLE_INTERVAL_MS = 1000L
+        const val RELAY_PALETTE_SIZE = 10
+        const val KEY_RELAY_MODE = "debug_relay_graph_mode"
+        const val KEY_RELAY_SERIES = "debug_relay_graph_series"
     }
 }
