@@ -5,6 +5,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.sun.jna.Memory
 import com.sun.jna.Native
 import java.io.File
+import java.nio.ByteOrder
 import java.util.UUID
 import org.json.JSONArray
 import org.json.JSONObject
@@ -33,6 +34,10 @@ class PairwiseFfiInstrumentedTest {
         Memory(16).use { memory ->
             memory.setLong(0, 0x123456789abcdefL)
             assertEquals(0x123456789abcdefL, memory.getLong(0))
+            val buffer = memory.getByteBuffer(0, 16).order(ByteOrder.nativeOrder())
+            assertEquals(0x123456789abcdefL, buffer.getLong(0))
+            buffer.putLong(8, 42L)
+            assertEquals(42L, memory.getLong(8))
         }
     }
 

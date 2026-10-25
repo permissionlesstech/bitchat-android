@@ -51,7 +51,11 @@ fi
 mkdir -p build/headers build/classes
 find src -name '*.java' -print | LC_ALL=C sort > build/java-sources
 javac --release 8 -encoding UTF-8 -h build/headers -d build/classes @build/java-sources
-grep -hoE 'Java_com_sun_jna_[A-Za-z0-9_]+' build/headers/*.h | LC_ALL=C sort -u > build/required-exports
+# Upstream retains the signature-qualified JNI name for this formerly
+# overloaded method; javac now emits its short name. Require the actual export.
+grep -hoE 'Java_com_sun_jna_[A-Za-z0-9_]+' build/headers/*.h |
+    sed 's/^Java_com_sun_jna_Native_getDirectByteBuffer$/Java_com_sun_jna_Native_getDirectByteBuffer__Lcom_sun_jna_Pointer_2JJJ/' |
+    LC_ALL=C sort -u > build/required-exports
 
 # Command-line Make variables propagate into libffi's configure and recursive
 # make. Its compiler probes must not inherit JNA's shared-library output flags.
