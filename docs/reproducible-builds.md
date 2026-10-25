@@ -28,6 +28,8 @@ GitHub/Google Play publication checklist.
   Android NDK, Cargo lockfile, digest-pinned Rust builder image, and immutable
   Debian package snapshot
 - immutable full commit SHAs for every third-party GitHub Action
+- JNA 5.19.1 Java artifact and native source archive SHA-256, full source commit,
+  and JNI ABI version; its bundled libffi builds with the same pinned NDK as NDR
 
 The build uses a clean source tree, an isolated Gradle user home, UTC, a stable
 locale, `SOURCE_DATE_EPOCH` from the Git commit, no Gradle build or configuration
@@ -56,6 +58,20 @@ The authoritative pins are:
 - `tools/reproducible-builds/TOOLCHAIN.env`
 - `tools/arti-build/TOOLCHAIN.env`
 - `tools/arti-build/Cargo.lock`
+- `tools/jna-build/SOURCE.env`
+
+JNA's Maven JAR supplies Java classes and JVM-test natives. Android packaging
+excludes its desktop natives and uses `libjnidispatch.so` built by
+`bash tools/jna-build/build-android.sh` for all four phone ABIs. The upstream
+Android AAR is not used: some of its native libraries embed build-host paths.
+The source build generates JNI headers with `javac --release 8`, uses the pinned
+native container's snapshot-provided JDK 17 and Autotools, and preserves the
+upstream Android definitions and bundled libffi. Relative link outputs, a fixed
+SONAME, compiler path remapping, and 16 KiB alignment keep the output portable.
+Both debug CI and canonical release builds run this script. Local Android
+packaging fails with an explicit prerequisite error until it has been run;
+unit tests do not require Android native builds. Release checks require exactly
+one JNA native library per expected phone ABI and none in Wear artifacts.
 
 ## Reproduce a release locally
 

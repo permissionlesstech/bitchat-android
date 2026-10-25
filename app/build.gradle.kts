@@ -37,6 +37,8 @@ android {
             "GITHUB_RELEASE_CERT_SHA256",
             "\"$normalizedGithubReleaseCertSha256\""
         )
+        // Negotiate pairwise NDR only with authenticated, capable mutual favorites.
+        buildConfigField("boolean", "NDR_ROLLOUT_ENABLED", "true")
 
         testInstrumentationRunner = "com.bitchat.android.ui.PerformanceTestRunner"
         vectorDrawables {
@@ -102,6 +104,10 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            // Android loads the pinned source-built JNI library from jniLibs.
+            // Keep desktop JNA natives available to JVM tests only.
+            excludes += "com/sun/jna/**/libjnidispatch.*"
+            excludes += "com/sun/jna/**/jnidispatch.dll"
         }
     }
     lint {
@@ -168,6 +174,7 @@ dependencies {
 
     // WebSocket
     implementation(libs.okhttp)
+    implementation("net.java.dev.jna:jna:5.19.1@jar")
 
     // WorkManager for background APK downloads
     implementation(libs.androidx.work.runtime.ktx)
@@ -195,6 +202,8 @@ dependencies {
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.espresso.core)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
@@ -206,4 +215,22 @@ tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
         "robolectric.dependency.repo.url",
         "https://repo.maven.apache.org/maven2"
     )
+}
+
+// JVM tests need no Android natives; every APK/AAB packaging path does.
+val verifyJnaNativeLibraries by tasks.registering {
+    doLast {
+        val missing = listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86").filter {
+            !file("src/main/jniLibs/$it/libjnidispatch.so").isFile
+        }
+        check(missing.isEmpty()) {
+            "Missing source-built JNA libraries for ${missing.joinToString()}. " +
+                "Run bash tools/jna-build/build-android.sh with the pinned Android NDK."
+        }
+    }
+}
+tasks.configureEach {
+    if (name.startsWith("merge") && name.endsWith("NativeLibs")) {
+        dependsOn(verifyJnaNativeLibraries)
+    }
 }

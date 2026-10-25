@@ -13,6 +13,16 @@ class BitchatApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        if (!com.bitchat.android.nostr.NdrPanicStartupRecovery
+                .recoverBeforeNetwork(this)
+        ) {
+            android.util.Log.e(
+                "BitchatApplication",
+                "Network startup blocked until panic wipe retry succeeds"
+            )
+            return
+        }
+
         // Start the single process-wide power policy before transport components are constructed.
         com.bitchat.android.mesh.PowerManager.getInstance(this).start()
 
@@ -31,6 +41,20 @@ class BitchatApplication : Application() {
         // Initialize favorites persistence early so MessageRouter/NostrTransport can use it on startup
         try {
             com.bitchat.android.favorites.FavoritesPersistenceService.initialize(this)
+            com.bitchat.android.favorites.FavoritesPersistenceService.shared
+                .setNdrPeerRetirementGuard { oldPeerPubkeyHex ->
+                    val identity =
+                        com.bitchat.android.nostr.NostrIdentityBridge
+                            .getCurrentNostrIdentity(this)
+                            ?: return@setNdrPeerRetirementGuard false
+                    val ndr = com.bitchat.android.nostr.NdrNostrService.getInstance(this)
+                    if (com.bitchat.android.model.NdrFeatureGate.isEnabled()) {
+                        ndr.configureIfNeeded(identity)
+                        ndr.retirePeer(oldPeerPubkeyHex)
+                    } else {
+                        ndr.retirePeerForMaintenance(identity, oldPeerPubkeyHex)
+                    }
+                }
         } catch (_: Exception) { }
 
         // Restore private conversations before background transports can deliver new messages.

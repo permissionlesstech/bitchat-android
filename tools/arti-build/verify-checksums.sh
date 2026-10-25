@@ -20,9 +20,16 @@ else
 fi
 
 for library in app/src/main/jniLibs/*/libarti_android.so; do
-  if strings "$library" | grep -Eq '/Users/|/home/|[A-Za-z]:\\\\Users\\\\'; then
-    echo "error: host-specific path detected in a native library" >&2
+  # Read the complete stream: grep -q can hide a match through SIGPIPE under pipefail.
+  if strings "$library" 2>/dev/null | grep -E '/Users/|/home/|[A-Za-z]:\\+Users\\+' >/dev/null 2>&1; then
+    echo "error: host-specific path detected in a native library (${library##*/})" >&2
     exit 1
+  else
+    native_scan_status=("${PIPESTATUS[@]}")
+    if [ "${native_scan_status[0]}" -ne 0 ] || [ "${native_scan_status[1]}" -ne 1 ]; then
+      echo "error: native library inspection failed (${library##*/})" >&2
+      exit 1
+    fi
   fi
 done
 

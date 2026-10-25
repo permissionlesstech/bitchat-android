@@ -108,6 +108,8 @@ if ! [[ "$source_commit" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]]; then
   exit 1
 fi
 native_manifest_sha256="$(sha256sum "$PROJECT_ROOT/tools/arti-build/SHA256SUMS" | awk '{print $1}')"
+ndr_source_revision="$(tr -d '[:space:]' < "$PROJECT_ROOT/app/src/main/ndr-ffi/SOURCE_REVISION")"
+source "$PROJECT_ROOT/tools/jna-build/SOURCE.env"
 
 cat > "$OUTPUT_DIR/BUILDINFO.json" <<EOF
 {
@@ -118,10 +120,15 @@ cat > "$OUTPUT_DIR/BUILDINFO.json" <<EOF
   "gradleVersion": "$GRADLE_VERSION",
   "androidCompileSdk": "$ANDROID_COMPILE_SDK",
   "androidBuildToolsVersion": "$ANDROID_BUILD_TOOLS_VERSION",
-  "nativeManifestSha256": "$native_manifest_sha256"
+  "nativeManifestSha256": "$native_manifest_sha256",
+  "ndrSourceRevision": "$ndr_source_revision",
+  "jnaSourceRevision": "$JNA_COMMIT",
+  "jnaSourceSha256": "$JNA_SOURCE_SHA256",
+  "jnaVersion": "$JNA_VERSION"
 }
 EOF
 
+bash "$PROJECT_ROOT/tools/jna-build/verify-packaging.sh" "$OUTPUT_DIR"
 "$SCRIPT_DIR/verify-no-host-paths.sh" "$OUTPUT_DIR"
 
 (

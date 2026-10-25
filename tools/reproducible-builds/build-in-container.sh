@@ -43,16 +43,59 @@ trap cleanup EXIT
 # nested bind mounts, which are not portable across Docker runtimes.
 git -C "$PROJECT_ROOT" archive --format=tar "$source_commit" |
   tar -xf - -C "$staging_root"
-cp "$CONTAINER_LOCAL_PROPERTIES" "$staging_root/local.properties"
+
+# Export the exact gitlink recorded by the committed parent. Never admit ignored
+# host libraries: build the exported source with the existing pinned native toolchain.
+NDR_SUBMODULE="vendor/nostr-double-ratchet"
+NDR_EXPECTED_REVISION="$(tr -d '[:space:]' < "$staging_root/app/src/main/ndr-ffi/SOURCE_REVISION")"
+NDR_GITLINK_REVISION="$(git -C "$PROJECT_ROOT" ls-tree "$source_commit" -- "$NDR_SUBMODULE" | awk '$1 == "160000" { print $3 }')"
+if [ "$NDR_GITLINK_REVISION" != "$NDR_EXPECTED_REVISION" ]; then
+  echo "error: NDR source revision does not match the committed gitlink" >&2
+  exit 1
+fi
+mkdir -p "$staging_root/$NDR_SUBMODULE"
+git -C "$PROJECT_ROOT/$NDR_SUBMODULE" archive --format=tar "$NDR_GITLINK_REVISION" |
+  tar -xf - -C "$staging_root/$NDR_SUBMODULE"
+
+NATIVE_IMAGE_NAME="bitchat-android-native-builder:ndr"
+docker build \
+  --platform linux/amd64 \
+  --file "$staging_root/tools/arti-build/Dockerfile" \
+  --tag "$NATIVE_IMAGE_NAME" \
+  "$staging_root"
+docker run \
+  --rm \
+  --platform linux/amd64 \
+  --user "$(id -u):$(id -g)" \
+  --volume "$staging_root:/workspace" \
+  --entrypoint /bin/bash \
+  "$NATIVE_IMAGE_NAME" \
+  tools/jna-build/build-android.sh
+docker run \
+  --rm \
+  --platform linux/amd64 \
+  --user "$(id -u):$(id -g)" \
+  --env BITCHAT_SOURCE_TREE_VERIFIED=1 \
+  --env BITCHAT_NDR_SOURCE_REVISION="$NDR_GITLINK_REVISION" \
+  --env CARGO_TARGET_DIR=/tmp/ndr-target \
+  --env CARGO_HOME=/tmp/ndr-cargo \
+  --env HOME=/tmp/ndr-home \
+  --env SOURCE_DATE_EPOCH="$source_date_epoch" \
+  --volume "$staging_root:/workspace" \
+  --entrypoint /bin/bash \
+  "$NATIVE_IMAGE_NAME" \
+  app/src/main/ndr-ffi/build-android.sh --check-bindings
+
+cp "$staging_root/tools/reproducible-builds/container-local.properties" "$staging_root/local.properties"
 
 gradle_home="$PROJECT_ROOT/.reproducible-build/$GRADLE_HOME_NAME"
 mkdir -p "$gradle_home"
 
 docker build \
   --platform linux/amd64 \
-  --file "$SCRIPT_DIR/Dockerfile" \
+  --file "$staging_root/tools/reproducible-builds/Dockerfile" \
   --tag "$IMAGE_NAME" \
-  "$PROJECT_ROOT"
+  "$staging_root"
 
 mkdir -p "$OUTPUT_DIR"
 OUTPUT_DIR="$(cd "$OUTPUT_DIR" && pwd)"

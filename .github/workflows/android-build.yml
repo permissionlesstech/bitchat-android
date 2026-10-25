@@ -2,6 +2,11 @@ name: Android CI
 
 on:
   workflow_dispatch:
+    inputs:
+      skip_release_replicas:
+        description: Reuse previously verified release evidence for a test-harness-only change
+        type: boolean
+        default: false
   push:
     branches: [main, develop]
   pull_request:
@@ -28,8 +33,20 @@ jobs:
           distribution: temurin
           java-version: ${{ env.SETUP_JAVA_VERSION }}
 
+      - name: Verify disposable Android emulator startup
+        timeout-minutes: 8
+        run: |
+          sudo chmod a+rw /dev/kvm
+          bash tools/jna-build/test-android.sh --boot-only
+
       - name: Set up and validate Gradle
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+
+      - name: Verify native build boundaries
+        run: |
+          python3 tools/reproducible-builds/test_native_source_build.py
+          python3 tools/reproducible-builds/test_native_path_checks.py
+          python3 tools/jna-build/test_packaging.py
 
       - name: Verify native library inputs
         run: tools/arti-build/verify-checksums.sh
@@ -64,6 +81,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          submodules: recursive
 
       - name: Set up pinned JDK
         uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
@@ -74,19 +93,58 @@ jobs:
       - name: Set up and validate Gradle
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
 
-      - name: Build debug APK
-        run: ./gradlew assembleDebug
+      - name: Build native libraries from pinned source
+        run: |
+          source tools/arti-build/TOOLCHAIN.env
+          rustup toolchain install "$RUST_VERSION" --profile minimal
+          rustup target add --toolchain "$RUST_VERSION" \
+            aarch64-linux-android armv7-linux-androideabi x86_64-linux-android i686-linux-android
+          sdkmanager="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$sdkmanager" ]]; then
+            echo "::error::Android SDK command-line tools are unavailable"
+            exit 1
+          fi
+          "$sdkmanager" "ndk;$ANDROID_NDK_VERSION"
+          sudo apt-get update
+          sudo apt-get install -y autoconf automake libtool libltdl-dev
+          ANDROID_NDK_HOME="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}/ndk/$ANDROID_NDK_VERSION" \
+            bash tools/jna-build/build-android.sh
+          cargo "+$RUST_VERSION" install cargo-ndk --version "$CARGO_NDK_VERSION" --locked
+          ./app/src/main/ndr-ffi/build-android.sh --check-bindings
 
-      - name: Upload debug APK
+      - name: Build debug APK
+        run: ./gradlew assembleDebug :app:assembleDebugAndroidTest
+
+      - name: Verify JNA packaging
+        run: bash tools/jna-build/verify-packaging.sh app/build/outputs/apk/debug
+
+      - name: Upload debug and test APKs
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: Debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/androidTest/debug/*.apk
+
+      - name: Exercise source-built JNA and pairwise FFI on Android
+        timeout-minutes: 12
+        run: |
+          sudo chmod a+rw /dev/kvm
+          bash tools/jna-build/test-android.sh
+
+      - name: Upload native runtime test reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-runtime-tests
+          path: app/build/outputs/androidTest-results/connected/**/TEST-*.xml
+          if-no-files-found: error
 
   reproducible-build:
     name: Reproducible release build ${{ matrix.replica }}
     runs-on: ubuntu-24.04
     needs: verify
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.skip_release_replicas }}
     strategy:
       fail-fast: false
       matrix:
@@ -95,6 +153,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          submodules: recursive
 
       - name: Set up pinned JDK
         uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5

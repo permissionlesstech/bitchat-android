@@ -23,11 +23,18 @@ RUN source /tmp/TOOLCHAIN.env \
         > /etc/apt/sources.list.d/debian.sources \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
+        autoconf \
+        automake \
         binutils \
         ca-certificates \
         curl \
         git \
+        libltdl-dev \
+        libtool \
+        make \
+        openjdk-17-jdk-headless \
         unzip \
+        zip \
     && rm -rf /var/lib/apt/lists/*
 
 RUN source /tmp/TOOLCHAIN.env \
