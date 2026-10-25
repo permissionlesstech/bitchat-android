@@ -10,10 +10,10 @@ data class SpamFilterConfig(
         capacity = 6.0,
         refillPerSecond = 1.0 / 10.0
     ),
-    /** Characters per sender: 600 per minute, refilled continuously (10 per second). */
+    /** Characters per sender: 1200 per minute, refilled continuously (20 per second). */
     val characterBucket: TokenBucketConfig = TokenBucketConfig(
-        capacity = 600.0,
-        refillPerSecond = 600.0 / 60.0
+        capacity = 1200.0,
+        refillPerSecond = 1200.0 / 60.0
     ),
     /** Links per sender: 2 per minute, refilled continuously (one every 30 seconds). */
     val linkBucket: TokenBucketConfig = TokenBucketConfig(

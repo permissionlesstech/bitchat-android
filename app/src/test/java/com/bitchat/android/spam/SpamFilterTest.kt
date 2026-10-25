@@ -61,9 +61,9 @@ class SpamFilterTest {
     }
 
     @Test
-    fun `character budget allows six hundred characters per minute`() {
-        assertEquals(SpamVerdict.ALLOWED, send(prose(300)))
-        assertEquals(SpamVerdict.ALLOWED, send(prose(300)))
+    fun `character budget allows twelve hundred characters per minute`() {
+        assertEquals(SpamVerdict.ALLOWED, send(prose(600)))
+        assertEquals(SpamVerdict.ALLOWED, send(prose(600)))
         assertEquals(SpamVerdict.CHARACTER_RATE, send(prose(20)))
         advanceSeconds(2)
         assertEquals(SpamVerdict.ALLOWED, send(prose(20)))
@@ -71,13 +71,13 @@ class SpamFilterTest {
 
     @Test
     fun `message longer than the character budget is hidden`() {
-        assertEquals(SpamVerdict.CHARACTER_RATE, send(prose(601)))
+        assertEquals(SpamVerdict.CHARACTER_RATE, send(prose(1201)))
     }
 
     @Test
     fun `characters are counted as code points`() {
         val emoji = "😀"
-        val sentence = (0 until 600).joinToString("") { if (it % 3 == 0) emoji else "${'a' + random.nextInt(26)}" }
+        val sentence = (0 until 1200).joinToString("") { if (it % 3 == 0) emoji else "${'a' + random.nextInt(26)}" }
         assertEquals(SpamVerdict.ALLOWED, send(sentence))
     }
 
