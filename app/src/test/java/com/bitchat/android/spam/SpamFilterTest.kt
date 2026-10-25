@@ -270,4 +270,93 @@ class SpamFilterTest {
         assertEquals(SpamFilterConfig(), SpamTuning.DEFAULT.toConfig())
         assertFalse(SpamTuning.DEFAULT.copy(linksPerMinute = 5).toConfig() == SpamFilterConfig())
     }
+
+    @Test
+    fun `same text from many throwaway identities is hidden after three copies`() {
+        val text = "Free sats for everyone at freesats dot example"
+        val verdicts = (1..6).map { send(text, sender = "npub$it") }
+
+        assertEquals(
+            listOf(SpamVerdict.ALLOWED, SpamVerdict.ALLOWED, SpamVerdict.ALLOWED) +
+                List(3) { SpamVerdict.REPEATED_ACROSS_USERS },
+            verdicts
+        )
+    }
+
+    @Test
+    fun `near copies with small changes from different identities are hidden`() {
+        // Each variant is one small edit (a suffix, an insertion, a substitution) off the first.
+        val variants = listOf(
+            "Free sats for everyone, claim yours now",
+            "free sats for everyone, claim yours now 1",
+            "Free sats for everyone!! claim yours now",
+            "free sats 4 everyone, claim yours now",
+            "free  sats for everyone, claim yours now 55"
+        )
+        val verdicts = variants.mapIndexed { i, text -> send(text, sender = "npub$i") }
+
+        assertEquals(List(4) { SpamVerdict.ALLOWED } + SpamVerdict.REPEATED_ACROSS_USERS, verdicts)
+    }
+
+    @Test
+    fun `short common replies from many users are not compared`() {
+        repeat(8) { assertEquals(SpamVerdict.ALLOWED, send("good morning!", sender = "user$it")) }
+    }
+
+    @Test
+    fun `different messages on the same topic from many users are allowed`() {
+        val messages = listOf(
+            "is the bakery on the corner still open?",
+            "the bakery closes at eight I think",
+            "bakery was still open when I walked by",
+            "anyone know if the bakery has bread left?",
+            "the corner bakery is open until eight"
+        )
+        messages.forEachIndexed { i, text -> assertEquals(SpamVerdict.ALLOWED, send(text, sender = "user$i")) }
+    }
+
+    @Test
+    fun `copies from other users outside the window do not count`() {
+        val text = "anyone up for chess at the tables later?"
+        repeat(3) {
+            send(text, sender = "user$it")
+            advanceSeconds(4 * 60)
+        }
+        // Only the copy from 4 minutes ago and the one from 8 minutes ago are in the window.
+        assertEquals(SpamVerdict.ALLOWED, send(text, sender = "late"))
+    }
+
+    @Test
+    fun `a sender's own copies do not count toward the cross-user limit`() {
+        val text = "anyone near the north gate tonight?"
+        send(text, sender = "alice")
+        advanceSeconds(60)
+        send(text, sender = "alice")
+        assertEquals(SpamVerdict.ALLOWED, send(text, sender = "bob"))
+        assertEquals(SpamVerdict.REPEATED_ACROSS_USERS, send(text, sender = "carol"))
+    }
+
+    @Test
+    fun `best alignment reports where the texts line up`() {
+        val a = RepetitionDetector.normalize("xx hello world", 1000)
+        val b = RepetitionDetector.normalize("hello world", 1000)
+        val alignment = RepetitionDetector.align(a, b)
+        assertEquals(3, alignment.peaks.first().shift)
+        assertEquals(11, alignment.matches)
+    }
+
+    @Test
+    fun `an inserted character does not break the match`() {
+        val a = RepetitionDetector.normalize("free sats for everyone, claim yours now", 1000)
+        val b = RepetitionDetector.normalize("free sats for everyone!!, claim yours now", 1000)
+        assertTrue(RepetitionDetector.align(a, b, maxPeaks = 1).score < 0.8)
+        assertTrue(RepetitionDetector.align(a, b).score > 0.9)
+    }
+
+    @Test
+    fun `unrelated sentences stay far below the near-copy threshold`() {
+        val a = RepetitionDetector.normalize("the bakery closes at eight I think", 1000)
+        val b = RepetitionDetector.normalize("the corner bakery is open until eight", 1000)
+        assertTrue(RepetitionDetector.align(a, b).score < 0.6)
+    }
 }

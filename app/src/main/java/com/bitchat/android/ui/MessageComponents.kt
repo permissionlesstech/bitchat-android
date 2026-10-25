@@ -531,6 +531,7 @@ private fun SpamVerdict.debugLabel(): String = when (this) {
     SpamVerdict.CHARACTER_RATE -> "too many characters"
     SpamVerdict.LINK_RATE -> "too many links"
     SpamVerdict.REPEATED_MESSAGE -> "repeated message"
+    SpamVerdict.REPEATED_ACROSS_USERS -> "same text from other users"
     SpamVerdict.REPEATED_CHARACTERS -> "repeated characters"
 }
 

@@ -34,22 +34,115 @@ internal object RepetitionDetector {
         return best
     }
 
+    /** One diagonal of the cross-correlation: `b[j]` lined up under `a[j + shift]`. */
+    data class Peak(val shift: Int, val matches: Int)
+
+    /** How two texts line up: the peaks used and the share of the longer text they cover. */
+    data class Alignment(val peaks: List<Peak>, val matches: Int, val score: Double)
+
+    fun crossSimilarity(a: IntArray, b: IntArray, maxPeaks: Int = 3, minRun: Int = 3): Double =
+        align(a, b, maxPeaks, minRun).score
+
     /**
-     * Highest cross-correlation of two texts over every alignment: matching positions divided by
-     * the longer length, so 1.0 means identical and a short text never matches a long one.
+     * Cross-correlation of two texts that tolerates small edits.
+     *
+     * The first peak is the classic correlation maximum, the shift where the most characters
+     * match. An inserted or deleted character moves the rest of the text onto a neighboring
+     * shift, so up to [maxPeaks] - 1 further peaks add matches from other shifts. Those count
+     * only runs of at least [minRun] consecutive characters, so coincidental single letters
+     * don't add up, and no character of either text is used twice. The score is the matched
+     * characters over the longer length: 1.0 for identical texts, and a short text never
+     * matches a long one.
      */
-    fun crossSimilarity(a: IntArray, b: IntArray): Double {
-        if (a.isEmpty() || b.isEmpty()) return 0.0
-        val longest = maxOf(a.size, b.size)
-        var best = 0
-        for (shift in -(b.size - 1) until a.size) {
-            val from = maxOf(0, shift)
-            val to = minOf(a.size, b.size + shift)
-            if (to - from <= best) continue
-            var matches = 0
-            for (i in from until to) if (a[i] == b[i - shift]) matches++
-            if (matches > best) best = matches
+    fun align(a: IntArray, b: IntArray, maxPeaks: Int = 3, minRun: Int = 3): Alignment {
+        if (a.isEmpty() || b.isEmpty()) return Alignment(emptyList(), 0, 0.0)
+        val usedA = BooleanArray(a.size)
+        val usedB = BooleanArray(b.size)
+        val peaks = ArrayList<Peak>()
+        var total = 0
+        while (peaks.size < maxPeaks) {
+            val run = if (peaks.isEmpty()) 1 else minRun
+            var bestGain = 0
+            var bestShift = 0
+            for (shift in -(b.size - 1) until a.size) {
+                val from = maxOf(0, -shift)
+                val to = minOf(b.size, a.size - shift)
+                if (to - from <= bestGain) continue
+                val gain = runMatches(a, b, shift, from, to, usedA, usedB, run, mark = false)
+                if (gain > bestGain) {
+                    bestGain = gain
+                    bestShift = shift
+                }
+            }
+            if (bestGain < run) break
+            val from = maxOf(0, -bestShift)
+            val to = minOf(b.size, a.size - bestShift)
+            runMatches(a, b, bestShift, from, to, usedA, usedB, run, mark = true)
+            peaks += Peak(bestShift, bestGain)
+            total += bestGain
         }
-        return best.toDouble() / longest
+        return Alignment(peaks, total, total.toDouble() / maxOf(a.size, b.size))
+    }
+
+    /** Unused matches at [shift] that sit in runs of at least [minRun]; [mark] claims them. */
+    private fun runMatches(
+        a: IntArray,
+        b: IntArray,
+        shift: Int,
+        from: Int,
+        to: Int,
+        usedA: BooleanArray,
+        usedB: BooleanArray,
+        minRun: Int,
+        mark: Boolean
+    ): Int {
+        var gain = 0
+        var runStart = -1
+        for (j in from..to) {
+            val hit = j < to && !usedB[j] && !usedA[j + shift] && a[j + shift] == b[j]
+            if (hit) {
+                if (runStart < 0) runStart = j
+            } else if (runStart >= 0) {
+                val length = j - runStart
+                if (length >= minRun) {
+                    gain += length
+                    if (mark) for (k in runStart until j) {
+                        usedB[k] = true
+                        usedA[k + shift] = true
+                    }
+                }
+                runStart = -1
+            }
+        }
+        return gain
+    }
+
+    /** Distinct character trigrams as sorted hashes, for a cheap pre-check before [align]. */
+    fun trigrams(text: IntArray): IntArray {
+        if (text.size < 3) return IntArray(0)
+        return IntArray(text.size - 2) { i -> (text[i] * 31 + text[i + 1]) * 31 + text[i + 2] }
+            .distinct()
+            .sorted()
+            .toIntArray()
+    }
+
+    /**
+     * Shared trigrams over the larger trigram set. Near-copies share most of theirs, unrelated
+     * texts few, so pairs below a low bar can skip the quadratic [align]. Texts too short to
+     * have trigrams always pass.
+     */
+    fun trigramOverlap(a: IntArray, b: IntArray): Double {
+        if (a.isEmpty() || b.isEmpty()) return 1.0
+        var i = 0
+        var j = 0
+        var shared = 0
+        while (i < a.size && j < b.size) {
+            when {
+                a[i] == b[j] -> { shared++; i++; j++ }
+                a[i] < b[j] -> i++
+                else -> j++
+            }
+        }
+        return shared.toDouble() / maxOf(a.size, b.size)
     }
 }

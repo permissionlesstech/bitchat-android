@@ -81,6 +81,12 @@ fun SpamFilterDebugSection() {
             TuningSlider("Repeats allowed", "${tuning.allowedRepeats} near-copies", tuning.allowedRepeats, 0..10) {
                 update(tuning.copy(allowedRepeats = it))
             }
+            TuningSlider("Copies from other users allowed", "${tuning.crossUserAllowedRepeats} near-copies", tuning.crossUserAllowedRepeats, 0..10) {
+                update(tuning.copy(crossUserAllowedRepeats = it))
+            }
+            TuningSlider("Compare across users from", "${tuning.crossUserMinLength} chars", tuning.crossUserMinLength, 4..100) {
+                update(tuning.copy(crossUserMinLength = it))
+            }
             TuningSlider("Near-copy match", "≥ ${tuning.repeatSimilarityPercent}%", tuning.repeatSimilarityPercent, 50..100) {
                 update(tuning.copy(repeatSimilarityPercent = it))
             }

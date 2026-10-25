@@ -20,6 +20,8 @@ object SpamFilterPreferences {
     private const val KEY_CHARACTERS_PER_MINUTE = "spam_filter_characters_per_minute"
     private const val KEY_LINKS_PER_MINUTE = "spam_filter_links_per_minute"
     private const val KEY_ALLOWED_REPEATS = "spam_filter_allowed_repeats"
+    private const val KEY_CROSS_USER_ALLOWED_REPEATS = "spam_filter_cross_user_allowed_repeats"
+    private const val KEY_CROSS_USER_MIN_LENGTH = "spam_filter_cross_user_min_length"
     private const val KEY_REPEAT_SIMILARITY = "spam_filter_repeat_similarity"
     private const val KEY_REPEAT_WINDOW_MINUTES = "spam_filter_repeat_window_minutes"
     private const val KEY_SELF_MATCH_THRESHOLD = "spam_filter_self_match_threshold"
@@ -68,6 +70,8 @@ object SpamFilterPreferences {
             putInt(KEY_CHARACTERS_PER_MINUTE, tuning.charactersPerMinute)
             putInt(KEY_LINKS_PER_MINUTE, tuning.linksPerMinute)
             putInt(KEY_ALLOWED_REPEATS, tuning.allowedRepeats)
+            putInt(KEY_CROSS_USER_ALLOWED_REPEATS, tuning.crossUserAllowedRepeats)
+            putInt(KEY_CROSS_USER_MIN_LENGTH, tuning.crossUserMinLength)
             putInt(KEY_REPEAT_SIMILARITY, tuning.repeatSimilarityPercent)
             putInt(KEY_REPEAT_WINDOW_MINUTES, tuning.repeatWindowMinutes)
             putInt(KEY_SELF_MATCH_THRESHOLD, tuning.selfMatchPercent)
@@ -85,6 +89,8 @@ object SpamFilterPreferences {
             charactersPerMinute = prefs.getInt(KEY_CHARACTERS_PER_MINUTE, d.charactersPerMinute),
             linksPerMinute = prefs.getInt(KEY_LINKS_PER_MINUTE, d.linksPerMinute),
             allowedRepeats = prefs.getInt(KEY_ALLOWED_REPEATS, d.allowedRepeats),
+            crossUserAllowedRepeats = prefs.getInt(KEY_CROSS_USER_ALLOWED_REPEATS, d.crossUserAllowedRepeats),
+            crossUserMinLength = prefs.getInt(KEY_CROSS_USER_MIN_LENGTH, d.crossUserMinLength),
             repeatSimilarityPercent = prefs.getInt(KEY_REPEAT_SIMILARITY, d.repeatSimilarityPercent),
             repeatWindowMinutes = prefs.getInt(KEY_REPEAT_WINDOW_MINUTES, d.repeatWindowMinutes),
             selfMatchPercent = prefs.getInt(KEY_SELF_MATCH_THRESHOLD, d.selfMatchPercent),

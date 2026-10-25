@@ -14,6 +14,7 @@ enum class SpamVerdict {
     CHARACTER_RATE,
     LINK_RATE,
     REPEATED_MESSAGE,
+    REPEATED_ACROSS_USERS,
     REPEATED_CHARACTERS;
 
     val isSpam: Boolean get() = this != ALLOWED
@@ -23,9 +24,11 @@ enum class SpamVerdict {
  * Decides whether an incoming public message should be hidden.
  *
  * Each sender gets three token buckets (messages, characters, links; see [SpamFilterConfig])
- * plus two repetition checks: a message that repeats itself internally, and a message that is a
- * near-copy of the sender's recent history. Hidden messages never spend tokens, but they do
- * enter the repetition history so a spammer cannot cycle the same text.
+ * plus three repetition checks: a message that repeats itself internally, a near-copy of the
+ * sender's own recent history, and a near-copy of what *other* senders posted recently. The last
+ * one catches spam spread over many throwaway identities, which per-sender limits cannot see.
+ * Hidden messages never spend tokens, but they do enter the repetition history so a spammer
+ * cannot cycle the same text.
  *
  * Verdicts are remembered by message ID, so the same message arriving over BLE and Wi-Fi Aware,
  * or through both geohash handlers, is judged once and counted once.
@@ -45,6 +48,7 @@ class SpamFilter(
                 field = value
                 senders.clear()
                 verdicts.clear()
+                recentTexts.clear()
             }
         }
 
@@ -57,19 +61,25 @@ class SpamFilter(
     /** Verdicts of spam shown because of [debugBypass], by message ID. */
     val flagged: StateFlow<Map<String, SpamVerdict>> = _flagged.asStateFlow()
 
-    private class HistoryEntry(val timeMs: Long, val text: IntArray)
+    /** A message prepared for comparison: its leading characters and their trigrams. */
+    private class Fingerprint(val timeMs: Long, val text: IntArray, val trigrams: IntArray)
+
+    private class SharedEntry(val senderKey: String, val fingerprint: Fingerprint)
 
     private inner class SenderState {
         val rate = TokenBucketSchedule(
             listOf(config.messageBucket, config.characterBucket, config.linkBucket)
         )
-        val history = ArrayDeque<HistoryEntry>()
+        val history = ArrayDeque<Fingerprint>()
     }
 
     private val senders = object : LinkedHashMap<String, SenderState>(64, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, SenderState>) =
             size > config.maxTrackedSenders
     }
+
+    /** Recent texts from every sender, for the cross-user repeat check. */
+    private val recentTexts = ArrayDeque<SharedEntry>()
 
     private val verdicts = object : LinkedHashMap<String, SpamVerdict>(256, 0.75f, false) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, SpamVerdict>) =
@@ -122,15 +132,22 @@ class SpamFilter(
 
             val repetition = config.repetition
             val text = if (isText) RepetitionDetector.normalize(content, repetition.maxAnalyzedLength) else null
+            val fingerprint = text?.let { fingerprint(it, time) }
             val verdict = when {
                 text != null && hasRepeatedCharacters(text) -> SpamVerdict.REPEATED_CHARACTERS
-                text != null && repeatsHistory(state, text, time) -> SpamVerdict.REPEATED_MESSAGE
+                text != null && repeatsHistory(state, text.size, fingerprint!!) -> SpamVerdict.REPEATED_MESSAGE
+                text != null && repeatsOtherSenders(senderKey, text.size, fingerprint!!) ->
+                    SpamVerdict.REPEATED_ACROSS_USERS
                 else -> admitRate(state, content, time, isText)
             }
 
-            if (text != null) {
-                state.history.addLast(HistoryEntry(time, text))
+            if (text != null && fingerprint != null) {
+                state.history.addLast(fingerprint)
                 while (state.history.size > repetition.historySize) state.history.removeFirst()
+                if (text.size >= repetition.crossUserMinLength) {
+                    recentTexts.addLast(SharedEntry(senderKey, fingerprint))
+                    while (recentTexts.size > repetition.crossUserHistorySize) recentTexts.removeFirst()
+                }
             }
             verdicts[messageId] = verdict
             return verdict
@@ -142,6 +159,7 @@ class SpamFilter(
         synchronized(this) {
             senders.clear()
             verdicts.clear()
+            recentTexts.clear()
         }
         _flagged.value = emptyMap()
     }
@@ -152,15 +170,41 @@ class SpamFilter(
             RepetitionDetector.selfSimilarity(text) >= repetition.repeatedCharactersThreshold
     }
 
-    private fun repeatsHistory(state: SenderState, text: IntArray, timeMs: Long): Boolean {
+    private fun fingerprint(text: IntArray, timeMs: Long): Fingerprint {
+        val max = config.repetition.maxComparedLength
+        val compared = if (text.size > max) text.copyOf(max) else text
+        return Fingerprint(timeMs, compared, RepetitionDetector.trigrams(compared))
+    }
+
+    private fun repeatsHistory(state: SenderState, length: Int, message: Fingerprint): Boolean {
         val repetition = config.repetition
-        if (text.size < repetition.minRepeatedMessageLength) return false
-        val copies = state.history.count { entry ->
-            abs(entry.timeMs - timeMs) <= repetition.historyWindowMs &&
-                lengthsCanMatch(entry.text.size, text.size) &&
-                RepetitionDetector.crossSimilarity(entry.text, text) >= repetition.repeatedMessageSimilarity
-        }
+        if (length < repetition.minRepeatedMessageLength) return false
+        val copies = state.history.count { isNearCopy(it, message) }
         return copies > repetition.allowedRepeats
+    }
+
+    private fun repeatsOtherSenders(senderKey: String, length: Int, message: Fingerprint): Boolean {
+        val repetition = config.repetition
+        if (length < repetition.crossUserMinLength) return false
+        var copies = 0
+        for (entry in recentTexts) {
+            if (entry.senderKey == senderKey || !isNearCopy(entry.fingerprint, message)) continue
+            if (++copies > repetition.crossUserAllowedRepeats) return true
+        }
+        return false
+    }
+
+    private fun isNearCopy(earlier: Fingerprint, message: Fingerprint): Boolean {
+        val repetition = config.repetition
+        return abs(earlier.timeMs - message.timeMs) <= repetition.historyWindowMs &&
+            lengthsCanMatch(earlier.text.size, message.text.size) &&
+            RepetitionDetector.trigramOverlap(earlier.trigrams, message.trigrams) >= repetition.minSharedTrigrams &&
+            RepetitionDetector.crossSimilarity(
+                earlier.text,
+                message.text,
+                repetition.maxAlignmentPeaks,
+                repetition.minPeakRun
+            ) >= repetition.repeatedMessageSimilarity
     }
 
     // Cross-similarity is bounded by shorter/longer, so skip pairs that can never reach it.

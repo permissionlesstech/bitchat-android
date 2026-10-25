@@ -49,9 +49,26 @@ data class RepetitionConfig(
     val repeatedMessageSimilarity: Double = 0.8,
     /** How many near-copies of one text a sender may post within [historyWindowMs]. */
     val allowedRepeats: Int = 1,
+    /**
+     * How many near-copies of a text *other* senders may already have posted within
+     * [historyWindowMs] before it is hidden. Catches spam spread over many identities.
+     */
+    val crossUserAllowedRepeats: Int = 2,
+    /** Messages shorter than this are never compared across senders; short replies coincide. */
+    val crossUserMinLength: Int = 16,
+    /** Recent messages from all senders kept for the cross-user comparison. */
+    val crossUserHistorySize: Int = 200,
     /** Recent messages per sender kept for comparison. */
     val historySize: Int = 10,
     val historyWindowMs: Long = 10 * 60 * 1000L,
     /** Longer messages are analyzed on their first N characters only, bounding CPU per message. */
-    val maxAnalyzedLength: Int = 1_000
+    val maxAnalyzedLength: Int = 1_000,
+    /** Messages are compared with others on their first N characters only. */
+    val maxComparedLength: Int = 280,
+    /** Correlation peaks combined per comparison; extra peaks absorb inserted or deleted text. */
+    val maxAlignmentPeaks: Int = 3,
+    /** Extra peaks only count runs of at least this many matching characters. */
+    val minPeakRun: Int = 3,
+    /** Pairs sharing fewer trigrams than this fraction skip the full comparison. */
+    val minSharedTrigrams: Double = 0.25
 )
