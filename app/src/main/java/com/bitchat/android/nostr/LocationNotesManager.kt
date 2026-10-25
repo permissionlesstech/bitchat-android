@@ -19,6 +19,8 @@ class LocationNotesManager private constructor() {
     companion object {
         private const val TAG = "LocationNotesManager"
         private const val MAX_NOTES_IN_MEMORY = 500
+        /** How long to wait for any relay to answer before reporting slow relays. */
+        internal const val INITIAL_LOAD_FALLBACK_MS = 10_000L
         
         @Volatile
         private var INSTANCE: LocationNotesManager? = null
@@ -81,6 +83,10 @@ class LocationNotesManager private constructor() {
     
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    /** True while loading has waited [INITIAL_LOAD_FALLBACK_MS] with no relay answer. */
+    private val _relaysSlow = MutableStateFlow(false)
+    val relaysSlow: StateFlow<Boolean> = _relaysSlow.asStateFlow()
     
     // Private state
     private var subscriptionIDs: MutableMap<String, String> = mutableMapOf()
@@ -89,7 +95,7 @@ class LocationNotesManager private constructor() {
     
     // Dependencies (injected via setters for flexibility)
     private var relayLookup: (() -> NostrRelayManager)? = null
-    private var subscribeFunc: ((NostrFilter, String, (NostrEvent) -> Unit) -> String)? = null
+    private var subscribeFunc: ((NostrFilter, String, (NostrEvent) -> Unit, () -> Unit) -> String)? = null
     private var unsubscribeFunc: ((String) -> Unit)? = null
     private var sendEventFunc: ((NostrEvent, List<String>?, Long) -> Unit)? = null
     private var deriveIdentityFunc: ((String) -> NostrIdentity)? = null
@@ -109,7 +115,7 @@ class LocationNotesManager private constructor() {
      */
     fun initialize(
         relayManager: () -> NostrRelayManager,
-        subscribe: (NostrFilter, String, (NostrEvent) -> Unit) -> String,
+        subscribe: (NostrFilter, String, (NostrEvent) -> Unit, () -> Unit) -> String,
         unsubscribe: (String) -> Unit,
         sendEvent: (NostrEvent, List<String>?, Long) -> Unit,
         deriveIdentity: (String) -> NostrIdentity
@@ -381,7 +387,12 @@ class LocationNotesManager private constructor() {
             try {
                 var id: String? = null
                 LiveLocationPrivacyGate.runIfAllowed(token) {
-                    id = subscribe(filter, subId) { event -> handleEvent(event) }
+                    id = subscribe(
+                        filter,
+                        subId,
+                        { event -> handleEvent(event) },
+                        { handleEndOfStoredEvents(currentGeohash, token) }
+                    )
                 }
                 id?.let { subscriptionIDs[gh] = it }
             } catch (e: Exception) {
@@ -389,17 +400,37 @@ class LocationNotesManager private constructor() {
             }
         }
         
-        // Mark initial load complete after brief delay to allow relay responses
+        // The load completes when a relay answers; until then keep loading, and
+        // tell the user after a while that relays are slow (never "no notes")
         initialLoadJob = scope.launch {
-            delay(2000) // Wait 2 seconds for initial batch
+            delay(INITIAL_LOAD_FALLBACK_MS)
             if (_geohash.value == currentGeohash &&
                 LiveLocationPrivacyGate.accepts(token) &&
                 !_initialLoadComplete.value
             ) {
-                _initialLoadComplete.value = true
-                _state.value = State.READY
+                _relaysSlow.value = true
             }
         }
+    }
+
+    /**
+     * A relay sent all stored notes it has for one of the subscriptions.
+     * Ignored when it belongs to an earlier geohash or consent changed since.
+     */
+    private fun handleEndOfStoredEvents(subscribedGeohash: String, token: Long) {
+        if (_geohash.value != subscribedGeohash ||
+            !LiveLocationPrivacyGate.accepts(token) ||
+            _initialLoadComplete.value
+        ) return
+        completeInitialLoad()
+    }
+
+    private fun completeInitialLoad() {
+        initialLoadJob?.cancel()
+        initialLoadJob = null
+        _initialLoadComplete.value = true
+        _relaysSlow.value = false
+        _state.value = State.READY
     }
     
     /**
@@ -462,8 +493,8 @@ class LocationNotesManager private constructor() {
         }
         
         // Update state
-        if (!_initialLoadComplete.value!!) {
-            _initialLoadComplete.value = true
+        if (!_initialLoadComplete.value) {
+            completeInitialLoad()
         }
         _state.value = State.READY
     }
@@ -521,6 +552,7 @@ class LocationNotesManager private constructor() {
             subscriptionIDs.clear()
         }
         subscribedGeohashes = emptySet()
+        _relaysSlow.value = false
         _state.value = State.IDLE
     }
 

@@ -5,7 +5,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -28,6 +31,7 @@ class LocationNotesReloadTest {
     private val dispatcher = StandardTestDispatcher()
     private val manager = LocationNotesManager.getInstance()
     private val handlers = mutableListOf<(NostrEvent) -> Unit>()
+    private val endOfStoredEvents = mutableListOf<() -> Unit>()
     private val geohash = "s0000000"
     private lateinit var note: NostrEvent
 
@@ -38,22 +42,25 @@ class LocationNotesReloadTest {
         NostrEventDeduplicator.getInstance().clear()
         manager.initialize(
             relayManager = { error("unused") },
-            subscribe = { _, id, handler ->
+            subscribe = { _, id, handler, onEndOfStoredEvents ->
                 handlers += handler
+                endOfStoredEvents += onEndOfStoredEvents
                 id
             },
             unsubscribe = {},
             sendEvent = { _, _, _ -> },
             deriveIdentity = { error("unused") },
         )
-        note = runBlocking {
-            NostrProtocol.createGeohashTextNote(
-                content = "synthetic",
-                geohash = geohash,
-                senderIdentity = NostrIdentity.generate(),
-                nickname = null,
-            )
-        }
+        note = syntheticNote("synthetic")
+    }
+
+    private fun syntheticNote(content: String): NostrEvent = runBlocking {
+        NostrProtocol.createGeohashTextNote(
+            content = content,
+            geohash = geohash,
+            senderIdentity = NostrIdentity.generate(),
+            nickname = null,
+        )
     }
 
     @After
@@ -101,5 +108,88 @@ class LocationNotesReloadTest {
         assertTrue(dedup.contains("unrelated-id"))
         deliver(note)
         assertEquals(listOf(note.id), manager.notes.value.map { it.id })
+    }
+
+    @Test
+    fun `no relay answer keeps loading and is not reported as empty`() = runTest(dispatcher) {
+        manager.setGeohash(geohash)
+
+        advanceTimeBy(LocationNotesManager.INITIAL_LOAD_FALLBACK_MS - 1)
+        runCurrent()
+        assertFalse(manager.initialLoadComplete.value)
+        assertFalse(manager.relaysSlow.value)
+
+        advanceTimeBy(1)
+        runCurrent()
+        assertTrue(manager.relaysSlow.value)
+        assertEquals(LocationNotesManager.State.LOADING, manager.state.value)
+        assertFalse(manager.initialLoadComplete.value)
+    }
+
+    @Test
+    fun `first eose completes the load with no notes`() = runTest(dispatcher) {
+        manager.setGeohash(geohash)
+
+        endOfStoredEvents.first()()
+
+        assertTrue(manager.initialLoadComplete.value)
+        assertEquals(LocationNotesManager.State.READY, manager.state.value)
+        assertTrue(manager.notes.value.isEmpty())
+        assertFalse(manager.relaysSlow.value)
+        advanceTimeBy(2 * LocationNotesManager.INITIAL_LOAD_FALLBACK_MS)
+        runCurrent()
+        assertFalse(manager.relaysSlow.value)
+    }
+
+    @Test
+    fun `an event before any eose completes the load and later events still append`() = runTest(dispatcher) {
+        manager.setGeohash(geohash)
+
+        deliver(note)
+        assertTrue(manager.initialLoadComplete.value)
+        assertEquals(LocationNotesManager.State.READY, manager.state.value)
+
+        endOfStoredEvents.last()()
+        val later = syntheticNote("later")
+        deliver(later)
+
+        assertEquals(setOf(note.id, later.id), manager.notes.value.map { it.id }.toSet())
+        assertEquals(LocationNotesManager.State.READY, manager.state.value)
+    }
+
+    @Test
+    fun `notes arriving after the fallback clear relaysSlow`() = runTest(dispatcher) {
+        manager.setGeohash(geohash)
+        advanceTimeBy(LocationNotesManager.INITIAL_LOAD_FALLBACK_MS)
+        runCurrent()
+        assertTrue(manager.relaysSlow.value)
+
+        deliver(note)
+
+        assertFalse(manager.relaysSlow.value)
+        assertEquals(listOf(note.id), manager.notes.value.map { it.id })
+    }
+
+    @Test
+    fun `eose for a previous geohash is ignored`() = runTest(dispatcher) {
+        manager.setGeohash(geohash)
+        val stale = endOfStoredEvents.first()
+
+        manager.setGeohash("s0000001")
+        stale()
+
+        assertFalse(manager.initialLoadComplete.value)
+        assertEquals(LocationNotesManager.State.LOADING, manager.state.value)
+    }
+
+    @Test
+    fun `stop cancels the fallback`() = runTest(dispatcher) {
+        manager.setGeohash(geohash)
+
+        manager.stop()
+        advanceTimeBy(2 * LocationNotesManager.INITIAL_LOAD_FALLBACK_MS)
+        runCurrent()
+
+        assertFalse(manager.relaysSlow.value)
     }
 }
