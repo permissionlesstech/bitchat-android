@@ -71,10 +71,10 @@ data class DebugSettingsUiState(
  * (DA15) and node drags (DA25) stay in the UI.
  */
 sealed interface DebugSettingsAction {
-    /** The screen entered composition: open the mesh, start the poll, mark Debug visible. */
+    /** The screen started: start the poll and the relay sampler, mark Debug visible. */
     data object ScreenShown : DebugSettingsAction
 
-    /** The screen left composition: stop the poll, mark Debug hidden. */
+    /** The screen stopped or left: stop the poll and the relay sampler, mark Debug hidden. */
     data object ScreenHidden : DebugSettingsAction
 
     /** DA1 */

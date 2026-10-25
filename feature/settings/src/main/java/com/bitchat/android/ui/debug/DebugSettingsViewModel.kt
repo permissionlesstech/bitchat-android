@@ -32,8 +32,9 @@ import kotlinx.coroutines.withContext
  * Debug's state and the writes behind its controls.
  *
  * The state follows the manager's flows, the Wi-Fi Aware status and the gossip
- * graph. While the screen is shown ([DebugSettingsAction.ScreenShown] until
- * [DebugSettingsAction.ScreenHidden]) one job marks Debug visible and polls
+ * graph. While the screen is shown, which the Root reports as started
+ * ([DebugSettingsAction.ScreenShown] until [DebugSettingsAction.ScreenHidden],
+ * so the background pauses it, B3), one job marks Debug visible and polls
  * once a second (inventory DE1, DE3), looking up the running mesh on every
  * poll. With no mesh it shows "no mesh" and never creates one (B1). The
  * relay graph's sampler runs alongside it, once a second, so the graph and its

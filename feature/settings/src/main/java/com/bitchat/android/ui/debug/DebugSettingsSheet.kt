@@ -42,7 +42,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.core.ui.component.screen.BitchatScreenTopBar
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
@@ -188,19 +188,18 @@ fun DebugSettingsRoot(
     modifier: Modifier = Modifier,
     viewModel: DebugSettingsViewModel = hiltViewModel(),
 ) {
-    // CREATED, not STARTED: the screen has always kept reading in the background,
-    // and its relay card samples what it reads.
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.CREATED)
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     ObserveAsEvents(viewModel.events) { event ->
         when (event) {
             DebugSettingsEvent.Close -> onClose()
         }
     }
-    // While composed, the background included; a rotation hides then shows it again.
-    DisposableEffect(Unit) {
+    // B3: shown only while started, so the poll, the relay sampler and the visibility
+    // pause in the background and when Debug is left. A rotation stops then starts it again.
+    LifecycleStartEffect(Unit) {
         viewModel.onAction(DebugSettingsAction.ScreenShown)
-        onDispose { viewModel.onAction(DebugSettingsAction.ScreenHidden) }
+        onStopOrDispose { viewModel.onAction(DebugSettingsAction.ScreenHidden) }
     }
 
     // Onboarding only asks for these when the toggle is already on, and it defaults to off,
