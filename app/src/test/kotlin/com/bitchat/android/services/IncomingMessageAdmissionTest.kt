@@ -276,6 +276,30 @@ class IncomingMessageAdmissionTest {
         assertTrue(state.getPrivateChatsValue().isEmpty())
     }
 
+    @Test
+    fun `public flood from one peer is hidden while private messages still arrive`() {
+        val peer = "flood-${UUID.randomUUID()}"
+        val admitted = (1..7).map { index ->
+            IncomingMessageAdmission.admitToAppState(
+                BitchatMessage(
+                    id = "$peer-$index",
+                    sender = "flooder",
+                    content = "hi $index",
+                    timestamp = Date(),
+                    senderPeerID = peer
+                )
+            )
+        }
+
+        assertEquals(listOf(true, true, true, true, true, true, false), admitted)
+        assertFalse(AppStateStore.publicMessages.value.any { it.id == "$peer-7" })
+        assertTrue(
+            IncomingMessageAdmission.admitToAppState(
+                privateMessage(id = "$peer-dm").copy(senderPeerID = peer)
+            )
+        )
+    }
+
     private fun privateMessage(id: String) = BitchatMessage(
         id = id,
         sender = "alice",

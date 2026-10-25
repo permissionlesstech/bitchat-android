@@ -3,6 +3,7 @@ package com.bitchat.android.nostr
 import android.app.Application
 import android.util.Log
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.spam.SpamFilter
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,7 +15,7 @@ import java.util.Date
  * GeohashMessageHandler
  * - Processes kind=20000 Nostr events for geohash channels
  * - Updates repository for participants + nicknames
- * - Emits messages to MessageManager
+ * - Hides spam via [SpamFilter], then emits messages to MessageManager
  */
 class GeohashMessageHandler(
     private val application: Application,
@@ -111,6 +112,11 @@ class GeohashMessageHandler(
                         if (hasNonce) NostrProofOfWork.calculateDifficulty(event.id).takeIf { it > 0 } else null
                     } catch (_: Exception) { null }
                 )
+                val verdict = SpamFilter.shared.check(msg, SpamFilter.nostrSenderKey(pubkey))
+                if (verdict.isSpam) {
+                    Log.d(TAG, "Hiding geohash message ${event.id.take(8)}...: $verdict")
+                    return@launch
+                }
                 addChannelMessage("geo:$subscribedGeohash", msg)
             } catch (e: Exception) {
                 Log.e(TAG, "onEvent error: ${e.message}")
