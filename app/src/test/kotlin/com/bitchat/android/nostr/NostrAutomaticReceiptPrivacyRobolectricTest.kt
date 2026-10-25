@@ -100,7 +100,7 @@ class NostrAutomaticReceiptPrivacyRobolectricTest {
         val manager = PrivateChatManager(state, MessageManager(state), data, mock<NoiseSessionDelegate>())
         handler = NostrDirectMessageHandler(
             application, state, manager, { _, _ -> }, scope,
-            GeohashRepository(application, state, data), data
+            GeohashRepository(application, state, data, scope), data
         ) { seenStore }
     }
 
@@ -197,7 +197,7 @@ class NostrAutomaticReceiptPrivacyRobolectricTest {
         val receiptHandler = NostrDirectMessageHandler(
             application, state, mock<PrivateChatManager>(),
             { id, status -> observed.add(id to status) }, scope,
-            GeohashRepository(application, state, data), data
+            GeohashRepository(application, state, data, scope), data
         ) { seenStore }
         val conversation = "nostr_${peer.publicKeyHex.take(16)}"
         for (geohash in listOf("00000", "")) {
@@ -241,6 +241,27 @@ class NostrAutomaticReceiptPrivacyRobolectricTest {
         assertTrue(seenStore.hasDelivered("fresh-id"))
         // This replay checks duplicate silence; the preseeded IDs above isolate the store guard.
         inbound(a, "fresh-id")
+        assertTrue(outbound.isEmpty())
+    }
+
+    @Test(timeout = 10000)
+    fun openConversationSendsDeliveryAndReadReceiptsWithRandomHeaders() {
+        state.setSelectedPrivateChatPeer("nostr_${peer.publicKeyHex.take(16)}")
+        inbound(a, "open-conversation-id")
+        assertEquals(2, outbound.size)
+        val delivered = captured(a)
+        val read = captured(a)
+        val meshBytes = byteArrayOf(1, 35, 69, 103, -119, -85, -51, -17)
+        assertFalse(delivered.senderID.contentEquals(meshBytes))
+        assertFalse(read.senderID.contentEquals(meshBytes))
+        assertFalse(delivered.senderID.contentEquals(read.senderID))
+        val deliveredPayload = requireNotNull(NoisePayload.decode(delivered.payload))
+        val readPayload = requireNotNull(NoisePayload.decode(read.payload))
+        assertEquals(NoisePayloadType.DELIVERED, deliveredPayload.type)
+        assertEquals(NoisePayloadType.READ_RECEIPT, readPayload.type)
+        assertEquals("open-conversation-id", String(deliveredPayload.data, Charsets.UTF_8))
+        assertEquals("open-conversation-id", String(readPayload.data, Charsets.UTF_8))
+        assertTrue(seenStore.hasBeenReadLocally("open-conversation-id"))
         assertTrue(outbound.isEmpty())
     }
 
