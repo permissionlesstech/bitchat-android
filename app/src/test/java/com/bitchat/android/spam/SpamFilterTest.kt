@@ -359,4 +359,74 @@ class SpamFilterTest {
         val b = RepetitionDetector.normalize("the corner bakery is open until eight", 1000)
         assertTrue(RepetitionDetector.align(a, b).score < 0.6)
     }
+
+    private val disguiseBase = "Free sats for everyone, claim yours now"
+
+    /** The same text a reader sees, written so that a plain comparison would miss it. */
+    private val disguises = mapOf(
+        "zero-width spaces" to disguiseBase.map { "$it​" }.joinToString(""),
+        "mixed invisible characters" to disguiseBase.mapIndexed { i, c ->
+            "$c" + listOf("‌", "‍", "⁠", "­", "‎")[i % 5]
+        }.joinToString(""),
+        "an accent on every letter" to disguiseBase.map { if (it.isLetter()) "$it́" else "$it" }.joinToString(""),
+        "math bold letters" to disguiseBase.map { c ->
+            when (c) {
+                in 'a'..'z' -> String(Character.toChars(0x1D41A + (c - 'a')))
+                in 'A'..'Z' -> String(Character.toChars(0x1D400 + (c - 'A')))
+                else -> "$c"
+            }
+        }.joinToString(""),
+        "fullwidth letters" to disguiseBase.map { c -> if (c in '!'..'~') (c.code + 0xFEE0).toChar() else c }.joinToString(""),
+        "non-breaking spaces" to disguiseBase.replace(' ', ' ')
+    )
+
+    @Test
+    fun `normalization folds disguises to the text a reader sees`() {
+        val plain = RepetitionDetector.normalize(disguiseBase, 1000).toList()
+        disguises.forEach { (label, text) ->
+            assertEquals(label, plain, RepetitionDetector.normalize(text, 1000).toList())
+        }
+    }
+
+    @Test
+    fun `disguised copies from other users are still caught`() {
+        disguises.forEach { (label, text) ->
+            val fresh = SpamFilter(clock = { now })
+            repeat(3) { fresh.check("npub$it", "$label-$it", disguiseBase, now) }
+            assertEquals(label, SpamVerdict.REPEATED_ACROSS_USERS, fresh.check("npub9", "$label-x", text, now))
+        }
+    }
+
+    @Test
+    fun `disguised copies from the same user are still caught`() {
+        disguises.forEach { (label, text) ->
+            val fresh = SpamFilter(clock = { now })
+            fresh.check("alice", "$label-1", disguiseBase, now)
+            fresh.check("alice", "$label-2", disguiseBase, now)
+            assertEquals(label, SpamVerdict.REPEATED_MESSAGE, fresh.check("alice", "$label-3", text, now))
+        }
+    }
+
+    @Test
+    fun `invisible characters cannot break up a repeated character run`() {
+        assertEquals(SpamVerdict.REPEATED_CHARACTERS, send("A​".repeat(40)))
+    }
+
+    @Test
+    fun `ordinary text with accents and other scripts is still allowed`() {
+        listOf(
+            "Tiếng Việt có dấu, chúng tôi đang ở quán cà phê gần chợ",
+            "क्या कोई पास में चाय की दुकान जानता है? मैं स्टेशन के पास हूँ",
+            "Café au lait, crème brûlée, s'il vous plaît",
+            "家族と一緒に駅の近くのカフェにいます、誰か来ますか"
+        ).forEachIndexed { i, text -> assertEquals(text, SpamVerdict.ALLOWED, send(text, sender = "user$i")) }
+    }
+
+    @Test
+    fun `different sentences in another script are not mistaken for copies`() {
+        assertEquals(SpamVerdict.ALLOWED, send("क्या कोई पास में चाय की दुकान जानता है?", sender = "a"))
+        assertEquals(SpamVerdict.ALLOWED, send("मैं स्टेशन के पास हूँ, बारिश हो रही है", sender = "b"))
+        assertEquals(SpamVerdict.ALLOWED, send("आज बाज़ार कितने बजे बंद होगा?", sender = "c"))
+        assertEquals(SpamVerdict.ALLOWED, send("क्या किसी के पास छाता है जो मैं ले सकूँ?", sender = "d"))
+    }
 }

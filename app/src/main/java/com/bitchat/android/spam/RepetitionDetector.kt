@@ -1,19 +1,58 @@
 package com.bitchat.android.spam
 
+import java.text.Normalizer
+
 /**
  * Character autocorrelation measures for repeated-content spam.
  *
- * Text is compared as Unicode code points after [normalize], so case, spacing and emoji
- * surrogate pairs don't hide a repeat.
+ * Text is compared as Unicode code points after [normalize], so case, spacing, look-alike
+ * letters, accents and invisible characters don't hide a repeat.
  */
 internal object RepetitionDetector {
 
-    private val WHITESPACE = Regex("\\s+")
-
-    /** Lowercases, collapses whitespace and caps the length to [maxLength] code points. */
+    /**
+     * Folds a message to what a reader sees, for comparison only (never for display): NFKD
+     * turns fullwidth and math-styled letters into plain ones and splits off accents, then
+     * combining marks and invisible characters are dropped, whitespace runs become one space
+     * and the result is lowercased and capped to [maxLength] code points.
+     */
     fun normalize(text: String, maxLength: Int): IntArray {
-        val codePoints = text.lowercase().replace(WHITESPACE, " ").trim().codePoints().toArray()
-        return if (codePoints.size > maxLength) codePoints.copyOf(maxLength) else codePoints
+        // Disguises at most a few code units per visible character; bound the work up front.
+        val head = if (text.length > maxLength * 4) text.substring(0, maxLength * 4) else text
+        val decomposed = Normalizer.normalize(head, Normalizer.Form.NFKD)
+        val out = IntArray(minOf(maxLength, decomposed.length))
+        var size = 0
+        var pendingSpace = false
+        var offset = 0
+        while (offset < decomposed.length && size < out.size) {
+            val point = decomposed.codePointAt(offset)
+            offset += Character.charCount(point)
+            when {
+                isMark(point) || isInvisible(point) -> continue
+                isWhitespace(point) -> pendingSpace = size > 0
+                else -> {
+                    if (pendingSpace && size < out.size - 1) out[size++] = ' '.code
+                    pendingSpace = false
+                    out[size++] = Character.toLowerCase(point)
+                }
+            }
+        }
+        return out.copyOf(size)
+    }
+
+    private fun isWhitespace(point: Int): Boolean =
+        Character.isWhitespace(point) || Character.isSpaceChar(point)
+
+    /** Zero-width and direction controls, soft hyphens and other non-printing characters. */
+    private fun isInvisible(point: Int): Boolean =
+        Character.getType(point) == Character.FORMAT.toInt() ||
+            (Character.isISOControl(point) && !isWhitespace(point))
+
+    private fun isMark(point: Int): Boolean = when (Character.getType(point)) {
+        Character.NON_SPACING_MARK.toInt(),
+        Character.COMBINING_SPACING_MARK.toInt(),
+        Character.ENCLOSING_MARK.toInt() -> true
+        else -> false
     }
 
     /**
