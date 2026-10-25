@@ -155,8 +155,7 @@ class LocationNotesManager private constructor() {
         _errorMessage.value = null
         
         // Clear notes
-        _notes.value = emptyList()
-        noteIDs.clear()
+        clearNotes()
         _geohash.value = normalized
         
         // Compute target geohashes: center + neighbors (±1)
@@ -196,8 +195,7 @@ class LocationNotesManager private constructor() {
         cancel()
         if (!LiveLocationPrivacyGate.accepts(token)) return
         liveLocationToken = token
-        _notes.value = emptyList()
-        noteIDs.clear()
+        clearNotes()
         _initialLoadComplete.value = false
         // Rebuild subscribedGeohashes and resubscribe
         val neighbors = try {
@@ -488,6 +486,17 @@ class LocationNotesManager private constructor() {
     }
     
     /**
+     * Drop the shown notes. Their ids are also forgotten by the relay manager's
+     * global deduplicator, otherwise a later subscription in this process could
+     * never receive the same stored notes again.
+     */
+    private fun clearNotes() {
+        NostrEventDeduplicator.getInstance().forget(noteIDs)
+        noteIDs.clear()
+        _notes.value = emptyList()
+    }
+
+    /**
      * Clear error message - matches iOS clearError()
      */
     fun clearError() {
@@ -524,8 +533,7 @@ class LocationNotesManager private constructor() {
         cancel()
         liveLocationToken = null
         _geohash.value = null
-        _notes.value = emptyList()
-        noteIDs.clear()
+        clearNotes()
         _initialLoadComplete.value = false
         _errorMessage.value = null
     }
