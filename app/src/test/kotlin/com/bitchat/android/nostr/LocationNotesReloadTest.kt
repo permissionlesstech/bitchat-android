@@ -192,4 +192,47 @@ class LocationNotesReloadTest {
 
         assertFalse(manager.relaysSlow.value)
     }
+
+    @Test
+    fun `a note dropped after a cell change can be delivered when returning`() {
+        manager.setGeohash(geohash)
+        val previousCellHandler = handlers.last()
+        // The relay manager marks the note seen, then queues the handler on Main
+        assertFalse(NostrEventDeduplicator.getInstance().isDuplicate(note.id))
+        manager.setGeohash("s0000zzz")
+        previousCellHandler(note)
+
+        manager.setGeohash(geohash)
+        deliver(note)
+
+        assertEquals(listOf(note.id), manager.notes.value.map { it.id })
+    }
+
+    @Test
+    fun `a note dropped after stop can be delivered on the next open`() {
+        manager.setGeohash(geohash)
+        val handler = handlers.last()
+        assertFalse(NostrEventDeduplicator.getInstance().isDuplicate(note.id))
+        manager.stop()
+        handler(note)
+
+        manager.setGeohash(geohash)
+        deliver(note)
+
+        assertEquals(listOf(note.id), manager.notes.value.map { it.id })
+    }
+
+    @Test
+    fun `eose from before a refresh does not complete the new load`() = runTest(dispatcher) {
+        manager.setGeohash(geohash)
+        val beforeRefresh = endOfStoredEvents.first()
+
+        manager.refresh()
+        beforeRefresh()
+
+        assertFalse(manager.initialLoadComplete.value)
+        assertEquals(LocationNotesManager.State.LOADING, manager.state.value)
+        endOfStoredEvents.last()()
+        assertTrue(manager.initialLoadComplete.value)
+    }
 }

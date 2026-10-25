@@ -105,6 +105,8 @@ class LocationNotesManager private constructor() {
     private var liveLocationToken: Long? = null
     private var subscribeRetryJob: Job? = null
     private var initialLoadJob: Job? = null
+    // Bumped on every subscribe and cancel, so an older subscription's EOSE is ignored
+    private var loadGeneration = 0L
 
     init {
         LiveLocationPrivacyGate.addRevocationListener(::stop)
@@ -374,6 +376,7 @@ class LocationNotesManager private constructor() {
         }
 
         _state.value = State.LOADING
+        val generation = ++loadGeneration
         
         // Subscribe for each geohash in the ±1 set
         subscribedGeohashes.forEach { gh ->
@@ -391,7 +394,7 @@ class LocationNotesManager private constructor() {
                         filter,
                         subId,
                         { event -> handleEvent(event) },
-                        { handleEndOfStoredEvents(currentGeohash, token) }
+                        { handleEndOfStoredEvents(generation, token) }
                     )
                 }
                 id?.let { subscriptionIDs[gh] = it }
@@ -415,10 +418,10 @@ class LocationNotesManager private constructor() {
 
     /**
      * A relay sent all stored notes it has for one of the subscriptions.
-     * Ignored when it belongs to an earlier geohash or consent changed since.
+     * Ignored when it belongs to an earlier subscription or consent changed since.
      */
-    private fun handleEndOfStoredEvents(subscribedGeohash: String, token: Long) {
-        if (_geohash.value != subscribedGeohash ||
+    private fun handleEndOfStoredEvents(generation: Long, token: Long) {
+        if (generation != loadGeneration ||
             !LiveLocationPrivacyGate.accepts(token) ||
             _initialLoadComplete.value
         ) return
@@ -438,7 +441,10 @@ class LocationNotesManager private constructor() {
      */
     private fun handleEvent(event: NostrEvent) {
         val token = liveLocationToken
-        if (token == null || !LiveLocationPrivacyGate.accepts(token)) return
+        if (token == null || !LiveLocationPrivacyGate.accepts(token)) {
+            forgetDroppedEvent(event)
+            return
+        }
 
         // Validate event
         if (event.kind != NostrKind.TEXT_NOTE) {
@@ -461,6 +467,7 @@ class LocationNotesManager private constructor() {
         // Check if matches current geohash
         val eventGeohash = geohashTag[1]
         if (!subscribedGeohashes.contains(eventGeohash)) {
+            forgetDroppedEvent(event)
             return
         }
         
@@ -499,6 +506,14 @@ class LocationNotesManager private constructor() {
         _state.value = State.READY
     }
     
+    /**
+     * The relay manager marked this event seen before it reached us; a note that
+     * arrives after its subscription ended must stay deliverable to the next one.
+     */
+    private fun forgetDroppedEvent(event: NostrEvent) {
+        NostrEventDeduplicator.getInstance().forget(listOf(event.id))
+    }
+
     /**
      * Trim oldest notes to stay within memory limit
      */
@@ -552,6 +567,7 @@ class LocationNotesManager private constructor() {
             subscriptionIDs.clear()
         }
         subscribedGeohashes = emptySet()
+        loadGeneration++
         _relaysSlow.value = false
         _state.value = State.IDLE
     }
