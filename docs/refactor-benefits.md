@@ -28,6 +28,11 @@ These existed in upstream before the refactor.
 | Rarely, a spinner with no buttons after a permission dialog. | The step is recomputed whenever onboarding opens. | 9 (F3) |
 | A skipped battery step came back when a new optional permission was asked; the Bluetooth skip was ignored on the same path. | Both skips are honoured. | 9 (F6) |
 | Turning Bluetooth off during first launch jumped away from the permission explanation mid-dialog. | Radio changes wait until the permission step ends. | 9 (F11) |
+| Debug opened or replaced the mesh service; after a panic clear it kept showing the old one. | It shows the current mesh, or says there is none, and never creates one. | 10a (B1) |
+| Debug's relay graph stopped when scrolled off-screen, its legend nicknames never refreshed and colours changed on rotation. | It samples the whole time Debug is shown; nicknames refresh; colours are stable. | 10a (B2) |
+| Debug kept polling and sampling while the app was in the background. | It pauses when Debug is not on screen. The graph shows a gap. | 10a (B3) |
+| About's Tor status card did not follow the Tor switch. | It follows the switch and changes made elsewhere. | 10a (R1) |
+| A location note's draft was cleared even when sending failed, and lost on rotation. | The draft is kept until the send succeeds and survives rotation. | 10a (F3) |
 | Back handling registered a new callback on every recomposition. | One `BackHandler`. | Groundwork (#912) |
 
 The Phase 9 rows link to their commits in "What Phase 9 fixed" in `refactor-decisions.md`.
@@ -76,7 +81,10 @@ kept out of the refactor so it changes no behaviour it did not have to. Details 
 | Onboarding | About 300 lines of private functions in `MainActivity`, five helpers holding the Activity | One MVI view model in `:feature:onboarding`, one pure `nextStep` function, one startup gate |
 | Dependency injection | Hand-built objects and static `getInstance()` calls | Hilt, with the graph checked at compile time |
 | Navigation | Visibility flags in view models | Typed, serializable Navigation 3 routes on one back stack |
-| Device tests | None | 64: Back behaviour, every sheet opener, saved state, onboarding |
+| Device tests | None | 64 in `:app` and `:feature:chat`, plus one suite per feature (settings 5, location 2, share 3): Back behaviour, every sheet opener, saved state, onboarding, screens |
+| Screens (10a) | About, Debug, Location Notes and the APK section ran logic in composables and called singletons; Hotspot and the APK section had their own shapes | All on one shape: `uiState`, `onAction`, `events`; three ViewModels added (`AboutViewModel`, `DebugSettingsViewModel`, `LocationNotesViewModel`), three reshaped |
+| `TransportDiagnostics` | 23 members | 13 |
+| Unit tests (10a) | 891 | 1076 |
 | Module rules | Unwritten | `FeatureDependencyRulesTest` fails when a feature depends on another feature, an `:api` module grows dependencies, or `:core:tor` gains one |
 | Watch crypto | Tink 1.8.0 | Tink 1.23.0, the phone's version |
 | Watch theme | Its own copy of the palette, peer-color hash and fonts | The shared `:core:designsystem` base |

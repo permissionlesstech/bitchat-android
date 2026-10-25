@@ -520,7 +520,7 @@ or 9.
 
 Phase 9 moved to section 3 when it finished. What it left open is in section 5.
 
-### Phase 10: MVI on every screen (in progress)
+### Phase 10: MVI on every screen (10a done; 10b and 10c to come)
 
 #### MVI shape
 
@@ -535,12 +535,101 @@ Every screen follows `ChatUserViewModel`'s shape.
 
 
 Planned scope: every screen exposes one UI state and takes actions, as the chat screen and
-private chat already do. Onboarding already does, since Phase 9. Phase 8 named this as the
-natural point to slim `TransportDiagnostics`.
+private chat already do. Phase 10 is in three parts. **10a** (done, branch
+`phase10a/mvi-small-screens`): About, Debug, Location Notes, Hotspot, the APK share section,
+Onboarding's naming, and a slimmer `TransportDiagnostics`. **10b** (to come): the peer list and
+the location channels sheet. **10c** (to come, own spec): the project's singletons become Hilt
+classes.
+
+#### Phase 10a decisions
 
 | Decision | Why | Alternatives rejected | Cost / what to watch |
 |---|---|---|---|
-| *To be filled in* | | | |
+| One shape for every screen: `uiState`, `onAction`, and `events` only where there is one-shot work (see "MVI shape"). | The maintainer reads one pattern; logic that hid in composables is now unit-tested code. | Keeping each screen's own shape. | Three more ViewModels to maintain. |
+| Root plus a stateless Screen, with light and dark previews built from fake UI states. | Screens can be tested and previewed without Hilt, singletons or `LocalContext` lookups. | Screens that take the ViewModel. | Preview fakes live in `src/main`, marked `internal`. |
+| Characterization tests first, then the move, then ViewModel tests; one device test per screen. | The restructure commits change no behaviour; a failing test shows where one did. | Writing the tests after the move. | The Debug ViewModel tests were written after the code, not red first. |
+| Screen tests live in each feature's own `src/androidTest`. `AGENTS.md` now says `:app` keeps only the app-wiring device tests. | `XScreen`, `XUiState` and the preview fakes stay `internal`. | Keeping every device test in `:app`. | `gate.sh` has one install-and-instrument block per feature APK. |
+| `ObserveAsEvents` moved to `:core:designsystem:phone`, same package. | Settings, location and share all need it; no import changed. | One copy per feature. | It collects only while STARTED, so an event sent while the screen is stopped waits (this removes Q-K2). |
+| Singletons are reached through feature-side ports with adapters in `:app`, or a `@Provides` that returns the existing instance. No singleton class changed. | ViewModels take everything in their constructor and tests can fake it. | Converting the singletons now (that is 10c). | The adapters must keep working when 10c swaps `getInstance()` for injection. |
+| Hotspot stays a separate Activity, with `HotspotRoot` and a stateless `HotspotScreen`. The APK path comes from `SavedStateHandle`. | It is launched by intent with an APK path and has its own task semantics. | Making it a Nav3 route. | `HotspotScreen` takes two extra defaulted parameters (`showPermissionRationale`, `onCopy`) so the clipboard and permission request stay in the Root. |
+| Hotspot test seams first: factories for `HotspotManager` and `ApkWebServer`, the 10 s fallback driven by `ShadowLooper`. | The teardown lease logic was untestable. | Testing through the real radio classes. | None. |
+| `TransportDiagnostics` and `MeshDiagnostics` slimmed from 23 to 13 members: one Wi-Fi Aware status flow, one discovered-peers map, one `snapshot()`, `setGattServerRunning` and `setGattClientRunning`. The old total is 23, not the 24 the survey counted. | The wide port was the thing Phase 8 flagged. The mesh calls underneath are the same calls. | Moving `BluetoothMeshService` out of `:app`. | `MeshSnapshot.assemble` is a public function in the port file so the app and the tests build the snapshot the same way. |
+| `DebugSettingsManager` mirrors stay; the 1 Hz poll still writes them and the lists still read them. | Refresh timing is unchanged (QD12, QD13 listed). | Reading the port's flows directly in the lists. | Two copies of the same data. |
+| The relay graph's mode and series moved into `DebugSettingsViewModel` (`RelayGraphModeSelected`, kept in `SavedStateHandle` like the old `rememberSaveable`). | The sampler needs the mode on every tick under B2. | Mode stays UI-local, as the plan said. | `GraphMode` and `RelayGraphSeries` are now public. |
+| `CombinedStateFlow` in `app/.../di/` derives a StateFlow without a scope. | The adapter has no scope, and `stateIn` could serve a stale first value. | `stateIn` with an app scope. | It opts into `ExperimentalForInheritanceCoroutinesApi`; a coroutines bump may change it. |
+| Effects tied to the screen being shown stay in the Root: Debug's `LifecycleStartEffect`, and Location Notes' `activate`, `reveal`, `deactivate` pair. | Those effects are tied to the screen being shown, not to ViewModel lifetime. | Moving them into the ViewModel. | Q-N8 (flicker) stays. |
+| `LocationNotesManager.send()` is now `suspend` and returns a result. The notes screen is its only caller. | F3 needs a real success or failure; the old code returned silently on several paths. | A boolean on the existing call. | A `:core:nostr` API change with no relay or wire change, so no Mesh Lab. |
+| Debug stays reachable in release builds. | Moe: it is left in for people to use. | Hiding it. | None; intentional. |
+
+#### What Phase 10a changed
+
+Behaviour changes, each its own commit and revertable alone (except F3, below).
+
+| ID | Before | After |
+|---|---|---|
+| B1 | Opening Debug could create or replace the mesh service; after a panic clear it kept showing the old one. | Debug follows the current mesh and never creates one; with none running it says so. Removes QD1, QD2. |
+| B2 | The relay graph stopped when scrolled off-screen; legend nicknames never refreshed; colours changed after rotation. | It samples the whole time Debug is shown. Nicknames refresh; colours are stable. Removes QD3, QD4, QD17. |
+| B3 | Debug kept polling, sampling and counting relay stats in the background. | All three pause when Debug is not on screen and resume on return; the graph shows a gap. |
+| R1 | About's Tor status card did not follow the Tor switch (QA1). | It follows the switch, and a change made elsewhere shows up (QA2 goes with it). |
+| F3 | A note's draft was cleared even when sending failed, and lost on rotation (Q-N3). | The draft is kept until `send()` succeeds, and survives rotation. A second tap during a send is ignored; the draft is cleared on success only if unchanged. |
+
+Removed by construction (not reproduced first): Q-K2 (events now wait while the screen is
+stopped), Q-K4 (file reads moved to `Dispatchers.IO`), QA7 (version name and the locale parse
+moved off Main), QD5 (duplicate address-map read; the legend uses the latest poll snapshot, up
+to 1 s old), QD11 (a poll exception no longer crashes), Q-H10 (generic composable names are now
+private), Q-N1 and Q-N2 (dead parameters dropped).
+
+Notes a reader should know:
+- **Q-K4 leftover.** `getPartialDownloadProgress()` in `startDownload` stays on Main; moving it
+  changes the visible status ordering. One small file stat remains.
+- **QA7 first frame.** About shows an empty version and the "System default" language label for
+  a few ms, until the IO read lands. The language row is on the non-default tab. Fix, if it
+  shows: seed the tag synchronously.
+- **QA5.** `PoWPreferenceManager.init` moved into `AboutViewModel`'s init rather than being
+  dropped: `AppInitializer` runs from the startup gate, so it is not provably first. Idempotent.
+- **Q-N16 (new).** Location Notes' `locationEnabled` starts false, so the gate sees "disabled"
+  and then the real value on every open. Reproduced, not fixed.
+- **F3 split.** The draft surviving rotation landed in the Location Notes restructure commit
+  (`d91f50fd`), not in F3's commit, so reverting F3 alone keeps that half.
+- **Collection state.** Between B2 and B3 the Debug Root collected with
+  `minActiveState = CREATED`, so the relay card kept sampling in the background as before; B3
+  reverted it to the default.
+- **Legend map** can lag the poll by up to 1 s (QD5).
+
+Listed, not fixed, per screen:
+- **APK share section:** Q-K1 stale toast, Q-K3 share dialog inside `AnimatedVisibility`, Q-K8
+  Activity cast and Activity-scoped ViewModel, Q-K9 double tap. K10's success path is not
+  JVM-covered.
+- **Onboarding:** names only; no behaviour change.
+- **Hotspot:** Q-H1 `STOP_HOTSPOT` is dead code, Q-H4 auto-start rule, Q-H5 clipboard API, Q-H6
+  tab is a plain `remember`, Q-H12 double `Intro` in retry.
+- **About:** QA6 background and live-voice read once per visit, QA8 language tick matching,
+  QA9 hard-coded English, QA10 PoW writes on every step, QA13 picker state local. A5's
+  `locales_config` parse has no JVM test (no Android resources).
+- **Debug:** QD6 series not reset on mode switch, QD7 stale last-second rate, QD9 sliders save on
+  every step, QD12 and QD13 mirrors, QD19 hard-coded English, QD20 empty `if` blocks. A test
+  leaves a stale per-peer map in the `DebugSettingsManager` singleton, which has no reset.
+- **Location Notes:** Q-N3 (now fixed by F3), Q-N4 and Q-N12 time text, Q-N5 "Enable Location"
+  never asks for permission, Q-N8 flicker, Q-N10 name truncation, Q-N11 send enabled with no
+  relays. N15 (`LocationNotesButton`, in `:feature:chat`) is not covered.
+
+Tests: JVM 891 to 1076 (3 skipped). Device: app 63, chat 1, settings 5, location 2, share 3
+(the three feature suites were 1 each at the start). New: `AboutViewModel`,
+`DebugSettingsViewModel`, `LocationNotesViewModel`; reshaped: `HotspotViewModel`,
+`ApkDownloadViewModel`, `OnboardingViewModel` (rename). The Mesh Lab was not run: no protocol,
+transport or foreground-service change.
+
+#### Follow-ups from Phase 10a
+
+- The chat screens stay unsplit and keep their singleton calls in Phase 10 (Moe's narrowing):
+  `ChatScreen.kt`, `PrivateChatScreen.kt`, `ChatHeader.kt`, `LocationNotesButton.kt`,
+  `MessageComponents.kt`, `media/AudioMessageItem.kt`, `MessageInteractionUtils.kt`,
+  `GeohashPickerActivity.kt` (no ViewModel) and `MeshGraph.kt` (a rendering-only
+  `DebugSettingsManager` read). 10c removes most of the `getInstance()` calls.
+- 10b: the peer list and the location channels sheet.
+- 10c: all project singletons become Hilt classes; Hilt in `:core:mesh`, `:core:nostr`,
+  `:core:tor`; `:wear` adopts Hilt and KSP. Needs Mesh Lab on two phones and its own spec.
+- Owed: the spec's "End of 10a" phone checklist.
 
 ### Phase 11: Wear shares UI with the phone (not started)
 
