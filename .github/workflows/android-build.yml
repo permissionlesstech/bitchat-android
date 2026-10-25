@@ -95,7 +95,7 @@ jobs:
           fi
           "$sdkmanager" "ndk;$ANDROID_NDK_VERSION"
           sudo apt-get update
-          sudo apt-get install -y autoconf automake libtool
+          sudo apt-get install -y autoconf automake libtool libltdl-dev
           ANDROID_NDK_HOME="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}/ndk/$ANDROID_NDK_VERSION" \
             bash tools/jna-build/build-android.sh
           cargo "+$RUST_VERSION" install cargo-ndk --version "$CARGO_NDK_VERSION" --locked

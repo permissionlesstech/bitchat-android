@@ -29,6 +29,7 @@ RUN source /tmp/TOOLCHAIN.env \
         ca-certificates \
         curl \
         git \
+        libltdl-dev \
         libtool \
         make \
         openjdk-17-jdk-headless \
