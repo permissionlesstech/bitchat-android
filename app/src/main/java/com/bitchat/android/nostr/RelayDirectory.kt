@@ -297,12 +297,18 @@ object RelayDirectory {
      * port 443 omitted. This parser does not implement iOS directory validation.
      */
     internal fun canonicalHost(url: String): String {
-        val hostPort = url.substringAfter("://").substringBefore("/")
+        val uri = try { java.net.URI(normalizeRelayUrl(url)) } catch (_: Exception) { return "" }
+        if (uri.scheme?.lowercase() !in setOf("wss", "https")) return ""
+        if (uri.rawUserInfo != null || uri.rawQuery != null || uri.rawFragment != null) return ""
+        if (!uri.rawPath.isNullOrEmpty() && uri.rawPath != "/") return ""
+        val hostPort = uri.rawAuthority ?: return ""
+        // Reject URL structure that cannot be represented by a directory endpoint key.
+        if (!hostPort.matches(Regex("[A-Za-z0-9.-]+(?::[0-9]+)?"))) return ""
         val idx = hostPort.lastIndexOf(':')
-        val hasPort = idx > 0 && idx < hostPort.length - 1 &&
-            hostPort.substring(idx + 1).all { it.isDigit() }
+        val hasPort = idx > 0
         val host = (if (hasPort) hostPort.substring(0, idx) else hostPort).lowercase()
         val port = if (hasPort) (hostPort.substring(idx + 1).toIntOrNull() ?: return "") else 443
+        if (port !in 1..65535) return ""
         return if (port == 443) host else "$host:$port"
     }
 
