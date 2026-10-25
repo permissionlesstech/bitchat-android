@@ -228,6 +228,14 @@ class SpamFilter(
         /** Process-wide filter shared by every transport and geohash handler. */
         val shared = SpamFilter()
 
+        /**
+         * True for notices this device generated itself, such as "X favorited you". Every message
+         * read off the wire carries the sender's peer ID; only local notices have none. The
+         * nickname is no signal, since any peer can call itself "system".
+         */
+        fun isLocalNotice(message: BitchatMessage): Boolean =
+            message.senderPeerID == null && message.sender == "system"
+
         /** Key for public mesh and mesh channel messages. */
         fun meshSenderKey(message: BitchatMessage): String =
             "mesh:" + (message.senderPeerID ?: message.sender)

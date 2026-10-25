@@ -45,7 +45,7 @@ internal object IncomingMessageAdmission {
     }
 
     private fun isHiddenAsSpam(message: BitchatMessage): Boolean {
-        if (message.sender == "system") return false
+        if (SpamFilter.isLocalNotice(message)) return false
         return SpamFilter.shared.shouldHide(message, SpamFilter.meshSenderKey(message))
     }
 }

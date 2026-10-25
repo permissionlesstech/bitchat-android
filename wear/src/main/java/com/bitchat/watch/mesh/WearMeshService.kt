@@ -239,7 +239,7 @@ class WearMeshService private constructor(private val context: Context) {
                 try { onPrivateMessage?.invoke(message) } catch (_: Exception) { }
                 true
             }
-            message.sender != "system" &&
+            !SpamFilter.isLocalNotice(message) &&
                 SpamFilter.shared.shouldHide(message, SpamFilter.meshSenderKey(message)) -> false
             message.channel != null -> {
                 AppStateStore.addChannelMessage(message.channel, message)
