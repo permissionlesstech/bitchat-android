@@ -430,6 +430,7 @@
     <string name="location_notes_no_relays_title">Ez dago geo-errelerik inguruan</string>
     <string name="location_notes_no_relays_desc">Oharrak geo-erreleen mende daude. Egiaztatu konexioa eta saiatu berriro.</string>
     <string name="loading_location_notes">Oharrak kargatzen…</string>
+    <string name="location_notes_relays_slow">Ezin da oraindik errelekin konektatu — saiatzen jarraitzen…</string>
     <string name="location_notes_empty_title">Oraindik ez dago oharrik</string>
     <string name="location_notes_empty_desc">Izan zaitez leku honetan ohar bat gehitzen lehena.</string>
     <string name="dismiss">Baztertu</string>

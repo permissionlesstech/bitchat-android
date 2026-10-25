@@ -330,6 +330,7 @@
   <string name="location_notes_no_relays_title">рядом нет гео-релеев</string>
   <string name="location_notes_no_relays_desc">заметки зависят от гео-релеев. проверьте подключение и повторите попытку.</string>
   <string name="loading_location_notes">загрузка заметок…</string>
+  <string name="location_notes_relays_slow">ретрансляторы пока недоступны — продолжаем попытки…</string>
   <string name="location_notes_empty_title">заметок пока нет</string>
   <string name="location_notes_empty_desc">станьте первым, кто добавит заметку для этого места.</string>
   <string name="dismiss">закрыть</string>

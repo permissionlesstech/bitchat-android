@@ -343,6 +343,7 @@
   <string name="location_notes_no_relays_title">आसपास कोई जियो रिले नहीं</string>
   <string name="location_notes_no_relays_desc">नोट्स जियो रिले पर निर्भर हैं। कनेक्शन जांचें और फिर से प्रयास करें।</string>
   <string name="loading_location_notes">नोट्स लोड हो रहे हैं…</string>
+  <string name="location_notes_relays_slow">रिले से अभी संपर्क नहीं हो पाया — कोशिश जारी है…</string>
   <string name="location_notes_empty_title">अभी कोई नोट नहीं</string>
   <string name="location_notes_empty_desc">इस स्थान के लिए पहला नोट जोड़ें।</string>
   <string name="dismiss">बंद करें</string>

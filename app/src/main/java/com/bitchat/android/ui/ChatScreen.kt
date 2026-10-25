@@ -125,7 +125,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     }
     val nearbyNotesRevealed by nearbyNotesController.revealed.collectAsStateWithLifecycle()
     val locationPermissionState by locationManager.permissionState.collectAsStateWithLifecycle()
-    val locationEnabled by locationManager.effectiveLocationEnabled.collectAsStateWithLifecycle(false)
+    val locationEnabled by locationManager.effectiveLocationEnabled.collectAsStateWithLifecycle()
     val availableLocationChannels by locationManager.availableChannels.collectAsStateWithLifecycle()
     val nearbyNotes by remember { LocationNotesManager.getInstance() }
         .notes

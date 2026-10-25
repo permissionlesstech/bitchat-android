@@ -368,6 +368,7 @@
   <string name="location_notes_no_relays_title">geen geo-relays in de buurt</string>
   <string name="location_notes_no_relays_desc">notities zijn afhankelijk van geo-relays. controleer de verbinding en probeer opnieuw.</string>
   <string name="loading_location_notes">notities laden…</string>
+  <string name="location_notes_relays_slow">relays nog niet bereikbaar — blijft proberen…</string>
   <string name="location_notes_empty_title">nog geen notities</string>
   <string name="location_notes_empty_desc">wees de eerste die een notitie voor deze plek toevoegt.</string>
   <string name="dismiss">sluiten</string>

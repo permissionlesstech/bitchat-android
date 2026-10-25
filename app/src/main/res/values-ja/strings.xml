@@ -343,6 +343,7 @@
   <string name="location_notes_no_relays_title">近くにジオリレーがありません</string>
   <string name="location_notes_no_relays_desc">メモはジオリレーに依存します。接続を確認して再試行してください。</string>
   <string name="loading_location_notes">メモを読み込み中…</string>
+  <string name="location_notes_relays_slow">まだリレーに接続できません — 再試行中…</string>
   <string name="location_notes_empty_title">まだメモはありません</string>
   <string name="location_notes_empty_desc">この場所の最初のメモを追加しましょう。</string>
   <string name="dismiss">閉じる</string>
