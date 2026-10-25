@@ -532,6 +532,7 @@ private fun SpamVerdict.debugLabel(): String = when (this) {
     SpamVerdict.LINK_RATE -> "too many links"
     SpamVerdict.REPEATED_MESSAGE -> "repeated message"
     SpamVerdict.REPEATED_CHARACTERS -> "repeated characters"
+    SpamVerdict.FORMATTING_ABUSE -> "formatting abuse"
 }
 
 @OptIn(ExperimentalFoundationApi::class)

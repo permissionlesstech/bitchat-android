@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
+import com.bitchat.android.spam.SpamFilter
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.DataManager
 import com.bitchat.android.ui.MessageManager
@@ -298,6 +299,32 @@ class IncomingMessageAdmissionTest {
                 privateMessage(id = "$peer-dm").copy(senderPeerID = peer)
             )
         )
+    }
+
+    @Test
+    fun `first formatting abuse message is excluded from public and channel state`() {
+        val filter = SpamFilter.shared
+        filter.reset()
+        try {
+            val message = BitchatMessage(
+                id = "formatting-public",
+                sender = "synthetic",
+                senderPeerID = "synthetic-peer",
+                content = "Example a" + "\u0301".repeat(40),
+                timestamp = Date(1L)
+            )
+            assertFalse(IncomingMessageAdmission.admitToAppState(message))
+            assertFalse(IncomingMessageAdmission.admitToAppState(
+                message.copy(id = "formatting-channel", channel = "#synthetic")
+            ))
+            assertTrue(AppStateStore.publicMessages.value.isEmpty())
+            assertTrue(AppStateStore.channelMessages.value.values.all { it.isEmpty() })
+            assertTrue(IncomingMessageAdmission.admitToAppState(
+                privateMessage(id = "formatting-private").copy(content = message.content)
+            ))
+        } finally {
+            filter.reset()
+        }
     }
 
     private fun privateMessage(id: String) = BitchatMessage(

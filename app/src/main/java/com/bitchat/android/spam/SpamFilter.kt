@@ -14,7 +14,8 @@ enum class SpamVerdict {
     CHARACTER_RATE,
     LINK_RATE,
     REPEATED_MESSAGE,
-    REPEATED_CHARACTERS;
+    REPEATED_CHARACTERS,
+    FORMATTING_ABUSE;
 
     val isSpam: Boolean get() = this != ALLOWED
 }
@@ -23,9 +24,9 @@ enum class SpamVerdict {
  * Decides whether an incoming public message should be hidden.
  *
  * Each sender gets three token buckets (messages, characters, links; see [SpamFilterConfig])
- * plus two repetition checks: a message that repeats itself internally, and a message that is a
- * near-copy of the sender's recent history. Hidden messages never spend tokens, but they do
- * enter the repetition history so a spammer cannot cycle the same text.
+ * plus repetition and stateless formatting-abuse checks. Hidden messages never spend tokens.
+ * Rate/repetition rejections enter the repetition history so a spammer cannot cycle the same
+ * text. Formatting abuse is rejected before repetition analysis or retention in sender history.
  *
  * Verdicts are remembered by message ID, so the same message arriving over BLE and Wi-Fi Aware,
  * or through both geohash handlers, is judged once and counted once.
@@ -113,6 +114,10 @@ class SpamFilter(
         if (!enabled) return SpamVerdict.ALLOWED
         synchronized(this) {
             verdicts[messageId]?.let { return it }
+
+            if (isText && FormattingAbuseDetector.isAbusive(content)) {
+                return SpamVerdict.FORMATTING_ABUSE.also { verdicts[messageId] = it }
+            }
 
             val now = clock()
             val oldestTrusted = now - config.maxBackdateMs

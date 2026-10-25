@@ -270,4 +270,51 @@ class SpamFilterTest {
         assertEquals(SpamFilterConfig(), SpamTuning.DEFAULT.toConfig())
         assertFalse(SpamTuning.DEFAULT.copy(linksPerMinute = 5).toConfig() == SpamFilterConfig())
     }
+
+    @Test
+    fun `formatting abuse is rejected without prior history and before character limits`() {
+        val examples = listOf(
+            "Example a" + "\u0301".repeat(40),
+            "\u200b\u200e".repeat(64),
+            "🚀🌈🎉".repeat(200),
+            "Synthetic repeated phrase. ".repeat(40),
+            prose(1_100) + "a" + "\u0301".repeat(40),
+            prose(8_193)
+        )
+        examples.forEachIndexed { index, content ->
+            assertEquals(SpamVerdict.FORMATTING_ABUSE, send(content, sender = "synthetic-$index"))
+        }
+    }
+
+    @Test
+    fun `formatting rejections are cached and leave sender tokens available`() {
+        val content = "Example a" + "\u0301".repeat(40)
+        repeat(10) { assertEquals(SpamVerdict.FORMATTING_ABUSE, send(content, id = "abuse-$it")) }
+        assertEquals(SpamVerdict.FORMATTING_ABUSE, send(content, id = "abuse-0"))
+        repeat(6) { assertEquals(SpamVerdict.ALLOWED, send()) }
+        assertEquals(SpamVerdict.MESSAGE_RATE, send())
+    }
+
+    @Test
+    fun `formatting checks respect the disabled filter and non text messages`() {
+        val content = "Example a" + "\u0301".repeat(40)
+        filter.enabled = false
+        assertEquals(SpamVerdict.ALLOWED, send(content))
+        filter.enabled = true
+        assertEquals(SpamVerdict.ALLOWED, filter.check("media", "media-1", content, now, isText = false))
+        assertEquals(SpamVerdict.FORMATTING_ABUSE, send(content))
+    }
+
+    @Test
+    fun `debug bypass records the formatting abuse verdict`() {
+        filter.debugBypass = true
+        val message = BitchatMessage(
+            id = "formatting-bypass",
+            sender = "synthetic",
+            content = "Example a" + "\u0301".repeat(40),
+            timestamp = java.util.Date(now)
+        )
+        assertFalse(filter.shouldHide(message, "synthetic"))
+        assertEquals(mapOf(message.id to SpamVerdict.FORMATTING_ABUSE), filter.flagged.value)
+    }
 }
