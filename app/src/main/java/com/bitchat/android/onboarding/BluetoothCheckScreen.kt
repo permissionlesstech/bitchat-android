@@ -32,7 +32,7 @@ fun BluetoothCheckScreen(
     val colorScheme = MaterialTheme.colorScheme
 
     Box(
-        modifier = modifier.padding(32.dp),
+        modifier = modifier.padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
         when (status) {
@@ -77,7 +77,7 @@ private fun BluetoothDisabledContent(
             imageVector = Icons.Outlined.Bluetooth,
             contentDescription = stringResource(R.string.cd_bluetooth),
             modifier = Modifier.size(64.dp),
-            tint = Color(0xFF00C851) // App's main green color
+            tint = colorScheme.primary
         )
 
         Text(
@@ -132,7 +132,7 @@ private fun BluetoothDisabledContent(
                     onClick = onEnableBluetooth,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF00C851) // App's main green color
+                        containerColor = colorScheme.primary
                     )
                 ) {
                         Text(
@@ -140,8 +140,7 @@ private fun BluetoothDisabledContent(
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = BitchatFontFamily,
                             fontWeight = FontWeight.Bold
-                        ),
-                        modifier = Modifier.padding(vertical = 4.dp)
+                        )
                     )
                 }
 

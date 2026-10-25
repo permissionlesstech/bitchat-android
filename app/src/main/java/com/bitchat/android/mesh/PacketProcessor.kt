@@ -6,62 +6,71 @@ import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.model.RoutedPacket
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.actor
 
 /**
  * Processes incoming packets and routes them to appropriate handlers
  * 
- * Per-peer packet serialization using Kotlin coroutine actors
+ * Bounded worker queues serialize packets from the same peer.
  * Prevents race condition where multiple threads process packets
  * from the same peer simultaneously, causing session management conflicts.
  */
-class PacketProcessor(private val myPeerID: String) {
+class PacketProcessor(
+    private val myPeerID: String,
+    dispatcher: CoroutineDispatcher = Dispatchers.IO,
+) {
     private val debugManager by lazy { try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (e: Exception) { null } }
     
     companion object {
         private const val TAG = "PacketProcessor"
+        internal const val WORKER_COUNT = 16
+        internal const val QUEUE_CAPACITY = 64
+        internal const val MAX_PENDING_PAYLOAD_BYTES = 8 * 1024 * 1024
     }
     
     // Delegate for callbacks
     var delegate: PacketProcessorDelegate? = null
     
-    // Helper function to format peer ID with nickname for logging
-    private fun formatPeerForLog(peerID: String): String {
-        val nickname = delegate?.getPeerNickname(peerID)
-        return if (nickname != null) "$peerID ($nickname)" else peerID
-    }
-    
     // Packet relay manager for centralized relay decisions
     private val packetRelayManager = PacketRelayManager(myPeerID)
     
     // Coroutines
-    private val processorScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    
-    // Per-peer actors to serialize packet processing
-    // Each peer gets its own actor that processes packets sequentially
-    // This prevents race conditions in session management
-    private val peerActors = mutableMapOf<String, CompletableDeferred<Unit>>()
-    
-    @OptIn(ObsoleteCoroutinesApi::class)
-    private fun getOrCreateActorForPeer(peerID: String) = processorScope.actor<RoutedPacket>(
-        capacity = Channel.UNLIMITED
-    ) {
-        for (packet in channel) {
-            handleReceivedPacket(packet)
-        }
+    private val processorScope = CoroutineScope(dispatcher + SupervisorJob())
+    private val admissionLock = Any()
+    private var pendingPayloadBytes = 0L
+    private data class QueuedPacket(val routed: RoutedPacket, val payloadBytes: Int)
+    private val queues = List(WORKER_COUNT) {
+        Channel<QueuedPacket>(QUEUE_CAPACITY, onUndeliveredElement = ::release)
     }
-    
-    // Cache actors to reuse them
-    private val actors = mutableMapOf<String, kotlinx.coroutines.channels.SendChannel<RoutedPacket>>()
+
+    private fun release(packet: QueuedPacket) = synchronized(admissionLock) {
+        pendingPayloadBytes -= packet.payloadBytes
+    }
     
     init {
         // Set up the packet relay manager delegate immediately
         setupRelayManager()
+        queues.forEach { queue ->
+            processorScope.launch {
+                for (queued in queue) {
+                    try {
+                        handleReceivedPacket(queued.routed)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        // A bad packet cannot kill a worker or bypass its serialization.
+                        Log.w(TAG, "Packet processing failed")
+                    } finally {
+                        release(queued)
+                    }
+                }
+            }
+        }
     }
     
     /**
      * Process received packet - main entry point for all incoming packets
-     * SURGICAL FIX: Route to per-peer actor for serialized processing
+     * The same peer always hashes to the same FIFO worker. Admission never suspends or launches
+     * a coroutine per packet. Under overload the newest packet is dropped to bound resource use.
      */
     fun processPacket(routed: RoutedPacket) {
         val peerID = routed.peerID
@@ -71,18 +80,14 @@ class PacketProcessor(private val myPeerID: String) {
             return
         }
         
-        // Get or create actor for this peer
-        val actor = actors.getOrPut(peerID) { getOrCreateActorForPeer(peerID) }
-        
-        // Send packet to peer's dedicated actor for serialized processing
-        processorScope.launch {
-            try {
-                actor.send(routed)
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to send packet to actor for ${formatPeerForLog(peerID)}: ${e.message}")
-                // Fallback to direct processing if actor fails
-                handleReceivedPacket(routed)
-            }
+        val queued = QueuedPacket(routed, routed.packet.payload.size)
+        val queue = queues[(peerID.hashCode() and Int.MAX_VALUE) % WORKER_COUNT]
+        synchronized(admissionLock) {
+            if (!processorScope.isActive ||
+                pendingPayloadBytes + queued.payloadBytes > MAX_PENDING_PAYLOAD_BYTES
+            ) return
+            pendingPayloadBytes += queued.payloadBytes
+            if (queue.trySend(queued).isFailure) release(queued)
         }
     }
     
@@ -116,7 +121,7 @@ class PacketProcessor(private val myPeerID: String) {
         val peerID = routed.peerID ?: "unknown"
 
         // Basic validation and security checks
-        if (!delegate?.validatePacketSecurity(packet, peerID)!!) {
+        if (delegate?.validatePacketSecurity(packet, peerID) != true) {
             return
         }
 
@@ -245,35 +250,22 @@ class PacketProcessor(private val myPeerID: String) {
         return buildString {
             appendLine("=== Packet Processor Debug Info ===")
             appendLine("Processor Scope Active: ${processorScope.isActive}")
-            appendLine("Active Peer Actors: ${actors.size}")
-            appendLine("My Peer ID: $myPeerID")
-            
-            if (actors.isNotEmpty()) {
-                appendLine("Peer Actors:")
-                actors.keys.forEach { peerID ->
-                    appendLine("  - $peerID")
-                }
-            }
+            appendLine("Packet Workers: $WORKER_COUNT")
+            appendLine("Pending Payload Bytes: ${synchronized(admissionLock) { pendingPayloadBytes }}")
         }
     }
     
     /**
-     * Shutdown the processor and all peer actors
+     * Shutdown the processor and release all queued packets.
      */
     fun shutdown() {
-        Log.d(TAG, "Shutting down PacketProcessor and ${actors.size} peer actors")
-        
-        // Close all peer actors gracefully
-        actors.values.forEach { actor ->
-            actor.close()
-        }
-        actors.clear()
+        Log.d(TAG, "Shutting down PacketProcessor")
+        processorScope.cancel()
+        queues.forEach { it.cancel() }
         
         // Shutdown the relay manager
         packetRelayManager.shutdown()
         
-        // Cancel the main scope
-        processorScope.cancel()
     }
 }
 
@@ -296,9 +288,9 @@ interface PacketProcessorDelegate {
     fun handleNoiseHandshake(routed: RoutedPacket): Boolean
     fun handleNoiseEncrypted(routed: RoutedPacket): Boolean
     suspend fun handleAnnounce(routed: RoutedPacket): Boolean
-    fun handleMessage(routed: RoutedPacket)
+    suspend fun handleMessage(routed: RoutedPacket)
     fun handleVoiceFrame(routed: RoutedPacket): Boolean = false
-    fun handleLeave(routed: RoutedPacket)
+    suspend fun handleLeave(routed: RoutedPacket)
     fun handleFragment(packet: BitchatPacket): BitchatPacket?
     fun handleRequestSync(routed: RoutedPacket)
     

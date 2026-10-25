@@ -32,7 +32,7 @@ fun LocationCheckScreen(
     val colorScheme = MaterialTheme.colorScheme
 
     Box(
-        modifier = modifier.padding(32.dp),
+        modifier = modifier.padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
         when (status) {
@@ -74,7 +74,7 @@ private fun LocationDisabledContent(
             imageVector = Icons.Outlined.LocationOn,
             contentDescription = stringResource(R.string.cd_location_services),
             modifier = Modifier.size(64.dp),
-            tint = Color(0xFF00C851) // App's main green color
+            tint = colorScheme.primary
         )
 
         Text(
@@ -106,7 +106,7 @@ private fun LocationDisabledContent(
                     Icon(
                         imageVector = Icons.Filled.Security,
                         contentDescription = stringResource(R.string.cd_privacy),
-                        tint = Color(0xFF4CAF50),
+                        tint = colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -160,7 +160,7 @@ private fun LocationDisabledContent(
                     onClick = onEnableLocation,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF00C851) // App's main green color
+                        containerColor = colorScheme.primary
                     )
                 ) {
                         Text(
@@ -168,8 +168,7 @@ private fun LocationDisabledContent(
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = BitchatFontFamily,
                             fontWeight = FontWeight.Bold
-                        ),
-                        modifier = Modifier.padding(vertical = 4.dp)
+                        )
                     )
                 }
 
@@ -181,8 +180,7 @@ private fun LocationDisabledContent(
                             text = stringResource(R.string.check_again),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = BitchatFontFamily
-                        ),
-                        modifier = Modifier.padding(vertical = 4.dp)
+                        )
                     )
                 }
             }

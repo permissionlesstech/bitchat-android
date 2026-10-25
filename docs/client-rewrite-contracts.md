@@ -64,6 +64,12 @@ limited to ASCII letters, digits, dots and hyphens. iOS also checks hosts and co
 and rejects a directory containing conflicting duplicate rows. For a host followed by a digit-only port, an integer-conversion failure skips
 that row. `RelayDirectoryPortTest` covers oversized ports between valid rows.
 
+Bech32 byte decoding must reject nonzero discarded bits and a residual whole
+five-bit symbol. A valid checksum alone does not make byte padding canonical.
+Human-readable prefixes contain 1–83 characters; Nostr's extended data payloads
+are not subject to Bitcoin address length limits. `Bech32PaddingTest` pins these
+rules with literal checksum-valid positive and negative vectors.
+
 ## Rewrite acceptance gate
 
 From a configured Android development environment, run:

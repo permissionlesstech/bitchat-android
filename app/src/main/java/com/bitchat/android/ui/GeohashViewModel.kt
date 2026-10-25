@@ -38,7 +38,9 @@ class GeohashViewModel(
 
     companion object { private const val TAG = "GeohashViewModel" }
 
-    private val repo = GeohashRepository(application, state, dataManager)
+    private val repo = GeohashRepository(
+        application, state, dataManager, viewModelScope, NostrBackgroundRuntime.participants
+    )
     private val uiSubscriptionOwner = "geohash-ui-${UUID.randomUUID()}"
     private val subscriptionManager = NostrSubscriptionManager(
         application,
@@ -55,6 +57,7 @@ class GeohashViewModel(
     // Presence heartbeat firehose (kind 20001). High-volume; paused while backgrounded.
     private var currentGeohashPresenceSubId: String? = null
     private var geoTimer: Job? = null
+    private val participantUpdatesJob = repo.observeParticipants()
     private var locationChannelManager: com.bitchat.android.geohash.LocationChannelManager? = null
     private val activeSamplingGeohashes = mutableSetOf<String>()
     private val samplingSubscriptionIds = mutableMapOf<String, String>()
@@ -275,10 +278,12 @@ class GeohashViewModel(
 
     fun getNostrKeyMapping(): Map<String, String> = repo.getNostrKeyMapping()
 
-    fun blockUserInGeohash(targetNickname: String) {
-        val pubkey = repo.findPubkeyByNickname(targetNickname)
+    fun blockUserInGeohash(targetNickname: String, pubkeyHex: String? = null) {
+        val pubkey = pubkeyHex?.takeIf { it.isNotBlank() }?.lowercase()
+            ?: repo.findPubkeyByNickname(targetNickname)
         if (pubkey != null) {
             dataManager.addGeohashBlockedUser(pubkey)
+            messageManager.removeGeohashMessagesFromSender(pubkey)
             // Refresh people list and counts to remove blocked entry immediately
             repo.refreshGeohashPeople()
             repo.updateReactiveParticipantCounts()
@@ -422,6 +427,7 @@ class GeohashViewModel(
     fun shutdownUiSubscriptions() {
         if (uiSubscriptionsShutdown) return
         uiSubscriptionsShutdown = true
+        participantUpdatesJob.cancel()
         subscriptionManager.unsubscribeAllOwned()
         geoTimer?.cancel()
         geoTimer = null
