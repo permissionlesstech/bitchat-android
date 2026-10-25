@@ -30,8 +30,9 @@ import kotlinx.coroutines.withContext
  *
  * The state follows the manager's flows, the Wi-Fi Aware status and the gossip
  * graph. While the screen is shown ([DebugSettingsAction.ScreenShown] until
- * [DebugSettingsAction.ScreenHidden]) one job marks Debug visible, opens the
- * mesh and polls it once a second (inventory DE1, DE3). That job and the
+ * [DebugSettingsAction.ScreenHidden]) one job marks Debug visible and polls
+ * once a second (inventory DE1, DE3), looking up the running mesh on every
+ * poll. With no mesh it shows "no mesh" and never creates one (B1). That job and the
  * visibility writes run in order on one background thread, so a rotation's
  * hide-then-show lands as false then true, as it always has.
  */
@@ -120,7 +121,7 @@ class DebugSettingsViewModel internal constructor(
 
     private var shownJob: Job? = null
 
-    /** The mesh opened when the screen was last shown; null if there is none. */
+    /** The mesh the latest poll found; null if there is none. */
     @Volatile
     private var mesh: MeshDiagnostics? = null
 
@@ -217,17 +218,25 @@ class DebugSettingsViewModel internal constructor(
         shownJob?.cancel()
         shownJob = viewModelScope.launch(meshDispatcher) {
             manager.setDebugSheetVisible(true)
-            val opened = diagnostics.openMesh()
-            mesh = opened
-            _uiState.update {
-                it.copy(
-                    meshAvailable = opened != null,
-                    localPeerID = opened?.myPeerID,
-                    localAdapterAddress = opened?.localAdapterAddress(),
-                )
-            }
+            var first = true
             while (true) {
-                pollOnce(opened, diagnostics, manager)?.let { snapshot ->
+                // B1: follow the mesh running now; a mesh that appears or is replaced is picked up here.
+                val current = diagnostics.openMesh()
+                if (first || current !== mesh) {
+                    first = false
+                    val changed = current !== mesh
+                    mesh = current
+                    _uiState.update {
+                        it.copy(
+                            meshAvailable = current != null,
+                            localPeerID = current?.myPeerID,
+                            localAdapterAddress = current?.localAdapterAddress(),
+                            // A read of another mesh no longer applies.
+                            latestSnapshot = if (changed) null else it.latestSnapshot,
+                        )
+                    }
+                }
+                pollOnce(current, diagnostics, manager)?.let { snapshot ->
                     _uiState.update { it.copy(latestSnapshot = snapshot) }
                 }
                 delay(POLL_INTERVAL_MS)

@@ -48,7 +48,6 @@ class AppBackgroundMeshSetting @Inject constructor(
 }
 
 class AppTransportDiagnostics @Inject constructor(
-    @ApplicationContext private val context: Context,
     private val deviceReadiness: DeviceReadiness,
 ) : TransportDiagnostics {
 
@@ -73,15 +72,26 @@ class AppTransportDiagnostics @Inject constructor(
 
     override fun wifiAwarePermissions(): List<String> = deviceReadiness.wifiAwarePermissions()
 
-    override fun openMesh(): MeshDiagnostics =
-        BluetoothMeshDiagnostics(MeshServiceHolder.getOrCreate(context.applicationContext))
+    // The handle for the mesh last opened, so a caller sees the same handle until the mesh changes.
+    @Volatile
+    private var opened: BluetoothMeshDiagnostics? = null
+
+    /**
+     * The mesh running now, whether or not the holder would reuse it, or null
+     * when none is. Debug never creates or replaces a mesh (B1).
+     */
+    override fun openMesh(): MeshDiagnostics? {
+        val current = MeshServiceHolder.meshService ?: return null
+        opened?.takeIf { it.mesh === current }?.let { return it }
+        return BluetoothMeshDiagnostics(current).also { opened = it }
+    }
 }
 
 /** Each discovered peer with the nickname Wi-Fi Aware learned for it, or "". */
 internal fun discoveredWithNicknames(discovered: Set<String>, known: Map<String, String>): Map<String, String> =
     discovered.associateWith { pid -> known[pid] ?: "" }
 
-private class BluetoothMeshDiagnostics(private val mesh: BluetoothMeshService) : MeshDiagnostics {
+private class BluetoothMeshDiagnostics(val mesh: BluetoothMeshService) : MeshDiagnostics {
     override val myPeerID: String get() = mesh.myPeerID
 
     override fun snapshot(): MeshSnapshot {

@@ -81,7 +81,7 @@ class DebugSettingsViewModelTest {
         WifiAwareStatus(supported = true, available = true, running = false, unsupportedReason = null)
     )
 
-    private inner class FakeDiagnostics(private val opens: MeshDiagnostics?) : TransportDiagnostics {
+    private inner class FakeDiagnostics(var opens: MeshDiagnostics?) : TransportDiagnostics {
         var openCalls = 0
         var announceCalls = 0
         override val wifiAwareStatus: StateFlow<WifiAwareStatus> = this@DebugSettingsViewModelTest.wifiAwareStatus
@@ -296,6 +296,51 @@ class DebugSettingsViewModelTest {
         assertFalse(manager.gattClientEnabled.value)
         assertFalse(vm.uiState.value.meshAvailable)
         assertNull(vm.uiState.value.localPeerID)
+        vm.onAction(DebugSettingsAction.ScreenHidden)
+    }
+
+    // B1: the poll looks the mesh up each time, so one that starts while Debug is open shows up.
+    @Test
+    fun meshStartsWhileShown_isPickedUpOnNextPoll() {
+        val diagnostics = FakeDiagnostics(opens = null)
+        val vm = newViewModel(diagnostics)
+        shown(vm)
+        assertFalse(vm.uiState.value.meshAvailable)
+
+        diagnostics.opens = mesh
+        scheduler.advanceTimeBy(1000)
+        scheduler.runCurrent()
+
+        val state = vm.uiState.value
+        assertTrue(state.meshAvailable)
+        assertEquals(peerA, state.localPeerID)
+        assertEquals(address, state.localAdapterAddress)
+        assertEquals(snapshot, state.latestSnapshot)
+        assertEquals(1, mesh.snapshotCalls)
+        vm.onAction(DebugSettingsAction.ScreenHidden)
+    }
+
+    // B1: after a panic clear the old mesh is gone; Debug shows no mesh and stops calling it.
+    @Test
+    fun meshGoneWhileShown_showsNoMesh_andGattSavesSettingOnly() {
+        val diagnostics = FakeDiagnostics(mesh)
+        val vm = newViewModel(diagnostics)
+        shown(vm)
+        assertTrue(vm.uiState.value.meshAvailable)
+
+        diagnostics.opens = null
+        scheduler.advanceTimeBy(1000)
+        scheduler.runCurrent()
+        vm.onAction(DebugSettingsAction.GattServerToggled(false))
+        scheduler.runCurrent()
+
+        val state = vm.uiState.value
+        assertFalse(state.meshAvailable)
+        assertNull(state.localPeerID)
+        assertNull(state.latestSnapshot)
+        assertFalse(manager.gattServerEnabled.value)
+        assertEquals(1, mesh.snapshotCalls)
+        assertTrue(mesh.calls.isEmpty())
         vm.onAction(DebugSettingsAction.ScreenHidden)
     }
 

@@ -30,8 +30,9 @@ interface TransportDiagnostics {
     // Bluetooth mesh
 
     /**
-     * Gets the app's mesh service, creating or replacing it as needed, and
-     * returns a handle bound to that instance. Debug calls this once per visit.
+     * A handle to the mesh service running now, or null when none is. It never
+     * creates or replaces one. The handle stays the same object until the mesh
+     * changes; Debug calls this on every poll, off the main thread.
      */
     fun openMesh(): MeshDiagnostics?
 }
