@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import android.app.Activity
 import android.os.Build
 import com.bitchat.android.ui.theme.BitchatFontFamily
 // [Goose] Bridge file share events to ViewModel via dispatcher is installed in ChatScreen composition
@@ -161,8 +162,12 @@ fun ChatScreen(viewModel: ChatViewModel) {
 
         onDispose {
             lifecycle.removeObserver(observer)
-            nearbyNotesController.updateAppForeground(false)
-            liveVoiceManager.setAppForeground(false)
+            // A configuration change (rotation, system dark mode) recreates the
+            // activity while the app stays in the foreground; the new screen takes over
+            if ((context as? Activity)?.isChangingConfigurations != true) {
+                nearbyNotesController.updateAppForeground(false)
+                liveVoiceManager.setAppForeground(false)
+            }
         }
     }
 
