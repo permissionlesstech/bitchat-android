@@ -488,18 +488,23 @@ class SecureIdentityStateManager {
      * Clear all identity data (for panic mode)
      */
     @SuppressLint("UseKtx")
-    fun clearIdentityData() {
+    /** Returns true only when the wipe was committed to disk. */
+    fun clearIdentityData(): Boolean {
         try {
-            synchronized(privateMediaPinsLock) {
+            val committed = synchronized(privateMediaPinsLock) {
                 privateMediaPinsEpoch += 1
                 privateMediaPinsEpochAtCreation = privateMediaPinsEpoch
-                if (!prefs.edit().clear().commit()) {
-                    Log.e(TAG, "Identity preference wipe could not be committed")
-                }
+                prefs.edit().clear().commit()
+            }
+            if (!committed) {
+                Log.e(TAG, "Identity preference wipe could not be committed")
+                return false
             }
             Log.w(TAG, "All identity data cleared")
+            return true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to clear identity data: ${e.message}")
+            return false
         }
     }
     

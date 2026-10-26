@@ -418,4 +418,6 @@
     <string name="about_app_language">App-taal</string>
     <string name="about_system_default">Systeemstandaard</string>
     <string name="about_select_language">Taal selecteren</string>
+    <string name="about_spam_filter_title">Spamfilter</string>
+    <string name="about_spam_filter_desc">Verberg openbare berichten van mensen die te snel posten, zichzelf herhalen of te veel links sturen.</string>
 </resources>

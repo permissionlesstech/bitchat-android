@@ -420,4 +420,6 @@
     <string name="about_app_language">Lingua dell’app</string>
     <string name="about_system_default">Predefinita di sistema</string>
     <string name="about_select_language">Seleziona lingua</string>
+    <string name="about_spam_filter_title">Filtro antispam</string>
+    <string name="about_spam_filter_desc">Nascondi i messaggi pubblici di chi scrive troppo velocemente, si ripete o invia troppi link.</string>
 </resources>

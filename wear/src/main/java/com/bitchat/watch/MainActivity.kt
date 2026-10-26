@@ -24,6 +24,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -39,6 +40,8 @@ import androidx.wear.compose.material3.OutlinedButton
 import com.bitchat.watch.mesh.WearMeshService
 import com.bitchat.watch.notification.WearNotificationCoordinator
 import com.bitchat.watch.service.WearMeshForegroundService
+import com.bitchat.watch.ui.ChatHomePager
+import com.bitchat.watch.ui.ChatMenuScreen
 import com.bitchat.watch.ui.ChatScreen
 import com.bitchat.watch.ui.DmScreen
 import com.bitchat.watch.ui.NicknameSetupScreen
@@ -110,6 +113,7 @@ class MainActivity : ComponentActivity() {
                         )
                     else -> WearNavHost(
                         launchRequest = pendingLaunchRequest,
+                        onQuit = ::quit,
                         onLaunchRequestHandled = { requestID ->
                             if (pendingLaunchRequest?.id == requestID) {
                                 pendingLaunchRequest = null
@@ -175,6 +179,15 @@ class MainActivity : ComponentActivity() {
     private fun startMeshService() {
         WearMeshService.getOrCreate(applicationContext)
         startForegroundService(Intent(this, WearMeshForegroundService::class.java))
+    }
+
+    /**
+     * Quit from the in-app menu: stopping the foreground service tears the mesh down (see
+     * [WearMeshForegroundService.onDestroy]); the next launch starts it again.
+     */
+    private fun quit() {
+        stopService(Intent(this, WearMeshForegroundService::class.java))
+        finishAndRemoveTask()
     }
 
     private fun consumePrivateMessagePeer(intent: Intent?): String? {
@@ -370,6 +383,7 @@ internal class WearNavigationState(
 @Composable
 internal fun WearNavHost(
     launchRequest: WearLaunchRequest?,
+    onQuit: () -> Unit,
     onLaunchRequestHandled: (Long) -> Unit
 ) {
     val navigation = rememberSaveable(saver = WearNavigationState.Saver) {
@@ -397,10 +411,20 @@ internal fun WearNavHost(
         label = "screenTransition"
     ) { current ->
         when (current) {
-            is WearScreen.Chat -> ChatScreen(
-                onOpenPeople = { navigation.navigate(WearScreen.People) },
-                onOpenTextInput = { navigation.navigate(WearScreen.TextInput(null)) }
-            )
+            is WearScreen.Chat -> {
+                var chatOwnsGesture by remember { mutableStateOf(false) }
+                ChatHomePager(
+                    swipeEnabled = !chatOwnsGesture,
+                    menu = { ChatMenuScreen(onQuit = onQuit) },
+                    chat = {
+                        ChatScreen(
+                            onOpenPeople = { navigation.navigate(WearScreen.People) },
+                            onOpenTextInput = { navigation.navigate(WearScreen.TextInput(null)) },
+                            onHorizontalGestureActive = { chatOwnsGesture = it }
+                        )
+                    }
+                )
+            }
             is WearScreen.People -> PeopleScreen(
                 onOpenDm = { navigation.navigate(WearScreen.Dm(it)) },
                 onEditNickname = { navigation.navigate(WearScreen.Nickname) }

@@ -388,4 +388,6 @@
     <string name="about_app_language">应用语言</string>
     <string name="about_system_default">跟随系统</string>
     <string name="about_select_language">选择语言</string>
+    <string name="about_spam_filter_title">垃圾消息过滤器</string>
+    <string name="about_spam_filter_desc">隐藏发送过快、重复发言或发送过多链接的用户的公开消息。</string>
 </resources>
