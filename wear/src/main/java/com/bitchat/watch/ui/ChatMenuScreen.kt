@@ -52,7 +52,9 @@ fun ChatHomePager(
     chat: @Composable () -> Unit,
 ) {
     val pagerState = rememberPagerState(initialPage = CHAT_PAGE) { 2 }
-    HorizontalPagerScaffold(pagerState = pagerState) {
+    // No page indicator: the menu is a peek-behind page, not a peer of the chat, and the
+    // dots would crowd the chat's edge action bar.
+    HorizontalPagerScaffold(pagerState = pagerState, pageIndicator = null) {
         HorizontalPager(
             state = pagerState,
             userScrollEnabled = swipeEnabled,
