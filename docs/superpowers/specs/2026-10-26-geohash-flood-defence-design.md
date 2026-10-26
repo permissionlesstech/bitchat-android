@@ -271,7 +271,19 @@ E2: app 782 tests, wear 238 tests, 0 failures. Lint: no new issues on changed li
 
 E4 (single core, binding hash included): desktop JVM 500k tries/s; Android emulator 197k tries/s.
 At 22 bits: emulator mean 21 s per channel (p90 ≈ 3.8× median); 10,000 bot identities cost
-23 desktop core-hours. Pixel not measured yet. Default `requiredBits` = 22.
+23 desktop core-hours.
 
-Open: Pixel timing (E4), Mesh Lab (E6), GPU cost (E5 unmeasured), backdated bots at low
+E4 on the Pixel 9a (3 rounds, thermal status normal): 80k tries/s single core, about 2.5× slower
+than the emulator. Mean per channel: 20 bits 13 s, 21 bits 26 s, 22 bits 52 s (one real 22-bit
+grind took 88 s). Only **21 bits** meets both bars: Pixel 26 s ≤ 30 s, and 10,000 bot
+identities ≈ 11.7 desktop core-hours ≥ 10. Default `requiredBits` = 21. The margin is thin, and
+the bot figure assumes the attacker runs the same JVM code; optimized native or GPU grinders are
+faster (unmeasured), so the real bot cost is lower than this.
+
+Security review fixes: `isProven` accepts only canonical 64-hex pubkeys (Kotlin's hex parsing
+accepts forms like "+f", which could let one proven key appear as several senders). Known and
+not changed: the pool charges message time, so backdated bots can use past pool slots once
+(measured above); charging arrival time instead breaks joining a channel.
+
+Open: Mesh Lab (E6), GPU cost (E5 unmeasured), backdated bots at low
 flood rates, mesh flooding (identity PoW for mesh requested as a follow-up).

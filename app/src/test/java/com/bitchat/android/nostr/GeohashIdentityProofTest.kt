@@ -54,6 +54,9 @@ class GeohashIdentityProofTest {
     fun `malformed pubkeys are not proven`() {
         assertFalse(GeohashIdentityProof.isProven("zz", "abcde"))
         assertFalse(GeohashIdentityProof.isProven("ab".repeat(31), "abcde"))
+        GeohashIdentityProof.requiredBits = 0
+        assertTrue(GeohashIdentityProof.isProven("0f".repeat(32), "abcde"))
+        assertFalse(GeohashIdentityProof.isProven("+f" + "0f".repeat(31), "abcde"))
     }
 
     @Test

@@ -17,17 +17,20 @@ import java.security.MessageDigest
 object GeohashIdentityProof {
     private val DOMAIN = "bitchat-geohash-id-v1".toByteArray(Charsets.UTF_8)
     private val curve = CustomNamedCurves.getByName("secp256k1")
+    private val CANONICAL_PUBKEY = Regex("[0-9a-fA-F]{64}")
 
     /** Debug experiment: when true, this device grinds its geohash keys before using them. */
     @Volatile
     var grindEnabled: Boolean = false
 
     @Volatile
-    var requiredBits: Int = 22
+    var requiredBits: Int = 21
 
     fun isProven(pubkeyHex: String, geohash: String): Boolean {
+        // Only canonical keys: Kotlin's hex parsing also takes forms like "+f", which would let
+        // one proven key appear as several different senders.
+        if (!CANONICAL_PUBKEY.matches(pubkeyHex)) return false
         val pubkey = pubkeyHex.hexToBytesOrNull() ?: return false
-        if (pubkey.size != 32) return false
         return leadingZeroBits(digest(MessageDigest.getInstance("SHA-256"), pubkey, geohash)) >= requiredBits
     }
 
