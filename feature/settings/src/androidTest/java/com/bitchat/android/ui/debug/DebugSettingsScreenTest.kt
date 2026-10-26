@@ -1,6 +1,7 @@
 package com.bitchat.android.ui.debug
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasAnySibling
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isToggleable
@@ -36,12 +37,14 @@ class DebugSettingsScreenTest {
             }
         }
 
-        // The verbose logging switch is the first toggle on the list.
-        compose.onAllNodes(isToggleable()).onFirst().performClick()
+        // Find the verbose logging switch by its label; the spam filter section above it has switches too.
+        val verbose = context.getString(R.string.debug_verbose_logging)
+        val list = compose.onNode(hasScrollAction())
+        list.performScrollToNode(hasText(verbose))
+        compose.onNode(isToggleable() and hasAnySibling(hasText(verbose))).performClick()
         compose.waitForIdle()
         assertEquals(listOf<DebugSettingsAction>(DebugSettingsAction.VerboseLoggingToggled(true)), actions)
 
-        val list = compose.onNode(hasScrollAction())
         list.performScrollToNode(hasText("No mesh running"))
         compose.onAllNodesWithText("No mesh running").onFirst().assertIsDisplayed()
 
