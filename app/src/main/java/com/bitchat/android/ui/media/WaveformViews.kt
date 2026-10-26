@@ -2,6 +2,7 @@ package com.bitchat.android.ui.media
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshots.SnapshotStateList
@@ -50,6 +51,10 @@ fun WaveformPreview(
     path: String,
     sendProgress: Float?,
     playbackProgress: Float?,
+    // Unplayed bars follow the surrounding text colour so they read on any bubble tint or
+    // surface; the played portion uses the theme accent, which is tuned per light/dark scheme.
+    baseColor: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+    playedColor: Color = MaterialTheme.colorScheme.primary,
     onLoaded: ((FloatArray) -> Unit)? = null,
     onSeek: ((Float) -> Unit)? = null
 ) {
@@ -74,10 +79,10 @@ fun WaveformPreview(
         modifier = modifier,
         samples = stateSamples,
         fillProgress = if (stateSamples.isEmpty()) 0f else progress,
-        baseColor = Color(0x2200FF7F),
+        baseColor = baseColor,
         fillColor = when {
             sendProgress != null -> Color(0xFF1E88E5) // blue while sending
-            else -> Color(0xFF00C851) // green during playback
+            else -> playedColor
         },
         onSeek = onSeek
     )

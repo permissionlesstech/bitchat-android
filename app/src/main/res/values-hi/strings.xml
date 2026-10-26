@@ -393,4 +393,6 @@
     <string name="about_app_language">ऐप की भाषा</string>
     <string name="about_system_default">सिस्टम डिफ़ॉल्ट</string>
     <string name="about_select_language">भाषा चुनें</string>
+    <string name="about_spam_filter_title">स्पैम फ़िल्टर</string>
+    <string name="about_spam_filter_desc">बहुत तेज़ी से संदेश भेजने, एक ही बात दोहराने या बहुत अधिक लिंक भेजने वाले लोगों के सार्वजनिक संदेश छिपाएँ।</string>
 </resources>

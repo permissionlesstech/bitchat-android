@@ -389,4 +389,6 @@
     <string name="about_app_language">應用程式語言</string>
     <string name="about_system_default">跟隨系統</string>
     <string name="about_select_language">選擇語言</string>
+    <string name="about_spam_filter_title">垃圾訊息篩選器</string>
+    <string name="about_spam_filter_desc">隱藏傳送過快、重複發言或傳送過多連結的使用者的公開訊息。</string>
 </resources>

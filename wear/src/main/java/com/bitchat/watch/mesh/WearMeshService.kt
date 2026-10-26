@@ -13,6 +13,7 @@ import com.bitchat.android.mesh.MeshTransport
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.spam.SpamFilter
 import com.bitchat.android.sync.GossipSyncManager
 import com.bitchat.android.util.AppConstants
 import kotlinx.coroutines.CoroutineScope
@@ -238,6 +239,8 @@ class WearMeshService private constructor(private val context: Context) {
                 try { onPrivateMessage?.invoke(message) } catch (_: Exception) { }
                 true
             }
+            !SpamFilter.isLocalNotice(message) &&
+                SpamFilter.shared.shouldHide(message, SpamFilter.meshSenderKey(message)) -> false
             message.channel != null -> {
                 AppStateStore.addChannelMessage(message.channel, message)
                 true

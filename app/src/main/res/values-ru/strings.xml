@@ -380,4 +380,6 @@
     <string name="about_app_language">Язык приложения</string>
     <string name="about_system_default">Системный язык</string>
     <string name="about_select_language">Выбрать язык</string>
+    <string name="about_spam_filter_title">Спам-фильтр</string>
+    <string name="about_spam_filter_desc">Скрывать публичные сообщения от тех, кто пишет слишком быстро, повторяется или отправляет слишком много ссылок.</string>
 </resources>

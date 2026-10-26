@@ -380,4 +380,6 @@
     <string name="about_app_language">অ্যাপের ভাষা</string>
     <string name="about_system_default">সিস্টেম ডিফল্ট</string>
     <string name="about_select_language">ভাষা নির্বাচন করুন</string>
+    <string name="about_spam_filter_title">স্প্যাম ফিল্টার</string>
+    <string name="about_spam_filter_desc">যারা খুব দ্রুত বার্তা পাঠান, একই কথা বারবার বলেন বা অতিরিক্ত লিঙ্ক পাঠান, তাঁদের প্রকাশ্য বার্তা লুকান।</string>
 </resources>

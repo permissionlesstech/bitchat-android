@@ -3,6 +3,7 @@ package com.bitchat.android.nostr
 import android.app.Application
 import android.util.Log
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.spam.SpamFilter
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,7 +15,7 @@ import java.util.Date
  * GeohashMessageHandler
  * - Processes kind=20000 Nostr events for geohash channels
  * - Updates repository for participants + nicknames
- * - Emits messages to MessageManager
+ * - Hides spam via [SpamFilter], then emits messages to MessageManager
  */
 class GeohashMessageHandler(
     private val application: Application,
@@ -22,7 +23,9 @@ class GeohashMessageHandler(
     private val scope: CoroutineScope,
     private val dataManager: com.bitchat.android.ui.DataManager,
     private val addChannelMessage: (String, BitchatMessage) -> Unit,
-    private val signatureVerificationDispatcher: CoroutineDispatcher = Dispatchers.Default
+    private val signatureVerificationDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    // The foreground handler runs on the main thread; the spam checks are CPU work.
+    private val spamFilterDispatcher: CoroutineDispatcher = signatureVerificationDispatcher
 ) {
     companion object { private const val TAG = "GeohashMessageHandler" }
 
@@ -111,6 +114,13 @@ class GeohashMessageHandler(
                         if (hasNonce) NostrProofOfWork.calculateDifficulty(event.id).takeIf { it > 0 } else null
                     } catch (_: Exception) { null }
                 )
+                val hide = withContext(spamFilterDispatcher) {
+                    SpamFilter.shared.shouldHide(msg, SpamFilter.nostrSenderKey(pubkey))
+                }
+                if (hide) {
+                    Log.d(TAG, "Hiding geohash spam ${event.id.take(8)}...")
+                    return@launch
+                }
                 addChannelMessage("geo:$subscribedGeohash", msg)
             } catch (e: Exception) {
                 Log.e(TAG, "onEvent error: ${e.message}")

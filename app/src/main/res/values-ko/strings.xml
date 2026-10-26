@@ -393,4 +393,6 @@
     <string name="about_app_language">앱 언어</string>
     <string name="about_system_default">시스템 기본값</string>
     <string name="about_select_language">언어 선택</string>
+    <string name="about_spam_filter_title">스팸 필터</string>
+    <string name="about_spam_filter_desc">너무 빠르게 메시지를 보내거나, 같은 내용을 반복하거나, 링크를 과도하게 보내는 사람의 공개 메시지를 숨깁니다.</string>
 </resources>

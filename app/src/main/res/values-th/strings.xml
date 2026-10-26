@@ -380,4 +380,6 @@
     <string name="about_app_language">ภาษาของแอป</string>
     <string name="about_system_default">ค่าเริ่มต้นของระบบ</string>
     <string name="about_select_language">เลือกภาษา</string>
+    <string name="about_spam_filter_title">ตัวกรองสแปม</string>
+    <string name="about_spam_filter_desc">ซ่อนข้อความสาธารณะจากผู้ที่ส่งข้อความเร็วเกินไป ส่งข้อความซ้ำ หรือส่งลิงก์จำนวนมากเกินไป</string>
 </resources>

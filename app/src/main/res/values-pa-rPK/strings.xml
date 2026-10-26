@@ -380,4 +380,6 @@
     <string name="about_app_language">ایپ دی بولی</string>
     <string name="about_system_default">سسٹم دی ڈیفالٹ</string>
     <string name="about_select_language">بولی چݨو</string>
+    <string name="about_spam_filter_title">سپیم فلٹر</string>
+    <string name="about_spam_filter_desc">اوہناں لوکاں دے عوامی پیغام لُکاؤ جو بہت تیزی نال پیغام بھیجدے، گلّاں دُہراوندے یا بہت سارے لنک بھیجدے نیں۔</string>
 </resources>

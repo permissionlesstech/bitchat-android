@@ -1482,6 +1482,9 @@ class ChatViewModel(
         try {
             com.bitchat.android.services.MessageRouter.tryGetInstance()?.clearAll()
         } catch (_: Exception) { }
+
+        // The spam filter keeps recent message text and sender keys for its repeat checks
+        com.bitchat.android.spam.SpamFilter.shared.reset()
         
         // Clear all cryptographic data
         clearAllCryptographicData()
@@ -1666,10 +1669,10 @@ class ChatViewModel(
     }
 
     /**
-     * Block a user in geohash channels by their nickname
+     * Block a user in geohash channels, preferring the sender's Nostr pubkey over the nickname
      */
-    fun blockUserInGeohash(targetNickname: String) {
-        geohashViewModel.blockUserInGeohash(targetNickname)
+    fun blockUserInGeohash(targetNickname: String, pubkeyHex: String? = null) {
+        geohashViewModel.blockUserInGeohash(targetNickname, pubkeyHex)
     }
 
     // MARK: - Navigation Management

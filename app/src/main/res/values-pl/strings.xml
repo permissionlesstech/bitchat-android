@@ -398,4 +398,6 @@
     <string name="about_app_language">Język aplikacji</string>
     <string name="about_system_default">Domyślny systemu</string>
     <string name="about_select_language">Wybierz język</string>
+    <string name="about_spam_filter_title">Filtr spamu</string>
+    <string name="about_spam_filter_desc">Ukrywaj publiczne wiadomości od osób, które piszą zbyt szybko, powtarzają się lub wysyłają zbyt wiele linków.</string>
 </resources>
