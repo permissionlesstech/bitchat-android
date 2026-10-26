@@ -172,4 +172,45 @@ class VideoStreamLossTest {
         assertEquals(1, outputs.filterIsInstance<LiveVideoOutput.Video>().size)
         assertEquals(1, outputs.count { it is LiveVideoOutput.Ended })
     }
+
+    @Test
+    fun streamResumesAfterALongSilenceAtTheNextKeyframe() {
+        // 10 s of total silence mid-stream (a link dropout); the viewer drains what it has,
+        // keeps the stream open, and carries on at the first keyframe after the gap.
+        var silenceDrained = false
+        val packetizer = VideoStreamPacketizer(ByteArray(8) { 4 }, config, LiveVideoFecPolicy(0.2, 0.4))
+        val assembler = VideoStreamAssembler()
+        val outputs = mutableListOf<LiveVideoOutput>()
+        val random = Random(9)
+        fun deliver(packets: List<ByteArray>, now: Long, silent: Boolean) {
+            if (silent) return
+            packets.forEach { outputs += assembler.onPacket(VideoBurstPacket.decode(it)!!, it.size, now) }
+        }
+        deliver(packetizer.start(), 0, false)
+        var frame = 0
+        for (now in 0L..30_000L step 125L) {
+            val silent = now in 10_000L until 20_000L
+            if (silent && !silenceDrained && now >= 14_000L) {
+                outputs += assembler.drain()
+                silenceDrained = true
+            }
+            val key = frame % 16 == 0
+            val data = ByteArray(if (key) 2_000 else random.nextInt(100, 200)).also(random::nextBytes)
+            deliver(packetizer.add(LiveMediaUnit(LiveVideoTrack.VIDEO, now, key, data), now), now, silent)
+            deliver(packetizer.tick(now), now, silent)
+            outputs += assembler.onTick(now)
+            frame++
+        }
+        deliver(packetizer.finish(30_000L, 30_000L), 30_000L, false)
+        outputs += assembler.onTick(31_000L)
+
+        val video = outputs.filterIsInstance<LiveVideoOutput.Video>()
+        val before = video.count { it.ptsMs < 10_000L }
+        val after = video.filter { it.ptsMs >= 20_000L }
+        assertTrue("before $before", before >= 75)
+        assertTrue("resumed ${after.size}", after.size >= 60)
+        assertTrue(after.first().keyframe)
+        assertTrue(silenceDrained)
+        assertEquals(1, outputs.count { it is LiveVideoOutput.Ended })
+    }
 }

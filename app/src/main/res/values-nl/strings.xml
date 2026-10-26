@@ -428,6 +428,7 @@
     <string name="video_joining_live">Verbinden met live…</string>
     <string name="video_weak_signal">Zwak signaal</string>
     <string name="video_weak_signal_reconnecting">Zwak signaal · inhalen</string>
+    <string name="video_reconnecting">Opnieuw verbinden…</string>
     <string name="video_live_ended">Livevideo beëindigd</string>
     <string name="video_live_ended_by">%1$s heeft de stream beëindigd</string>
     <string name="video_watch_replay">Opname bekijken</string>

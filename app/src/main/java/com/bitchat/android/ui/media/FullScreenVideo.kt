@@ -127,7 +127,7 @@ fun FullScreenLiveVideoViewer(
                 modifier = Modifier.fillMaxSize()
             )
 
-            if (info?.frozen == true && !ended) {
+            if ((info?.frozen == true || info?.reconnecting == true) && !ended) {
                 Row(
                     modifier = Modifier
                         .align(Alignment.Center)
@@ -137,7 +137,13 @@ fun FullScreenLiveVideoViewer(
                 ) {
                     CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.video_weak_signal_reconnecting), color = Color.White, fontSize = 13.sp)
+                    Text(
+                        text = stringResource(
+                            if (info.reconnecting) R.string.video_reconnecting else R.string.video_weak_signal_reconnecting
+                        ),
+                        color = Color.White,
+                        fontSize = 13.sp
+                    )
                 }
             }
 

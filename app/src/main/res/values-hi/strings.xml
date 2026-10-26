@@ -403,6 +403,7 @@
     <string name="video_joining_live">लाइव से जुड़ रहे हैं…</string>
     <string name="video_weak_signal">कमज़ोर सिग्नल</string>
     <string name="video_weak_signal_reconnecting">कमज़ोर सिग्नल · बराबरी कर रहा है</string>
+    <string name="video_reconnecting">फिर से कनेक्ट हो रहा है…</string>
     <string name="video_live_ended">लाइव वीडियो समाप्त हुआ</string>
     <string name="video_live_ended_by">%1$s ने स्ट्रीम समाप्त की</string>
     <string name="video_watch_replay">रिकॉर्डिंग देखें</string>

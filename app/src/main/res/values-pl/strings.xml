@@ -408,6 +408,7 @@
     <string name="video_joining_live">Dołączanie do transmisji…</string>
     <string name="video_weak_signal">Słaby sygnał</string>
     <string name="video_weak_signal_reconnecting">Słaby sygnał · nadrabianie</string>
+    <string name="video_reconnecting">Ponowne łączenie…</string>
     <string name="video_live_ended">Transmisja na żywo zakończona</string>
     <string name="video_live_ended_by">%1$s zakończył(a) transmisję</string>
     <string name="video_watch_replay">Obejrzyj nagranie</string>

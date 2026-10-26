@@ -403,6 +403,7 @@
     <string name="video_joining_live">لائیو میں شامل ہو رہے ہیں…</string>
     <string name="video_weak_signal">کمزور سگنل</string>
     <string name="video_weak_signal_reconnecting">کمزور سگنل · ہم آہنگ ہو رہا ہے</string>
+    <string name="video_reconnecting">دوبارہ جڑ رہا ہے…</string>
     <string name="video_live_ended">لائیو ویڈیو ختم ہو گئی</string>
     <string name="video_live_ended_by">%1$s نے اسٹریم ختم کر دی</string>
     <string name="video_watch_replay">ریکارڈنگ دیکھیں</string>

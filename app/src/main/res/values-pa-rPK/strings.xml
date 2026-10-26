@@ -390,6 +390,7 @@
     <string name="video_joining_live">لائیو وچ شامل ہو رہے آں…</string>
     <string name="video_weak_signal">کمزور سگنل</string>
     <string name="video_weak_signal_reconnecting">کمزور سگنل · برابر ہو رہیا اے</string>
+    <string name="video_reconnecting">دوبارہ جڑ رہیا اے…</string>
     <string name="video_live_ended">لائیو ویڈیو مک گئی</string>
     <string name="video_live_ended_by">%1$s نے سٹریم مکا دتی</string>
     <string name="video_watch_replay">ریکارڈنگ ویکھو</string>

@@ -415,6 +415,7 @@
     <string name="video_joining_live">Connexion au direct…</string>
     <string name="video_weak_signal">Signal faible</string>
     <string name="video_weak_signal_reconnecting">Signal faible · rattrapage en cours</string>
+    <string name="video_reconnecting">Reconnexion…</string>
     <string name="video_live_ended">Vidéo en direct terminée</string>
     <string name="video_live_ended_by">%1$s a mis fin au direct</string>
     <string name="video_watch_replay">Voir la rediffusion</string>

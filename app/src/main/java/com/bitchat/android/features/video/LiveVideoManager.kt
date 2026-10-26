@@ -42,7 +42,9 @@ data class LiveVideoStreamInfo(
     /** Recent packet loss before FEC, 0.0..1.0. */
     val loss: Double,
     val waitingForKeyframe: Boolean,
-    val frozen: Boolean
+    val frozen: Boolean,
+    /** No packets for a while: the stream is still open and resumes when they return. */
+    val reconnecting: Boolean
 )
 
 /** A decoded picture; [index] changes with every frame so Compose redraws a reused Bitmap. */
@@ -70,7 +72,9 @@ sealed interface LiveVideoEvent {
         /** Packet age on arrival (receiver clock minus sender timestamp; includes clock skew). */
         val meanLatencyMs: Long,
         val maxLatencyMs: Long,
-        val path: String?
+        val path: String?,
+        /** False when closed by silence; the stream may reopen if packets return. */
+        val endedBySender: Boolean
     ) : LiveVideoEvent
 
     data class Canceled(override val peerID: String, override val streamID: String, override val isPrivate: Boolean) : LiveVideoEvent
@@ -95,7 +99,10 @@ class LiveVideoManager private constructor(private val context: Context) : LiveV
         private const val MAX_STREAM_BYTES = 24L * 1_024 * 1_024
         private const val INBOUND_BYTES_PER_SECOND = 96_000
         private const val INBOUND_ALLOWANCE_SECONDS = 3.0
-        private const val IDLE_TIMEOUT_MS = 4_000L
+        /** Silence after which a stream shows as reconnecting (it stays open). */
+        private const val QUIET_AFTER_MS = 4_000L
+        /** Silence after which a stream without END is closed; later packets reopen it. */
+        private const val DEFAULT_RECONNECT_WINDOW_MS = 90_000L
         private const val TICK_MS = 50L
         private const val INFO_REFRESH_MS = 500L
         private const val FROZEN_AFTER_MS = 1_500L
@@ -128,8 +135,12 @@ class LiveVideoManager private constructor(private val context: Context) : LiveV
         val nickname: String,
         val message: BitchatMessage,
         var file: File,
-        val startedAtMs: Long
+        val startedAtMs: Long,
+        /** Recordings of earlier sessions of this stream, joined in on finalize. */
+        val earlierSegments: List<RecordedSegment> = emptyList()
     ) {
+        var reconnecting = false
+        var firstVideoPtsUs: Long? = null
         val assembler = VideoStreamAssembler()
         var config: LiveVideoConfig? = null
         var decoder: LiveVideoDecoder? = null
@@ -154,8 +165,17 @@ class LiveVideoManager private constructor(private val context: Context) : LiveV
         val nickname: String,
         val file: File?,
         val timestamp: Date,
-        val expiresAtMs: Long
+        val expiresAtMs: Long,
+        val startedAtMs: Long,
+        /** False when closed by silence: the sender may still be live, so packets may reopen it. */
+        val endedBySender: Boolean,
+        val segments: List<RecordedSegment>
     )
+
+    private class RecordedSegment(val file: File, val firstVideoPtsUs: Long)
+
+    /** Debug hooks shorten this to exercise reopening a closed stream. */
+    @Volatile var reconnectWindowMs: Long = DEFAULT_RECONNECT_WINDOW_MS
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val streams = linkedMapOf<StreamKey, Stream>()
@@ -217,22 +237,28 @@ class LiveVideoManager private constructor(private val context: Context) : LiveV
         val key = StreamKey(peerID, isPrivate, streamHex)
         var stream = streams[key]
         if (stream == null) {
-            if (key in finished) return true
+            val closed = finished[key]
+            // A stream the sender ended stays closed; one closed by silence reopens in place.
+            if (closed?.endedBySender == true) return true
             if (packet.kind is VideoBurstPacket.Kind.End || packet.kind == VideoBurstPacket.Kind.Canceled) return true
             if (streams.size >= MAX_CONCURRENT_STREAMS) return false
-            stream = createStream(key, nickname, timestampMs) ?: return false
+            stream = (if (closed != null) reopenStream(closed) else createStream(key, nickname, timestampMs)) ?: return false
             streams[key] = stream
             _events.tryEmit(LiveVideoEvent.Started(peerID, streamHex, isPrivate))
             ensureTicking()
         }
         val now = System.currentTimeMillis()
+        if (stream.reconnecting) {
+            stream.reconnecting = false
+            publishInfo(force = true)
+        }
         stream.receivedBytes += payload.size
         val elapsedSeconds = (now - stream.startedAtMs).coerceAtLeast(0L) / 1_000.0 + INBOUND_ALLOWANCE_SECONDS
         if (stream.receivedBytes > MAX_STREAM_BYTES ||
             stream.receivedBytes > INBOUND_BYTES_PER_SECOND * elapsedSeconds
         ) {
             Log.w(TAG, "Dropping over-quota live video stream")
-            finalizeStream(stream)
+            finalizeStream(stream, endedBySender = true)
             return false
         }
         stream.lastPacketMs = now
@@ -309,6 +335,37 @@ class LiveVideoManager private constructor(private val context: Context) : LiveV
         return stream
     }
 
+    /** Continues a stream that was closed by silence: same bubble, a new recording segment. */
+    private fun reopenStream(closed: FinishedStream): Stream {
+        finished.remove(closed.key)
+        val key = closed.key
+        val file = File(
+            liveDirectory(),
+            "video_live_${key.streamID}_${key.peerID}_${if (key.isPrivate) "dm" else "mesh"}_${closed.segments.size + 1}.mp4"
+        )
+        file.delete()
+        val message = BitchatMessage(
+            id = closed.messageID,
+            sender = closed.nickname,
+            content = file.absolutePath,
+            type = BitchatMessageType.Video,
+            timestamp = closed.timestamp,
+            isPrivate = key.isPrivate,
+            recipientNickname = AppStateStore.nickname.value.takeIf { key.isPrivate },
+            senderPeerID = key.peerID
+        )
+        val stream = Stream(key, closed.nickname, message, file, closed.startedAtMs, closed.segments)
+        com.bitchat.android.mesh.LiveMediaLinkBoost.acquire()
+        streams[key] = stream
+        publishInfo(force = true)
+        if (key.isPrivate) {
+            AppStateStore.upsertPrivateMessage(key.peerID, message, isVisible(true, key.peerID))
+        } else {
+            AppStateStore.upsertPublicMessage(message)
+        }
+        return stream
+    }
+
     private fun handleOutputs(stream: Stream, outputs: List<LiveVideoOutput>) {
         for (output in outputs) {
             when (output) {
@@ -320,7 +377,7 @@ class LiveVideoManager private constructor(private val context: Context) : LiveV
                 }
                 is LiveVideoOutput.VideoSkipped -> Unit
                 is LiveVideoOutput.Ended -> {
-                    finalizeStream(stream)
+                    finalizeStream(stream, endedBySender = true)
                     return
                 }
                 LiveVideoOutput.Canceled -> {
@@ -365,6 +422,7 @@ class LiveVideoManager private constructor(private val context: Context) : LiveV
                 }
             }
         }
+        if (stream.writer != null && stream.firstVideoPtsUs == null) stream.firstVideoPtsUs = unit.ptsMs * 1_000L
         stream.writer?.writeVideo(H264NalUnits.withoutParameterSets(unit.data), unit.ptsMs * 1_000L, unit.keyframe)
         if (unit.keyframe) stream.waitingForKeyframe = false
         // Nobody sees pictures in the background; keep recording but skip the decode work.
@@ -407,10 +465,22 @@ class LiveVideoManager private constructor(private val context: Context) : LiveV
                 val keepGoing = synchronized(this@LiveVideoManager) {
                     val now = System.currentTimeMillis()
                     streams.values.toList().forEach { stream ->
-                        if (now - stream.lastPacketMs >= IDLE_TIMEOUT_MS) {
-                            handleOutputs(stream, stream.assembler.flush())
-                        } else {
-                            handleOutputs(stream, stream.assembler.onTick(now))
+                        val quiet = now - stream.lastPacketMs
+                        when {
+                            // END arrived and only lost tail units are outstanding: done.
+                            quiet >= QUIET_AFTER_MS && stream.assembler.endReceived ->
+                                handleOutputs(stream, stream.assembler.flush())
+                            // Long silence without END: close it, but packets may still reopen it.
+                            quiet >= reconnectWindowMs -> {
+                                handleOutputs(stream, stream.assembler.drain())
+                                if (streams[stream.key] === stream) finalizeStream(stream, endedBySender = false)
+                            }
+                            quiet >= QUIET_AFTER_MS -> if (!stream.reconnecting) {
+                                stream.reconnecting = true
+                                handleOutputs(stream, stream.assembler.drain())
+                                publishInfo(force = true)
+                            }
+                            else -> handleOutputs(stream, stream.assembler.onTick(now))
                         }
                     }
                     publishInfo(force = false)
@@ -421,21 +491,38 @@ class LiveVideoManager private constructor(private val context: Context) : LiveV
         }
     }
 
-    private fun finalizeStream(stream: Stream) {
+    private fun finalizeStream(stream: Stream, endedBySender: Boolean = true) {
         if (streams.remove(stream.key) == null) return
         com.bitchat.android.mesh.LiveMediaLinkBoost.release()
         stream.decoder?.finishAfterDrain()
         stream.audio?.finishAfterDrain()
         val stats = stream.assembler.stats()
-        val ok = stream.writer?.finish() == true
+        val wroteSegment = stream.writer?.finish() == true
+        val segments = stream.earlierSegments +
+            listOfNotNull(stream.file.takeIf { wroteSegment }?.let { RecordedSegment(it, stream.firstVideoPtsUs ?: 0L) })
+        val ok = segments.isNotEmpty()
         if (!ok) {
             stream.decoder?.stop()
             removeBubble(stream)
             stream.file.delete()
         } else {
             val target = File(stream.file.parentFile, "video_${stream.key.streamID}_${stream.key.peerID}_${if (stream.key.isPrivate) "dm" else "mesh"}.mp4")
-            target.delete()
-            if (stream.file.renameTo(target)) stream.file = target
+            if (segments.size == 1) {
+                target.delete()
+                stream.file = if (segments[0].file.renameTo(target)) target else segments[0].file
+            } else {
+                // Sessions separated by a dropout play back as one video, the gap held as a freeze.
+                val joined = File(stream.file.parentFile, "video_join_${stream.key.streamID}.mp4")
+                val joinedOk = Mp4Segments.join(segments.map { it.file to it.firstVideoPtsUs }, joined)
+                if (joinedOk) {
+                    segments.forEach { it.file.delete() }
+                    target.delete()
+                    stream.file = if (joined.renameTo(target)) target else joined
+                } else {
+                    joined.delete()
+                    stream.file = segments.last().file
+                }
+            }
             val finalized = stream.message.copy(content = stream.file.absolutePath)
             if (stream.key.isPrivate) {
                 AppStateStore.upsertPrivateMessage(stream.key.peerID, finalized, isVisible(true, stream.key.peerID))
@@ -450,7 +537,11 @@ class LiveVideoManager private constructor(private val context: Context) : LiveV
             nickname = stream.nickname,
             file = stream.file.takeIf { ok },
             timestamp = stream.message.timestamp,
-            expiresAtMs = System.currentTimeMillis() + FINISHED_TTL_MS
+            expiresAtMs = System.currentTimeMillis() + FINISHED_TTL_MS,
+            startedAtMs = stream.startedAtMs,
+            endedBySender = endedBySender,
+            // A reopened stream continues from the finished file, now a single segment.
+            segments = if (ok) listOf(RecordedSegment(stream.file, segments.first().firstVideoPtsUs)) else emptyList()
         )
         _events.tryEmit(
             LiveVideoEvent.Finished(
@@ -467,7 +558,8 @@ class LiveVideoManager private constructor(private val context: Context) : LiveV
                 meanLuma = stream.meanLuma,
                 meanLatencyMs = if (stream.latencySamples == 0) 0L else stream.latencyTotalMs / stream.latencySamples,
                 maxLatencyMs = stream.maxLatencyMs,
-                path = stream.file.absolutePath.takeIf { ok }
+                path = stream.file.absolutePath.takeIf { ok },
+                endedBySender = endedBySender
             )
         )
         publishInfo(force = true)
@@ -513,7 +605,8 @@ class LiveVideoManager private constructor(private val context: Context) : LiveV
                 receivedKbps = stream.receivedBytes * 8.0 / elapsed,
                 loss = stats.recentLoss,
                 waitingForKeyframe = stream.waitingForKeyframe,
-                frozen = stream.lastFrameMs != 0L && now - stream.lastFrameMs > FROZEN_AFTER_MS
+                frozen = stream.lastFrameMs != 0L && now - stream.lastFrameMs > FROZEN_AFTER_MS,
+                reconnecting = stream.reconnecting
             )
         }
     }

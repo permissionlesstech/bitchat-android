@@ -390,6 +390,7 @@
     <string name="video_joining_live">Đang tham gia phát trực tiếp…</string>
     <string name="video_weak_signal">Tín hiệu yếu</string>
     <string name="video_weak_signal_reconnecting">Tín hiệu yếu · đang bắt kịp</string>
+    <string name="video_reconnecting">Đang kết nối lại…</string>
     <string name="video_live_ended">Video trực tiếp đã kết thúc</string>
     <string name="video_live_ended_by">%1$s đã kết thúc phát trực tiếp</string>
     <string name="video_watch_replay">Xem lại</string>

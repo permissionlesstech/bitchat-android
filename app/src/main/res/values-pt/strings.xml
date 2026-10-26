@@ -403,6 +403,7 @@
     <string name="video_joining_live">A entrar no direto…</string>
     <string name="video_weak_signal">Sinal fraco</string>
     <string name="video_weak_signal_reconnecting">Sinal fraco · a recuperar</string>
+    <string name="video_reconnecting">A ligar novamente…</string>
     <string name="video_live_ended">Vídeo em direto terminado</string>
     <string name="video_live_ended_by">%1$s terminou a transmissão</string>
     <string name="video_watch_replay">Ver gravação</string>

@@ -633,6 +633,7 @@
     <string name="video_joining_live">Zuzeneko emanaldira sartzen…</string>
     <string name="video_weak_signal">Seinale ahula</string>
     <string name="video_weak_signal_reconnecting">Seinale ahula · berreskuratzen</string>
+    <string name="video_reconnecting">Berriro konektatzen…</string>
     <string name="video_live_ended">Zuzeneko bideoa amaitu da</string>
     <string name="video_live_ended_by">%1$s erabiltzaileak emanaldia amaitu du</string>
     <string name="video_watch_replay">Ikusi grabazioa</string>

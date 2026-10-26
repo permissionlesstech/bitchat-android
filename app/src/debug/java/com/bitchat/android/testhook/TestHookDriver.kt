@@ -661,13 +661,19 @@ object TestHookDriver {
         val dropRate = intent.getFloatExtra("drop_rate", 0f).coerceIn(0f, 0.9f)
         val burstStart = intent.getIntExtra("burst_start", -1)
         val burstLength = intent.getIntExtra("burst_length", 0)
+        // Simulated link outage: nothing reaches the radio for `outage_ms` from `outage_start_ms`.
+        val outageStartMs = intent.getLongExtra("outage_start_ms", -1L)
+        val outageMs = intent.getLongExtra("outage_ms", 0L)
+        val streamStart = System.currentTimeMillis()
         val random = java.util.Random(intent.getLongExtra("seed", 1L))
         val packetIndex = java.util.concurrent.atomic.AtomicInteger()
         val dropped = java.util.concurrent.atomic.AtomicInteger()
         val target = LiveVideoTarget.of({ payload ->
             val index = packetIndex.getAndIncrement()
             val inBurst = burstStart >= 0 && index in burstStart until burstStart + burstLength
-            if (inBurst || random.nextFloat() < dropRate) {
+            val sinceStart = System.currentTimeMillis() - streamStart
+            val inOutage = outageStartMs >= 0 && sinceStart in outageStartMs until outageStartMs + outageMs
+            if (inBurst || inOutage || random.nextFloat() < dropRate) {
                 dropped.incrementAndGet()
             } else {
                 mesh.sendVideoFrame(recipient?.meshPeerID, payload)
@@ -721,20 +727,34 @@ object TestHookDriver {
         val expectPrivate = intent.getStringExtra("scope") == "dm"
         val expectFinal = intent.getBooleanExtra("expect_final", true)
         val manager = LiveVideoManager.getInstance(context)
+        val reconnectWindowMs = intent.getLongExtra("reconnect_window_ms", -1L)
+        val previousWindow = manager.reconnectWindowMs
+        if (reconnectWindowMs > 0) manager.reconnectWindowMs = reconnectWindowMs
         var finished: LiveVideoEvent.Finished? = null
         var playable: JSONObject? = null
-        val terminal = withTimeoutOrNull(timeoutMs) {
-            manager.events.first { event ->
-                val matches = event.isPrivate == expectPrivate && (fromPeer == null || event.peerID == fromPeer)
-                if (matches && event is LiveVideoEvent.Finished) {
-                    finished = event
-                    playable = event.path?.let { probeVideo(it) }
+        var sessions = 0
+        var silenceCloses = 0
+        val terminal = try {
+            withTimeoutOrNull(timeoutMs) {
+                manager.events.first { event ->
+                    val matches = event.isPrivate == expectPrivate && (fromPeer == null || event.peerID == fromPeer)
+                    if (matches && event is LiveVideoEvent.Started) sessions++
+                    if (matches && event is LiveVideoEvent.Finished) {
+                        finished = event
+                        if (!event.endedBySender) silenceCloses++
+                        if (event.endedBySender) playable = event.path?.let { probeVideo(it) }
+                    }
+                    matches && (event is LiveVideoEvent.Canceled ||
+                        (event is LiveVideoEvent.Absorbed) ||
+                        (!expectFinal && event is LiveVideoEvent.Finished && event.endedBySender))
                 }
-                matches && (event is LiveVideoEvent.Canceled ||
-                    (event is LiveVideoEvent.Absorbed) ||
-                    (!expectFinal && event is LiveVideoEvent.Finished))
             }
-        } ?: return err("video_recv", "timeout waiting for live video").put("live_observed", finished != null)
+        } finally {
+            manager.reconnectWindowMs = previousWindow
+        } ?: return err("video_recv", "timeout waiting for live video")
+            .put("live_observed", finished != null)
+            .put("sessions", sessions)
+            .put("silence_closes", silenceCloses)
         if (terminal is LiveVideoEvent.Canceled) return err("video_recv", "stream canceled")
         val done = finished ?: return err("video_recv", "final file arrived without a live stream")
         val result = ok("video_recv")
@@ -751,6 +771,8 @@ object TestHookDriver {
             .put("mean_luma", done.meanLuma)
             .put("mean_latency_ms", done.meanLatencyMs)
             .put("max_latency_ms", done.maxLatencyMs)
+            .put("sessions", sessions)
+            .put("silence_closes", silenceCloses)
             .put("reconstruction", playable ?: JSONObject().put("playable", false))
         if (terminal is LiveVideoEvent.Absorbed) {
             result.put("final_absorbed", true).put("final", probeVideo(terminal.finalizedPath))

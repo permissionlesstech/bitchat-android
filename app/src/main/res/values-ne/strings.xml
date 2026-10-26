@@ -401,6 +401,7 @@
     <string name="video_joining_live">लाइभमा सामेल हुँदै…</string>
     <string name="video_weak_signal">कमजोर सिग्नल</string>
     <string name="video_weak_signal_reconnecting">कमजोर सिग्नल · समात्दै</string>
+    <string name="video_reconnecting">फेरि जडान हुँदै…</string>
     <string name="video_live_ended">लाइभ भिडियो सकियो</string>
     <string name="video_live_ended_by">%1$s ले स्ट्रिम अन्त्य गर्नुभयो</string>
     <string name="video_watch_replay">रेकर्डिङ हेर्नुहोस्</string>

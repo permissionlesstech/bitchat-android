@@ -403,6 +403,7 @@
     <string name="video_joining_live">ライブに参加中…</string>
     <string name="video_weak_signal">信号が弱い</string>
     <string name="video_weak_signal_reconnecting">信号が弱い · 追いつき中</string>
+    <string name="video_reconnecting">再接続中…</string>
     <string name="video_live_ended">ライブ動画が終了しました</string>
     <string name="video_live_ended_by">%1$s が配信を終了しました</string>
     <string name="video_watch_replay">録画を見る</string>

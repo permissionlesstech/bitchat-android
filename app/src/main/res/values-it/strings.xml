@@ -430,6 +430,7 @@
     <string name="video_joining_live">Accesso alla diretta…</string>
     <string name="video_weak_signal">Segnale debole</string>
     <string name="video_weak_signal_reconnecting">Segnale debole · recupero in corso</string>
+    <string name="video_reconnecting">Riconnessione…</string>
     <string name="video_live_ended">Diretta terminata</string>
     <string name="video_live_ended_by">%1$s ha terminato la diretta</string>
     <string name="video_watch_replay">Guarda la registrazione</string>

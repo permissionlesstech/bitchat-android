@@ -388,6 +388,7 @@
     <string name="video_joining_live">Ansluter till live…</string>
     <string name="video_weak_signal">Svag signal</string>
     <string name="video_weak_signal_reconnecting">Svag signal · kommer ikapp</string>
+    <string name="video_reconnecting">Återansluter…</string>
     <string name="video_live_ended">Livevideo avslutad</string>
     <string name="video_live_ended_by">%1$s avslutade sändningen</string>
     <string name="video_watch_replay">Se inspelningen</string>

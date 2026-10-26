@@ -410,6 +410,7 @@
     <string name="video_joining_live">Підключення до ефіру…</string>
     <string name="video_weak_signal">Слабкий сигнал</string>
     <string name="video_weak_signal_reconnecting">Слабкий сигнал · наздоганяємо</string>
+    <string name="video_reconnecting">Повторне підключення…</string>
     <string name="video_live_ended">Прямий ефір завершено</string>
     <string name="video_live_ended_by">%1$s завершив(-ла) трансляцію</string>
     <string name="video_watch_replay">Переглянути запис</string>

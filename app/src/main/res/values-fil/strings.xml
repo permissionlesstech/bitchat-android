@@ -401,6 +401,7 @@
     <string name="video_joining_live">Sumasali sa live…</string>
     <string name="video_weak_signal">Mahinang signal</string>
     <string name="video_weak_signal_reconnecting">Mahinang signal · humahabol</string>
+    <string name="video_reconnecting">Kumokonekta muli…</string>
     <string name="video_live_ended">Natapos na ang live video</string>
     <string name="video_live_ended_by">Tinapos ni %1$s ang stream</string>
     <string name="video_watch_replay">Panoorin ang replay</string>

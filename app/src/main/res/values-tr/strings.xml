@@ -388,6 +388,7 @@
     <string name="video_joining_live">Canlı yayına katılınıyor…</string>
     <string name="video_weak_signal">Zayıf sinyal</string>
     <string name="video_weak_signal_reconnecting">Zayıf sinyal · yetişiliyor</string>
+    <string name="video_reconnecting">Yeniden bağlanıyor…</string>
     <string name="video_live_ended">Canlı video sona erdi</string>
     <string name="video_live_ended_by">%1$s yayını sonlandırdı</string>
     <string name="video_watch_replay">Kaydı izle</string>

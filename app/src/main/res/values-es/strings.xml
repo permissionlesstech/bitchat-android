@@ -403,6 +403,7 @@
     <string name="video_joining_live">Uniéndose a la transmisión…</string>
     <string name="video_weak_signal">Señal débil</string>
     <string name="video_weak_signal_reconnecting">Señal débil · poniéndose al día</string>
+    <string name="video_reconnecting">Reconectando…</string>
     <string name="video_live_ended">Video en vivo finalizado</string>
     <string name="video_live_ended_by">%1$s finalizó la transmisión</string>
     <string name="video_watch_replay">Ver repetición</string>

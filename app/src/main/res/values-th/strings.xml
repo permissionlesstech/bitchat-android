@@ -390,6 +390,7 @@
     <string name="video_joining_live">กำลังเข้าร่วมไลฟ์…</string>
     <string name="video_weak_signal">สัญญาณอ่อน</string>
     <string name="video_weak_signal_reconnecting">สัญญาณอ่อน · กำลังตามให้ทัน</string>
+    <string name="video_reconnecting">กำลังเชื่อมต่อใหม่…</string>
     <string name="video_live_ended">ไลฟ์วิดีโอสิ้นสุดแล้ว</string>
     <string name="video_live_ended_by">%1$s สิ้นสุดการสตรีมแล้ว</string>
     <string name="video_watch_replay">ดูย้อนหลัง</string>

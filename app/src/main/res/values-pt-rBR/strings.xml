@@ -402,6 +402,7 @@
     <string name="video_joining_live">Entrando na transmissão…</string>
     <string name="video_weak_signal">Sinal fraco</string>
     <string name="video_weak_signal_reconnecting">Sinal fraco · recuperando</string>
+    <string name="video_reconnecting">Reconectando…</string>
     <string name="video_live_ended">Vídeo ao vivo encerrado</string>
     <string name="video_live_ended_by">%1$s encerrou a transmissão</string>
     <string name="video_watch_replay">Ver gravação</string>

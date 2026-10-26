@@ -403,6 +403,7 @@
     <string name="video_joining_live">라이브 참여 중…</string>
     <string name="video_weak_signal">신호 약함</string>
     <string name="video_weak_signal_reconnecting">신호 약함 · 따라잡는 중</string>
+    <string name="video_reconnecting">다시 연결 중…</string>
     <string name="video_live_ended">라이브 영상이 종료됨</string>
     <string name="video_live_ended_by">%1$s님이 방송을 종료했습니다</string>
     <string name="video_watch_replay">다시 보기</string>

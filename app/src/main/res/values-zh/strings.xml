@@ -414,6 +414,7 @@
     <string name="video_joining_live">正在加入直播…</string>
     <string name="video_weak_signal">信号弱</string>
     <string name="video_weak_signal_reconnecting">信号弱 · 正在追赶</string>
+    <string name="video_reconnecting">正在重新连接…</string>
     <string name="video_live_ended">直播已结束</string>
     <string name="video_live_ended_by">%1$s 结束了直播</string>
     <string name="video_watch_replay">观看回放</string>

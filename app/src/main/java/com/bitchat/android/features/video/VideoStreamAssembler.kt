@@ -92,6 +92,8 @@ class VideoStreamAssembler(
     private val recentSet = HashSet<Long>()
 
     val config: LiveVideoConfig? get() = lastConfig
+    /** The sender's END arrived; anything still missing is tail loss, not a pause. */
+    val endReceived: Boolean get() = expectedUnits != null
     val isFinished: Boolean get() = finished
 
     fun stats(): LiveVideoReceiveStats {
@@ -144,7 +146,13 @@ class VideoStreamAssembler(
     /** Skips gaps whose deadline passed; call periodically. */
     fun onTick(nowMs: Long): List<LiveVideoOutput> = if (finished) emptyList() else release(nowMs)
 
-    /** Forces every buffered unit out (skipping all gaps); used when the stream goes idle. */
+    /**
+     * Releases everything buffered (skipping open gaps) without ending the stream, so a viewer
+     * whose link went quiet keeps all it received and can carry on when packets return.
+     */
+    fun drain(): List<LiveVideoOutput> = if (finished) emptyList() else release(Long.MAX_VALUE)
+
+    /** Forces every buffered unit out (skipping all gaps) and ends the stream. */
     fun flush(): List<LiveVideoOutput> {
         if (finished) return emptyList()
         val output = release(Long.MAX_VALUE)

@@ -402,6 +402,7 @@
     <string name="video_joining_live">מצטרפים לשידור החי…</string>
     <string name="video_weak_signal">אות חלש</string>
     <string name="video_weak_signal_reconnecting">אות חלש · משלים פערים</string>
+    <string name="video_reconnecting">מתחבר מחדש…</string>
     <string name="video_live_ended">השידור החי הסתיים</string>
     <string name="video_live_ended_by">%1$s סיים/ה את השידור</string>
     <string name="video_watch_replay">צפייה בהקלטה</string>

@@ -390,6 +390,7 @@
     <string name="video_joining_live">লাইভে যোগ দেওয়া হচ্ছে…</string>
     <string name="video_weak_signal">দুর্বল সিগন্যাল</string>
     <string name="video_weak_signal_reconnecting">দুর্বল সিগন্যাল · পিছিয়ে পড়া পূরণ হচ্ছে</string>
+    <string name="video_reconnecting">আবার সংযোগ করা হচ্ছে…</string>
     <string name="video_live_ended">লাইভ ভিডিও শেষ হয়েছে</string>
     <string name="video_live_ended_by">%1$s স্ট্রিম শেষ করেছে</string>
     <string name="video_watch_replay">রেকর্ডিং দেখুন</string>

@@ -671,6 +671,7 @@
   <string name="video_joining_live">Joining live…</string>
   <string name="video_weak_signal">Weak signal</string>
   <string name="video_weak_signal_reconnecting">Weak signal · catching up</string>
+  <string name="video_reconnecting">Reconnecting…</string>
   <string name="video_live_ended">Live video ended</string>
   <string name="video_live_ended_by">%1$s ended the stream</string>
   <string name="video_watch_replay">Watch replay</string>

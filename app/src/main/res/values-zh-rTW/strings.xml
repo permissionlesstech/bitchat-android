@@ -399,6 +399,7 @@
     <string name="video_joining_live">正在加入直播…</string>
     <string name="video_weak_signal">訊號微弱</string>
     <string name="video_weak_signal_reconnecting">訊號微弱 · 正在追上</string>
+    <string name="video_reconnecting">正在重新連線…</string>
     <string name="video_live_ended">直播已結束</string>
     <string name="video_live_ended_by">%1$s 結束了直播</string>
     <string name="video_watch_replay">觀看重播</string>

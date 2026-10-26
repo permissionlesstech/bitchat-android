@@ -404,6 +404,7 @@
     <string name="video_joining_live">Verbinde mit Live-Video…</string>
     <string name="video_weak_signal">Schwaches Signal</string>
     <string name="video_weak_signal_reconnecting">Schwaches Signal · holt auf</string>
+    <string name="video_reconnecting">Verbindung wird wiederhergestellt…</string>
     <string name="video_live_ended">Live-Video beendet</string>
     <string name="video_live_ended_by">%1$s hat den Stream beendet</string>
     <string name="video_watch_replay">Aufzeichnung ansehen</string>

@@ -443,6 +443,7 @@
     <string name="video_joining_live">Menyertai siaran langsung…</string>
     <string name="video_weak_signal">Isyarat lemah</string>
     <string name="video_weak_signal_reconnecting">Isyarat lemah · sedang mengejar</string>
+    <string name="video_reconnecting">Menyambung semula…</string>
     <string name="video_live_ended">Video langsung tamat</string>
     <string name="video_live_ended_by">%1$s menamatkan strim</string>
     <string name="video_watch_replay">Tonton rakaman</string>

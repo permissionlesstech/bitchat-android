@@ -403,6 +403,7 @@
     <string name="video_joining_live">Bergabung ke siaran langsung…</string>
     <string name="video_weak_signal">Sinyal lemah</string>
     <string name="video_weak_signal_reconnecting">Sinyal lemah · mengejar ketertinggalan</string>
+    <string name="video_reconnecting">Menyambungkan ulang…</string>
     <string name="video_live_ended">Video langsung berakhir</string>
     <string name="video_live_ended_by">%1$s mengakhiri siaran</string>
     <string name="video_watch_replay">Tonton rekaman</string>

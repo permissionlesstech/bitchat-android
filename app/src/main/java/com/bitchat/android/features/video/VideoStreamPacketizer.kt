@@ -148,20 +148,21 @@ class VideoStreamPacketizer(
         return output
     }
 
-    fun finish(durationMs: Long, nowMs: Long): List<ByteArray> {
+    /**
+     * Flushes and emits END. END is repeated ([endCopies]) because a lost END would leave
+     * viewers waiting out their reconnect window; receivers treat the copies as duplicates.
+     */
+    fun finish(durationMs: Long, nowMs: Long, endCopies: Int = 3): List<ByteArray> {
         val output = mutableListOf<ByteArray>()
         output += flushShard(nowMs)
         output += closeBlock()
-        output += listOfNotNull(
-            packet(
-                VideoBurstPacket.Kind.End(
-                    durationMs = durationMs.coerceIn(0L, 0xFFFF_FFFFL),
-                    videoUnits = unitCount[LiveVideoTrack.VIDEO.value],
-                    audioUnits = unitCount[LiveVideoTrack.AUDIO.value],
-                    packets = packetCount.coerceAtMost(0xFFFF)
-                )
-            )
+        val end = VideoBurstPacket.Kind.End(
+            durationMs = durationMs.coerceIn(0L, 0xFFFF_FFFFL),
+            videoUnits = unitCount[LiveVideoTrack.VIDEO.value],
+            audioUnits = unitCount[LiveVideoTrack.AUDIO.value],
+            packets = packetCount.coerceAtMost(0xFFFF)
         )
+        repeat(endCopies.coerceAtLeast(1)) { output += listOfNotNull(packet(end)) }
         return output
     }
 

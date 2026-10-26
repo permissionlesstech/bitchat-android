@@ -390,6 +390,7 @@
     <string name="video_joining_live">პირდაპირ ეთერთან დაკავშირება…</string>
     <string name="video_weak_signal">სუსტი სიგნალი</string>
     <string name="video_weak_signal_reconnecting">სუსტი სიგნალი · სინქრონიზაცია</string>
+    <string name="video_reconnecting">ხელახლა დაკავშირება…</string>
     <string name="video_live_ended">პირდაპირი ვიდეო დასრულდა</string>
     <string name="video_live_ended_by">%1$s-მა დაასრულა ტრანსლაცია</string>
     <string name="video_watch_replay">ჩანაწერის ნახვა</string>

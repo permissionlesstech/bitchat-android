@@ -403,6 +403,7 @@
     <string name="video_joining_live">جارٍ الانضمام إلى البث المباشر…</string>
     <string name="video_weak_signal">إشارة ضعيفة</string>
     <string name="video_weak_signal_reconnecting">إشارة ضعيفة · جارٍ اللحاق</string>
+    <string name="video_reconnecting">جارٍ إعادة الاتصال…</string>
     <string name="video_live_ended">انتهى الفيديو المباشر</string>
     <string name="video_live_ended_by">أنهى %1$s البث</string>
     <string name="video_watch_replay">مشاهدة التسجيل</string>

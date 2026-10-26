@@ -410,6 +410,7 @@
     <string name="video_joining_live">Miditra amin\'ny mivantana…</string>
     <string name="video_weak_signal">Famantarana malemy</string>
     <string name="video_weak_signal_reconnecting">Famantarana malemy · manenjika</string>
+    <string name="video_reconnecting">Mifandray indray…</string>
     <string name="video_live_ended">Tapitra ny horonan-tsary mivantana</string>
     <string name="video_live_ended_by">Notapitrin\'i %1$s ny fandefasana</string>
     <string name="video_watch_replay">Jereo ny fandraketana</string>

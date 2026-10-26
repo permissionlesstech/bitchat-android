@@ -145,6 +145,8 @@ higher ratio.
 
 These are the unit totals per track and the total packets sent before END.
 Receivers finish once both tracks have released or skipped up to the totals.
+Senders emit END three times (consecutive sequence numbers, same body), so a
+single lost END cannot leave viewers waiting. Receivers ignore the copies.
 
 ### CANCELED (`kind = 0x04`)
 
@@ -164,7 +166,14 @@ No body. Receivers discard the stream and remove its bubble.
   This is the viewer's copy if no final file arrives.
 - Resource bounds: 4 concurrent streams, 24 MiB per stream, 96 kB/s per stream
   with a 3 s allowance, 48 tracked blocks, and 192 pending or ready units per
-  track. A stream finishes after 4 s of silence.
+  track.
+- **Dropouts.** A stream that goes quiet for 4 s is shown as reconnecting. It
+  stays open, and it continues at the next keyframe when packets return. A
+  quiet stream whose END has arrived finishes instead. A stream with no END
+  closes after 90 s of silence. If packets for that stream ID arrive later, the
+  same chat bubble goes live again in a new recording segment, and the segments
+  are joined into one MP4 when the stream finishes. A stream ended by END or
+  CANCELED (or closed for exceeding a bound) never reopens.
 
 ## Sender behavior (Android)
 

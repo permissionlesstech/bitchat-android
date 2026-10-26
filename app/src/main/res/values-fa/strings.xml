@@ -390,6 +390,7 @@
     <string name="video_joining_live">در حال پیوستن به پخش زنده…</string>
     <string name="video_weak_signal">سیگنال ضعیف</string>
     <string name="video_weak_signal_reconnecting">سیگنال ضعیف · در حال جبران</string>
+    <string name="video_reconnecting">در حال اتصال دوباره…</string>
     <string name="video_live_ended">ویدیوی زنده پایان یافت</string>
     <string name="video_live_ended_by">%1$s پخش را پایان داد</string>
     <string name="video_watch_replay">تماشای ضبط‌شده</string>

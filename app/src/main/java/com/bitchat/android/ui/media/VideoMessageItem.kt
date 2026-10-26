@@ -202,9 +202,9 @@ private fun VideoMessageCard(
                     .align(Alignment.TopEnd)
                     .padding(6.dp)
             ) { SignalBars(info.loss) }
-            if (info.frozen) {
+            if (info.reconnecting || info.frozen) {
                 Text(
-                    text = stringResource(R.string.video_weak_signal),
+                    text = stringResource(if (info.reconnecting) R.string.video_reconnecting else R.string.video_weak_signal),
                     color = Color.White,
                     fontSize = 11.sp,
                     modifier = Modifier

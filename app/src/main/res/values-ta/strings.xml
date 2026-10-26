@@ -400,6 +400,7 @@
     <string name="video_joining_live">நேரலையில் இணைகிறது…</string>
     <string name="video_weak_signal">பலவீனமான சிக்னல்</string>
     <string name="video_weak_signal_reconnecting">பலவீனமான சிக்னல் · ஈடுகட்டுகிறது</string>
+    <string name="video_reconnecting">மீண்டும் இணைக்கிறது…</string>
     <string name="video_live_ended">நேரலை வீடியோ முடிந்தது</string>
     <string name="video_live_ended_by">%1$s ஸ்ட்ரீமை முடித்தார்</string>
     <string name="video_watch_replay">பதிவைப் பார்க்கவும்</string>
