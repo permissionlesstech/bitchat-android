@@ -152,6 +152,7 @@ object GeohashTimeLock {
         private var lastMs: Long? = null
 
         fun isProven(tags: List<List<String>>, pubkeyHex: String, geohash: String): Boolean {
+            if (!CANONICAL_PUBKEY.matches(pubkeyHex)) return false
             val key = ownKey(pubkeyHex, geohash)
             synchronized(this) {
                 if (proven[key] == true) return true

@@ -85,6 +85,8 @@ class GeohashTimeLockTest {
         assertEquals(100, checked)
         // The budget is spent, yet alice is remembered and needs no new check.
         assertTrue(verifier.isProven(emptyList(), alice, "abcde"))
+        // An uppercase spelling of her key is not canonical and is never treated as proven.
+        assertFalse(verifier.isProven(emptyList(), alice.uppercase(), "abcde"))
         // Bob's real token waits for the budget to refill.
         val bobToken = GeohashTimeLock.compute(bob, "abcde", iterations = t)!!
         val bobTags = listOf(bobToken.toTag())
