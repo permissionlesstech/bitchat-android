@@ -930,10 +930,8 @@ private fun ChatDialogs(
             isPresented = showMeshPeerListSheet,
             viewModel = viewModel,
             onDismiss = onMeshPeerListDismiss,
-            onShowVerification = {
-                onMeshPeerListDismiss()
-                viewModel.showVerificationSheet(fromSidebar = true)
-            }
+            // Stacks on top of the network sheet, so dismissing it lands back here.
+            onShowVerification = viewModel::showVerificationSheet
         )
     }
 

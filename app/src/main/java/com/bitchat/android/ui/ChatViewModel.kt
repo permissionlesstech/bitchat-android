@@ -1300,21 +1300,12 @@ class ChatViewModel(
         notificationManager.clearMeshMentionNotifications()
     }
 
-    private var reopenSidebarAfterVerification = false
-
-    fun showVerificationSheet(fromSidebar: Boolean = false) {
-        if (fromSidebar) {
-            reopenSidebarAfterVerification = true
-        }
+    fun showVerificationSheet() {
         state.setShowVerificationSheet(true)
     }
 
     fun hideVerificationSheet() {
         state.setShowVerificationSheet(false)
-        if (reopenSidebarAfterVerification) {
-            reopenSidebarAfterVerification = false
-            state.setShowMeshPeerList(true)
-        }
     }
 
     fun showSecurityVerificationSheet() {
@@ -1490,6 +1481,9 @@ class ChatViewModel(
         } catch (_: Exception) {
             wipeComplete = false
         }
+
+        // The spam filter keeps recent message text and sender keys for its repeat checks
+        com.bitchat.android.spam.SpamFilter.shared.reset()
         
         // Clear all cryptographic data
         if (!clearAllCryptographicData()) wipeComplete = false

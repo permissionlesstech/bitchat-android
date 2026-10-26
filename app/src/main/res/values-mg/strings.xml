@@ -400,4 +400,6 @@
     <string name="about_app_language">Fitenin’ny app</string>
     <string name="about_system_default">Fitenin’ny rafitra</string>
     <string name="about_select_language">Safidio ny fiteny</string>
+    <string name="about_spam_filter_title">Sivana spam</string>
+    <string name="about_spam_filter_desc">Afeno ny hafatra ampahibemaso avy amin’ireo olona mandefa haingana loatra, mamerimberina hafatra, na mandefa rohy be loatra.</string>
 </resources>

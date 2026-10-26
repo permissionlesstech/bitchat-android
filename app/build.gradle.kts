@@ -6,6 +6,9 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// Opt-in instrumentation of the minified variant; production release signing is unchanged.
+val releaseUiTests = providers.gradleProperty("releaseUiTests").orNull == "true"
+
 val githubReleaseCertSha256 = providers
     .environmentVariable("BITCHAT_GITHUB_RELEASE_CERT_SHA256")
     .orElse(providers.gradleProperty("BITCHAT_GITHUB_RELEASE_CERT_SHA256"))
@@ -25,6 +28,7 @@ android {
     namespace = "com.bitchat.android"
     compileSdk = libs.versions.compileSdk.get().toInt()
     buildToolsVersion = libs.versions.buildTools.get()
+    if (releaseUiTests) testBuildType = "release"
 
     defaultConfig {
         applicationId = "com.bitchat.droid"
@@ -38,7 +42,11 @@ android {
             "\"$normalizedGithubReleaseCertSha256\""
         )
 
-        testInstrumentationRunner = "com.bitchat.android.ui.PerformanceTestRunner"
+        testInstrumentationRunner = if (releaseUiTests) {
+            "com.bitchat.android.ui.ReleaseScannerTestRunner"
+        } else {
+            "com.bitchat.android.ui.PerformanceTestRunner"
+        }
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -59,6 +67,10 @@ android {
             }
         }
         release {
+            if (releaseUiTests) {
+                signingConfig = signingConfigs.getByName("debug")
+                proguardFiles("release-instrumentation.pro")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -192,6 +204,8 @@ dependencies {
     
     // Testing
     testImplementation(libs.bundles.testing)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.test.runner)

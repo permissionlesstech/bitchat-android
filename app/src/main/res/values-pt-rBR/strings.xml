@@ -392,4 +392,6 @@
     <string name="about_app_language">Idioma do app</string>
     <string name="about_system_default">Padrão do sistema</string>
     <string name="about_select_language">Selecionar idioma</string>
+    <string name="about_spam_filter_title">Filtro de spam</string>
+    <string name="about_spam_filter_desc">Ocultar mensagens públicas de pessoas que enviam mensagens rápido demais, se repetem ou enviam links em excesso.</string>
 </resources>

@@ -532,6 +532,30 @@ def scenario_broadcast(a: Device, b: Device) -> dict:
     return {"send": send_result, "recv": recv_result}
 
 
+def scenario_broadcast_spam(a: Device, b: Device) -> dict:
+    """Spam filter on B: two near-copies from A are shown, the third is hidden, and A's next
+    ordinary message is still shown. Needs B's spam filter on, default limits, bypass off."""
+    id_a = whoami(a)["peer_id"]
+    # A fresh 32-character body per run keeps earlier runs out of B's ten-minute repeat window.
+    token = uuid.uuid4().hex[:16]
+    copies = [f"{token}{token} copy {mark}" for mark in "ABC"]
+    control = f"control {token} with different words, still delivered"
+    expected = [True, True, False, True]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        recvs = [pool.submit(b.cmd, "msg_recv", 45_000, contains=text) for text in [*copies, control]]
+        time.sleep(2)
+        for text in [*copies, control]:
+            a.cmd_ok("broadcast_msg", 30_000, content=text)
+        results = [recv.result() for recv in recvs]
+    delivered = [result.get("status") == "ok" for result in results]
+    if delivered != expected:
+        raise MeshLabError(f"expected delivery {expected} for copies A-C and control, got {delivered}")
+    for result in results:
+        if result.get("status") == "ok":
+            assert result["from"] == id_a, result
+    return {"delivered": delivered}
+
+
 def _ptt_one_way(
     sender: Device,
     receiver: Device,
@@ -869,6 +893,7 @@ SCENARIOS = {
     "dm": scenario_dm,
     "favorite_verification": scenario_favorite_verification,
     "broadcast": scenario_broadcast,
+    "broadcast_spam": scenario_broadcast_spam,
     "ptt_dm": scenario_ptt_dm,
     "ptt_broadcast": scenario_ptt_broadcast,
     # Broadcast transfers are receiver-capped at 256 fragments (~120 KB); only
@@ -899,6 +924,7 @@ WATCH_SCENARIOS = [
     "dm",
     "favorite_verification",
     "broadcast",
+    "broadcast_spam",
     "ptt_dm",
     "ptt_broadcast",
     "raw",

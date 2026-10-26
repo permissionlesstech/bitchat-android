@@ -57,7 +57,11 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun ChatScreen(onOpenPeople: () -> Unit, onOpenTextInput: () -> Unit) {
+fun ChatScreen(
+    onOpenPeople: () -> Unit,
+    onOpenTextInput: () -> Unit,
+    onHorizontalGestureActive: (Boolean) -> Unit = {},
+) {
     val context = LocalContext.current
     val messages by AppStateStore.publicMessages.collectAsState()
     val peers by AppStateStore.peers.collectAsState()
@@ -81,6 +85,11 @@ fun ChatScreen(onOpenPeople: () -> Unit, onOpenTextInput: () -> Unit) {
             com.bitchat.android.features.voice.VoiceRecorder(context, target)
         }
     ) { path -> mesh?.let { sendVoiceNote(it, null, path) } }
+
+    // Push-to-talk drags and the image viewer own the whole screen; the home pager must not
+    // turn them into a page swipe.
+    val horizontalGestureActive = voice.recording || viewerPath != null
+    LaunchedEffect(horizontalGestureActive) { onHorizontalGestureActive(horizontalGestureActive) }
 
     androidx.compose.runtime.DisposableEffect(liveVoiceManager) {
         liveVoiceManager.showPublicMesh()
