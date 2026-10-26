@@ -349,6 +349,7 @@
   <string name="verify_paste_label">вставить URL проверки</string>
   <string name="verify_validate">проверить</string>
   <string name="verify_scanned">запрос проверки</string>
+  <string name="verify_scan_failed">Недействительный или просроченный код, либо этот человек не подключён поблизости</string>
   <string name="security_verification_title">проверка безопасности</string>
   <string name="fingerprint_their">их отпечаток</string>
   <string name="fingerprint_yours">ваш отпечаток</string>

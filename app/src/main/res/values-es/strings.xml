@@ -362,6 +362,7 @@
   <string name="verify_paste_label">pegar url de verificación</string>
   <string name="verify_validate">validar</string>
   <string name="verify_scanned">verificación solicitada</string>
+  <string name="verify_scan_failed">Código no válido o caducado, o esta persona no está conectada cerca</string>
   <string name="security_verification_title">verificación de seguridad</string>
   <string name="fingerprint_their">su huella digital</string>
   <string name="fingerprint_yours">tu huella digital</string>

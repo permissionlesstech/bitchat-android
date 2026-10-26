@@ -1,11 +1,13 @@
 package com.bitchat.android.ui
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import android.graphics.Bitmap
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.widget.Toast
 import androidx.camera.compose.CameraXViewfinder
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
@@ -42,6 +44,7 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -56,6 +59,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -179,9 +183,9 @@ fun VerificationSheet(
                         accent = accent,
                         onScan = { code ->
                             val qr = VerificationService.verifyScannedQR(code)
-                            if (qr != null && viewModel.beginQRVerification(qr)) {
-                                selectedTab = 0
-                            }
+                            val started = qr != null && viewModel.beginQRVerification(qr)
+                            if (started) selectedTab = 0
+                            started
                         }
                     )
                 }
@@ -318,10 +322,17 @@ private fun MyQrTabContent(
 @Composable
 private fun ScanTabContent(
     accent: Color,
-    onScan: (String) -> Unit
+    onScan: (String) -> Boolean
 ) {
     val permissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
-    
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+    var scanFailed by remember { mutableStateOf(false) }
+    val handleCode: (String) -> Unit = { code ->
+        scanFailed = !onScan(code)
+        if (!scanFailed) Toast.makeText(context, R.string.verify_scanned, Toast.LENGTH_SHORT).show()
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -338,7 +349,7 @@ private fun ScanTabContent(
                     .background(Color.Black),
                 contentAlignment = Alignment.Center
             ) {
-                ScannerView(onScan = onScan)
+                ScannerView(onScan = handleCode)
                 
                 // Overlay border
                 Box(
@@ -401,6 +412,28 @@ private fun ScanTabContent(
                     )
                 }
             }
+        }
+
+        // Fallback when the camera can't scan: paste the bitchat://verify text read by another app
+        TextButton(
+            onClick = { handleCode(clipboardManager.getText()?.text?.trim().orEmpty()) }
+        ) {
+            Icon(imageVector = Icons.Outlined.ContentPaste, contentDescription = null)
+            Spacer(modifier = Modifier.size(8.dp))
+            Text(
+                text = stringResource(R.string.verify_paste_label),
+                fontFamily = BitchatFontFamily
+            )
+        }
+        // Inline rather than a Toast: Android 12+ truncates toasts to two lines
+        if (scanFailed) {
+            Text(
+                text = stringResource(R.string.verify_scan_failed),
+                color = MaterialTheme.colorScheme.error,
+                fontFamily = BitchatFontFamily,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
