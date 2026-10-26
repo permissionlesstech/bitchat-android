@@ -378,4 +378,6 @@
     <string name="about_app_language">Appspråk</string>
     <string name="about_system_default">Systemstandard</string>
     <string name="about_select_language">Välj språk</string>
+    <string name="about_spam_filter_title">Spamfilter</string>
+    <string name="about_spam_filter_desc">Dölj offentliga meddelanden från personer som skriver för snabbt, upprepar sig eller skickar för många länkar.</string>
 </resources>

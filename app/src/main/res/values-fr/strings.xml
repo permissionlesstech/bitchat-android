@@ -405,4 +405,6 @@
     <string name="about_app_language">Langue de l’appli</string>
     <string name="about_system_default">Langue du système</string>
     <string name="about_select_language">Choisir la langue</string>
+    <string name="about_spam_filter_title">Filtre antispam</string>
+    <string name="about_spam_filter_desc">Masquer les messages publics des personnes qui publient trop vite, se répètent ou inondent le chat de liens.</string>
 </resources>

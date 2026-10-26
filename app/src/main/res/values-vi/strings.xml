@@ -380,4 +380,6 @@
     <string name="about_app_language">Ngôn ngữ ứng dụng</string>
     <string name="about_system_default">Mặc định hệ thống</string>
     <string name="about_select_language">Chọn ngôn ngữ</string>
+    <string name="about_spam_filter_title">Bộ lọc thư rác</string>
+    <string name="about_spam_filter_desc">Ẩn tin nhắn công khai từ những người gửi quá nhanh, lặp lại nội dung hoặc gửi quá nhiều liên kết.</string>
 </resources>

@@ -391,4 +391,6 @@
     <string name="about_app_language">Wika ng app</string>
     <string name="about_system_default">Default ng system</string>
     <string name="about_select_language">Pumili ng wika</string>
+    <string name="about_spam_filter_title">Filter ng spam</string>
+    <string name="about_spam_filter_desc">Itago ang mga pampublikong mensahe mula sa mga taong masyadong mabilis mag-post, paulit-ulit ang sinasabi, o nagpapadala ng napakaraming link.</string>
 </resources>

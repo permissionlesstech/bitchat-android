@@ -393,4 +393,6 @@
     <string name="about_app_language">لغة التطبيق</string>
     <string name="about_system_default">إعداد النظام الافتراضي</string>
     <string name="about_select_language">اختر اللغة</string>
+    <string name="about_spam_filter_title">فلتر الرسائل المزعجة</string>
+    <string name="about_spam_filter_desc">إخفاء الرسائل العامة من الأشخاص الذين يرسلون بسرعة مفرطة أو يكررون رسائلهم أو يغرقون الدردشة بالروابط.</string>
 </resources>
