@@ -119,7 +119,7 @@ class GeohashMessageHandler(
                         msg,
                         SpamFilter.nostrSenderKey(pubkey),
                         channel = subscribedGeohash.lowercase(),
-                        proven = GeohashIdentityProof.isProven(pubkey, subscribedGeohash)
+                        proven = GeohashTimeLock.isProven(event.tags, pubkey, subscribedGeohash)
                     )
                 }
                 if (hide) {

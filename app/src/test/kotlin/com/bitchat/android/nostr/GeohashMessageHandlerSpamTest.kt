@@ -52,13 +52,39 @@ class GeohashMessageHandlerSpamTest {
         com.bitchat.android.services.AppStateStore.clear()
     }
 
-    private fun event(identity: NostrIdentity, content: String) = NostrEvent(
+    private fun event(identity: NostrIdentity, content: String, extraTags: List<List<String>> = emptyList()) = NostrEvent(
         pubkey = identity.publicKeyHex,
         createdAt = (System.currentTimeMillis() / 1000).toInt(),
         kind = NostrKind.EPHEMERAL_EVENT,
-        tags = listOf(listOf("g", geohash)),
+        tags = listOf(listOf("g", geohash)) + extraTags,
         content = content
     ).sign(identity.privateKeyHex)
+
+    private fun randomText(i: Int) = (0 until 6).joinToString(" ") { w -> "w${i}x${w}" + "abcdefghij".take(1 + (i + w) % 9) }
+
+    @Test
+    fun `fresh identities share the channel pool while a time-locked identity gets through`() {
+        val savedIterations = GeohashTimeLock.requiredIterations
+        GeohashTimeLock.requiredIterations = 2_000
+        try {
+            repeat(50) { handler.onEvent(event(NostrIdentity.generate(), randomText(it)), geohash) }
+            assertEquals(6, chatState.getChannelMessagesValue()["geo:$geohash"]?.size)
+
+            val person = NostrIdentity.generate()
+            val token = GeohashTimeLock.compute(person.publicKeyHex, geohash, iterations = 2_000)!!
+            handler.onEvent(event(person, "hello from a real person", listOf(token.toTag())), geohash)
+            handler.onEvent(event(NostrIdentity.generate(), "a fresh key without a token"), geohash)
+            val shown = chatState.getChannelMessagesValue()["geo:$geohash"].orEmpty().map { it.content }
+            assertEquals(7, shown.size)
+            assert("hello from a real person" in shown)
+
+            // A token copied onto another key proves nothing.
+            handler.onEvent(event(NostrIdentity.generate(), "stolen token", listOf(token.toTag())), geohash)
+            assertEquals(7, chatState.getChannelMessagesValue()["geo:$geohash"]?.size)
+        } finally {
+            GeohashTimeLock.requiredIterations = savedIterations
+        }
+    }
 
     @Test
     fun `flood from one pubkey is cut off after the burst`() {

@@ -172,6 +172,8 @@ object NostrProtocol {
             // Use tag consistent with event handlers ("t","teleport")
             tags.add(listOf("t", "teleport"))
         }
+
+        GeohashTimeLock.ownTokenTag(senderIdentity.publicKeyHex, geohash)?.let(tags::add)
         
         var event = NostrEvent(
             pubkey = senderIdentity.publicKeyHex,

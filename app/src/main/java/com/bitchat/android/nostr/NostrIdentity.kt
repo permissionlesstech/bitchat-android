@@ -99,7 +99,7 @@ object NostrIdentityBridge {
     private const val TAG = "NostrIdentityBridge"
     private const val NOSTR_PRIVATE_KEY = "nostr_private_key"
     private const val DEVICE_SEED_KEY = "nostr_device_seed"
-    private const val GEOHASH_PROOF_COUNTERS_KEY = "nostr_geohash_proof_counters"
+    private const val GEOHASH_TIMELOCK_KEY = "nostr_geohash_timelock_tokens"
     
     // Cache for derived geohash identities to avoid repeated crypto operations
     private val geohashIdentityCache = ConcurrentHashMap<String, NostrIdentity>()
@@ -142,68 +142,10 @@ object NostrIdentityBridge {
             //Log.v(TAG, "Using cached geohash identity for $forGeohash")
             return cachedIdentity
         }
-
+        
         val stateManager = SecureIdentityStateManager(context)
         val seed = getOrCreateDeviceSeed(stateManager)
-        val base = deriveBaseIdentity(forGeohash, seed)
-        val offset = if (GeohashIdentityProof.grindEnabled) {
-            loadProofCounters(stateManager)[proofCounterId(seed, forGeohash)]
-        } else {
-            null
-        }
-        val identity = offset?.let {
-            NostrIdentity.fromPrivateKey(
-                GeohashIdentityProof.offsetPrivateKeyHex(java.math.BigInteger(base.privateKeyHex, 16), it)
-            )
-        } ?: base
-        geohashIdentityCache[forGeohash] = identity
-        return identity
-    }
-
-    /**
-     * Debug experiment: grinds this device's key for [geohash] until it carries a channel-bound
-     * proof (see [GeohashIdentityProof]) and stores the winning offset. CPU-bound; call off the
-     * main thread. Returns true when a proven key is stored.
-     */
-    fun grindGeohashIdentity(geohash: String, context: Context, isActive: () -> Boolean = { true }): Boolean {
-        if (!GeohashIdentityProof.grindEnabled) return false
-        val stateManager = SecureIdentityStateManager(context)
-        val seed = getOrCreateDeviceSeed(stateManager)
-        val id = proofCounterId(seed, geohash)
-        if (loadProofCounters(stateManager).containsKey(id)) return true
-        val base = deriveBaseIdentity(geohash, seed)
-        val offset = GeohashIdentityProof.grind(java.math.BigInteger(base.privateKeyHex, 16), geohash, isActive = isActive)
-            ?: return false
-        synchronized(this) {
-            val counters = loadProofCounters(stateManager)
-            counters[id] = offset
-            stateManager.storeSecureValue(
-                GEOHASH_PROOF_COUNTERS_KEY,
-                counters.entries.joinToString(";") { "${it.key}=${it.value}" }
-            )
-        }
-        geohashIdentityCache.remove(geohash)
-        Log.d(TAG, "Ground a proven geohash identity")
-        return true
-    }
-
-    /** Forgets cached geohash identities, e.g. when the proof experiment is switched. */
-    fun clearAllGeohashIdentityCache() = geohashIdentityCache.clear()
-
-    // Entries are keyed by HMAC(seed, "idx" ‖ geohash) so no geohash is stored in plain form.
-    private fun proofCounterId(seed: ByteArray, geohash: String): String =
-        hmacSha256(seed, "idx".toByteArray(Charsets.UTF_8) + geohash.toByteArray(Charsets.UTF_8))
-            .toHexStringLocal()
-
-    private fun loadProofCounters(stateManager: SecureIdentityStateManager): MutableMap<String, Long> {
-        val raw = stateManager.getSecureValue(GEOHASH_PROOF_COUNTERS_KEY) ?: return mutableMapOf()
-        return raw.split(';').mapNotNull { entry ->
-            val parts = entry.split('=')
-            parts.getOrNull(1)?.toLongOrNull()?.let { parts[0] to it }
-        }.toMap(mutableMapOf())
-    }
-
-    private fun deriveBaseIdentity(forGeohash: String, seed: ByteArray): NostrIdentity {
+        
         val geohashBytes = forGeohash.toByteArray(Charsets.UTF_8)
         
         // Try a few iterations to ensure a valid key can be formed (exactly like iOS)
@@ -213,7 +155,10 @@ object NostrIdentityBridge {
             
             if (NostrCrypto.isValidPrivateKey(candidateKeyHex)) {
                 val identity = NostrIdentity.fromPrivateKey(candidateKeyHex)
-
+                
+                // Cache the result for future UI responsiveness
+                geohashIdentityCache[forGeohash] = identity
+                
                 Log.d(TAG, "Derived geohash identity")
                 return identity
             }
@@ -225,7 +170,10 @@ object NostrIdentityBridge {
         val fallbackKey = digest.digest(combined)
         
         val fallbackIdentity = NostrIdentity.fromPrivateKey(fallbackKey.toHexStringLocal())
-
+        
+        // Cache the fallback result too
+        geohashIdentityCache[forGeohash] = fallbackIdentity
+        
         Log.d(TAG, "Used fallback geohash identity derivation")
         return fallbackIdentity
     }
@@ -267,10 +215,11 @@ object NostrIdentityBridge {
         
         // Clear Nostr private key using public methods instead of reflection
         return try {
+            GeohashTimeLock.forgetOwnTokens()
             val cleared = stateManager.clearSecureValuesSynchronously(
                 NOSTR_PRIVATE_KEY,
                 DEVICE_SEED_KEY,
-                GEOHASH_PROOF_COUNTERS_KEY
+                GEOHASH_TIMELOCK_KEY
             )
             if (cleared) {
                 Log.i(TAG, "Cleared all Nostr identity data and cache")
@@ -282,6 +231,44 @@ object NostrIdentityBridge {
             Log.e(TAG, "Failed to clear Nostr data: ${e.message}")
             false
         }
+    }
+
+    /**
+     * Debug experiment: makes sure this device holds a time-lock token for its [geohash] identity
+     * (see [GeohashTimeLock]), computing one if needed, so outgoing events can carry it.
+     * CPU-bound for minutes; call off the main thread. Returns true when a token is held.
+     */
+    fun ensureGeohashTimeLock(geohash: String, context: Context, isActive: () -> Boolean = { true }): Boolean {
+        if (!GeohashTimeLock.computeEnabled) return false
+        val identity = deriveIdentity(geohash, context)
+        if (GeohashTimeLock.ownTokenTag(identity.publicKeyHex, geohash) != null) return true
+        val stateManager = SecureIdentityStateManager(context)
+        // Entries are keyed by HMAC(seed, "vdf" ‖ geohash) so no geohash is stored in plain form.
+        val id = hmacSha256(
+            getOrCreateDeviceSeed(stateManager),
+            "vdf".toByteArray(Charsets.UTF_8) + geohash.toByteArray(Charsets.UTF_8)
+        ).toHexStringLocal()
+        val stored = loadTimeLocks(stateManager)[id]?.let { GeohashTimeLock.parseTag(listOf(listOf(GeohashTimeLock.TAG) + it.split(':'))) }
+        val token = stored?.takeIf { GeohashTimeLock.verify(identity.publicKeyHex, geohash, it) }
+            ?: GeohashTimeLock.compute(identity.publicKeyHex, geohash, isActive = isActive)
+            ?: return false
+        if (stored == null || stored != token) {
+            synchronized(this) {
+                val all = loadTimeLocks(stateManager)
+                all[id] = token.toTag().drop(1).joinToString(":")
+                stateManager.storeSecureValue(GEOHASH_TIMELOCK_KEY, all.entries.joinToString(";") { "${it.key}=${it.value}" })
+            }
+        }
+        GeohashTimeLock.rememberOwnToken(identity.publicKeyHex, geohash, token)
+        return true
+    }
+
+    private fun loadTimeLocks(stateManager: SecureIdentityStateManager): MutableMap<String, String> {
+        val raw = stateManager.getSecureValue(GEOHASH_TIMELOCK_KEY) ?: return mutableMapOf()
+        return raw.split(';').mapNotNull { entry ->
+            val parts = entry.split('=', limit = 2)
+            if (parts.size == 2) parts[0] to parts[1] else null
+        }.toMap(mutableMapOf())
     }
 
     fun clearGeohashIdentityCache(geohashes: Collection<String>) {

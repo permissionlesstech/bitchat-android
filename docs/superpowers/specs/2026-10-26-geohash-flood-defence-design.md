@@ -287,3 +287,29 @@ not changed: the pool charges message time, so backdated bots can use past pool 
 
 Open: Mesh Lab (E6), GPU cost (E5 unmeasured), backdated bots at low
 flood rates, mesh flooding (identity PoW for mesh requested as a follow-up).
+
+## Update: time-lock tokens replace key grinding (2026-10-26)
+
+Hash proof-of-work favours GPUs and servers (Pixel 80k tries/s vs desktop core 500k). Sequential
+squaring cannot be parallelised within one token: 2048-bit squarings, desktop JVM 122k/s vs
+Pixel 9a 70k/s (1.75×).
+
+`GeohashTimeLock` implements a Wesolowski verifiable delay function in the RSA-2048 challenge
+group (617 digits, unfactored, so no trusted setup by us). Input: SHA-256 over domain, pubkey and
+geohash, so a token is bound to one key in one channel. It travels as a ~1 KB tag
+`["vdf", T, y, proof]` on geohash events; the key does not change. The hash-grinding identity
+code was removed.
+
+Measured on the Pixel 9a: T = 1M → 35 s, T = 4M (default) → 141 s to compute; verification
+1.6 ms (desktop 0.44 ms); 100/100 valid. Receivers remember proven senders and check at most
+10 new tokens a second (burst 20), so fake tokens cost a bounded amount of CPU.
+
+Tests: 11 token tests (other channel, other key, tampering, over-claimed T, malformed tags,
+cancellation, verifier budget), plus an end-to-end handler test: 50 fresh keys → 6 shown; a
+person with a token gets through; a token copied to another key does not.
+
+Cost to an attacker at T = 4M: proof needs ~2T squarings, about 66 s per token on one desktop
+core (JVM), so 10,000 identities ≈ 180 core-hours, roughly a few dollars of rented CPU. A
+phone spends 141 s once per channel identity. The time-lock removes the GPU advantage but still
+only prices a flood; making 10,000 identities cost ~$100 would need each phone to spend tens of
+minutes per channel.
