@@ -26,9 +26,16 @@ import kotlin.math.sin
  * Debug-only UI demo data for screenshot reviews. Everything here is synthetic: fixed fake
  * peer IDs and nicknames, scripted messages, a generated gradient image and a generated tone.
  * The peers exist only in the local peer table and the shared UI store; no packets are sent.
+ *
+ * Seeding is refused on an installation whose nickname was chosen by a person, so a real
+ * name never ends up in a screenshot and real conversation history is never mixed with demo
+ * rows. A disposable install (auto-generated name) is switched to [DEMO_SELF_NICKNAME].
  */
 internal object WearUiDemoSeeder {
     private const val TRANSPORT_ID = "ui_demo"
+    const val DEMO_SELF_NICKNAME = "ada"
+    private const val DEMO_PREFS = "bitchat_watch_ui_demo"
+    private const val KEY_SEEDED = "seeded"
 
     val peers = linkedMapOf(
         "a11ce0000000a11c" to "alice",
@@ -41,7 +48,16 @@ internal object WearUiDemoSeeder {
     fun seed(context: Context, withMedia: Boolean, unread: Boolean): JSONObject {
         val mesh = WearMeshService.getOrCreate(context)
         val me = mesh.myPeerID
-        val myNick = mesh.nickname
+        val demoPrefs = context.getSharedPreferences(DEMO_PREFS, Context.MODE_PRIVATE)
+        val seededBefore = demoPrefs.getBoolean(KEY_SEEDED, false)
+        if (!isDisposableIdentity(mesh.nickname, me, seededBefore)) {
+            return JSONObject()
+                .put("status", "error")
+                .put("error", "refusing to seed: nickname was chosen by a person; clear app data first")
+        }
+        demoPrefs.edit().putBoolean(KEY_SEEDED, true).apply()
+        if (mesh.nickname != DEMO_SELF_NICKNAME) mesh.setNickname(DEMO_SELF_NICKNAME)
+        val myNick = DEMO_SELF_NICKNAME
         addPeersToMesh(mesh)
         AppStateStore.setTransportPeers(TRANSPORT_ID, peers.keys.toList())
 
@@ -105,6 +121,18 @@ internal object WearUiDemoSeeder {
         }
         return JSONObject().put("status", "ok").put("peers", peers.size)
     }
+
+    /**
+     * True for the auto-generated name (`WearMeshService` defaults to `watch-<peer>`), or for the
+     * demo name when this seeder set it earlier on this install. Anything else was typed by a
+     * person and stays out of demo data.
+     */
+    internal fun isDisposableIdentity(
+        nickname: String,
+        myPeerID: String,
+        seededBefore: Boolean
+    ): Boolean = nickname == "watch-${myPeerID.take(4)}" ||
+        (seededBefore && nickname == DEMO_SELF_NICKNAME)
 
     fun refreshPeers(context: Context): JSONObject {
         addPeersToMesh(WearMeshService.getOrCreate(context))
