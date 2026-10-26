@@ -27,6 +27,8 @@
   <string name="verify_remove">移除验证</string>
   <string name="verify_qr_unavailable">QR码不可用</string>
   <string name="verify_camera_permission">需要相机权限扫描QR码</string>
+  <string name="verify_scan_error_invalid">不是有效的 bitchat 验证码，或已过期</string>
+  <string name="verify_scan_error_peer_not_found">尚未发现对方设备，请确认蓝牙已开启且距离较近</string>
   <string name="verify_request_camera">启用相机</string>
   <string name="verify_paste_label">粘贴验证链接</string>
   <string name="verify_validate">验证</string>

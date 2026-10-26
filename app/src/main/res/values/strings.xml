@@ -485,6 +485,8 @@
   <string name="verify_qr_unavailable">QR unavailable</string>
   <string name="verify_camera_permission">Camera permission is needed to scan QR codes</string>
   <string name="verify_request_camera">Enable camera</string>
+  <string name="verify_scan_error_invalid">Not a valid bitchat verification code, or it has expired</string>
+  <string name="verify_scan_error_peer_not_found">Could not find that device yet. Make sure Bluetooth is on and you are nearby</string>
   <string name="verify_paste_label">Paste verification URL</string>
   <string name="verify_validate">Validate</string>
   <string name="verify_scanned">Verification requested</string>
