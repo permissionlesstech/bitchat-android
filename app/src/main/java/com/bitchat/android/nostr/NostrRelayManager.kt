@@ -251,20 +251,22 @@ class NostrRelayManager internal constructor(
         // Privacy revocation purges live entries synchronously. This operation
         // only changes destinations; every actual write rechecks its token.
         val pending = synchronized(subscriptionLock) { messageQueue.rerouteGeohashEvents(::relaysForRoute) }
-        val retained = geohashToRelays.values.flatMapTo(mutableSetOf()) { it }
-        activeSubscriptions.values.forEach { retained.addAll(it.targetRelayUrls.orEmpty()) }
-        retained.addAll(pending)
-        retained.addAll(messageQueue.pendingRelayUrls())
-        retained.addAll(Companion.defaultRelays())
-        val removed = oldTargets - retained
-        removed.forEach { url ->
-            reconnectJobs.remove(url)?.cancel()
-            connections.remove(url)?.close(1000, "Relay directory changed")
-            subscriptions.remove(url)
-            nonLiveRelayUrls.remove(url)
-            liveLocationRelayTokens.remove(url)
+        synchronized(subscriptionLock) {
+            val retained = geohashToRelays.values.flatMapTo(mutableSetOf()) { it }
+            activeSubscriptions.values.forEach { retained.addAll(it.targetRelayUrls.orEmpty()) }
+            retained.addAll(pending)
+            retained.addAll(messageQueue.pendingRelayUrls())
+            retained.addAll(Companion.defaultRelays())
+            val removed = oldTargets - retained
+            removed.forEach { url ->
+                reconnectJobs.remove(url)?.cancel()
+                connections.remove(url)?.close(1000, "Relay directory changed")
+                subscriptions.remove(url)
+                nonLiveRelayUrls.remove(url)
+                liveLocationRelayTokens.remove(url)
+            }
+            relaysList.removeAll { it.url in removed }
         }
-        relaysList.removeAll { it.url in removed }
         updateRelaysList()
         updateConnectionStatus()
         connections.forEach { (url, socket) ->
