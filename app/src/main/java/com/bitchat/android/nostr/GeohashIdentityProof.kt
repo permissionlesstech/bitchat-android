@@ -17,7 +17,7 @@ import java.security.MessageDigest
 object GeohashIdentityProof {
     private val DOMAIN = "bitchat-geohash-id-v1".toByteArray(Charsets.UTF_8)
     private val curve = CustomNamedCurves.getByName("secp256k1")
-    private val CANONICAL_PUBKEY = Regex("[0-9a-fA-F]{64}")
+    private val CANONICAL_PUBKEY = Regex("[0-9a-f]{64}")
 
     /** Debug experiment: when true, this device grinds its geohash keys before using them. */
     @Volatile

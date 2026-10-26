@@ -57,6 +57,7 @@ class GeohashIdentityProofTest {
         GeohashIdentityProof.requiredBits = 0
         assertTrue(GeohashIdentityProof.isProven("0f".repeat(32), "abcde"))
         assertFalse(GeohashIdentityProof.isProven("+f" + "0f".repeat(31), "abcde"))
+        assertFalse(GeohashIdentityProof.isProven("0F".repeat(32), "abcde"))
     }
 
     @Test
