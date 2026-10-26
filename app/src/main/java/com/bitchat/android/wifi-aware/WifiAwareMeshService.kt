@@ -1426,6 +1426,10 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         meshCore.sendVoiceFrame(recipientPeerID, payload)
     }
 
+    override fun sendVideoFrame(recipientPeerID: String?, payload: ByteArray) {
+        meshCore.sendVideoFrame(recipientPeerID, payload)
+    }
+
     override fun prepareFilePrivate(
         recipientPeerID: String,
         file: BitchatFilePacket,

@@ -275,9 +275,11 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">Изображение</string>
     <string name="media_type_file">Файл</string>
+    <string name="media_type_video">Видео</string>
 
     <string name="notification_sent_image">📷 отправил изображение</string>
     <string name="notification_sent_voice">🎤 отправил голосовое</string>
+    <string name="notification_sent_video">🎥 отправил видео</string>
     <string name="notification_sent_file">📎 отправил файл</string>
     <string name="notification_file_pdf">📄</string>
     <string name="notification_file_zip">🗜️</string>
@@ -382,4 +384,44 @@
     <string name="about_select_language">Выбрать язык</string>
     <string name="about_spam_filter_title">Спам-фильтр</string>
     <string name="about_spam_filter_desc">Скрывать публичные сообщения от тех, кто пишет слишком быстро, повторяется или отправляет слишком много ссылок.</string>
+
+    <!-- Live video and video messages -->
+    <string name="video_live_badge">ЭФИР</string>
+    <string name="video_joining_live">Подключение к эфиру…</string>
+    <string name="video_weak_signal">Слабый сигнал</string>
+    <string name="video_weak_signal_reconnecting">Слабый сигнал · догоняем</string>
+    <string name="video_live_ended">Прямой эфир завершён</string>
+    <string name="video_live_ended_by">%1$s завершил(а) трансляцию</string>
+    <string name="video_watch_replay">Смотреть запись</string>
+    <string name="video_live_rate">%1$.1f kbps через mesh</string>
+    <string name="video_unavailable">Видео недоступно</string>
+    <string name="video_too_short">Видео слишком короткое</string>
+    <string name="video_prepare_failed">Не удалось подготовить это видео для mesh-сети</string>
+    <string name="video_camera_failed">Камера или видеокодер недоступны</string>
+    <string name="video_trimmed">Длинное видео обрезано до первой минуты</string>
+    <string name="video_camera_permission">Для записи или эфира нужен доступ к камере</string>
+    <string name="video_grant_camera">Разрешить камеру</string>
+    <string name="video_compressing">Сжатие для mesh-сети…</string>
+    <string name="video_finishing">Завершение…</string>
+    <string name="video_end_live_title">Завершить прямой эфир?</string>
+    <string name="video_end_live_message">Зрители сохранят то, что уже получили. Запись будет отправлена в чат.</string>
+    <string name="video_end_live_confirm">Завершить</string>
+    <string name="video_uplink">↑ %1$.1f kbps · %2$s</string>
+    <string name="video_mode_live">ЭФИР</string>
+    <string name="video_mode_clip">ВИДЕО</string>
+    <string name="video_live_unavailable">Для эфира нужен mesh-пир поблизости (или зашифрованный сеанс в личных сообщениях)</string>
+    <string name="video_quality_low">Низкое</string>
+    <string name="video_quality_medium">Среднее</string>
+    <string name="video_quality_high">Высокое</string>
+    <string name="video_quality_low_hint">Лучше всего для Bluetooth и множества переходов</string>
+    <string name="video_quality_medium_hint">Один или два перехода по Bluetooth</string>
+    <string name="video_quality_high_hint">Только пиры Wi-Fi Aware</string>
+    <string name="cd_live_video">Прямой эфир</string>
+    <string name="cd_video">Видео</string>
+    <string name="cd_play_video">Воспроизвести видео</string>
+    <string name="cd_pause_video">Приостановить видео</string>
+    <string name="cd_mute">Выключить звук</string>
+    <string name="cd_unmute">Включить звук</string>
+    <string name="cd_switch_camera">Сменить камеру</string>
+    <string name="cd_pick_video">Выбрать видео</string>
 </resources>

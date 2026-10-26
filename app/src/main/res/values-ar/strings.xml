@@ -288,10 +288,12 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">صورة</string>
     <string name="media_type_file">ملف</string>
+    <string name="media_type_video">فيديو</string>
 
     <!-- مساعدو نص الإشعارات -->
     <string name="notification_sent_image">📷 أرسل صورة</string>
     <string name="notification_sent_voice">🎤 أرسل مذكرة صوتية</string>
+    <string name="notification_sent_video">🎥 أرسل فيديو</string>
     <string name="notification_sent_file">📎 أرسل ملفًا</string>
 
     <!-- سهولة استخدام مشغّل الصوت -->
@@ -395,4 +397,44 @@
     <string name="about_select_language">اختر اللغة</string>
     <string name="about_spam_filter_title">فلتر الرسائل المزعجة</string>
     <string name="about_spam_filter_desc">إخفاء الرسائل العامة من الأشخاص الذين يرسلون بسرعة مفرطة أو يكررون رسائلهم أو يغرقون الدردشة بالروابط.</string>
+
+    <!-- Live video and video messages -->
+    <string name="video_live_badge">مباشر</string>
+    <string name="video_joining_live">جارٍ الانضمام إلى البث المباشر…</string>
+    <string name="video_weak_signal">إشارة ضعيفة</string>
+    <string name="video_weak_signal_reconnecting">إشارة ضعيفة · جارٍ اللحاق</string>
+    <string name="video_live_ended">انتهى الفيديو المباشر</string>
+    <string name="video_live_ended_by">أنهى %1$s البث</string>
+    <string name="video_watch_replay">مشاهدة التسجيل</string>
+    <string name="video_live_rate">%1$.1f kbps عبر mesh</string>
+    <string name="video_unavailable">الفيديو غير متاح</string>
+    <string name="video_too_short">الفيديو قصير جدًا</string>
+    <string name="video_prepare_failed">تعذّر تجهيز هذا الفيديو لشبكة mesh</string>
+    <string name="video_camera_failed">الكاميرا أو مُرمِّز الفيديو غير متاح</string>
+    <string name="video_trimmed">تم قص الفيديو الطويل إلى دقيقته الأولى</string>
+    <string name="video_camera_permission">يلزم الوصول إلى الكاميرا للتسجيل أو البث المباشر</string>
+    <string name="video_grant_camera">السماح بالكاميرا</string>
+    <string name="video_compressing">جارٍ الضغط لشبكة mesh…</string>
+    <string name="video_finishing">جارٍ الإنهاء…</string>
+    <string name="video_end_live_title">إنهاء الفيديو المباشر؟</string>
+    <string name="video_end_live_message">يحتفظ المشاهدون بما تلقّوه. تتم مشاركة التسجيل في الدردشة.</string>
+    <string name="video_end_live_confirm">إنهاء</string>
+    <string name="video_uplink">↑ %1$.1f kbps · %2$s</string>
+    <string name="video_mode_live">مباشر</string>
+    <string name="video_mode_clip">فيديو</string>
+    <string name="video_live_unavailable">يتطلب البث المباشر نظيرًا قريبًا على شبكة mesh (أو جلسة مشفرة في رسالة مباشرة)</string>
+    <string name="video_quality_low">منخفضة</string>
+    <string name="video_quality_medium">متوسطة</string>
+    <string name="video_quality_high">عالية</string>
+    <string name="video_quality_low_hint">الأفضل لـ Bluetooth والقفزات المتعددة</string>
+    <string name="video_quality_medium_hint">قفزة أو قفزتان عبر Bluetooth</string>
+    <string name="video_quality_high_hint">نظراء Wi-Fi Aware فقط</string>
+    <string name="cd_live_video">فيديو مباشر</string>
+    <string name="cd_video">فيديو</string>
+    <string name="cd_play_video">تشغيل الفيديو</string>
+    <string name="cd_pause_video">إيقاف الفيديو مؤقتًا</string>
+    <string name="cd_mute">كتم الصوت</string>
+    <string name="cd_unmute">إلغاء كتم الصوت</string>
+    <string name="cd_switch_camera">تبديل الكاميرا</string>
+    <string name="cd_pick_video">اختيار فيديو</string>
 </resources>

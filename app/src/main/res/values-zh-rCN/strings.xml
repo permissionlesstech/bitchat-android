@@ -347,8 +347,10 @@
   <string name="image_star">image/*</string>
   <string name="media_type_image">图片</string>
   <string name="media_type_file">文件</string>
+  <string name="media_type_video">视频</string>
   <string name="notification_sent_image">📷 发送了一张图片</string>
   <string name="notification_sent_voice">🎤 发送了一条语音消息</string>
+  <string name="notification_sent_video">🎥 发送了一个视频</string>
   <string name="notification_sent_file">📎 发送了一个文件</string>
   <string name="notification_file_pdf">📄</string>
   <string name="notification_file_zip">🗜️</string>
@@ -390,4 +392,44 @@
     <string name="about_select_language">选择语言</string>
     <string name="about_spam_filter_title">垃圾消息过滤器</string>
     <string name="about_spam_filter_desc">隐藏发送过快、重复发言或发送过多链接的用户的公开消息。</string>
+
+    <!-- Live video and video messages -->
+    <string name="video_live_badge">直播</string>
+    <string name="video_joining_live">正在加入直播…</string>
+    <string name="video_weak_signal">信号弱</string>
+    <string name="video_weak_signal_reconnecting">信号弱 · 正在追赶</string>
+    <string name="video_live_ended">直播已结束</string>
+    <string name="video_live_ended_by">%1$s 结束了直播</string>
+    <string name="video_watch_replay">观看回放</string>
+    <string name="video_live_rate">通过 mesh 传输 %1$.1f kbps</string>
+    <string name="video_unavailable">视频不可用</string>
+    <string name="video_too_short">视频太短</string>
+    <string name="video_prepare_failed">无法为 mesh 准备此视频</string>
+    <string name="video_camera_failed">摄像头或视频编码器不可用</string>
+    <string name="video_trimmed">长视频已裁剪为前一分钟</string>
+    <string name="video_camera_permission">录制或直播需要摄像头权限</string>
+    <string name="video_grant_camera">允许使用摄像头</string>
+    <string name="video_compressing">正在为 mesh 压缩…</string>
+    <string name="video_finishing">正在完成…</string>
+    <string name="video_end_live_title">结束直播？</string>
+    <string name="video_end_live_message">观众会保留已收到的内容。录像将分享到聊天中。</string>
+    <string name="video_end_live_confirm">结束</string>
+    <string name="video_uplink">↑ %1$.1f kbps · %2$s</string>
+    <string name="video_mode_live">直播</string>
+    <string name="video_mode_clip">视频</string>
+    <string name="video_live_unavailable">直播需要附近的 mesh 节点（或私信中的加密会话）</string>
+    <string name="video_quality_low">低</string>
+    <string name="video_quality_medium">中</string>
+    <string name="video_quality_high">高</string>
+    <string name="video_quality_low_hint">最适合 Bluetooth 和多跳</string>
+    <string name="video_quality_medium_hint">一到两跳 Bluetooth</string>
+    <string name="video_quality_high_hint">仅限 Wi-Fi Aware 节点</string>
+    <string name="cd_live_video">直播视频</string>
+    <string name="cd_video">视频</string>
+    <string name="cd_play_video">播放视频</string>
+    <string name="cd_pause_video">暂停视频</string>
+    <string name="cd_mute">静音</string>
+    <string name="cd_unmute">取消静音</string>
+    <string name="cd_switch_camera">切换摄像头</string>
+    <string name="cd_pick_video">选择视频</string>
 </resources>

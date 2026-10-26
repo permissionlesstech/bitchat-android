@@ -349,8 +349,10 @@
   <string name="image_star">image/*</string>
   <string name="media_type_image">תמונה</string>
   <string name="media_type_file">קובץ</string>
+  <string name="media_type_video">וידאו</string>
   <string name="notification_sent_image">📷 שלח/ה תמונה</string>
   <string name="notification_sent_voice">🎤 שלח/ה הודעה קולית</string>
+  <string name="notification_sent_video">🎥 שלח/ה סרטון</string>
   <string name="notification_sent_file">📎 שלח/ה קובץ</string>
   <string name="notification_file_pdf">📄</string>
   <string name="notification_file_zip">🗜️</string>
@@ -394,4 +396,44 @@
     <string name="about_select_language">בחירת שפה</string>
     <string name="about_spam_filter_title">מסנן ספאם</string>
     <string name="about_spam_filter_desc">הסתר הודעות ציבוריות מאנשים ששולחים מהר מדי, חוזרים על עצמם או מציפים בקישורים.</string>
+
+    <!-- Live video and video messages -->
+    <string name="video_live_badge">חי</string>
+    <string name="video_joining_live">מצטרפים לשידור החי…</string>
+    <string name="video_weak_signal">אות חלש</string>
+    <string name="video_weak_signal_reconnecting">אות חלש · משלים פערים</string>
+    <string name="video_live_ended">השידור החי הסתיים</string>
+    <string name="video_live_ended_by">%1$s סיים/ה את השידור</string>
+    <string name="video_watch_replay">צפייה בהקלטה</string>
+    <string name="video_live_rate">%1$.1f kbps דרך ה-mesh</string>
+    <string name="video_unavailable">הווידאו אינו זמין</string>
+    <string name="video_too_short">הסרטון קצר מדי</string>
+    <string name="video_prepare_failed">לא ניתן היה להכין את הסרטון הזה עבור ה-mesh</string>
+    <string name="video_camera_failed">המצלמה או מקודד הווידאו אינם זמינים</string>
+    <string name="video_trimmed">סרטון ארוך קוצר לדקה הראשונה שלו</string>
+    <string name="video_camera_permission">נדרשת גישה למצלמה כדי להקליט או לשדר בשידור חי</string>
+    <string name="video_grant_camera">אפשר גישה למצלמה</string>
+    <string name="video_compressing">דוחס עבור ה-mesh…</string>
+    <string name="video_finishing">מסיים…</string>
+    <string name="video_end_live_title">לסיים את השידור החי?</string>
+    <string name="video_end_live_message">הצופים שומרים את מה שקיבלו. ההקלטה משותפת בצ׳אט.</string>
+    <string name="video_end_live_confirm">סיום</string>
+    <string name="video_uplink">↑ %1$.1f kbps · %2$s</string>
+    <string name="video_mode_live">חי</string>
+    <string name="video_mode_clip">וידאו</string>
+    <string name="video_live_unavailable">שידור חי דורש עמית mesh בקרבת מקום (או סשן מוצפן בהודעה פרטית)</string>
+    <string name="video_quality_low">נמוכה</string>
+    <string name="video_quality_medium">בינונית</string>
+    <string name="video_quality_high">גבוהה</string>
+    <string name="video_quality_low_hint">הכי טוב ל-Bluetooth ולקפיצות רבות</string>
+    <string name="video_quality_medium_hint">קפיצה אחת או שתיים ב-Bluetooth</string>
+    <string name="video_quality_high_hint">עמיתי Wi-Fi Aware בלבד</string>
+    <string name="cd_live_video">וידאו חי</string>
+    <string name="cd_video">וידאו</string>
+    <string name="cd_play_video">הפעלת הווידאו</string>
+    <string name="cd_pause_video">השהיית הווידאו</string>
+    <string name="cd_mute">השתקה</string>
+    <string name="cd_unmute">ביטול השתקה</string>
+    <string name="cd_switch_camera">החלפת מצלמה</string>
+    <string name="cd_pick_video">בחירת סרטון</string>
 </resources>

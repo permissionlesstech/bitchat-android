@@ -23,7 +23,7 @@ package com.bitchat.android.protocol
  * | courier envelope, Nostr carrier| 16 KiB ciphertext/event + TLVs (iOS only)            | 64 KiB             |
  * | REQUEST_SYNC                   | ~2.1 KB: 1,024 B GCS filter + fragment-ID filter     | 8 KiB              |
  * | FRAGMENT                       | <= 513 B: 13 B header + chunk                        | 1,280 B            |
- * | ANNOUNCE, LEAVE, NOISE_HANDSHAKE, VOICE_FRAME, board post, prekey bundle, ping, pong | <= ~750 B | 4 KiB |
+ * | ANNOUNCE, LEAVE, NOISE_HANDSHAKE, VOICE_FRAME, VIDEO_FRAME, board post, prekey bundle, ping, pong | <= ~750 B | 4 KiB |
  * | unknown / future types         | a v1 frame (65,535 B) stays relayable                | 128 KiB            |
  *
  * A future type that needs more than a v1 frame must be added here before it
@@ -63,7 +63,7 @@ internal object PacketPayloadLimits {
             MessageType.REQUEST_SYNC -> return REQUEST_SYNC_BYTES
             MessageType.FRAGMENT -> return FRAGMENT_BYTES
             MessageType.ANNOUNCE, MessageType.LEAVE, MessageType.NOISE_HANDSHAKE,
-            MessageType.VOICE_FRAME -> return CONTROL_BYTES
+            MessageType.VOICE_FRAME, MessageType.VIDEO_FRAME -> return CONTROL_BYTES
             null -> Unit
         }
         return when (type) {

@@ -291,12 +291,14 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">Larawan</string>
     <string name="media_type_file">File</string>
+    <string name="media_type_video">Video</string>
 
     <!-- Mga status ng mensahe -->
 
     <!-- Tulong na text sa abiso -->
     <string name="notification_sent_image">📷 nagpadala ng larawan</string>
     <string name="notification_sent_voice">🎤 nagpadala ng voice message</string>
+    <string name="notification_sent_video">🎥 nagpadala ng video</string>
     <string name="notification_sent_file">📎 nagpadala ng file</string>
     <string name="notification_file_pdf">📄</string>
     <string name="notification_file_zip">🗜️</string>
@@ -393,4 +395,44 @@
     <string name="about_select_language">Pumili ng wika</string>
     <string name="about_spam_filter_title">Filter ng spam</string>
     <string name="about_spam_filter_desc">Itago ang mga pampublikong mensahe mula sa mga taong masyadong mabilis mag-post, paulit-ulit ang sinasabi, o nagpapadala ng napakaraming link.</string>
+
+    <!-- Live video and video messages -->
+    <string name="video_live_badge">LIVE</string>
+    <string name="video_joining_live">Sumasali sa live…</string>
+    <string name="video_weak_signal">Mahinang signal</string>
+    <string name="video_weak_signal_reconnecting">Mahinang signal · humahabol</string>
+    <string name="video_live_ended">Natapos na ang live video</string>
+    <string name="video_live_ended_by">Tinapos ni %1$s ang stream</string>
+    <string name="video_watch_replay">Panoorin ang replay</string>
+    <string name="video_live_rate">%1$.1f kbps sa mesh</string>
+    <string name="video_unavailable">Hindi available ang video</string>
+    <string name="video_too_short">Masyadong maikli ang video</string>
+    <string name="video_prepare_failed">Hindi maihanda ang video na ito para sa mesh</string>
+    <string name="video_camera_failed">Hindi available ang camera o video encoder</string>
+    <string name="video_trimmed">Pinutol ang mahabang video sa unang minuto nito</string>
+    <string name="video_camera_permission">Kailangan ng access sa camera para mag-record o mag-live</string>
+    <string name="video_grant_camera">Payagan ang camera</string>
+    <string name="video_compressing">Kino-compress para sa mesh…</string>
+    <string name="video_finishing">Tinatapos…</string>
+    <string name="video_end_live_title">Tapusin ang live video?</string>
+    <string name="video_end_live_message">Mananatili sa mga manonood ang kanilang natanggap. Ibinabahagi ang recording sa chat.</string>
+    <string name="video_end_live_confirm">Tapusin</string>
+    <string name="video_uplink">↑ %1$.1f kbps · %2$s</string>
+    <string name="video_mode_live">LIVE</string>
+    <string name="video_mode_clip">VIDEO</string>
+    <string name="video_live_unavailable">Kailangan ng live ng kalapit na mesh peer (o naka-encrypt na session sa isang direct message)</string>
+    <string name="video_quality_low">Mababa</string>
+    <string name="video_quality_medium">Katamtaman</string>
+    <string name="video_quality_high">Mataas</string>
+    <string name="video_quality_low_hint">Pinakamainam para sa Bluetooth at maraming hop</string>
+    <string name="video_quality_medium_hint">Isa o dalawang Bluetooth hop</string>
+    <string name="video_quality_high_hint">Mga Wi-Fi Aware peer lamang</string>
+    <string name="cd_live_video">Live video</string>
+    <string name="cd_video">Video</string>
+    <string name="cd_play_video">I-play ang video</string>
+    <string name="cd_pause_video">I-pause ang video</string>
+    <string name="cd_mute">I-mute</string>
+    <string name="cd_unmute">I-unmute</string>
+    <string name="cd_switch_camera">Palitan ang camera</string>
+    <string name="cd_pick_video">Pumili ng video</string>
 </resources>

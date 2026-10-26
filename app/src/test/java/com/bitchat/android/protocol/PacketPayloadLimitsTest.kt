@@ -27,6 +27,7 @@ class PacketPayloadLimitsTest {
         MessageType.NOISE_HANDSHAKE.value,
         MessageType.REQUEST_SYNC.value,
         MessageType.VOICE_FRAME.value,
+        MessageType.VIDEO_FRAME.value,
         0x04u, // courier envelope (iOS only)
         0x23u, // board post (iOS only)
         0x25u, // group message (iOS only)

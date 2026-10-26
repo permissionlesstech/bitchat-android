@@ -352,8 +352,10 @@
   <string name="image_star">image/*</string>
   <string name="media_type_image">படம்</string>
   <string name="media_type_file">கோப்பு</string>
+  <string name="media_type_video">வீடியோ</string>
   <string name="notification_sent_image">📷 ஒரு படத்தை அனுப்பியது</string>
   <string name="notification_sent_voice">🎤 ஒரு குரல் செய்தியை அனுப்பியது</string>
+  <string name="notification_sent_video">🎥 ஒரு வீடியோவை அனுப்பியது</string>
   <string name="notification_sent_file">📎 ஒரு கோப்பை அனுப்பியது</string>
   <string name="notification_file_pdf">📄</string>
   <string name="notification_file_zip">🗜️</string>
@@ -392,4 +394,44 @@
     <string name="about_select_language">மொழியைத் தேர்ந்தெடுக்கவும்</string>
     <string name="about_spam_filter_title">ஸ்பேம் வடிகட்டி</string>
     <string name="about_spam_filter_desc">மிக வேகமாகச் செய்திகளை அனுப்புபவர்கள், ஒரே கருத்தைத் திரும்பத் திரும்பக் கூறுபவர்கள் அல்லது அதிக இணைப்புகளை அனுப்புபவர்களின் பொதுச் செய்திகளை மறைக்கவும்.</string>
+
+    <!-- Live video and video messages -->
+    <string name="video_live_badge">நேரலை</string>
+    <string name="video_joining_live">நேரலையில் இணைகிறது…</string>
+    <string name="video_weak_signal">பலவீனமான சிக்னல்</string>
+    <string name="video_weak_signal_reconnecting">பலவீனமான சிக்னல் · ஈடுகட்டுகிறது</string>
+    <string name="video_live_ended">நேரலை வீடியோ முடிந்தது</string>
+    <string name="video_live_ended_by">%1$s ஸ்ட்ரீமை முடித்தார்</string>
+    <string name="video_watch_replay">பதிவைப் பார்க்கவும்</string>
+    <string name="video_live_rate">mesh வழியாக %1$.1f kbps</string>
+    <string name="video_unavailable">வீடியோ கிடைக்கவில்லை</string>
+    <string name="video_too_short">வீடியோ மிகவும் சிறியது</string>
+    <string name="video_prepare_failed">இந்த வீடியோவை mesh-க்குத் தயார் செய்ய முடியவில்லை</string>
+    <string name="video_camera_failed">கேமரா அல்லது வீடியோ என்கோடர் கிடைக்கவில்லை</string>
+    <string name="video_trimmed">நீண்ட வீடியோ அதன் முதல் நிமிடத்திற்குக் குறைக்கப்பட்டது</string>
+    <string name="video_camera_permission">பதிவு செய்ய அல்லது நேரலைக்குச் செல்ல கேமரா அணுகல் தேவை</string>
+    <string name="video_grant_camera">கேமராவை அனுமதி</string>
+    <string name="video_compressing">mesh-க்காகச் சுருக்குகிறது…</string>
+    <string name="video_finishing">முடிக்கிறது…</string>
+    <string name="video_end_live_title">நேரலை வீடியோவை முடிக்கவா?</string>
+    <string name="video_end_live_message">பார்வையாளர்கள் பெற்றதை வைத்திருப்பார்கள். பதிவு அரட்டையில் பகிரப்படும்.</string>
+    <string name="video_end_live_confirm">முடி</string>
+    <string name="video_uplink">↑ %1$.1f kbps · %2$s</string>
+    <string name="video_mode_live">நேரலை</string>
+    <string name="video_mode_clip">வீடியோ</string>
+    <string name="video_live_unavailable">நேரலைக்கு அருகிலுள்ள mesh பியர் (அல்லது தனிப்பட்ட செய்தியில் மறைகுறியாக்கப்பட்ட அமர்வு) தேவை</string>
+    <string name="video_quality_low">குறைவு</string>
+    <string name="video_quality_medium">நடுத்தரம்</string>
+    <string name="video_quality_high">உயர்</string>
+    <string name="video_quality_low_hint">Bluetooth மற்றும் பல ஹாப்களுக்குச் சிறந்தது</string>
+    <string name="video_quality_medium_hint">ஒன்று அல்லது இரண்டு Bluetooth ஹாப்கள்</string>
+    <string name="video_quality_high_hint">Wi-Fi Aware பியர்கள் மட்டும்</string>
+    <string name="cd_live_video">நேரலை வீடியோ</string>
+    <string name="cd_video">வீடியோ</string>
+    <string name="cd_play_video">வீடியோவை இயக்கு</string>
+    <string name="cd_pause_video">வீடியோவை இடைநிறுத்து</string>
+    <string name="cd_mute">ஒலியடக்கு</string>
+    <string name="cd_unmute">ஒலியை இயக்கு</string>
+    <string name="cd_switch_camera">கேமராவை மாற்று</string>
+    <string name="cd_pick_video">ஒரு வீடியோவைத் தேர்ந்தெடு</string>
 </resources>

@@ -16,6 +16,9 @@ class BitchatApplication : Application() {
         // Start the single process-wide power policy before transport components are constructed.
         com.bitchat.android.mesh.PowerManager.getInstance(this).start()
 
+        // Registers the live video player with the shared mesh ingress before any packet arrives.
+        com.bitchat.android.features.video.LiveVideoManager.getInstance(this)
+
         // Initialize Tor first so any early network goes over Tor
         try {
             val torProvider = ArtiTorManager.getInstance()

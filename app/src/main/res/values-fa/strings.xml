@@ -288,10 +288,12 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">تصویر</string>
     <string name="media_type_file">فایل</string>
+    <string name="media_type_video">ویدیو</string>
 
     <!-- راهنمای متن اعلان -->
     <string name="notification_sent_image">📷 یک تصویر ارسال کرد</string>
     <string name="notification_sent_voice">🎤 یک پیام صوتی ارسال کرد</string>
+    <string name="notification_sent_video">🎥 یک ویدیو ارسال کرد</string>
     <string name="notification_sent_file">📎 یک فایل ارسال کرد</string>
 
     <!-- دسترسی‌پذیری پخش‌کنندهٔ صوت -->
@@ -382,4 +384,44 @@
     <string name="about_select_language">انتخاب زبان</string>
     <string name="about_spam_filter_title">فیلتر هرزنامه</string>
     <string name="about_spam_filter_desc">پیام‌های عمومی افرادی را که خیلی سریع پیام می‌فرستند، خود را تکرار می‌کنند یا پیوندهای زیادی می‌فرستند پنهان کن.</string>
+
+    <!-- Live video and video messages -->
+    <string name="video_live_badge">زنده</string>
+    <string name="video_joining_live">در حال پیوستن به پخش زنده…</string>
+    <string name="video_weak_signal">سیگنال ضعیف</string>
+    <string name="video_weak_signal_reconnecting">سیگنال ضعیف · در حال جبران</string>
+    <string name="video_live_ended">ویدیوی زنده پایان یافت</string>
+    <string name="video_live_ended_by">%1$s پخش را پایان داد</string>
+    <string name="video_watch_replay">تماشای ضبط‌شده</string>
+    <string name="video_live_rate">%1$.1f kbps از طریق mesh</string>
+    <string name="video_unavailable">ویدیو در دسترس نیست</string>
+    <string name="video_too_short">ویدیو خیلی کوتاه است</string>
+    <string name="video_prepare_failed">آماده‌سازی این ویدیو برای mesh ممکن نشد</string>
+    <string name="video_camera_failed">دوربین یا رمزگذار ویدیو در دسترس نیست</string>
+    <string name="video_trimmed">ویدیوی طولانی به دقیقهٔ اول آن کوتاه شد</string>
+    <string name="video_camera_permission">برای ضبط یا پخش زنده به دسترسی دوربین نیاز است</string>
+    <string name="video_grant_camera">اجازه دادن به دوربین</string>
+    <string name="video_compressing">در حال فشرده‌سازی برای mesh…</string>
+    <string name="video_finishing">در حال اتمام…</string>
+    <string name="video_end_live_title">پخش زنده پایان یابد؟</string>
+    <string name="video_end_live_message">بینندگان آنچه را دریافت کرده‌اند نگه می‌دارند. ضبط در گفت‌وگو به اشتراک گذاشته می‌شود.</string>
+    <string name="video_end_live_confirm">پایان</string>
+    <string name="video_uplink">↑ %1$.1f kbps · %2$s</string>
+    <string name="video_mode_live">زنده</string>
+    <string name="video_mode_clip">ویدیو</string>
+    <string name="video_live_unavailable">پخش زنده به یک همتای mesh در نزدیکی (یا یک جلسهٔ رمزگذاری‌شده در پیام خصوصی) نیاز دارد</string>
+    <string name="video_quality_low">پایین</string>
+    <string name="video_quality_medium">متوسط</string>
+    <string name="video_quality_high">بالا</string>
+    <string name="video_quality_low_hint">بهترین گزینه برای Bluetooth و پرش‌های زیاد</string>
+    <string name="video_quality_medium_hint">یک یا دو پرش Bluetooth</string>
+    <string name="video_quality_high_hint">فقط همتایان Wi-Fi Aware</string>
+    <string name="cd_live_video">ویدیوی زنده</string>
+    <string name="cd_video">ویدیو</string>
+    <string name="cd_play_video">پخش ویدیو</string>
+    <string name="cd_pause_video">توقف موقت ویدیو</string>
+    <string name="cd_mute">بی‌صدا</string>
+    <string name="cd_unmute">باصدا</string>
+    <string name="cd_switch_camera">تعویض دوربین</string>
+    <string name="cd_pick_video">انتخاب ویدیو</string>
 </resources>

@@ -288,10 +288,12 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">ছবি</string>
     <string name="media_type_file">ফাইল</string>
+    <string name="media_type_video">ভিডিও</string>
 
     <!-- বিজ্ঞপ্তি টেক্সট সহায়ক -->
     <string name="notification_sent_image">📷 একটি ছবি পাঠিয়েছে</string>
     <string name="notification_sent_voice">🎤 একটি ভয়েস বার্তা পাঠিয়েছে</string>
+    <string name="notification_sent_video">🎥 একটি ভিডিও পাঠিয়েছে</string>
     <string name="notification_sent_file">📎 একটি ফাইল পাঠিয়েছে</string>
 
     <!-- ভয়েস প্লেয়ার অ্যাক্সেসিবিলিটি -->
@@ -382,4 +384,44 @@
     <string name="about_select_language">ভাষা নির্বাচন করুন</string>
     <string name="about_spam_filter_title">স্প্যাম ফিল্টার</string>
     <string name="about_spam_filter_desc">যারা খুব দ্রুত বার্তা পাঠান, একই কথা বারবার বলেন বা অতিরিক্ত লিঙ্ক পাঠান, তাঁদের প্রকাশ্য বার্তা লুকান।</string>
+
+    <!-- Live video and video messages -->
+    <string name="video_live_badge">লাইভ</string>
+    <string name="video_joining_live">লাইভে যোগ দেওয়া হচ্ছে…</string>
+    <string name="video_weak_signal">দুর্বল সিগন্যাল</string>
+    <string name="video_weak_signal_reconnecting">দুর্বল সিগন্যাল · পিছিয়ে পড়া পূরণ হচ্ছে</string>
+    <string name="video_live_ended">লাইভ ভিডিও শেষ হয়েছে</string>
+    <string name="video_live_ended_by">%1$s স্ট্রিম শেষ করেছে</string>
+    <string name="video_watch_replay">রেকর্ডিং দেখুন</string>
+    <string name="video_live_rate">mesh-এর মাধ্যমে %1$.1f kbps</string>
+    <string name="video_unavailable">ভিডিও উপলভ্য নয়</string>
+    <string name="video_too_short">ভিডিও খুব ছোট</string>
+    <string name="video_prepare_failed">এই ভিডিওটি mesh-এর জন্য প্রস্তুত করা যায়নি</string>
+    <string name="video_camera_failed">ক্যামেরা বা ভিডিও এনকোডার উপলভ্য নয়</string>
+    <string name="video_trimmed">দীর্ঘ ভিডিওটি প্রথম মিনিটে ছাঁটা হয়েছে</string>
+    <string name="video_camera_permission">রেকর্ড করতে বা লাইভে যেতে ক্যামেরা অ্যাক্সেস প্রয়োজন</string>
+    <string name="video_grant_camera">ক্যামেরার অনুমতি দিন</string>
+    <string name="video_compressing">mesh-এর জন্য সংকুচিত করা হচ্ছে…</string>
+    <string name="video_finishing">শেষ করা হচ্ছে…</string>
+    <string name="video_end_live_title">লাইভ ভিডিও শেষ করবেন?</string>
+    <string name="video_end_live_message">দর্শকরা যা পেয়েছেন তা তাদের কাছে থাকবে। রেকর্ডিংটি চ্যাটে শেয়ার করা হয়।</string>
+    <string name="video_end_live_confirm">শেষ করুন</string>
+    <string name="video_uplink">↑ %1$.1f kbps · %2$s</string>
+    <string name="video_mode_live">লাইভ</string>
+    <string name="video_mode_clip">ভিডিও</string>
+    <string name="video_live_unavailable">লাইভের জন্য কাছাকাছি একটি mesh পিয়ার (বা ব্যক্তিগত বার্তায় একটি এনক্রিপ্টেড সেশন) প্রয়োজন</string>
+    <string name="video_quality_low">নিম্ন</string>
+    <string name="video_quality_medium">মাঝারি</string>
+    <string name="video_quality_high">উচ্চ</string>
+    <string name="video_quality_low_hint">Bluetooth এবং অনেক হপের জন্য সেরা</string>
+    <string name="video_quality_medium_hint">এক বা দুটি Bluetooth হপ</string>
+    <string name="video_quality_high_hint">শুধুমাত্র Wi-Fi Aware পিয়ার</string>
+    <string name="cd_live_video">লাইভ ভিডিও</string>
+    <string name="cd_video">ভিডিও</string>
+    <string name="cd_play_video">ভিডিও চালান</string>
+    <string name="cd_pause_video">ভিডিও থামান</string>
+    <string name="cd_mute">মিউট করুন</string>
+    <string name="cd_unmute">আনমিউট করুন</string>
+    <string name="cd_switch_camera">ক্যামেরা পরিবর্তন করুন</string>
+    <string name="cd_pick_video">একটি ভিডিও বেছে নিন</string>
 </resources>

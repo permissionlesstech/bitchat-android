@@ -12,6 +12,7 @@ object NotificationTextUtils {
      * Examples:
      * - Image: "📷 sent an image"
      * - Audio: "🎤 sent a voice message"
+     * - Video: "🎥 sent a video"
      * - File (pdf): "📄 file.pdf"
      * - Text: original message content
      */
@@ -20,6 +21,7 @@ object NotificationTextUtils {
             when (message.type) {
                 BitchatMessageType.Image -> "📷 sent an image"
                 BitchatMessageType.Audio -> "🎤 sent a voice message"
+                BitchatMessageType.Video -> "🎥 sent a video"
                 BitchatMessageType.File -> {
                     // Show just the filename (not the full path)
                     val name = try { java.io.File(message.content).name } catch (_: Exception) { null }

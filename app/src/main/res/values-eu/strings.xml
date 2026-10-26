@@ -562,10 +562,12 @@
     <string name="mention">Aipatu</string>
     <string name="media_type_image">Irudia</string>
     <string name="media_type_file">Fitxategia</string>
+    <string name="media_type_video">Bideoa</string>
 
     <!-- Notification text helpers -->
     <string name="notification_sent_image">📷 irudi bat bidali du</string>
     <string name="notification_sent_voice">🎤 ahots-mezu bat bidali du</string>
+    <string name="notification_sent_video">🎥 bideo bat bidali du</string>
     <string name="notification_sent_file">📎 fitxategi bat bidali du</string>
 
     <!-- Voice player accessibility -->
@@ -625,4 +627,44 @@
     <string name="image_star">image/*</string>
     <string name="about_spam_filter_title">Spam-iragazkia</string>
     <string name="about_spam_filter_desc">Ezkutatu azkarregi idazten duten, mezuak errepikatzen dituzten edo esteka gehiegi bidaltzen dituzten pertsonen mezu publikoak.</string>
+
+    <!-- Live video and video messages -->
+    <string name="video_live_badge">LIVE</string>
+    <string name="video_joining_live">Zuzeneko emanaldira sartzen…</string>
+    <string name="video_weak_signal">Seinale ahula</string>
+    <string name="video_weak_signal_reconnecting">Seinale ahula · berreskuratzen</string>
+    <string name="video_live_ended">Zuzeneko bideoa amaitu da</string>
+    <string name="video_live_ended_by">%1$s erabiltzaileak emanaldia amaitu du</string>
+    <string name="video_watch_replay">Ikusi grabazioa</string>
+    <string name="video_live_rate">%1$.1f kbps mesh bidez</string>
+    <string name="video_unavailable">Bideoa ez dago erabilgarri</string>
+    <string name="video_too_short">Bideoa laburregia da</string>
+    <string name="video_prepare_failed">Ezin izan da bideo hau mesh-erako prestatu</string>
+    <string name="video_camera_failed">Kamera edo bideo-kodetzailea ez dago erabilgarri</string>
+    <string name="video_trimmed">Bideo luzea lehen minutura moztu da</string>
+    <string name="video_camera_permission">Kamerarako sarbidea behar da grabatzeko edo zuzenean emateko</string>
+    <string name="video_grant_camera">Baimendu kamera</string>
+    <string name="video_compressing">Mesh-erako konprimatzen…</string>
+    <string name="video_finishing">Amaitzen…</string>
+    <string name="video_end_live_title">Zuzeneko bideoa amaitu?</string>
+    <string name="video_end_live_message">Ikusleek jasotakoa gordetzen dute. Grabazioa txatean partekatzen da.</string>
+    <string name="video_end_live_confirm">Amaitu</string>
+    <string name="video_uplink">↑ %1$.1f kbps · %2$s</string>
+    <string name="video_mode_live">LIVE</string>
+    <string name="video_mode_clip">BIDEOA</string>
+    <string name="video_live_unavailable">Zuzenekoak inguruko mesh peer bat behar du (edo saio zifratu bat mezu zuzen batean)</string>
+    <string name="video_quality_low">Baxua</string>
+    <string name="video_quality_medium">Ertaina</string>
+    <string name="video_quality_high">Altua</string>
+    <string name="video_quality_low_hint">Bluetooth eta jauzi askotarako egokiena</string>
+    <string name="video_quality_medium_hint">Bluetooth jauzi bat edo bi</string>
+    <string name="video_quality_high_hint">Wi-Fi Aware peerak soilik</string>
+    <string name="cd_live_video">Zuzeneko bideoa</string>
+    <string name="cd_video">Bideoa</string>
+    <string name="cd_play_video">Erreproduzitu bideoa</string>
+    <string name="cd_pause_video">Pausatu bideoa</string>
+    <string name="cd_mute">Desaktibatu audioa</string>
+    <string name="cd_unmute">Aktibatu audioa</string>
+    <string name="cd_switch_camera">Aldatu kamera</string>
+    <string name="cd_pick_video">Aukeratu bideo bat</string>
 </resources>

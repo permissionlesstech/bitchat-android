@@ -126,6 +126,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val liveVoiceManager = remember(context) {
         com.bitchat.android.features.voice.LiveVoiceManager.getInstance(context)
     }
+    val liveVideoManager = remember(context) {
+        com.bitchat.android.features.video.LiveVideoManager.getInstance(context)
+    }
     val nearbyNotesRevealed by nearbyNotesController.revealed.collectAsStateWithLifecycle()
     val locationPermissionState by locationManager.permissionState.collectAsStateWithLifecycle()
     val locationEnabled by locationManager.effectiveLocationEnabled.collectAsStateWithLifecycle(false)
@@ -149,11 +152,13 @@ fun ChatScreen(viewModel: ChatViewModel) {
             override fun onStart(owner: LifecycleOwner) {
                 nearbyNotesController.updateAppForeground(true)
                 liveVoiceManager.setAppForeground(true)
+                liveVideoManager.setAppForeground(true)
             }
 
             override fun onStop(owner: LifecycleOwner) {
                 nearbyNotesController.updateAppForeground(false)
                 liveVoiceManager.setAppForeground(false)
+                liveVideoManager.setAppForeground(false)
             }
         }
 
@@ -166,15 +171,28 @@ fun ChatScreen(viewModel: ChatViewModel) {
             lifecycle.removeObserver(observer)
             nearbyNotesController.updateAppForeground(false)
             liveVoiceManager.setAppForeground(false)
+            liveVideoManager.setAppForeground(false)
         }
     }
 
     LaunchedEffect(isMeshTimeline, privateChatSheetPeer, selectedPrivatePeer) {
         when {
-            privateChatSheetPeer != null -> liveVoiceManager.showDirectMessage(privateChatSheetPeer!!)
-            selectedPrivatePeer != null -> liveVoiceManager.showDirectMessage(selectedPrivatePeer!!)
-            isMeshTimeline -> liveVoiceManager.showPublicMesh()
-            else -> liveVoiceManager.clearVisibleConversation()
+            privateChatSheetPeer != null -> {
+                liveVoiceManager.showDirectMessage(privateChatSheetPeer!!)
+                liveVideoManager.showDirectMessage(privateChatSheetPeer!!)
+            }
+            selectedPrivatePeer != null -> {
+                liveVoiceManager.showDirectMessage(selectedPrivatePeer!!)
+                liveVideoManager.showDirectMessage(selectedPrivatePeer!!)
+            }
+            isMeshTimeline -> {
+                liveVoiceManager.showPublicMesh()
+                liveVideoManager.showPublicMesh()
+            }
+            else -> {
+                liveVoiceManager.clearVisibleConversation()
+                liveVideoManager.clearVisibleConversation()
+            }
         }
     }
 
@@ -423,6 +441,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             viewModel.sendFileNote(peer, onionOrChannel, path)
         },
         recorderFactory = viewModel::createVoiceRecorder,
+        videoActions = viewModel.videoComposerActions,
         
         showCommandSuggestions = showCommandSuggestions,
         commandSuggestions = commandSuggestions,
@@ -675,6 +694,7 @@ fun ChatInputSection(
     colorScheme: ColorScheme,
     showMediaButtons: Boolean,
     recorderFactory: ((String?, String?) -> com.bitchat.android.features.voice.VoiceRecorder)? = null,
+    videoActions: com.bitchat.android.ui.media.VideoComposerActions? = null,
     modifier: Modifier = Modifier
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -758,6 +778,7 @@ fun ChatInputSection(
             showMediaButtons = showMediaButtons,
             mentionPeerIdentities = mentionPeerIdentities,
             recorderFactory = recorderFactory,
+            videoActions = videoActions,
             activePublicTalker = activePublicTalker,
             modifier = Modifier.fillMaxWidth()
         )

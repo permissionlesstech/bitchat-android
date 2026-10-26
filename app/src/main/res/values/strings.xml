@@ -600,10 +600,12 @@
   <string name="image_star">image/*</string>
   <string name="media_type_image">Image</string>
   <string name="media_type_file">File</string>
+  <string name="media_type_video">Video</string>
 
   <!-- Notification text helpers -->
   <string name="notification_sent_image">📷 sent an image</string>
   <string name="notification_sent_voice">🎤 sent a voice message</string>
+  <string name="notification_sent_video">🎥 sent a video</string>
   <string name="notification_sent_file">📎 sent a file</string>
   <string name="notification_file_pdf">📄</string>
   <string name="notification_file_zip">🗜️</string>
@@ -663,4 +665,44 @@
   <string name="about_app_language">App language</string>
   <string name="about_system_default">System default</string>
   <string name="about_select_language">Select language</string>
+
+  <!-- Live video and video messages -->
+  <string name="video_live_badge">LIVE</string>
+  <string name="video_joining_live">Joining live…</string>
+  <string name="video_weak_signal">Weak signal</string>
+  <string name="video_weak_signal_reconnecting">Weak signal · catching up</string>
+  <string name="video_live_ended">Live video ended</string>
+  <string name="video_live_ended_by">%1$s ended the stream</string>
+  <string name="video_watch_replay">Watch replay</string>
+  <string name="video_live_rate">%1$.1f kbps over mesh</string>
+  <string name="video_unavailable">Video unavailable</string>
+  <string name="video_too_short">Video too short</string>
+  <string name="video_prepare_failed">Couldn\'t prepare this video for the mesh</string>
+  <string name="video_camera_failed">Camera or video encoder unavailable</string>
+  <string name="video_trimmed">Long video trimmed to its first minute</string>
+  <string name="video_camera_permission">Camera access is needed to record or go live</string>
+  <string name="video_grant_camera">Allow camera</string>
+  <string name="video_compressing">Compressing for the mesh…</string>
+  <string name="video_finishing">Finishing…</string>
+  <string name="video_end_live_title">End live video?</string>
+  <string name="video_end_live_message">Viewers keep what they received. The recording is shared in the chat.</string>
+  <string name="video_end_live_confirm">End</string>
+  <string name="video_uplink">↑ %1$.1f kbps · %2$s</string>
+  <string name="video_mode_live">LIVE</string>
+  <string name="video_mode_clip">VIDEO</string>
+  <string name="video_live_unavailable">Live needs a nearby mesh peer (or an encrypted session in a DM)</string>
+  <string name="video_quality_low">Low</string>
+  <string name="video_quality_medium">Medium</string>
+  <string name="video_quality_high">High</string>
+  <string name="video_quality_low_hint">Best for Bluetooth and many hops</string>
+  <string name="video_quality_medium_hint">One or two Bluetooth hops</string>
+  <string name="video_quality_high_hint">Wi-Fi Aware peers only</string>
+  <string name="cd_live_video">Live video</string>
+  <string name="cd_video">Video</string>
+  <string name="cd_play_video">Play video</string>
+  <string name="cd_pause_video">Pause video</string>
+  <string name="cd_mute">Mute</string>
+  <string name="cd_unmute">Unmute</string>
+  <string name="cd_switch_camera">Switch camera</string>
+  <string name="cd_pick_video">Choose a video</string>
 </resources>
