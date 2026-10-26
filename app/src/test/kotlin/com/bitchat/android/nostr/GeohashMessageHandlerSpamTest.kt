@@ -76,4 +76,31 @@ class GeohashMessageHandlerSpamTest {
 
         assertEquals(3, chatState.getChannelMessagesValue()["geo:$geohash"]?.size)
     }
+
+    @Test
+    fun `random text from fresh signed identities reaches the timeline`() {
+        val seed = System.getenv("TEST_SEED")?.toIntOrNull() ?: 999
+        val random = kotlin.random.Random(seed)
+        val sentIds = HashSet<String>()
+        val senders = HashSet<String>()
+        repeat(500) {
+            val privateKey = buildString {
+                repeat(64) { append("0123456789abcdef"[random.nextInt(16)]) }
+            }
+            val identity = NostrIdentity.fromPrivateKey(privateKey)
+            val content = buildString {
+                repeat(80) { index -> append(if (index % 8 == 7) ' ' else 'a' + random.nextInt(26)) }
+            }
+            val signed = event(identity, content)
+            sentIds.add(signed.id)
+            senders.add(identity.publicKeyHex)
+            handler.onEvent(signed, geohash)
+        }
+        val received = chatState.getChannelMessagesValue()["geo:$geohash"].orEmpty()
+        println("TEST_SEED=$seed signed-random-identities sent=${sentIds.size} received=${received.size}")
+        assertEquals(500, senders.size)
+        assertEquals(500, received.size)
+        assertEquals(sentIds, received.map { it.id }.toSet())
+        assertEquals(senders, received.map { it.senderNostrPubkey }.toSet())
+    }
 }
