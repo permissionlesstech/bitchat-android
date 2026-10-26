@@ -27,7 +27,7 @@ shows the fix does not work, that gets reported plainly instead of tuned around.
 1. Normal conversation in a geohash channel stays readable during a
    random-identity flood.
 2. **A flood shows at most 6 bot messages per minute in a channel, whatever the
-   flood rate** (decided by Moe), plus at most one initial burst equal to the
+   flood rate**, plus at most one initial burst equal to the
    pool's capacity.
 3. Nothing changes for a channel that isn't being flooded, up to 6 first-time
    posters per minute: existing #999 tests and behaviour stay identical.
@@ -219,9 +219,9 @@ builder does not decide whether the fix passes.
 | E1 | The scenarios above, plus a small grid over pool capacity, refill and establish delay. | *Already in channel:* ≥ 99 % of normal messages shown. *Every flood scenario:* bot messages shown ≤ 6 per minute after the first minute, at every flood rate and bot shape, including backdating. *No flood busy / backfill / other channel:* identical to #999 (0 extra hidden). *Join during flood* and *newcomer*: **reported**, no pass bar. | Stop and report that the pool doesn't work, with the numbers. |
 | E2 | All existing tests (`SpamFilterTest`, `GeohashMessageHandlerSpamTest`, `IncomingMessageAdmissionTest`, Nostr tests) plus **our own** geohash-only version of the flood test in `b8354d58`. The test branch itself is not edited. | All pre-existing tests pass unchanged; our flood test passes. | Report which tests broke and why. |
 | E3 | Part 2 with the pool: *join during flood* and *newcomer*, where real users have proven keys. | ≥ 99 % of normal messages shown in both. | Report it; part 2 would not fix the pool's weak spots. |
-| E4 | Grind timing including the binding hash: JVM, emulator, and the Pixel 9a **only with Moe's OK at that point**. Repeated runs, report mean and spread. | Some N where the Pixel's mean grind is ≤ 30 s **and** 10,000 bot identities cost ≥ 10 CPU-hours on desktop. | Report that identity PoW isn't practical at a useful difficulty. |
+| E4 | Grind timing including the binding hash: JVM, emulator, and the Pixel 9a. Repeated runs, report mean and spread. | Some N where the Pixel's mean grind is ≤ 30 s **and** 10,000 bot identities cost ≥ 10 CPU-hours on desktop. | Report that identity PoW isn't practical at a useful difficulty. |
 | E5 | Attacker cost: measured multi-core CPU rate. GPU: cite a published benchmark if a solid one exists, otherwise state it's unmeasured. | n/a | n/a |
-| E6 | Mesh Lab spam scenario on two physical devices (AGENTS.md requires it for messaging changes). | Existing scenario still passes. | Report. Needs Moe's devices and time. |
+| E6 | Mesh Lab spam scenario on two physical devices (AGENTS.md requires it for messaging changes). | Existing scenario still passes. | Report. Needs two physical devices. |
 
 ## Left to the builder
 
