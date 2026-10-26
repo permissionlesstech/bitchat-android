@@ -10,15 +10,17 @@ The remaining implementation work and milestone progress are tracked in
 
 ## Required contract layers
 
-| Layer | Compatibility promise | Primary tests |
+| Layer | Compatibility promise | Selected tests |
 |---|---|---|
 | Outer mesh packet | v1/v2 header widths, big-endian fields, flags, section order, route placement, signature placement, padding, compression, signing bytes | `BinaryProtocolTest`, `ClientRewriteWireContractTest` |
 | Chat payload | Flag bits, millisecond timestamp, UTF-8 byte lengths, encrypted-content substitution, optional-field order | `ClientRewriteWireContractTest` |
 | Inner payloads | Noise type bytes, private-message TLVs, peer-state TLVs, file-transfer TLVs, live-voice bursts, fragment header, sync request TLVs | `ClientRewriteWireContractTest`, `AuthenticatedPeerStateTest`, `PrivateMediaTransferPreparerTest`, `VoiceBurstPacketTest`, `FragmentManagerTest` |
-| Identity/security | Announcement extensions, capability bitfield endianness, Noise static-key binding, handshake identity binding, signatures | `IdentityAnnouncementTest`, `NoiseSessionManagerIdentityBindingTest`, `ClientRewritePrimitiveContractTest` |
-| Sync/routing | Stable packet IDs, GCS bitstream, replay collapse, TTL handling, relay choice, confirmed graph edges | `ClientRewritePrimitiveContractTest`, `GCSFilterTest`, `PacketRelayManagerTest`, `MeshGraphServiceTest`, `TransportBridgeServiceTest` |
-| Nostr | Bech32, secp256k1 key derivation, NIP-01 event IDs/signatures, NIP-44 authenticated encryption, NIP-13 PoW, authenticated NIP-17 seals, 22h outbound envelope randomization | `ClientRewriteNostrContractTest`, `NostrProtocolTest` |
-| Application state | Peer unions, canonical private conversations, chronological history, delivery/read behavior, media migration policy | `AppStateStoreTest`, `PrivateChatManagerTest`, `MediaSendingManagerMigrationTest` |
+| Identity/security | Announcement extensions, capability bitfield endianness, Noise static-key binding, handshake identity binding, signatures | `IdentityAnnouncementTest`, `NoiseSessionManagerIdentityBindingTest` |
+| Sync/routing | Stable packet IDs, GCS bitstream, replay collapse, TTL handling, relay choice, confirmed graph edges | `GCSFilterTest`, `PacketRelayManagerTest`, `MeshGraphServiceTest`, `TransportBridgeServiceTest` |
+| Nostr | Bech32, secp256k1 key derivation, NIP-01 event IDs/signatures, NIP-44 authenticated encryption, NIP-13 PoW, authenticated NIP-17 seals, 22h outbound envelope randomization | `Bech32PaddingTest`, `NostrProtocolTest` |
+| Application state | Peer unions, canonical private conversations, private-message arrival order, delivery/read behavior, media migration policy | `AppStateStoreTest`, `PrivateChatManagerTest`, `MediaSendingManagerMigrationTest` |
+
+The listed tests cover selected behaviors within each layer.
 
 ## Golden-vector policy
 
@@ -28,7 +30,7 @@ wire protocol is intentionally versioned and interoperating clients are updated
 together.
 
 Round-trip tests remain useful but are not sufficient on their own: an encoder
-and decoder can share the same defect. Each critical wire format therefore has
+and decoder can share the same defect. Each critical wire format must have
 at least one literal vector.
 
 NIP-17 receivers should reserve safety slack beyond the maximum timestamp
@@ -42,6 +44,16 @@ Human-readable prefixes contain 1–83 characters; Nostr's extended data payload
 are not subject to Bitcoin address length limits. `Bech32PaddingTest` pins these
 rules with literal checksum-valid positive and negative vectors.
 
+### Geohash private-message sender headers
+
+The no-recipient Nostr encoders use a fresh random 8-byte sender ID for private
+messages and delivery/read receipts. Geohash DMs use these encoders; the shared
+inbox also uses the receipt encoder when replying to account DMs. Conversation
+identity comes from the authenticated Nostr sender pubkey. The recipient-addressed
+account/favorite encoders retain mesh sender IDs.
+This replaces the mesh ID in the sender-header field of these envelopes;
+nicknames, content and other shared information can still correlate conversations.
+
 ## Rewrite acceptance gate
 
 From a configured Android development environment, run:
@@ -50,9 +62,9 @@ From a configured Android development environment, run:
 ./gradlew clientRewriteContractTest
 ```
 
-The task runs the new golden vectors and the complete existing unit suite. A
-rewrite is compatible only when this gate passes. Tests should be ported
-unchanged when package boundaries change; adapter façades are preferable to
+The task runs the app debug unit tests, including the golden-vector tests. It
+does not run the Wear unit tests. A rewrite must pass this gate. Tests should be
+ported unchanged when package boundaries change; adapter façades are preferable to
 weakening assertions.
 
 ## Device-only acceptance
