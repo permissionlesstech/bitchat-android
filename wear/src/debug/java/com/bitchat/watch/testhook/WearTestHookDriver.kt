@@ -75,6 +75,13 @@ object WearTestHookDriver {
             "ptt_send" -> pttSend(context, intent)
             "state" -> state(context)
             "clear_results" -> clearResults(context)
+            "ui_demo_seed" -> WearUiDemoSeeder.seed(
+                context,
+                withMedia = intent.getBooleanExtra("media", true),
+                unread = intent.getBooleanExtra("unread", true)
+            )
+            "ui_demo_peers" -> WearUiDemoSeeder.refreshPeers(context)
+            "ui_demo_clear_peers" -> WearUiDemoSeeder.clearPeers()
             else -> err(cmd, "unknown command: $cmd")
         }
         return result.put("cmd", cmd)
