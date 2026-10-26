@@ -20,8 +20,8 @@ jobs:
       
       - name: Fetch GeoRelays
         run: |
-          wget https://raw.githubusercontent.com/permissionlesstech/georelays/refs/heads/main/nostr_relays.csv
-          mv nostr_relays.csv ./app/src/main/assets/nostr_relays.csv
+          wget -O ./app/src/main/assets/nostr_relays.csv https://raw.githubusercontent.com/permissionlesstech/bitchat/refs/heads/main/relays/online_relays_gps.csv
+          sed -i 's/\r$//' ./app/src/main/assets/nostr_relays.csv
 
       - name: Check for changes
         id: git-check
