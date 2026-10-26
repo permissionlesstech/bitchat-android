@@ -136,8 +136,9 @@ object GeohashTimeLock {
 
     /**
      * Remembers senders already proven, and checks at most [perSecond] new tokens a second
-     * (burst [burst]). A flood of fake tokens then costs a receiver a bounded amount of CPU; a
-     * real token that misses the budget is checked again on the sender's next message.
+     * (burst [burst]) in each channel. A flood of fake tokens then costs a receiver a bounded
+     * amount of CPU and cannot starve checks in other channels; a real token that misses the
+     * budget is checked again on the sender's next message.
      */
     class Verifier(
         private val burst: Double = 20.0,
@@ -148,8 +149,11 @@ object GeohashTimeLock {
         private val proven = object : LinkedHashMap<String, Boolean>(256, 0.75f, true) {
             override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>) = size > 4_096
         }
-        private var tokens = burst
-        private var lastMs: Long? = null
+        private class Budget(var tokens: Double, var lastMs: Long)
+
+        private val budgets = object : LinkedHashMap<String, Budget>(16, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Budget>) = size > 64
+        }
 
         fun isProven(tags: List<List<String>>, pubkeyHex: String, geohash: String): Boolean {
             if (!CANONICAL_PUBKEY.matches(pubkeyHex)) return false
@@ -161,10 +165,11 @@ object GeohashTimeLock {
             if (token.iterations < minIterations()) return false
             synchronized(this) {
                 val now = clockMs()
-                lastMs?.let { tokens = minOf(burst, tokens + (now - it).coerceAtLeast(0) / 1000.0 * perSecond) }
-                lastMs = now
-                if (tokens < 1.0) return false
-                tokens -= 1.0
+                val budget = budgets.getOrPut(geohash.lowercase()) { Budget(burst, now) }
+                budget.tokens = minOf(burst, budget.tokens + (now - budget.lastMs).coerceAtLeast(0) / 1000.0 * perSecond)
+                budget.lastMs = now
+                if (budget.tokens < 1.0) return false
+                budget.tokens -= 1.0
             }
             val ok = verify(pubkeyHex, geohash, token, minIterations())
             if (ok) synchronized(this) { proven[key] = true }

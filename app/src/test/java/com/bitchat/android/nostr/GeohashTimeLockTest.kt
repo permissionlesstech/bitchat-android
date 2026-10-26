@@ -96,6 +96,15 @@ class GeohashTimeLockTest {
     }
 
     @Test
+    fun `fake tokens in one channel do not starve checks in another`() {
+        val verifier = GeohashTimeLock.Verifier(burst = 5.0, perSecond = 1.0, clockMs = { 0L }, minIterations = { t })
+        val fake = listOf(token.copy(y = token.y.add(BigInteger.ONE)).toTag())
+        repeat(100) { i -> verifier.isProven(fake, "%064x".format(i), "zzzzz") }
+        val elsewhere = GeohashTimeLock.compute(bob, "abcde", iterations = t)!!
+        assertTrue(verifier.isProven(listOf(elsewhere.toTag()), bob, "abcde"))
+    }
+
+    @Test
     fun `verification is cheap`() {
         repeat(20) { ok(alice, "abcde", token) } // warm-up
         val start = System.nanoTime()

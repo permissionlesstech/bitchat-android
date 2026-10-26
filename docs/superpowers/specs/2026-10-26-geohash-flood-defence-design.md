@@ -313,3 +313,8 @@ core (JVM), so 10,000 identities ≈ 180 core-hours, roughly a few dollars of re
 phone spends 141 s once per channel identity. The time-lock removes the GPU advantage but still
 only prices a flood; making 10,000 identities cost ~$100 would need each phone to spend tens of
 minutes per channel.
+
+Known limit (security review): fake tokens are free to send but cost 1.6 ms to check, so token
+checks are budgeted per channel (10/s, burst 20). That isolates channels, but inside a channel
+under a fake-token flood, a person whose token was not checked before the flood is unlikely to
+get checked until it ends. Senders already proven before the flood stay proven (cached).
