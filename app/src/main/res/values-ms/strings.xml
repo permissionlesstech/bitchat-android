@@ -433,4 +433,6 @@
     <string name="about_app_language">Bahasa aplikasi</string>
     <string name="about_system_default">Lalai sistem</string>
     <string name="about_select_language">Pilih bahasa</string>
+    <string name="about_spam_filter_title">Penapis spam</string>
+    <string name="about_spam_filter_desc">Sembunyikan mesej awam daripada orang yang menghantar terlalu pantas, mengulang mesej atau membanjiri perbualan dengan pautan.</string>
 </resources>

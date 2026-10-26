@@ -5,6 +5,9 @@ on:
     - cron: '0 6 * * 0'
   workflow_dispatch:
 
+env:
+  SETUP_JAVA_VERSION: 21.0.11+10.0.LTS
+
 permissions:
   contents: write
 
@@ -18,12 +21,25 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       
+      - name: Set up pinned JDK
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.SETUP_JAVA_VERSION }}
+
+      - name: Set up and validate Gradle
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+
       - name: Fetch GeoRelays
         # Must match RelayDirectory.ASSET_FILE_URL. This job refreshes the
         # bundled asset from the app's runtime source.
         run: |
-          wget https://raw.githubusercontent.com/permissionlesstech/bitchat/refs/heads/main/relays/online_relays_gps.csv
-          mv online_relays_gps.csv ./app/src/main/assets/nostr_relays.csv
+          candidate=$(mktemp)
+          trap 'rm -f "$candidate"' EXIT
+          wget -O "$candidate" https://raw.githubusercontent.com/permissionlesstech/bitchat/refs/heads/main/relays/online_relays_gps.csv
+          ./gradlew :app:testDebugUnitTest --tests '*RelayDirectoryAssetUpdateTest' \
+            -PrelayDirectoryCandidate="$candidate"
+          mv "$candidate" ./app/src/main/assets/nostr_relays.csv
 
       - name: Check for changes
         id: git-check

@@ -6,6 +6,9 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// Opt-in instrumentation of the minified variant; production release signing is unchanged.
+val releaseUiTests = providers.gradleProperty("releaseUiTests").orNull == "true"
+
 val githubReleaseCertSha256 = providers
     .environmentVariable("BITCHAT_GITHUB_RELEASE_CERT_SHA256")
     .orElse(providers.gradleProperty("BITCHAT_GITHUB_RELEASE_CERT_SHA256"))
@@ -25,20 +28,25 @@ android {
     namespace = "com.bitchat.android"
     compileSdk = libs.versions.compileSdk.get().toInt()
     buildToolsVersion = libs.versions.buildTools.get()
+    if (releaseUiTests) testBuildType = "release"
 
     defaultConfig {
         applicationId = "com.bitchat.droid"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 40
-        versionName = "2.0.3"
+        versionCode = 41
+        versionName = "2.1.0"
         buildConfigField(
             "String",
             "GITHUB_RELEASE_CERT_SHA256",
             "\"$normalizedGithubReleaseCertSha256\""
         )
 
-        testInstrumentationRunner = "com.bitchat.android.ui.PerformanceTestRunner"
+        testInstrumentationRunner = if (releaseUiTests) {
+            "com.bitchat.android.ui.ReleaseScannerTestRunner"
+        } else {
+            "com.bitchat.android.ui.PerformanceTestRunner"
+        }
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -59,6 +67,10 @@ android {
             }
         }
         release {
+            if (releaseUiTests) {
+                signingConfig = signingConfigs.getByName("debug")
+                proguardFiles("release-instrumentation.pro")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -192,6 +204,8 @@ dependencies {
     
     // Testing
     testImplementation(libs.bundles.testing)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.test.runner)
@@ -206,4 +220,16 @@ tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
         "robolectric.dependency.repo.url",
         "https://repo.maven.apache.org/maven2"
     )
+}
+
+// The weekly updater validates a staged download without replacing the asset.
+val relayDirectoryCandidate = providers.gradleProperty("relayDirectoryCandidate")
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    inputs.file(layout.projectDirectory.file("src/main/assets/nostr_relays.csv"))
+        .withPropertyName("bundledRelayDirectory")
+    relayDirectoryCandidate.orNull?.let { candidate ->
+        val candidateFile = rootProject.file(candidate)
+        inputs.file(candidateFile)
+        systemProperty("relayDirectoryCandidate", candidateFile.absolutePath)
+    }
 }

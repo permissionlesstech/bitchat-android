@@ -393,4 +393,6 @@
     <string name="about_app_language">アプリの言語</string>
     <string name="about_system_default">システムのデフォルト</string>
     <string name="about_select_language">言語を選択</string>
+    <string name="about_spam_filter_title">スパムフィルター</string>
+    <string name="about_spam_filter_desc">短時間に大量のメッセージを送信したり、同じ内容を繰り返したり、リンクを大量に投稿したりする人の公開メッセージを非表示にします。</string>
 </resources>

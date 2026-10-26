@@ -393,4 +393,6 @@
     <string name="about_app_language">ایپ کی زبان</string>
     <string name="about_system_default">سسٹم ڈیفالٹ</string>
     <string name="about_select_language">زبان منتخب کریں</string>
+    <string name="about_spam_filter_title">اسپام فلٹر</string>
+    <string name="about_spam_filter_desc">ایسے لوگوں کے عوامی پیغامات چھپائیں جو بہت تیزی سے پیغامات بھیجتے ہیں، اپنی بات دہراتے ہیں یا بہت زیادہ لنکس بھیجتے ہیں۔</string>
 </resources>

@@ -393,4 +393,6 @@
     <string name="about_app_language">Bahasa aplikasi</string>
     <string name="about_system_default">Default sistem</string>
     <string name="about_select_language">Pilih bahasa</string>
+    <string name="about_spam_filter_title">Filter spam</string>
+    <string name="about_spam_filter_desc">Sembunyikan pesan publik dari orang yang mengirim terlalu cepat, mengulang pesan, atau membanjiri obrolan dengan tautan.</string>
 </resources>

@@ -14,7 +14,7 @@ in the corresponding row.
 
 | Layer | Required compatibility behavior | Selected tests (partial coverage) |
 |---|---|---|
-| Outer mesh packet | v1/v2 header widths, big-endian fields, flags, section order, route placement, signature placement, padding, compression, signing bytes | `BinaryProtocolTest`, `ClientRewriteWireContractTest` |
+| Outer mesh packet | v1/v2 header widths, big-endian fields, flags, section order, route placement, signature placement, padding, compression, signing bytes, per-type payload caps ([PACKET_PAYLOAD_LIMITS.md](PACKET_PAYLOAD_LIMITS.md)) | `BinaryProtocolTest`, `ClientRewriteWireContractTest`, `PacketPayloadLimitsWireContractTest` |
 | Chat payload | Flag bits, millisecond timestamp, UTF-8 byte lengths, encrypted-content substitution, optional-field order | `ClientRewriteWireContractTest` |
 | Inner payloads | Noise type bytes, private-message TLVs, peer-state TLVs, file-transfer TLVs, live-voice bursts, fragment header, sync request TLVs | `ClientRewriteWireContractTest`, `AuthenticatedPeerStateTest`, `PrivateMediaTransferPreparerTest`, `VoiceBurstPacketTest`, `FragmentManagerTest` |
 | Identity/security | Announcement extensions, capability bitfield endianness, Noise static-key binding, handshake identity binding, signatures | `IdentityAnnouncementTest`, `NoiseSessionManagerIdentityBindingTest` |
@@ -63,6 +63,12 @@ and `Relay URL,Lat,Lon`. The limits are 512 KiB, 5,000 nonblank data rows and
 at least half the loaded entries, comparing endpoint and coordinates. Bundled
 and cached startup loads use a one-entry floor without an overlap baseline.
 
+The weekly asset-update job validates a temporary download with
+`RelayDirectoryAssetUpdateTest` before replacing `nostr_relays.csv`. The test
+uses the production validator with the download entry minimum and the current
+bundled asset as the retention baseline. A failed download or validation leaves
+the bundled asset unchanged.
+
 The validation follows iOS's bounded-directory policy, with
 parser differences. For example, Android rejects the `xn--` label form and
 zero-width-space padding that Foundation accepts in some cases. Literal schemes are checked before decoding.
@@ -81,6 +87,12 @@ update timestamp unchanged. One refresh worker checks staleness before its first
 delay, then waits one minute after each iteration. Refresh attempts depend on
 staleness and the running process; their
 success and adoption by existing subscriptions are not guaranteed here.
+
+Geohash (recipient-less) `bitchat1:` envelopes and their acks carry 8 fresh
+random bytes in the embedded packet's sender field, never the mesh peer ID,
+which would link a geohash identity to the device. Receivers key these
+conversations on the Nostr sender pubkey and must not read the field
+(`NostrEmbeddedBitChatTest`).
 
 Bech32 byte decoding must reject nonzero discarded bits and a residual whole
 five-bit symbol. A valid checksum alone does not make byte padding canonical.
