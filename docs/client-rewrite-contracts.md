@@ -47,7 +47,11 @@ Geohash directory downloads and the weekly bundled-asset update use
 `relays/online_relays_gps.csv` from the bitchat repo, the source used by iOS
 `GeoRelayDirectory`. Android deduplicates accepted rows by a lowercase host key,
 omits port 443, retains other accepted ports, and breaks distance ties by that
-key. `RelayDirectoryTest` covers these selection rules. Matching selections
+key. `RelayDirectoryTest` covers these selection rules.
+`RelayDirectoryAddressTest` covers whole-directory rejection for invalid addresses
+and accepted port boundaries. Shared synthetic selection vectors and the
+Android/Swift check commands are documented in
+[the relay-selection test guide](../tools/relay-selection/README.md). Matching selections
 also depend on the loaded entries; source alignment does not guarantee matching
 snapshots or delivery.
 
@@ -77,6 +81,12 @@ update timestamp unchanged. One refresh worker checks staleness before its first
 delay, then waits one minute after each iteration. Refresh attempts depend on
 staleness and the running process; their
 success and adoption by existing subscriptions are not guaranteed here.
+
+Bech32 byte decoding must reject nonzero discarded bits and a residual whole
+five-bit symbol. A valid checksum alone does not make byte padding canonical.
+Human-readable prefixes contain 1–83 characters; Nostr's extended data payloads
+are not subject to Bitcoin address length limits. `Bech32PaddingTest` pins these
+rules with literal checksum-valid positive and negative vectors.
 
 ## Rewrite acceptance gate
 

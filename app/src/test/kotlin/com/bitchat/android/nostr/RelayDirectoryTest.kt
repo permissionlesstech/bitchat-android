@@ -105,7 +105,7 @@ class RelayDirectoryTest {
 
     @Test
     fun `five nearest means five distinct endpoint keys`() {
-        // A shape the live directory produces: the nearest relay listed twice
+        // The nearest relay is listed twice
         // (bare and :443), which used to occupy two of the five selection slots and
         // push out the fifth distinct endpoint.
         val csv = header +

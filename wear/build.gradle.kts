@@ -19,8 +19,8 @@ android {
         targetSdk = libs.versions.targetSdk.get().toInt()
         // Wear releases use a separate high range because Play requires every artifact in
         // one application ID to have a unique version code across all form factors.
-        versionCode = 1_000_000_004
-        versionName = "0.1.3"
+        versionCode = 1_000_000_006
+        versionName = "0.1.5"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -65,6 +65,11 @@ android {
     }
 }
 
+// Robolectric downloads its Android runtime outside Gradle dependency resolution.
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
+}
+
 composeCompiler {
     // Kotlin 2.4.10's optional Compose group-key mapping depends on unspecified
     // class-file iteration order. Keep the normal R8 mapping, but omit that
@@ -90,6 +95,7 @@ val sharedSourceIncludes = listOf(
     "com/bitchat/android/sync/**",
     "com/bitchat/android/favorites/**",
     "com/bitchat/android/services/AppStateStore.kt",
+    "com/bitchat/android/services/PeerConversationReconciler.kt",
     "com/bitchat/android/services/ContactDirectory.kt",
     "com/bitchat/android/services/ContactIdentityResolver.kt",
     "com/bitchat/android/services/ConversationRepository.kt",
@@ -99,6 +105,7 @@ val sharedSourceIncludes = listOf(
     "com/bitchat/android/services/VerificationService.kt",
     "com/bitchat/android/services/meshgraph/**",
     "com/bitchat/android/service/TransportBridgeService.kt",
+    "com/bitchat/android/spam/**",
     "com/bitchat/android/nostr/Bech32.kt",
     "com/bitchat/android/nostr/GeohashAliasRegistry.kt",
     "com/bitchat/android/features/file/FileUtils.kt",
@@ -113,6 +120,8 @@ val sharedSourceIncludes = listOf(
 )
 val sharedSourceExcludes = listOf(
     "com/bitchat/android/model/FileSharingManager.kt",
+    // The watch has no spam filter toggle, so it keeps the filter's default (on).
+    "com/bitchat/android/spam/SpamFilterPreferences.kt",
     // Legacy phone monolith and Wi-Fi Aware multiplexer; the watch composes its own service
     // (MeshCore-style) in M2 instead of reusing these.
     "com/bitchat/android/mesh/BluetoothMeshService.kt",
@@ -187,6 +196,7 @@ dependencies {
     implementation(libs.androidx.wear.compose.foundation)
     implementation(libs.androidx.wear.compose.material3)
     implementation(libs.androidx.wear.tooling.preview)
+    implementation(libs.androidx.wear.ongoing)
     implementation(libs.androidx.compose.material.icons.extended)
 
     // Lifecycle

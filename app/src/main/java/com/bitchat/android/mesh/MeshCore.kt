@@ -476,8 +476,8 @@ class MeshCore(
                 return true
             }
 
-            override fun handleMessage(routed: RoutedPacket) {
-                scope.launch { messageHandler.handleMessage(routed) }
+            override suspend fun handleMessage(routed: RoutedPacket) {
+                messageHandler.handleMessage(routed)
                 try {
                     val pkt = routed.packet
                     val isBroadcast = (pkt.recipientID == null || pkt.recipientID.contentEquals(SpecialRecipients.BROADCAST))
@@ -490,8 +490,8 @@ class MeshCore(
             override fun handleVoiceFrame(routed: RoutedPacket): Boolean =
                 messageHandler.handlePublicVoiceFrame(routed)
 
-            override fun handleLeave(routed: RoutedPacket) {
-                scope.launch { messageHandler.handleLeave(routed) }
+            override suspend fun handleLeave(routed: RoutedPacket) {
+                messageHandler.handleLeave(routed)
             }
 
             override fun handleFragment(packet: BitchatPacket): BitchatPacket? {

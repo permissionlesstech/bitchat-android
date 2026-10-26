@@ -183,12 +183,13 @@ object RelayDirectory {
     }
 
     private fun fetchAndMaybeSwap(application: Application, nowMillis: () -> Long) {
+        var temporaryDownload: File? = null
         try {
             val tmpFile = File.createTempFile("relays_", ".csv", application.cacheDir)
+            temporaryDownload = tmpFile
             val ok = downloadToFile(ASSET_FILE_URL, tmpFile)
             if (!ok) {
                 Log.w(TAG, "Failed to fetch latest relays; keeping current list")
-                tmpFile.delete()
                 return
             }
 
@@ -209,11 +210,8 @@ object RelayDirectory {
 
             val dest = getDownloadedFile(application)
             tmpFile.inputStream().use { input ->
-                FileOutputStream(dest, false).use { output ->
-                    input.copyTo(output)
-                }
+                RelayDirectoryCache.replace(input, dest)
             }
-            tmpFile.delete()
 
             val hash = fileSha256Hex(dest)
             val entries = parsed.size
@@ -231,6 +229,12 @@ object RelayDirectory {
             Log.i(TAG, "✅ Using downloaded relay list (${dest.absolutePath}), entries=$entries, sha256=$hash, updatedAtMs=${getPrefs(application).getLong(KEY_LAST_UPDATE_MS, 0L)}")
         } catch (e: Exception) {
             Log.w(TAG, "Failed to fetch and swap relay list: ${e.message}")
+        } finally {
+            temporaryDownload?.let { file ->
+                if (file.exists() && !file.delete()) {
+                    Log.w(TAG, "Could not remove temporary relay download")
+                }
+            }
         }
     }
 
@@ -239,7 +243,7 @@ object RelayDirectory {
             val req = Request.Builder().url(url).get().build()
             httpClient.newCall(req).execute().use { resp ->
                 if (!resp.isSuccessful) {
-                    Log.w(TAG, "HTTP ${'$'}{resp.code} when fetching $url")
+                    Log.w(TAG, "HTTP ${resp.code} when fetching $url")
                     return false
                 }
                 val body = resp.body
@@ -313,7 +317,7 @@ object RelayDirectory {
                 streamSha256Hex(input)
             }
         } catch (e: Exception) {
-            "error:${'$'}{e.message}"
+            "error:${e.message}"
         }
         Log.i(TAG, "📦 Loaded ${list.size} relay entries from assets/$ASSET_FILE, sha256=$hash")
     }
