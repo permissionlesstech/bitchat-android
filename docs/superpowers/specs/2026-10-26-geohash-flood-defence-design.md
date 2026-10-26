@@ -1,5 +1,10 @@
 # Geohash flood defence: design
 
+> **Status (2026-10-26): stopped, kept as a local archive.** Reviews found that an admitted
+> bot is treated like a person and admitted bots accumulate, so this design cannot meet its
+> goal. See "Review and verdict" at the end. Sections below the results describe superseded
+> designs (device-time establishment, hash grinding).
+
 Date: 2026-10-26 · Base: `upstream/main` @ `b8016545` · Branch: `feat/geohash-identity-cost` (local only, nothing pushed until confirmed)
 
 ## Why
@@ -318,3 +323,39 @@ Known limit (security review): fake tokens are free to send but cost 1.6 ms to c
 checks are budgeted per channel (10/s, burst 20). That isolates channels, but inside a channel
 under a fake-token flood, a person whose token was not checked before the flood is unlikely to
 get checked until it ends. Senders already proven before the flood stay proven (cached).
+
+## Review and verdict (2026-10-26)
+
+Three independent reviews (Codex, a second model, a security pass) of `b8016545..6a2a0bed`.
+Every finding below was checked against the code.
+
+What breaks the design:
+
+- **An admitted bot is a person to the filter.** Once a fresh key wins a pool slot it gets the
+  ordinary per-sender budget (burst 6, then one per 10 s). The pool admits 6 keys a minute, so
+  an attacker holds ~360 admitted keys after an hour, up to ~2,000 messages a minute. The
+  10-minute simulation's 42–231/min understates this; it grows with time.
+- **Established status is permanent and the established list is LRU.** A backdated burst
+  wins ~365 slots at once (unused pool time from the last hour), and posting bots stay fresh in
+  the 1,000-entry LRU while quiet real users are evicted.
+- **The pool hurts real people with no flood.** It runs for every geohash message (only token
+  computation is behind the debug switch). On joining a live channel every sender is new, so
+  only 12 distinct senders get through the first minute; iOS users never carry a token. The
+  simulation's 205/209 "normal" are pre-flood losses of this kind.
+- **Gating the pool on a flood detector makes it worse:** an attacker that adds keys just under
+  the trigger rate gets every one of them established.
+- **Tokens only price identities** (~66 core-seconds each); a bot with a bought token is
+  equally a person. Stockpiled tokens skip the pool at the verifier rate; fake tokens exhaust
+  the verifier budget so real token holders go unchecked.
+
+Implementation bugs (not fixed, since the work stopped): the token job is not cancelled by
+panic wipe, the switch or location revoke, and can write the old identity's token back after a
+wipe; every location fix starts duplicate jobs; stored tokens are never deleted and form a
+per-device location history; the flood simulation prints `SIM FAIL` lines but never fails; the
+VDF challenge hashes `x‖y` without `T`/`N` and has no fixed test vectors.
+
+Verdict: fresh Nostr keys are free, so any client rule that admits real newcomers admits
+patient bots at the same rate. A client can slow a flood, not stop one. Stopping it needs
+identities that cost something, which means relay policy (NIP-42 auth, rate-limited or paid
+write relays) and is the maintainer's call. Kept from this work: the measurements, the
+simulation, and the separate PoW-mismatch bug (Android with PoW on rejects iOS's 8-bit events).
