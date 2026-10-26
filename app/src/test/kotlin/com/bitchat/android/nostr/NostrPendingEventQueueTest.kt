@@ -7,6 +7,33 @@ import org.junit.Test
 
 class NostrPendingEventQueueTest {
     @Test
+    fun `refresh moves pending geo writes while preserving successful and non-geo deliveries`() {
+        val queue = NostrPendingEventQueue(capacity = 4)
+        val geoId = requireNotNull(queue.enqueue(
+            event("geo"), listOf("kept", "removed"), null, GeoRelayRoute("s0000000")
+        ))
+        queue.enqueue(event("private"), listOf("removed"), null)
+        queue.markDelivered(geoId, "kept")
+
+        queue.rerouteGeohashEvents { listOf("kept", "added") }
+
+        assertEquals(emptyList<Long>(), queue.pendingForRelay("kept").map { it.queueId })
+        assertEquals(listOf("geo"), queue.pendingForRelay("added").map { it.event.content })
+        assertEquals(listOf("private"), queue.pendingForRelay("removed").map { it.event.content })
+    }
+
+    @Test
+    fun `an empty directory and a stale send completion preserve geo intent`() {
+        val queue = NostrPendingEventQueue(capacity = 4)
+        val id = requireNotNull(queue.enqueue(event("geo"), listOf("removed"), null, GeoRelayRoute("s0000000")))
+        queue.rerouteGeohashEvents { emptyList() }
+        queue.markDelivered(id, "removed")
+        assertEquals(1, queue.size())
+        queue.rerouteGeohashEvents { listOf("replacement") }
+        assertEquals(listOf("geo"), queue.pendingForRelay("replacement").map { it.event.content })
+    }
+
+    @Test
     fun `empty relay set is not queued`() {
         val queue = NostrPendingEventQueue(capacity = 2)
 

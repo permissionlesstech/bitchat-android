@@ -9,8 +9,10 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.io.InputStreamReader
+import java.net.URI
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.CopyOnWriteArraySet
 import kotlin.math.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,11 +28,11 @@ import okhttp3.Request
 object RelayDirectory {
 
     private const val TAG = "RelayDirectory"
-    private const val ASSET_FILE_URL = "https://raw.githubusercontent.com/permissionlesstech/georelays/refs/heads/main/nostr_relays.csv"
+    private const val ASSET_FILE_URL = "https://raw.githubusercontent.com/permissionlesstech/bitchat/refs/heads/main/relays/online_relays_gps.csv"
     private const val ASSET_FILE = "nostr_relays.csv"
-    private const val DOWNLOADED_FILE = "nostr_relays_latest.csv"
+    private const val DOWNLOADED_FILE = "nostr_relays_reviewed.csv"
     private const val PREFS_NAME = "relay_directory_prefs"
-    private const val KEY_LAST_UPDATE_MS = "last_update_ms"
+    private const val KEY_LAST_UPDATE_MS = "reviewed_last_update_ms"
     private val ONE_DAY_MS = TimeUnit.DAYS.toMillis(1)
 
     private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -48,6 +50,25 @@ object RelayDirectory {
 
     private val relays: MutableList<RelayInfo> = mutableListOf()
     private val relaysLock = Any()
+    private val changeListeners = CopyOnWriteArraySet<() -> Unit>()
+
+    internal fun addChangeListener(listener: () -> Unit) { changeListeners.add(listener) }
+    internal fun removeChangeListener(listener: () -> Unit) { changeListeners.remove(listener) }
+
+    internal fun replaceRelays(entries: List<RelayInfo>) {
+        val changed = synchronized(relaysLock) {
+            if (relays == entries) false else {
+                relays.clear()
+                relays.addAll(entries)
+                true
+            }
+        }
+        if (changed) changeListeners.forEach { it() }
+    }
+
+    /** Warm backups must be used in both directions, including by healthy peers. */
+    fun routingRelaysForGeohash(geohash: String, nRelays: Int = 5): List<String> =
+        closestRelaysForGeohash(geohash, nRelays.coerceIn(0, 5) * 2)
 
     fun initialize(application: Application) {
         if (initialized) return
@@ -99,7 +120,10 @@ object RelayDirectory {
         val (lat, lon) = center
         return snapshot
             .asSequence()
-            .sortedBy { haversineMeters(lat, lon, it.latitude, it.longitude) }
+            .distinctBy { it.url }
+            .sortedWith(compareBy<RelayInfo> {
+                haversineMeters(lat, lon, it.latitude, it.longitude)
+            }.thenBy { it.url })
             .take(nRelays.coerceAtLeast(0))
             .map { it.url }
             .toList()
@@ -114,10 +138,23 @@ object RelayDirectory {
         return R * c
     }
 
-    private fun normalizeRelayUrl(raw: String): String {
-        val trimmed = raw.trim()
-        if (trimmed.isEmpty()) return trimmed
-        return if ("://" in trimmed) trimmed else "wss://$trimmed"
+    private fun normalizeRelayUrl(raw: String): String? {
+        return runCatching {
+            val value = raw.trim()
+            val uri = URI(if ("://" in value) value else "wss://$value")
+            val host = uri.host?.lowercase() ?: return null
+            if (uri.scheme.lowercase() !in setOf("wss", "https") || uri.rawUserInfo != null ||
+                uri.rawQuery != null || uri.rawFragment != null || uri.path.orEmpty() !in setOf("", "/") ||
+                (uri.port != -1 && uri.port !in 1..65535)
+            ) return null
+            val labels = host.split('.')
+            if (host.length > 253 || labels.size < 2 || labels.all { it.all(Char::isDigit) } ||
+                host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal") ||
+                labels.any { it.length !in 1..63 || it.startsWith('-') || it.endsWith('-') ||
+                    !it.matches(Regex("[a-z0-9-]+")) }
+            ) return null
+            "wss://$host" + if (uri.port == -1 || uri.port == 443) "" else ":${uri.port}"
+        }.getOrNull()
     }
 
     // ===== Implementation details =====
@@ -177,10 +214,7 @@ object RelayDirectory {
             val hash = fileSha256Hex(dest)
             val entries = parsed.size
 
-            synchronized(relaysLock) {
-                relays.clear()
-                relays.addAll(parsed)
-            }
+            replaceRelays(parsed)
 
             getPrefs(application).edit().putLong(KEY_LAST_UPDATE_MS, System.currentTimeMillis()).apply()
 
@@ -219,10 +253,7 @@ object RelayDirectory {
                 Log.w(TAG, "${sourceLabel} relay CSV has 0 entries; ignoring")
                 false
             } else {
-                synchronized(relaysLock) {
-                    relays.clear()
-                    relays.addAll(list)
-                }
+                replaceRelays(list)
                 val hash = fileSha256Hex(file)
                 Log.i(TAG, "📄 Loaded ${list.size} relay entries from ${sourceLabel} file (${file.absolutePath}), sha256=$hash")
                 true
@@ -240,10 +271,7 @@ object RelayDirectory {
             Log.e(TAG, "Failed to open asset $ASSET_FILE: ${e.message}")
             emptyList()
         }
-        synchronized(relaysLock) {
-            relays.clear()
-            relays.addAll(list)
-        }
+        replaceRelays(list)
         // Compute asset hash for logging
         val hash = try {
             application.assets.open(ASSET_FILE).use { input ->
@@ -255,26 +283,32 @@ object RelayDirectory {
         Log.i(TAG, "📦 Loaded ${list.size} relay entries from assets/$ASSET_FILE, sha256=$hash")
     }
 
-    private fun parseCsv(input: InputStream): List<RelayInfo> {
-        val result = mutableListOf<RelayInfo>()
+    internal fun parseCsv(input: InputStream): List<RelayInfo> {
+        val entries = linkedMapOf<String, RelayInfo>()
         BufferedReader(InputStreamReader(input)).use { reader ->
-            var line: String?
-            while (true) {
-                line = reader.readLine()
-                if (line == null) break
-                val trimmed = line!!.trim()
-                if (trimmed.isEmpty()) continue
-                if (trimmed.lowercase().startsWith("relay url")) continue
-                val parts = trimmed.split(",")
-                if (parts.size < 3) continue
-                val url = normalizeRelayUrl(parts[0].trim())
-                val lat = parts[1].trim().toDoubleOrNull()
-                val lon = parts[2].trim().toDoubleOrNull()
-                if (url.isEmpty() || lat == null || lon == null) continue
-                result.add(RelayInfo(url = url, latitude = lat, longitude = lon))
+            var headerSeen = false
+            reader.lineSequence().forEach { line ->
+                if (line.isBlank()) return@forEach
+                val parts = line.split(",").map(String::trim)
+                if (!headerSeen) {
+                    val header = parts.map(String::lowercase)
+                    if (header !in listOf(listOf("relay url", "latitude", "longitude"), listOf("relay url", "lat", "lon"))) {
+                        return emptyList()
+                    }
+                    headerSeen = true
+                    return@forEach
+                }
+                if (parts.size != 3) return emptyList()
+                val url = normalizeRelayUrl(parts[0]) ?: return emptyList()
+                val lat = parts[1].toDoubleOrNull() ?: return emptyList()
+                val lon = parts[2].toDoubleOrNull() ?: return emptyList()
+                if (!lat.isFinite() || lat !in -90.0..90.0 || !lon.isFinite() || lon !in -180.0..180.0) return emptyList()
+                val entry = RelayInfo(url, lat, lon)
+                if (entries[url]?.let { it != entry } == true) return emptyList()
+                entries[url] = entry
             }
         }
-        return result
+        return entries.values.sortedBy { it.url }
     }
 
     private fun fileSha256Hex(file: File): String = try {

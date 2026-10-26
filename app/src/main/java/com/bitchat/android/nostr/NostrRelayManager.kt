@@ -13,13 +13,22 @@ import kotlinx.coroutines.*
 import okhttp3.*
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Manages WebSocket connections to Nostr relays
  * Compatible with iOS implementation with Android-specific optimizations
  */
-class NostrRelayManager private constructor() {
+class NostrRelayManager internal constructor(
+    private val geoRelayLookup: (String, Int) -> List<String> = RelayDirectory::routingRelaysForGeohash,
+    private val socketFactory: () -> WebSocket.Factory = { com.bitchat.android.net.OkHttpProvider.webSocketClient() },
+    dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    initialRelayUrls: List<String> = listOf(
+        "wss://relay.damus.io", "wss://relay.primal.net", "wss://offchain.pub", "wss://nostr21.com"
+    ),
+    observeDirectory: Boolean = true
+) {
     
     companion object {
         @JvmStatic
@@ -81,7 +90,7 @@ class NostrRelayManager private constructor() {
     val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
     
     // Internal state
-    private val relaysList = mutableListOf<Relay>()
+    private val relaysList = CopyOnWriteArrayList<Relay>()
     private val connections = ConcurrentHashMap<String, WebSocket>()
     private val reconnectJobs = ConcurrentHashMap<String, Job>()
     private val desiredConnected = AtomicBoolean(false)
@@ -90,6 +99,7 @@ class NostrRelayManager private constructor() {
     
     // Persistent subscription tracking for robust reconnection
     private val activeSubscriptions = ConcurrentHashMap<String, SubscriptionInfo>() // subscription ID -> info
+    private val subscriptionLock = Any()
     
     /**
      * Information about an active subscription that needs to be maintained across reconnections
@@ -101,6 +111,8 @@ class NostrRelayManager private constructor() {
         val targetRelayUrls: Set<String>? = null, // null means all relays
         val createdAt: Long = System.currentTimeMillis(),
         val originGeohash: String? = null,
+        val geoRelayCount: Int = 5,
+        val includeDefaultRelays: Boolean = false,
         val owner: String = OWNER_LEGACY,
         val liveLocationToken: Long? = null
     )
@@ -112,7 +124,7 @@ class NostrRelayManager private constructor() {
     private val messageQueue = NostrPendingEventQueue(MAX_QUEUED_EVENTS)
     
     // Coroutine scope for background operations
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val scope = CoroutineScope(dispatcher + SupervisorJob())
     
     // Subscription validation timer
     private var subscriptionValidationJob: Job? = null
@@ -120,14 +132,15 @@ class NostrRelayManager private constructor() {
         get() = appContext?.let { com.bitchat.android.mesh.PowerManager.getInstance(it) }
     @Volatile private var appContext: android.content.Context? = null
     
-    // OkHttp client for WebSocket connections (via provider to honor Tor)
-    private val httpClient: OkHttpClient
-        get() = com.bitchat.android.net.OkHttpProvider.webSocketClient()
-    
     private val gson by lazy { NostrRequest.createGson() }
     
     // Per-geohash relay selection
     private val geohashToRelays = ConcurrentHashMap<String, Set<String>>() // geohash -> relay URLs
+    private data class GeoRouteState(
+        val route: GeoRelayRoute,
+        val liveLocationToken: Long?
+    )
+    private val directoryChanged: () -> Unit = { scope.launch { reconcileGeoRelayDirectory() } }
     private val liveGeohashTokens = ConcurrentHashMap<String, Long>()
     private val liveLocationRelayTokens = ConcurrentHashMap<String, Long>()
     private val nonLiveRelayUrls = ConcurrentHashMap.newKeySet<String>()
@@ -144,33 +157,21 @@ class NostrRelayManager private constructor() {
         includeDefaults: Boolean = false,
         liveLocationToken: Long? = null
     ) {
-        if (!isNetworkActionAllowed(liveLocationToken)) return
-        try {
-            val nearest = RelayDirectory.closestRelaysForGeohash(geohash, nRelays)
-            val selected = if (includeDefaults) {
-                (nearest + Companion.defaultRelays()).toSet()
-            } else nearest.toSet()
-            if (selected.isEmpty()) {
-                Log.w(TAG, "No relays selected for a geohash")
-                return
-            }
-            runNetworkAction(liveLocationToken) {
+        runNetworkAction(liveLocationToken) {
+            synchronized(subscriptionLock) {
+                val selected = relaysForRoute(GeoRelayRoute(geohash, nRelays, includeDefaults)).toSet()
                 geohashToRelays[geohash] = selected
                 if (liveLocationToken == null) {
                     liveGeohashTokens.remove(geohash)
                     nonLiveRelayUrls.addAll(selected)
                 } else {
                     liveGeohashTokens[geohash] = liveLocationToken
-                    selected.forEach { relayUrl ->
-                        if (relayUrl !in nonLiveRelayUrls) {
-                            liveLocationRelayTokens[relayUrl] = liveLocationToken
-                        }
+                    selected.filterNot { it in nonLiveRelayUrls }.forEach {
+                        liveLocationRelayTokens[it] = liveLocationToken
                     }
                 }
                 ensureConnectionsFor(selected, liveLocationToken)
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to ensure geohash relays")
         }
     }
 
@@ -179,6 +180,106 @@ class NostrRelayManager private constructor() {
      */
     fun getRelaysForGeohash(geohash: String): List<String> {
         return geohashToRelays[geohash]?.toList() ?: emptyList()
+    }
+
+    private fun relaysForRoute(route: GeoRelayRoute): List<String> {
+        val nearest = geoRelayLookup(route.geohash, route.primaryCount)
+        return (if (route.includeDefaults) nearest + Companion.defaultRelays() else nearest).distinct()
+    }
+
+    /** Retarget reads and queued writes together, preserving identity and filters. */
+    internal fun reconcileGeoRelayDirectory() {
+        val (oldTargets, desiredRoutes) = synchronized(subscriptionLock) {
+            val previous = geohashToRelays.values.flatMapTo(mutableSetOf()) { it }
+            previous.addAll(messageQueue.pendingRelayUrls())
+            val desired = activeSubscriptions.values.mapNotNull { subscription ->
+                subscription.originGeohash?.let {
+                    GeoRouteState(GeoRelayRoute(it, subscription.geoRelayCount, subscription.includeDefaultRelays), subscription.liveLocationToken)
+                }
+            } + messageQueue.pendingGeoRoutes().map { GeoRouteState(it.first, it.second) }
+            geohashToRelays.clear()
+            previous to desired
+        }
+        desiredRoutes.forEach { state ->
+            runNetworkAction(state.liveLocationToken) {
+                synchronized(subscriptionLock) {
+                    val stillSubscribed = activeSubscriptions.values.any {
+                        it.originGeohash == state.route.geohash && it.liveLocationToken == state.liveLocationToken
+                    }
+                    val stillQueued = messageQueue.pendingGeoRoutes().any {
+                        it.first == state.route && it.second == state.liveLocationToken
+                    }
+                    if (stillSubscribed || stillQueued) {
+                        ensureGeohashRelaysConnected(
+                            state.route.geohash, state.route.primaryCount,
+                            state.route.includeDefaults, state.liveLocationToken
+                        )
+                    }
+                }
+            }
+        }
+        activeSubscriptions.values.forEach { current ->
+            val geohash = current.originGeohash ?: return@forEach
+            runNetworkAction(current.liveLocationToken) {
+                synchronized(subscriptionLock) {
+                    val targets = relaysForRoute(GeoRelayRoute(
+                        geohash, current.geoRelayCount, current.includeDefaultRelays
+                    )).toSet()
+                    if (targets != current.targetRelayUrls) {
+                        val updated = current.copy(targetRelayUrls = targets)
+                        if (activeSubscriptions.replace(current.id, current, updated)) {
+                            val removed = current.targetRelayUrls.orEmpty() - targets
+                            if (current.liveLocationToken == null) {
+                                nonLiveRelayUrls.addAll(targets)
+                            } else {
+                                targets.filterNot { it in nonLiveRelayUrls }.forEach {
+                                    liveLocationRelayTokens[it] = current.liveLocationToken
+                                }
+                            }
+                            oldTargets.addAll(removed)
+                            closeSubscriptionsOnConnectedRelays(setOf(current.id), removed)
+                            removed.forEach { url ->
+                                subscriptions.computeIfPresent(url) { _, ids -> ids - current.id }
+                            }
+                            ensureConnectionsFor(targets, current.liveLocationToken)
+                            sendSubscriptionToRelays(updated, targets - current.targetRelayUrls.orEmpty())
+                        }
+                    }
+                }
+            }
+        }
+        // Privacy revocation purges live entries synchronously. This operation
+        // only changes destinations; every actual write rechecks its token.
+        val pending = synchronized(subscriptionLock) { messageQueue.rerouteGeohashEvents(::relaysForRoute) }
+        synchronized(subscriptionLock) {
+            val retained = geohashToRelays.values.flatMapTo(mutableSetOf()) { it }
+            activeSubscriptions.values.forEach { retained.addAll(it.targetRelayUrls.orEmpty()) }
+            retained.addAll(pending)
+            retained.addAll(messageQueue.pendingRelayUrls())
+            retained.addAll(Companion.defaultRelays())
+            val removed = oldTargets - retained
+            removed.forEach { url ->
+                reconnectJobs.remove(url)?.cancel()
+                connections.remove(url)?.close(1000, "Relay directory changed")
+                subscriptions.remove(url)
+                nonLiveRelayUrls.remove(url)
+                liveLocationRelayTokens.remove(url)
+            }
+            relaysList.removeAll { it.url in removed }
+        }
+        updateRelaysList()
+        updateConnectionStatus()
+        connections.forEach { (url, socket) ->
+            if (relaysList.any { it.url == url && it.isConnected }) flushPendingForRelay(url, socket)
+        }
+    }
+
+    internal fun dispose() {
+        disconnect()
+        clearAllSubscriptions()
+        RelayDirectory.removeChangeListener(directoryChanged)
+        LiveLocationPrivacyGate.removeRevocationListener(::revokeLiveLocationAccess)
+        scope.cancel()
     }
 
     /**
@@ -194,28 +295,20 @@ class NostrRelayManager private constructor() {
         owner: String = OWNER_LEGACY,
         liveLocationToken: Long? = null
     ): String {
-        if (!isNetworkActionAllowed(liveLocationToken)) return id
-        ensureGeohashRelaysConnected(
-            geohash,
-            nRelays,
-            includeDefaults,
-            liveLocationToken
-        )
-        if (!isNetworkActionAllowed(liveLocationToken)) return id
-        val relayUrls = getRelaysForGeohash(geohash)
-        return subscribe(
-            filter = filter,
-            id = id,
-            handler = handler,
-            targetRelayUrls = relayUrls,
-            owner = owner,
-            liveLocationToken = liveLocationToken
-        ).also { subscriptionId ->
-            activeSubscriptions[subscriptionId]?.let { subscription ->
-                activeSubscriptions[subscriptionId] =
-                    subscription.copy(originGeohash = geohash)
+        runNetworkAction(liveLocationToken) {
+            synchronized(subscriptionLock) {
+                // Publish routing intent atomically with selection. A refresh
+                // can then see either this intent or the newer directory.
+                ensureGeohashRelaysConnected(geohash, nRelays, includeDefaults, liveLocationToken)
+                subscribe(
+                    filter = filter, id = id, handler = handler,
+                    targetRelayUrls = getRelaysForGeohash(geohash), owner = owner,
+                    liveLocationToken = liveLocationToken, originGeohash = geohash,
+                    geoRelayCount = nRelays, includeDefaultRelays = includeDefaults
+                )
             }
         }
+        return id
     }
 
     /**
@@ -228,21 +321,10 @@ class NostrRelayManager private constructor() {
         nRelays: Int = 5,
         liveLocationToken: Long? = null
     ) {
-        if (!isNetworkActionAllowed(liveLocationToken)) return
-        ensureGeohashRelaysConnected(
-            geohash,
-            nRelays,
-            includeDefaults,
-            liveLocationToken
+        sendEvent(
+            event, liveLocationToken = liveLocationToken,
+            geoRoute = GeoRelayRoute(geohash, nRelays, includeDefaults)
         )
-        if (!isNetworkActionAllowed(liveLocationToken)) return
-        val relayUrls = getRelaysForGeohash(geohash)
-        if (relayUrls.isEmpty()) {
-            Log.w(TAG, "No target relays for geohash event; falling back to defaults")
-            sendEvent(event, Companion.defaultRelays(), liveLocationToken)
-            return
-        }
-        sendEvent(event, relayUrls, liveLocationToken)
     }
 
     // --- Internal helpers ---
@@ -265,7 +347,7 @@ class NostrRelayManager private constructor() {
      * server-side delivery. Live subscription IDs are opaque, so CLOSE carries no
      * geohash. If a CLOSE cannot be queued, fail closed by dropping that socket.
      */
-    private fun closeSubscriptionsOnConnectedRelays(subscriptionIds: Set<String>) {
+    private fun closeSubscriptionsOnConnectedRelays(subscriptionIds: Set<String>, relayUrls: Set<String>? = null) {
         if (subscriptionIds.isEmpty()) return
 
         val closeTargets = NostrLiveSubscriptionPrivacy.closeTargets(
@@ -273,6 +355,7 @@ class NostrRelayManager private constructor() {
             subscriptionsByRelay = subscriptions,
         )
         closeTargets.forEach { (relayUrl, relaySubscriptionIds) ->
+            if (relayUrls != null && relayUrl !in relayUrls) return@forEach
             val webSocket = connections[relayUrl] ?: return@forEach
             for (subscriptionId in relaySubscriptionIds) {
                 val request = NostrRequest.Close(subscriptionId)
@@ -337,9 +420,9 @@ class NostrRelayManager private constructor() {
     ) {
         if (!isNetworkActionAllowed(liveLocationToken)) return
         // Ensure relays are tracked for UI/status
-        relayUrls.forEach { url ->
-            if (relaysList.none { it.url == url }) {
-                relaysList.add(Relay(url))
+        synchronized(relaysList) {
+            relayUrls.forEach { url ->
+                if (relaysList.none { it.url == url }) relaysList.add(Relay(url))
             }
         }
         updateRelaysList()
@@ -353,6 +436,7 @@ class NostrRelayManager private constructor() {
                 launch {
                     if (desiredConnected.get() &&
                         !connections.containsKey(relayUrl) &&
+                        !reconnectJobs.containsKey(relayUrl) &&
                         isNetworkActionAllowed(liveLocationToken)
                     ) {
                         connectToRelay(relayUrl, liveLocationToken)
@@ -369,17 +453,13 @@ class NostrRelayManager private constructor() {
     init {
         // Initialize with default relays - avoid static initialization order issues
         try {
-            val defaultRelayUrls = listOf(
-                "wss://relay.damus.io",
-                "wss://relay.primal.net",
-                "wss://offchain.pub",
-                "wss://nostr21.com"
-            )
+            val defaultRelayUrls = initialRelayUrls
             relaysList.addAll(defaultRelayUrls.map { Relay(it) })
             nonLiveRelayUrls.addAll(defaultRelayUrls)
-            _relays.value = relaysList.toList()
+            _relays.value = buildList { relaysList.forEach { add(it) } }
             updateConnectionStatus()
             LiveLocationPrivacyGate.addRevocationListener(::revokeLiveLocationAccess)
+            if (observeDirectory) RelayDirectory.addChangeListener(directoryChanged)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize NostrRelayManager: ${e.message}", e)
             // Initialize with empty list as fallback
@@ -446,34 +526,30 @@ class NostrRelayManager private constructor() {
     fun sendEvent(
         event: NostrEvent,
         relayUrls: List<String>? = null,
-        liveLocationToken: Long? = null
+        liveLocationToken: Long? = null,
+        geoRoute: GeoRelayRoute? = event.routingGeohash()?.let { GeoRelayRoute(it) }
     ) {
-        val targetRelays = (relayUrls ?: relaysList.map { it.url })
-            .filter { it.isNotBlank() }
-            .distinct()
-        if (targetRelays.isEmpty()) return
-
-        val queued = runNetworkAction(liveLocationToken) {
-            val queueId = messageQueue.enqueue(
-                event = event,
-                relayUrls = targetRelays,
-                liveLocationToken = liveLocationToken
-            ) ?: return@runNetworkAction
-            scope.launch {
-                if (!isNetworkActionAllowed(liveLocationToken)) return@launch
-                targetRelays.forEach { relayUrl ->
-                    val webSocket = connections[relayUrl]
-                    if (webSocket != null) {
-                        if (sendToRelay(event, webSocket, relayUrl, liveLocationToken)) {
-                            messageQueue.markDelivered(queueId, relayUrl)
-                        }
+        runNetworkAction(liveLocationToken) {
+            synchronized(subscriptionLock) {
+                if (geoRoute != null) {
+                    ensureGeohashRelaysConnected(
+                        geoRoute.geohash, geoRoute.primaryCount, geoRoute.includeDefaults, liveLocationToken
+                    )
+                }
+                val targets = (geoRoute?.let { getRelaysForGeohash(it.geohash) }
+                    ?: relayUrls ?: relaysList.map { it.url }).filter { it.isNotBlank() }.distinct()
+                val queueId = messageQueue.enqueue(event, targets, liveLocationToken, geoRoute)
+                    ?: return@synchronized
+                scope.launch {
+                    targets.forEach { url ->
+                        val socket = connections[url] ?: return@forEach
+                        deliverQueuedEvent(queueId, event, url, socket, liveLocationToken)
                     }
                 }
             }
         }
-        if (!queued) return
     }
-    
+
     /**
      * Subscribe to events matching a filter
      * The subscription will be automatically re-established on reconnection
@@ -484,7 +560,10 @@ class NostrRelayManager private constructor() {
         handler: (NostrEvent) -> Unit,
         targetRelayUrls: List<String>? = null,
         owner: String = OWNER_LEGACY,
-        liveLocationToken: Long? = null
+        liveLocationToken: Long? = null,
+        originGeohash: String? = null,
+        geoRelayCount: Int = 5,
+        includeDefaultRelays: Boolean = false
     ): String {
         val subscriptionInfo = SubscriptionInfo(
             id = id,
@@ -492,13 +571,18 @@ class NostrRelayManager private constructor() {
             handler = handler,
             targetRelayUrls = targetRelayUrls?.toSet(),
             owner = owner,
-            liveLocationToken = liveLocationToken
+            liveLocationToken = liveLocationToken,
+            originGeohash = originGeohash,
+            geoRelayCount = geoRelayCount,
+            includeDefaultRelays = includeDefaultRelays
         )
         
         runNetworkAction(liveLocationToken) {
-            activeSubscriptions[id] = subscriptionInfo
-            messageHandlers[id] = handler
-            sendSubscriptionToRelays(subscriptionInfo)
+            synchronized(subscriptionLock) {
+                activeSubscriptions[id] = subscriptionInfo
+                messageHandlers[id] = handler
+                sendSubscriptionToRelays(subscriptionInfo)
+            }
         }
         
         return id
@@ -507,88 +591,43 @@ class NostrRelayManager private constructor() {
     /**
      * Send a subscription to the appropriate relays
      */
-    private fun sendSubscriptionToRelays(subscriptionInfo: SubscriptionInfo) {
-        if (!isNetworkActionAllowed(subscriptionInfo.liveLocationToken)) return
+    private fun sendSubscriptionToRelays(subscriptionInfo: SubscriptionInfo, onlyRelayUrls: Set<String>? = null) {
         val request = NostrRequest.Subscribe(subscriptionInfo.id, listOf(subscriptionInfo.filter))
         val message = gson.toJson(request, NostrRequest::class.java)
-
         scope.launch {
-            if (!isNetworkActionAllowed(subscriptionInfo.liveLocationToken)) return@launch
-            // A concurrent view can shrink between Collection.size and iterator.next.
-            // Build by iteration instead of Kotlin's size-based toList fast paths.
-            val targetRelays = subscriptionInfo.targetRelayUrls?.toList()
+            // Iterate concurrent views directly; size and iteration need not
+            // describe the same snapshot during a socket disconnection.
+            val targets = onlyRelayUrls?.toList() ?: subscriptionInfo.targetRelayUrls?.toList()
                 ?: buildList { connections.keys.forEach { add(it) } }
-            
-            targetRelays.forEach { relayUrl ->
-                val webSocket = connections[relayUrl]
-                if (webSocket != null) {
-                    try {
-                        var success = false
-                        runNetworkAction(subscriptionInfo.liveLocationToken) {
-                            success = webSocket.send(message)
-                            if (success) {
-                                val currentSubs = subscriptions[relayUrl] ?: emptySet()
-                                subscriptions[relayUrl] =
-                                    currentSubs + subscriptionInfo.id
-                            }
-                        }
-                        if (!success) {
+            targets.forEach { url ->
+                val socket = connections[url] ?: return@forEach
+                runNetworkAction(subscriptionInfo.liveLocationToken) {
+                    synchronized(subscriptionLock) {
+                        if (activeSubscriptions[subscriptionInfo.id] !== subscriptionInfo ||
+                            connections[url] !== socket
+                        ) return@synchronized
+                        if (socket.send(message)) {
+                            subscriptions[url] = subscriptions[url].orEmpty() + subscriptionInfo.id
+                        } else {
                             Log.w(TAG, "Failed to send subscription: WebSocket send failed")
                         }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed to send subscription")
                     }
                 }
             }
-
-            if (connections.isEmpty()) {
-                Log.w(TAG, "⚠️ No relay connections available for subscription, will retry on reconnection")
-            }
         }
     }
-    
+
     /**
      * Unsubscribe from a subscription
      */
     fun unsubscribe(id: String) {
-        // Remove from persistent tracking
-        val subscriptionInfo = activeSubscriptions.remove(id)
-        messageHandlers.remove(id)
-        
-        if (subscriptionInfo == null) {
-            return
-        }
-
-        if (subscriptionInfo.liveLocationToken != null &&
-            !isNetworkActionAllowed(subscriptionInfo.liveLocationToken)
-        ) {
+        // Serialize CLOSE with REQ writes so a delayed migration cannot reopen
+        // a subscription after its owner has synchronously torn it down.
+        synchronized(subscriptionLock) {
+            activeSubscriptions.remove(id) ?: return
+            messageHandlers.remove(id)
             closeSubscriptionsOnConnectedRelays(setOf(id))
             subscriptions.replaceAll { _, ids -> ids - id }
-            return
-        }
-
-        val request = NostrRequest.Close(id)
-        val message = gson.toJson(request, NostrRequest::class.java)
-        
-        scope.launch {
-            if (!isNetworkActionAllowed(subscriptionInfo.liveLocationToken)) {
-                closeSubscriptionsOnConnectedRelays(setOf(id))
-                subscriptions.replaceAll { _, ids -> ids - id }
-                return@launch
-            }
-            connections.forEach { (relayUrl, webSocket) ->
-                val currentSubs = subscriptions[relayUrl]
-                if (currentSubs?.contains(id) == true) {
-                    try {
-                        runNetworkAction(subscriptionInfo.liveLocationToken) {
-                            webSocket.send(message)
-                        }
-                        subscriptions[relayUrl] = currentSubs - id
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed to unsubscribe from relay")
-                    }
-                }
-            }
         }
     }
 
@@ -699,7 +738,7 @@ class NostrRelayManager private constructor() {
      * Get detailed status for all relays
      */
     fun getRelayStatuses(): List<Relay> {
-        return relaysList.toList()
+        return buildList { relaysList.forEach { add(it) } }
     }
     
     /**
@@ -842,6 +881,7 @@ class NostrRelayManager private constructor() {
         liveLocationToken: Long? = null
     ) {
         if (!desiredConnected.get()) return
+        if (relaysList.none { it.url == urlString }) return
         val connectionToken = liveLocationToken
             ?.takeIf { urlString !in nonLiveRelayUrls }
         if (!isNetworkActionAllowed(connectionToken)) return
@@ -856,7 +896,7 @@ class NostrRelayManager private constructor() {
                 .build()
             
             val started = runNetworkAction(connectionToken) {
-                val webSocket = httpClient.newWebSocket(
+                val webSocket = socketFactory().newWebSocket(
                     request,
                     RelayWebSocketListener(urlString, connectionToken)
                 )
@@ -901,6 +941,8 @@ class NostrRelayManager private constructor() {
                 true
             } else {
                 Log.e(TAG, "Failed to send event: WebSocket send failed")
+                handleDisconnection(relayUrl, webSocket, IllegalStateException("WebSocket send failed"), liveLocationToken)
+                webSocket.cancel()
                 false
             }
         } catch (e: Exception) {
@@ -1062,7 +1104,7 @@ class NostrRelayManager private constructor() {
     }
     
     private fun updateRelaysList() {
-        _relays.value = relaysList.toList()
+        _relays.value = buildList { relaysList.forEach { add(it) } }
     }
     
     private fun updateConnectionStatus() {
@@ -1078,40 +1120,25 @@ class NostrRelayManager private constructor() {
      * Restore all active subscriptions for a specific relay that just reconnected
      */
     private fun restoreSubscriptionsForRelay(relayUrl: String, webSocket: WebSocket) {
-        val subscriptionsToRestore = activeSubscriptions.values.filter { subscriptionInfo ->
-            // Include subscription if it targets all relays or specifically targets this relay
-            isNetworkActionAllowed(subscriptionInfo.liveLocationToken) &&
-                (subscriptionInfo.targetRelayUrls == null ||
-                    subscriptionInfo.targetRelayUrls.contains(relayUrl))
-        }
-        
-        if (subscriptionsToRestore.isEmpty()) {
-            return
-        }
-
-        subscriptionsToRestore.forEach { subscriptionInfo ->
-            try {
-                val request = NostrRequest.Subscribe(subscriptionInfo.id, listOf(subscriptionInfo.filter))
-                val message = gson.toJson(request, NostrRequest::class.java)
-
-                var success = false
-                runNetworkAction(subscriptionInfo.liveLocationToken) {
-                    success = webSocket.send(message)
-                    if (success) {
-                        val currentSubs = subscriptions[relayUrl] ?: emptySet()
-                        subscriptions[relayUrl] =
-                            currentSubs + subscriptionInfo.id
+        activeSubscriptions.values.forEach { subscriptionInfo ->
+            if (subscriptionInfo.targetRelayUrls != null && relayUrl !in subscriptionInfo.targetRelayUrls) return@forEach
+            val request = NostrRequest.Subscribe(subscriptionInfo.id, listOf(subscriptionInfo.filter))
+            val message = gson.toJson(request, NostrRequest::class.java)
+            runNetworkAction(subscriptionInfo.liveLocationToken) {
+                synchronized(subscriptionLock) {
+                    if (activeSubscriptions[subscriptionInfo.id] !== subscriptionInfo ||
+                        connections[relayUrl] !== webSocket
+                    ) return@synchronized
+                    if (webSocket.send(message)) {
+                        subscriptions[relayUrl] = subscriptions[relayUrl].orEmpty() + subscriptionInfo.id
+                    } else {
+                        Log.w(TAG, "Failed to restore subscription: WebSocket send failed")
                     }
                 }
-                if (!success) {
-                    Log.w(TAG, "Failed to restore subscription: WebSocket send failed")
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to restore subscription")
             }
         }
     }
-    
+
     /**
      * WebSocket listener for relay connections
      */
@@ -1121,9 +1148,10 @@ class NostrRelayManager private constructor() {
     ) : WebSocketListener() {
         
         override fun onOpen(webSocket: WebSocket, response: Response) {
+            val connectionToken = liveLocationToken?.takeIf { relayUrl !in nonLiveRelayUrls }
             if (!desiredConnected.get() ||
                 connections[relayUrl] !== webSocket ||
-                !isNetworkActionAllowed(liveLocationToken)
+                !isNetworkActionAllowed(connectionToken)
             ) {
                 connections.remove(relayUrl, webSocket)
                 webSocket.close(1000, "Stale connection")
@@ -1135,20 +1163,7 @@ class NostrRelayManager private constructor() {
             // Restore all active subscriptions for this relay
             restoreSubscriptionsForRelay(relayUrl, webSocket)
             
-            // Process only events still pending for this relay, outside the queue lock.
-            val queuedForRelay = messageQueue.pendingForRelay(relayUrl)
-                .filter { isNetworkActionAllowed(it.liveLocationToken) }
-            queuedForRelay.forEach { delivery ->
-                if (sendToRelay(
-                        delivery.event,
-                        webSocket,
-                        relayUrl,
-                        delivery.liveLocationToken
-                    )
-                ) {
-                    messageQueue.markDelivered(delivery.queueId, relayUrl)
-                }
-            }
+            flushPendingForRelay(relayUrl, webSocket)
         }
         
         override fun onMessage(webSocket: WebSocket, text: String) {
@@ -1170,4 +1185,25 @@ class NostrRelayManager private constructor() {
             handleDisconnection(relayUrl, webSocket, t, liveLocationToken)
         }
     }
+
+    private fun flushPendingForRelay(relayUrl: String, socket: WebSocket) {
+        messageQueue.pendingForRelay(relayUrl).forEach { delivery ->
+            deliverQueuedEvent(delivery.queueId, delivery.event, relayUrl, socket, delivery.liveLocationToken)
+        }
+    }
+
+    private fun deliverQueuedEvent(id: Long, event: NostrEvent, url: String, socket: WebSocket, token: Long?) {
+        runNetworkAction(token) {
+            synchronized(subscriptionLock) {
+                if (connections[url] === socket && messageQueue.isPending(id, url) &&
+                    relaysList.any { it.url == url && it.isConnected } && sendToRelay(event, socket, url, token)
+                ) messageQueue.markDelivered(id, url)
+            }
+        }
+    }
 }
+
+private fun NostrEvent.routingGeohash(): String? =
+    if (kind in setOf(1, 5, 20000, 20001)) {
+        tags.firstOrNull { it.size >= 2 && (it[0] == "g" || it[0] == "r") }?.get(1)
+    } else null

@@ -1,5 +1,7 @@
 package com.bitchat.android.nostr
 
+data class GeoRelayRoute(val geohash: String, val primaryCount: Int = 5, val includeDefaults: Boolean = false)
+
 /**
  * Thread-safe bounded queue of relay deliveries awaiting a usable WebSocket.
  *
@@ -23,7 +25,9 @@ internal class NostrPendingEventQueue(
         val queueId: Long,
         val event: NostrEvent,
         val pendingRelayUrls: MutableSet<String>,
-        val liveLocationToken: Long?
+        val liveLocationToken: Long?,
+        val geoRoute: GeoRelayRoute? = null,
+        val deliveredRelayUrls: MutableSet<String> = mutableSetOf()
     )
 
     private val lock = Any()
@@ -33,10 +37,11 @@ internal class NostrPendingEventQueue(
     fun enqueue(
         event: NostrEvent,
         relayUrls: Collection<String>,
-        liveLocationToken: Long?
+        liveLocationToken: Long?,
+        geoRoute: GeoRelayRoute? = null
     ): Long? {
         val pendingRelays = relayUrls.filterTo(linkedSetOf()) { it.isNotBlank() }
-        if (pendingRelays.isEmpty()) return null
+        if (pendingRelays.isEmpty() && geoRoute == null) return null
 
         return synchronized(lock) {
             if (entries.size >= capacity) entries.removeFirst()
@@ -46,7 +51,8 @@ internal class NostrPendingEventQueue(
                     queueId = queueId,
                     event = event,
                     pendingRelayUrls = pendingRelays,
-                    liveLocationToken = liveLocationToken
+                    liveLocationToken = liveLocationToken,
+                    geoRoute = geoRoute
                 )
             )
             queueId
@@ -61,17 +67,46 @@ internal class NostrPendingEventQueue(
             .toList()
     }
 
+    fun isPending(queueId: Long, relayUrl: String): Boolean = synchronized(lock) {
+        entries.any { it.queueId == queueId && relayUrl in it.pendingRelayUrls }
+    }
+
     fun markDelivered(queueId: Long, relayUrl: String) {
         synchronized(lock) {
             val iterator = entries.iterator()
             while (iterator.hasNext()) {
                 val entry = iterator.next()
                 if (entry.queueId != queueId) continue
-                entry.pendingRelayUrls.remove(relayUrl)
+                if (!entry.pendingRelayUrls.remove(relayUrl)) return
+                entry.deliveredRelayUrls.add(relayUrl)
                 if (entry.pendingRelayUrls.isEmpty()) iterator.remove()
                 return
             }
         }
+    }
+
+    /** Replace geographic destinations without replaying to already-written relays. */
+    fun rerouteGeohashEvents(lookup: (GeoRelayRoute) -> Collection<String>): Set<String> = synchronized(lock) {
+        val targets = mutableSetOf<String>()
+        val iterator = entries.iterator()
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+            val route = entry.geoRoute ?: continue
+            val selected = lookup(route).toSet()
+            entry.pendingRelayUrls.clear()
+            entry.pendingRelayUrls.addAll(selected - entry.deliveredRelayUrls)
+            targets.addAll(entry.pendingRelayUrls)
+            if (selected.isNotEmpty() && entry.pendingRelayUrls.isEmpty()) iterator.remove()
+        }
+        targets
+    }
+
+    fun pendingRelayUrls(): Set<String> = synchronized(lock) {
+        entries.flatMapTo(mutableSetOf()) { it.pendingRelayUrls }
+    }
+
+    fun pendingGeoRoutes(): List<Pair<GeoRelayRoute, Long?>> = synchronized(lock) {
+        entries.mapNotNull { entry -> entry.geoRoute?.let { it to entry.liveLocationToken } }
     }
 
     fun removeLiveLocationEvents() {
