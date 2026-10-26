@@ -12,7 +12,8 @@ class SpamFilterTest {
     private var now = 1_000_000_000L
     private var nextId = 0
     private val random = Random(7)
-    private val filter = SpamFilter(clock = { now })
+    // These fixtures deliberately use random words to isolate the pre-existing bucket/repeat rules.
+    private val filter = SpamFilter(config = SpamFilterConfig(englishGibberishEnabled = false), clock = { now })
 
     private fun send(
         content: String = prose(),
@@ -221,7 +222,10 @@ class SpamFilterTest {
     @Test
     fun `limits are configurable`() {
         val strict = SpamFilter(
-            config = SpamFilterConfig(messageBucket = TokenBucketConfig(capacity = 2.0, refillPerSecond = 1.0)),
+            config = SpamFilterConfig(
+                messageBucket = TokenBucketConfig(capacity = 2.0, refillPerSecond = 1.0),
+                englishGibberishEnabled = false
+            ),
             clock = { now }
         )
         assertEquals(SpamVerdict.ALLOWED, strict.check("a", "1", prose(), now))
@@ -259,7 +263,7 @@ class SpamFilterTest {
         repeat(6) { send() }
         assertEquals(SpamVerdict.MESSAGE_RATE, send())
 
-        filter.config = SpamTuning.DEFAULT.copy(messageBurst = 10).toConfig()
+        filter.config = SpamTuning.DEFAULT.copy(messageBurst = 10).toConfig().copy(englishGibberishEnabled = false)
 
         repeat(10) { assertEquals(SpamVerdict.ALLOWED, send()) }
         assertEquals(SpamVerdict.MESSAGE_RATE, send())

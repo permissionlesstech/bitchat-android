@@ -533,6 +533,7 @@ private fun SpamVerdict.debugLabel(): String = when (this) {
     SpamVerdict.REPEATED_MESSAGE -> "repeated message"
     SpamVerdict.REPEATED_ACROSS_USERS -> "same text from other users"
     SpamVerdict.REPEATED_CHARACTERS -> "repeated characters"
+    SpamVerdict.ENGLISH_GIBBERISH -> "random English-like text"
 }
 
 @OptIn(ExperimentalFoundationApi::class)

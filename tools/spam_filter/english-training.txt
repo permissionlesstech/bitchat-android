@@ -1,0 +1,166 @@
+# Original synthetic English training text. No messages, identities, or device data.
+# One independent example per line. This is a small experimental corpus, not a language benchmark.
+hello everyone and welcome to the conversation
+good morning how is everyone doing today
+thanks for the help that worked perfectly
+please give the application a moment to finish loading
+the message should appear once the connection is ready
+can you hear the audio clearly on your side
+the picture looks sharper with a little more light
+let us try sending another short message
+there is no hurry we can finish this later
+that sounds like a reasonable plan to me
+could you explain the last step a little more slowly
+what do you think about the new layout
+the button is easier to find near the bottom
+we should keep the interface simple and readable
+the larger text is much easier on the eyes
+please check whether the setting is enabled
+turn the feature off and then try again
+the small icon means that the transfer is complete
+this example uses invented content for testing
+all of the sample conversations are made up
+the test should finish without needing a network
+a clear error message makes the problem easier to understand
+we can compare the results after the next run
+the first attempt failed but the second one succeeded
+the queue has enough room for several more messages
+the connection should recover without losing the conversation
+it would be helpful to see a progress indicator
+the battery lasted longer with the screen turned down
+the keyboard covers the lower part of the page
+try rotating the display to make more room
+the bright theme is readable in strong light
+the dark theme feels comfortable in the evening
+there are a few small changes left to review
+the latest version fixed the issue with the menu
+we need a better example for the documentation
+the instructions are clear and easy to follow
+please keep the original file until the copy is checked
+the smaller file should finish transferring first
+the sound is quiet but the words are still clear
+could you repeat the question one more time
+that explanation makes much more sense now
+it helps to break a large problem into smaller steps
+the result depends on the order of the operations
+we should measure the behavior before changing the default
+the test uses a fixed clock and predictable input
+an unexpected result does not always mean the code is wrong
+please include the exact steps needed to reproduce the issue
+the example should avoid any real personal information
+we can use a pretend conversation instead of actual messages
+the application should remain responsive during a busy conversation
+a short reply should not be mistaken for unwanted content
+different languages need different examples and careful evaluation
+the system must handle ordinary spelling mistakes gracefully
+people often write casually when chatting with friends
+some messages contain abbreviations jokes and unusual punctuation
+thanks again i really appreciate the explanation
+yes that is exactly what i was trying to say
+no problem we can work through it together
+maybe we should start with the simplest possible version
+hopefully the next attempt will be more reliable
+absolutely that seems worth trying
+apparently the old setting was still being used
+actually i think the earlier suggestion was better
+basically we need enough time to complete the check
+probably best to wait until the process has finished
+honestly i had not considered that possibility
+sometimes the obvious answer is the right one
+anyway let us get back to the original question
+perhaps there is another way to explain the difference
+the quick brown fox jumps over the lazy dog
+a curious squirrel balanced on a wooden fence
+the bright yellow kite floated above the quiet field
+the playful kitten chased a piece of string
+a gentle breeze moved the curtains by the window
+the old wooden chair needed a fresh coat of paint
+the garden was full of butterflies and flowering plants
+a tiny beetle crawled across the smooth stone
+the clouds slowly changed shape in the afternoon sky
+the puppy fell asleep beside a soft blanket
+the little boat rocked gently on the water
+a cheerful bird sang from a branch of the tree
+the book had an interesting story and a surprising ending
+the final chapter explained the mystery rather well
+i liked the characters but the middle felt a little slow
+the puzzle became easier after finding the missing piece
+the instructions suggested sorting the pieces by color
+the drawing looks better with a softer outline
+the painting has a lovely mixture of warm colors
+the photograph needs a little more contrast
+the tune is simple enough to play on a small keyboard
+the rhythm becomes more interesting in the second part
+practice slowly before trying to play it faster
+the recipe calls for flour butter milk and a pinch of salt
+stir the mixture until it becomes smooth
+leave enough space for the bread to rise
+the soup needs a little more pepper
+the vegetables should stay crisp after cooking
+the cookies smelled wonderful while they were baking
+a warm cup of tea sounds lovely right now
+there is enough food for everyone to have another portion
+the empty bowl belongs on the lower shelf
+please put the clean cups beside the plates
+the blue notebook has plenty of blank pages
+the pencil needs sharpening before we begin
+the paper should be folded along the dotted line
+use a ruler to keep the edges straight
+the box contains several different sizes of screws
+the loose handle needs to be tightened carefully
+the spare cable is in the small cardboard box
+the switch controls the lamp beside the table
+the wooden shelf can hold a few more books
+the glass jar has a lid that fits quite tightly
+the fabric feels softer after being washed
+the blanket is thick enough to keep the kitten warm
+the toy needs a new wheel before it will roll properly
+the model looks sturdy despite its small size
+the experiment compares several kinds of paper
+the heavier sample absorbed more water than expected
+the measurements should be written down before continuing
+the average is useful but the range matters as well
+the graph makes the trend easier to understand
+the difference is small enough that we should repeat the experiment
+the first result was an outlier rather than a typical example
+the second group used the same procedure with different materials
+we should separate the training examples from the evaluation examples
+the score describes how unusual a sequence of letters appears
+the table records which characters tend to follow each other
+a common letter pair receives a higher probability
+an unfamiliar pair still needs a small nonzero probability
+the threshold should leave ordinary conversations alone
+we should be careful with very short messages
+the model does not understand the meaning of a sentence
+random letters often form unusual combinations
+changing a nickname should not change how the text is judged
+an identity can be new while the message is entirely legitimate
+the filter should make the same decision on both clients
+the shared source belongs in the phone module
+the watch receives a generated copy during the build
+the test should check what the receiver actually observes
+an accepted send call does not prove that delivery happened
+the application can process several independent tasks
+keep the amount of pending work within a reasonable bound
+the important state should be updated before sending a notification
+the stored result avoids counting the same message twice
+the old entry can be removed once it is no longer needed
+the same input should produce the same output every time
+the sample data should be easy to inspect and reproduce
+the explanation should describe the behavior in plain language
+the reviewer needs enough context to understand the change
+the remaining question is how to handle uncertain cases
+please leave the conversation visible while the test is running
+i would prefer a smaller change with clear evidence
+we can improve the coverage after the first prototype works
+this is an experiment rather than a complete solution to abuse
+the language table stays fixed while the application is running
+we should not learn automatically from untrusted incoming messages
+the score can be calculated using simple table lookups
+there is no need to contact a remote service
+the long explanation can wait until the short example is clear
+thanks for being patient while we figure this out
+that was a helpful suggestion and it solved the problem
+the next step is to verify the behavior with different inputs
+the result looks promising but it still needs careful testing
+the conversation should continue normally after unwanted text is hidden

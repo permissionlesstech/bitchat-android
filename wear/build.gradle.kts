@@ -148,6 +148,7 @@ val syncSharedAppTests = tasks.register<Sync>("syncSharedAppTests") {
         include(
             "com/bitchat/android/protocol/**",
             "com/bitchat/android/crypto/**",
+            "com/bitchat/android/spam/**",
             "com/bitchat/android/mesh/**",
         )
     }

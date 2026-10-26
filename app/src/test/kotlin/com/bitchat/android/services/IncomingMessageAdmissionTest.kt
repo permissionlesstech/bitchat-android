@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
+import com.bitchat.android.spam.SpamFilter
+import com.bitchat.android.spam.SpamFilterConfig
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.DataManager
 import com.bitchat.android.ui.MessageManager
@@ -44,10 +46,16 @@ class IncomingMessageAdmissionTest {
         AppStateStore.setConversationRepositoryForTest(repository)
         AppStateStore.resumePrivateConversationsAfterPanic()
         AppStateStore.clear()
+        SpamFilter.shared.reset()
+        SpamFilter.shared.config = SpamFilterConfig()
+        SpamFilter.shared.enabled = true
+        SpamFilter.shared.debugBypass = false
     }
 
     @After
     fun tearDown() {
+        SpamFilter.shared.reset()
+        SpamFilter.shared.config = SpamFilterConfig()
         AppStateStore.resumePrivateConversationsAfterPanic()
         AppStateStore.clear()
         AppStateStore.setConversationRepositoryForTest(null)
@@ -333,6 +341,36 @@ class IncomingMessageAdmissionTest {
         }
 
         assertTrue(admitted.all { it })
+    }
+
+    @Test
+    fun `fresh mesh identities cannot fill the timeline with English gibberish`() {
+        val seed = System.getenv("TEST_SEED")?.toIntOrNull() ?: 999
+        val random = kotlin.random.Random(seed)
+        var admitted = 0
+        repeat(200) { index ->
+            val content = buildString {
+                repeat(80) { position -> append(if (position % 8 == 7) ' ' else 'a' + random.nextInt(26)) }
+            }
+            if (IncomingMessageAdmission.admitToAppState(BitchatMessage(
+                    id = "synthetic-gibberish-$index",
+                    sender = "synthetic-$index",
+                    content = content,
+                    timestamp = Date(),
+                    senderPeerID = "synthetic-peer-$index"
+                ))) admitted++
+        }
+        println("TEST_SEED=$seed mesh-admission sent=200 received=$admitted")
+        assertTrue("TEST_SEED=$seed received=$admitted", admitted <= 2)
+        assertEquals(admitted, AppStateStore.publicMessages.value.size)
+        assertTrue(IncomingMessageAdmission.admitToAppState(BitchatMessage(
+            id = "synthetic-ordinary-control",
+            sender = "synthetic-control",
+            content = "The explanation is much easier to understand with a short example.",
+            timestamp = Date(),
+            senderPeerID = "synthetic-control-peer"
+        )))
+        assertTrue(AppStateStore.publicMessages.value.any { it.id == "synthetic-ordinary-control" })
     }
 
     private fun privateMessage(id: String) = BitchatMessage(

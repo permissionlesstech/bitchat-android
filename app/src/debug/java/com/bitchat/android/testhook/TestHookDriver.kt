@@ -276,7 +276,8 @@ object TestHookDriver {
         val timeoutMs = intent.getLongExtra("timeout_ms", DEFAULT_RECV_TIMEOUT_MS)
         val contains = intent.getStringExtra("contains")
         val channel = intent.getStringExtra("channel")
-        val startTime = System.currentTimeMillis()
+        // Unique synthetic per-run content makes a lookback safe and avoids host scheduling races.
+        val startTime = if (intent.getBooleanExtra("include_existing", false)) 0L else System.currentTimeMillis()
         val mesh = mesh(context)
         val matches: (com.bitchat.android.model.BitchatMessage) -> Boolean = { msg ->
             msg.timestamp.time >= startTime &&

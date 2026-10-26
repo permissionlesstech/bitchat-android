@@ -556,6 +556,37 @@ def scenario_broadcast_spam(a: Device, b: Device) -> dict:
     return {"delivered": delivered}
 
 
+def scenario_broadcast_gibberish(a: Device, b: Device) -> dict:
+    """Two synthetic gibberish messages are absent on B, then ordinary English is received.
+
+    Requires default filtering on B and bypass off. This covers the physical admission path;
+    identity rotation and detection rates are exercised by the deterministic JVM benchmark.
+    """
+    id_a = whoami(a)["peer_id"]
+    token = uuid.uuid4().hex
+    messages = [
+        f"qxjvtpk zmxqvfb jkvxzpq vxjqzmt qzpvxjk {token}-a",
+        f"vxqjzmp qzjxvkt xjkvzpq zqvxmjk pvxqjzt {token}-b",
+        f"This ordinary synthetic example should remain visible after the unwanted messages. {token}-c",
+    ]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+        # The per-run token excludes stale matches. Lookback avoids an arbitrary startup sleep
+        # and still works if the ADB worker reaches msg_recv after the send completes.
+        recvs = [pool.submit(b.cmd, "msg_recv", 30_000, contains=text, include_existing=True) for text in messages]
+        for text in messages:
+            a.cmd_ok("broadcast_msg", 30_000, content=text)
+        results = [recv.result() for recv in recvs]
+    delivered = [result.get("status") == "ok" for result in results]
+    if delivered != [False, False, True]:
+        raise MeshLabError(f"expected gibberish absent and ordinary English delivered, got {delivered}")
+    for result in results[:2]:
+        if not str(result.get("error", "")).startswith("timeout after "):
+            raise MeshLabError("negative receive did not complete its observation window")
+    if results[2].get("from") != id_a or results[2].get("content") != messages[2]:
+        raise MeshLabError("ordinary English control did not match its synthetic sender and content")
+    return {"delivered": delivered, "gibberish_hidden": 2, "ordinary_delivered": 1}
+
+
 def _ptt_one_way(
     sender: Device,
     receiver: Device,
@@ -894,6 +925,7 @@ SCENARIOS = {
     "favorite_verification": scenario_favorite_verification,
     "broadcast": scenario_broadcast,
     "broadcast_spam": scenario_broadcast_spam,
+    "broadcast_gibberish": scenario_broadcast_gibberish,
     "ptt_dm": scenario_ptt_dm,
     "ptt_broadcast": scenario_ptt_broadcast,
     # Broadcast transfers are receiver-capped at 256 fragments (~120 KB); only
@@ -925,6 +957,7 @@ WATCH_SCENARIOS = [
     "favorite_verification",
     "broadcast",
     "broadcast_spam",
+    "broadcast_gibberish",
     "ptt_dm",
     "ptt_broadcast",
     "raw",

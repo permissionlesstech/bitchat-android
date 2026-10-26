@@ -257,7 +257,8 @@ object WearTestHookDriver {
     private suspend fun msgRecv(context: Context, intent: Intent): JSONObject {
         val timeoutMs = intent.getLongExtra("timeout_ms", DEFAULT_RECV_TIMEOUT_MS)
         val contains = intent.getStringExtra("contains")
-        val startTime = System.currentTimeMillis()
+        // Only opt in with unique synthetic content, so a host scheduling race cannot lose it.
+        val startTime = if (intent.getBooleanExtra("include_existing", false)) 0L else System.currentTimeMillis()
         val mesh = mesh(context)
         val matches: (com.bitchat.android.model.BitchatMessage) -> Boolean = { msg ->
             msg.timestamp.time >= startTime &&

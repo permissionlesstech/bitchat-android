@@ -15,7 +15,8 @@ enum class SpamVerdict {
     LINK_RATE,
     REPEATED_MESSAGE,
     REPEATED_ACROSS_USERS,
-    REPEATED_CHARACTERS;
+    REPEATED_CHARACTERS,
+    ENGLISH_GIBBERISH;
 
     val isSpam: Boolean get() = this != ALLOWED
 }
@@ -27,8 +28,9 @@ enum class SpamVerdict {
  * plus three repetition checks: a message that repeats itself internally, a near-copy of the
  * sender's own recent history, and a near-copy of what *other* senders posted recently. The last
  * one catches spam spread over many throwaway identities, which per-sender limits cannot see.
- * Hidden messages never spend tokens, but they do enter the repetition history so a spammer
- * cannot cycle the same text.
+ * A fixed English character model additionally rejects long, unlikely letter sequences before
+ * creating sender state. Other hidden messages never spend tokens, but do enter the repetition
+ * history so a spammer cannot cycle the same text.
  *
  * Verdicts are remembered by message ID, so the same message arriving over BLE and Wi-Fi Aware,
  * or through both geohash handlers, is judged once and counted once.
@@ -123,6 +125,12 @@ class SpamFilter(
         if (!enabled) return SpamVerdict.ALLOWED
         synchronized(this) {
             verdicts[messageId]?.let { return it }
+
+            // This fixed, bounded model does not need sender history. Reject a random-identity
+            // gibberish flood before it allocates sender state or pollutes repetition history.
+            if (isText && config.englishGibberishEnabled && EnglishGibberishDetector.isGibberish(content)) {
+                return SpamVerdict.ENGLISH_GIBBERISH.also { verdicts[messageId] = it }
+            }
 
             val now = clock()
             val oldestTrusted = now - config.maxBackdateMs

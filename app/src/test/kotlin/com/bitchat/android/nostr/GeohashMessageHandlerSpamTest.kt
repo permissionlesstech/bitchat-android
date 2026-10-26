@@ -3,6 +3,7 @@ package com.bitchat.android.nostr
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.spam.SpamFilter
+import com.bitchat.android.spam.SpamFilterConfig
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.DataManager
 import com.bitchat.android.ui.MessageManager
@@ -11,6 +12,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -33,6 +35,9 @@ class GeohashMessageHandlerSpamTest {
     fun setup() {
         com.bitchat.android.services.AppStateStore.clear()
         SpamFilter.shared.reset()
+        SpamFilter.shared.config = SpamFilterConfig()
+        SpamFilter.shared.enabled = true
+        SpamFilter.shared.debugBypass = false
         chatState = ChatState(scope = testScope)
         val dataManager = DataManager(context = application)
         handler = GeohashMessageHandler(
@@ -49,6 +54,7 @@ class GeohashMessageHandlerSpamTest {
     @After
     fun tearDown() {
         SpamFilter.shared.reset()
+        SpamFilter.shared.config = SpamFilterConfig()
         com.bitchat.android.services.AppStateStore.clear()
     }
 
@@ -78,11 +84,12 @@ class GeohashMessageHandlerSpamTest {
     }
 
     @Test
-    fun `random text from fresh signed identities reaches the timeline`() {
+    fun `English model suppresses the signed random identity flood while ordinary messages arrive`() {
         val seed = System.getenv("TEST_SEED")?.toIntOrNull() ?: 999
         val random = kotlin.random.Random(seed)
         val sentIds = HashSet<String>()
         val senders = HashSet<String>()
+        val events = ArrayList<NostrEvent>()
         repeat(500) {
             val privateKey = buildString {
                 repeat(64) { append("0123456789abcdef"[random.nextInt(16)]) }
@@ -94,13 +101,25 @@ class GeohashMessageHandlerSpamTest {
             val signed = event(identity, content)
             sentIds.add(signed.id)
             senders.add(identity.publicKeyHex)
-            handler.onEvent(signed, geohash)
+            events.add(signed)
         }
+        SpamFilter.shared.config = SpamFilterConfig(englishGibberishEnabled = false)
+        events.forEach { handler.onEvent(it, geohash) }
+        assertEquals(500, chatState.getChannelMessagesValue()["geo:$geohash"].orEmpty().size)
+
+        setup()
+        events.forEach { handler.onEvent(it, geohash) }
         val received = chatState.getChannelMessagesValue()["geo:$geohash"].orEmpty()
-        println("TEST_SEED=$seed signed-random-identities sent=${sentIds.size} received=${received.size}")
+        println("TEST_SEED=$seed signed-random-identities sent=${sentIds.size} baselineReceived=500 received=${received.size}")
         assertEquals(500, senders.size)
-        assertEquals(500, received.size)
-        assertEquals(sentIds, received.map { it.id }.toSet())
-        assertEquals(senders, received.map { it.senderNostrPubkey }.toSet())
+        assertTrue("TEST_SEED=$seed admitted=${received.size}", received.size <= 5)
+        assertTrue(received.all { it.id in sentIds && it.senderNostrPubkey in senders })
+
+        val ordinary = event(
+            NostrIdentity.fromSeed("synthetic English model ordinary control"),
+            "Could somebody explain the difference between these two examples?"
+        )
+        handler.onEvent(ordinary, geohash)
+        assertTrue(chatState.getChannelMessagesValue()["geo:$geohash"].orEmpty().any { it.id == ordinary.id })
     }
 }
