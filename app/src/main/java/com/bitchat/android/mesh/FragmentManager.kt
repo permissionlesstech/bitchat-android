@@ -3,7 +3,6 @@ package com.bitchat.android.mesh
 import android.util.Log
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
-import com.bitchat.android.protocol.MessagePadding
 import com.bitchat.android.model.FragmentPayload
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
@@ -66,17 +65,13 @@ class FragmentManager {
                 Log.w(TAG, "Rejecting invalid outbound fragment limit: $maxFragments")
                 return emptyList()
             }
-            val encoded = packet.toBinaryData()
-            if (encoded == null) {
+            // Fragment the unpadded frame; each fragment will be encoded (and padded) independently - iOS fix.
+            // Encode without padding rather than padding and then stripping it: frames past the largest
+            // block are never padded, and stripping would eat signature bytes that happen to look like
+            // PKCS#7 padding (a trailing 0x01 truncates one byte), corrupting the reassembled packet.
+            val fullData = packet.toBinaryData(padding = false)
+            if (fullData == null) {
                 Log.e(TAG, "Failed to encode packet to binary data")
-                return emptyList()
-            }
-
-            // Fragment the unpadded frame; each fragment will be encoded (and padded) independently - iOS fix
-            val fullData = try {
-                MessagePadding.unpad(encoded)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to unpad data: ${e.message}", e)
                 return emptyList()
             }
 
