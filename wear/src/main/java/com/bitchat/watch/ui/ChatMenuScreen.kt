@@ -10,9 +10,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -25,10 +27,13 @@ import androidx.wear.compose.material3.AlertDialogDefaults
 import androidx.wear.compose.material3.FilledTonalButton
 import androidx.wear.compose.material3.HorizontalPagerScaffold
 import androidx.wear.compose.material3.Icon
+import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
+import androidx.wear.compose.material3.SwitchButton
 import androidx.wear.compose.material3.Text
+import com.bitchat.android.features.voice.LiveVoicePreferences
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.watch.ui.theme.ChatVisualTokens
 import com.bitchat.watch.ui.theme.LocalBitchatPalette
@@ -69,12 +74,18 @@ fun ChatHomePager(
     }
 }
 
+/**
+ * The app's settings live here, beside the chat, rather than inside the People list: mesh
+ * status, the live push-to-talk switch, and quitting.
+ */
 @Composable
 fun ChatMenuScreen(onQuit: () -> Unit) {
+    val context = LocalContext.current
     val palette = LocalBitchatPalette.current
     val peers by AppStateStore.peers.collectAsState()
     val listState = rememberScalingLazyListState()
     var confirmQuit by rememberSaveable { mutableStateOf(false) }
+    var liveVoiceEnabled by remember { mutableStateOf(LiveVoicePreferences.isEnabled(context)) }
 
     ScreenScaffold(scrollState = listState) { scaffoldPadding ->
         ScalingLazyColumn(
@@ -93,12 +104,27 @@ fun ChatMenuScreen(onQuit: () -> Unit) {
             }
             item {
                 Text(
-                    text = if (peers.isEmpty()) "Mesh running" else meshPeersText(peers.size),
+                    text = meshStatusText(peers.size),
                     style = ChatVisualTokens.SystemActionStyle,
                     color = palette.textTertiary,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
                 )
+            }
+            item {
+                SwitchButton(
+                    checked = liveVoiceEnabled,
+                    onCheckedChange = { enabled ->
+                        liveVoiceEnabled = enabled
+                        LiveVoicePreferences.setEnabled(context, enabled)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    secondaryLabel = {
+                        Text("Real-time", maxLines = 1)
+                    },
+                ) {
+                    Text("Live talk", maxLines = 1)
+                }
             }
             item {
                 FilledTonalButton(
@@ -111,14 +137,16 @@ fun ChatMenuScreen(onQuit: () -> Unit) {
                             tint = MaterialTheme.colorScheme.error,
                         )
                     },
-                    label = { Text("Quit bitchat") },
                     secondaryLabel = {
                         Text(
-                            text = "Stop the mesh",
+                            text = "Ends mesh",
                             color = palette.textTertiary,
+                            maxLines = 1,
                         )
                     },
-                )
+                ) {
+                    Text("Quit", maxLines = 1)
+                }
             }
         }
     }
@@ -136,11 +164,16 @@ fun ChatMenuScreen(onQuit: () -> Unit) {
         },
         title = { Text("Quit bitchat?") },
         confirmButton = {
+            // Quitting tears the mesh down, so confirm carries the error color, not primary.
             AlertDialogDefaults.ConfirmButton(
                 onClick = {
                     confirmQuit = false
                     onQuit()
                 },
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError,
+                ),
             )
         },
         dismissButton = {
@@ -149,5 +182,8 @@ fun ChatMenuScreen(onQuit: () -> Unit) {
     )
 }
 
-private fun meshPeersText(count: Int): String =
-    if (count == 1) "Mesh running · 1 peer" else "Mesh running · $count peers"
+private fun meshStatusText(count: Int): String = when (count) {
+    0 -> "Mesh on · scanning"
+    1 -> "Mesh on · 1 peer"
+    else -> "Mesh on · $count peers"
+}

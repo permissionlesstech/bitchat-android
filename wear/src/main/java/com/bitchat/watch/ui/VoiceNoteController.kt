@@ -16,7 +16,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private const val MAX_RECORDING_MS = 10_000L
+internal const val MAX_VOICE_NOTE_MS = 10_000L
 private const val MIN_RECORDING_MS = 600L
 private const val AMPLITUDE_POLL_MS = 80L
 private const val LIVE_BARS = 32
@@ -64,7 +64,7 @@ class VoiceNoteController(
                 liveSamples = liveSamples.copyOfRange(1, LIVE_BARS) + amp
                 val elapsed = System.currentTimeMillis() - startedAt
                 elapsedMs = elapsed
-                if (elapsed >= MAX_RECORDING_MS) {
+                if (elapsed >= MAX_VOICE_NOTE_MS) {
                     stop(send = true)
                     break
                 }
