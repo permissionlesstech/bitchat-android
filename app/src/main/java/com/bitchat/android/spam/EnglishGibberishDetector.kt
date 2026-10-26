@@ -3,15 +3,13 @@ package com.bitchat.android.spam
 /**
  * A fixed English character-bigram model, trained offline on synthetic examples.
  *
- * Scores only sufficiently long, whitespace-separated alphabetic text. Unknown scripts,
+ * Scores sufficiently long alphabetic text, including unbroken strings. Unknown scripts,
  * short replies and technical tokens are left to the other spam rules. A high score means
  * unusual English character transitions, not a calibrated probability of abuse.
  */
 internal object EnglishGibberishDetector {
     internal const val THRESHOLD = 4.2
     private const val MIN_LETTERS = 24
-    private const val MIN_WORDS = 3
-    private const val MAX_WORD_LENGTH = 24
     private const val MAX_INPUT_LENGTH = 4_096
     private const val MAX_SCORED_LENGTH = 1_000
     private const val SPACE = 26
@@ -33,7 +31,6 @@ internal object EnglishGibberishDetector {
         var cost = 0.0
         var transitions = 0
         var letters = 0
-        var words = 0
         var scoredLength = 0
         var start = 0
         while (start < content.length && scoredLength < MAX_SCORED_LENGTH) {
@@ -44,12 +41,10 @@ internal object EnglishGibberishDetector {
             var last = end
             while (first < last && isPunctuation(content[first])) first++
             while (last > first && isPunctuation(content[last - 1])) last--
-            val length = last - first
-            val isWord = length in 1..MAX_WORD_LENGTH && (first until last).all {
+            val isWord = first < last && (first until last).all {
                 content[it] in 'a'..'z' || content[it] in 'A'..'Z' || content[it] == '\''
             } && (first until last).any { content[it].isLetter() }
             if (isWord) {
-                if (scoredLength + length + 1 > MAX_SCORED_LENGTH) break
                 if (previous >= 0) {
                     cost += EnglishMarkovModel.cost(previous, SPACE)
                     previous = SPACE
@@ -57,6 +52,7 @@ internal object EnglishGibberishDetector {
                     scoredLength++
                 }
                 for (index in first until last) {
+                    if (scoredLength >= MAX_SCORED_LENGTH) break
                     if (content[index] == '\'') continue
                     val current = content[index].lowercaseChar() - 'a'
                     if (previous >= 0) {
@@ -67,11 +63,10 @@ internal object EnglishGibberishDetector {
                     letters++
                     scoredLength++
                 }
-                words++
             }
             start = end
         }
-        return if (letters >= MIN_LETTERS && words >= MIN_WORDS && transitions > 0) {
+        return if (letters >= MIN_LETTERS && transitions > 0) {
             cost / transitions
         } else {
             null

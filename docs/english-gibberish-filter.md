@@ -42,11 +42,16 @@ transitions. A score of at least `4.2` produces `ENGLISH_GIBBERISH`. This is a
 language-pattern score, not a calibrated spam probability. The threshold is
 a conservative experimental cutoff, not a guarantee about unfamiliar text.
 
-The detector requires at least 24 letters across three whitespace-separated
-words. It ignores technical tokens containing digits or internal symbols,
-and words longer than 24 characters. Case, ordinary edge punctuation, and
-whitespace differences do not change the model's interpretation. Straight
+The detector requires at least 24 letters and also scores a single long,
+unbroken alphabetic string. It ignores technical tokens containing digits or
+internal symbols, including explicitly backticked code. Case, ordinary edge
+punctuation, and whitespace differences do not change the model's interpretation. Straight
 apostrophes inside words are ignored when scoring.
+
+Long alphabetic tokens are not automatically treated as identifiers: that
+exemption previously let unspaced gibberish bypass scoring entirely. Bare
+alphabetic identifiers can resemble noise and remain a false-positive risk;
+the technical-token exemption requires actual formatting or symbols.
 
 Non-ASCII letters or combining marks cause abstention, rather than treating an
 unsupported language as English gibberish. ASCII transliterations and languages
@@ -96,10 +101,36 @@ older rules. Separate tests exercise default-enabled admission, non-text
 exemption, configuration changes, caching, budget preservation, and debug bypass.
 Literal score vectors and shared tests check phone/watch consistency.
 
-The [machine-readable results](test-results/english-gibberish-filter.json)
-record the implementation revision, benchmark counts, seeds, model checksum,
-and validation outcomes. The full unit suites passed 763 app tests and 296
-watch tests, with three pre-existing app tests ignored. Both debug builds
+### Unbroken-text regression
+
+The original English guard required three words and excluded tokens longer
+than 24 characters. As a result, unbroken alphabetic noise never reached the
+model. Display line wrapping does not add word boundaries. The corrected guard
+scores sufficiently long alphabetic strings without requiring whitespace.
+The weights, smoothing, and score threshold are unchanged.
+
+The same seed now exercises both spaced and unbroken messages with identical
+model-off/model-on inputs. The original spaced-flood counts above are unchanged.
+
+| Additional synthetic scenario | Model off admitted | Corrected model admitted | Hidden |
+|---|---:|---:|---:|
+| 10,000 unbroken messages from fresh mesh identities | 10,000 | 2 | 9,998 (99.98%) |
+| 10,000 unbroken messages from fresh Nostr keys | 10,000 | 1 | 9,999 (99.99%) |
+| 500 signed unbroken geohash events through the handler | 500 | 0 | 500 (100%) |
+| 200 unbroken messages through mesh app-state admission | — | 0 | 200 (100%) |
+
+A separate 1,000-message keyboard-like synthetic stream uses letters sampled
+from `bdfhijknrtuv`, with fresh identities and 100-character unbroken messages;
+all 1,000 are hidden. No text, identifiers, channel information, or other data
+from a live conversation is used as a fixture. Long English words and
+descriptive alphabetic identifiers also have regression controls.
+
+The [initial machine-readable results](test-results/english-gibberish-filter.json)
+record the initial implementation revision and benchmark counts. The
+[unbroken-text results](test-results/english-gibberish-unbroken.json) record the
+corrected detector checksum and expanded evaluation. The full unit suites
+passed 768 app tests and 299 watch tests, with three
+pre-existing app tests ignored. Both debug builds
 passed. Lint completed under the repository's nonblocking configuration with
 repository-wide findings; the new filter, tests, and hooks had no findings.
 Physical validation is recorded as unrun.
@@ -117,8 +148,8 @@ TEST_SEED=999 ./gradlew :app:testDebugUnitTest \
 ## Physical validation
 
 The `broadcast_gibberish` Mesh Lab scenario observes two high-confidence
-synthetic gibberish messages remaining absent on the receiver, followed by
-successful ordinary-English delivery. It supports phone-to-phone and
+synthetic gibberish messages (one spaced and one unbroken) remaining absent
+on the receiver, followed by successful ordinary-English delivery. It supports phone-to-phone and
 phone-to-watch runs. It uses unique per-run content and the debug-only
 `msg_recv` lookback option to avoid a startup sleep. Negative checks must
 complete their observation window; an unrelated hook error cannot pass.
@@ -140,7 +171,7 @@ the scenario's failure handling; they are not physical-device evidence.
 
 ## Limits
 
-Short nonsense, unbroken identifier-like strings, unsupported scripts, and
+Short nonsense, explicitly formatted technical tokens, unsupported scripts, and
 letter sequences chosen to resemble natural language can pass. An attacker
 can also pad text with excluded tokens or language characters to seek
 abstention, or simply send real sentences. The detector complements the

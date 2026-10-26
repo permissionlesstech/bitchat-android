@@ -41,7 +41,7 @@ class EnglishGibberishDetectorTest {
     fun `short replies and technical controls are left alone`() {
         EnglishGibberishSamples.technical.forEach { assertFalse(it, EnglishGibberishDetector.isGibberish(it)) }
         assertNull(EnglishGibberishDetector.score("ok thanks"))
-        assertNull(EnglishGibberishDetector.score("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"))
+        assertNull(EnglishGibberishDetector.score("`abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz`"))
     }
 
     @Test
@@ -59,10 +59,23 @@ class EnglishGibberishDetectorTest {
     }
 
     @Test
-    fun `a message needs enough letters and independent words before classification`() {
+    fun `a message needs enough letters but does not require word boundaries`() {
         assertNull(EnglishGibberishDetector.score("qxjvtpk zmxqvfb jkvxzpq"))
-        assertNull(EnglishGibberishDetector.score("qxjvtpkzmxqvfb jkvxzpqvxjqzmt"))
+        assertTrue(EnglishGibberishDetector.isGibberish("qxjvtpkzmxqvfb jkvxzpqvxjqzmt"))
         assertTrue(EnglishGibberishDetector.isGibberish("qxjvtpk zmxqvfb jkvxzpq vxjqzmt"))
+    }
+
+    @Test
+    fun `long unbroken synthetic gibberish is scored instead of exempted as an identifier`() {
+        assertTrue(EnglishGibberishDetector.isGibberish(junk.replace(" ", "")))
+        assertTrue(EnglishGibberishDetector.isGibberish(junk.replace(" ", "").repeat(30)))
+    }
+
+    @Test
+    fun `long English words and descriptive identifiers are not automatically rejected`() {
+        assertFalse(EnglishGibberishDetector.isGibberish("antidisestablishmentarianism"))
+        assertFalse(EnglishGibberishDetector.isGibberish("pneumonoultramicroscopicsilicovolcanoconiosis"))
+        assertFalse(EnglishGibberishDetector.isGibberish("thisIsASyntheticIdentifierForTesting"))
     }
 
     @Test

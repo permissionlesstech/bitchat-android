@@ -345,12 +345,21 @@ class IncomingMessageAdmissionTest {
 
     @Test
     fun `fresh mesh identities cannot fill the timeline with English gibberish`() {
+        verifyGibberishAdmission(spaced = true)
+    }
+
+    @Test
+    fun `fresh mesh identities cannot bypass English filtering with unbroken strings`() {
+        verifyGibberishAdmission(spaced = false)
+    }
+
+    private fun verifyGibberishAdmission(spaced: Boolean) {
         val seed = System.getenv("TEST_SEED")?.toIntOrNull() ?: 999
         val random = kotlin.random.Random(seed)
         var admitted = 0
         repeat(200) { index ->
             val content = buildString {
-                repeat(80) { position -> append(if (position % 8 == 7) ' ' else 'a' + random.nextInt(26)) }
+                repeat(80) { position -> append(if (spaced && position % 8 == 7) ' ' else 'a' + random.nextInt(26)) }
             }
             if (IncomingMessageAdmission.admitToAppState(BitchatMessage(
                     id = "synthetic-gibberish-$index",
@@ -360,7 +369,7 @@ class IncomingMessageAdmissionTest {
                     senderPeerID = "synthetic-peer-$index"
                 ))) admitted++
         }
-        println("TEST_SEED=$seed mesh-admission sent=200 received=$admitted")
+        println("TEST_SEED=$seed mesh-admission spaced=$spaced sent=200 received=$admitted")
         assertTrue("TEST_SEED=$seed received=$admitted", admitted <= 2)
         assertEquals(admitted, AppStateStore.publicMessages.value.size)
         assertTrue(IncomingMessageAdmission.admitToAppState(BitchatMessage(

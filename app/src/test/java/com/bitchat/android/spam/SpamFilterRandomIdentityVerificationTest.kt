@@ -15,9 +15,9 @@ class SpamFilterRandomIdentityVerificationTest {
         clock = { timestampMs }
     )
 
-    private fun text(random: Random, length: Int): String = buildString {
+    private fun text(random: Random, length: Int, spaced: Boolean = true): String = buildString {
         repeat(length) { index ->
-            append(if (index % 8 == 7) ' ' else 'a' + random.nextInt(26))
+            append(if (spaced && index % 8 == 7) ' ' else 'a' + random.nextInt(26))
         }
     }
 
@@ -27,7 +27,7 @@ class SpamFilterRandomIdentityVerificationTest {
 
     @Test
     fun `English model rejects the earlier random identity flood while the baseline admits it`() {
-        listOf("mesh", "nostr").forEach { transport ->
+        listOf("mesh", "nostr").flatMap { transport -> listOf(true, false).map { transport to it } }.forEach { (transport, spaced) ->
             val random = Random(seed)
             val unprotected = baseline()
             val filter = SpamFilter(clock = { timestampMs })
@@ -38,7 +38,7 @@ class SpamFilterRandomIdentityVerificationTest {
             var baselineAllowed = 0
             val verdicts = (0 until 10_000).map { index ->
                 val sender = identity(random, if (transport == "mesh") 16 else 64)
-                val content = text(random, random.nextInt(32, 161))
+                val content = text(random, random.nextInt(32, 161), spaced)
                 assertTrue("TEST_SEED=$seed duplicate identity", identities.add(sender))
                 assertTrue("TEST_SEED=$seed duplicate content", contents.add(content))
                 val senderKey = if (transport == "nostr") SpamFilter.nostrSenderKey(sender) else "mesh:$sender"
@@ -48,7 +48,7 @@ class SpamFilterRandomIdentityVerificationTest {
                 filter.check(senderKey, "$transport-$index", content, timestampMs)
             }
             val counts = verdicts.groupingBy { it }.eachCount()
-            println("TEST_SEED=$seed transport=$transport messages=10000 baselineAllowed=$baselineAllowed verdicts=$counts")
+            println("TEST_SEED=$seed transport=$transport spaced=$spaced messages=10000 baselineAllowed=$baselineAllowed verdicts=$counts")
             assertEquals("TEST_SEED=$seed $transport baseline", 10_000, baselineAllowed)
             assertTrue("TEST_SEED=$seed $transport $counts", counts.getOrDefault(SpamVerdict.ENGLISH_GIBBERISH, 0) >= 9_500)
         }
@@ -115,5 +115,18 @@ class SpamFilterRandomIdentityVerificationTest {
         }
         println("Legitimate admission controls=${samples.size} baselineHidden=$baselineHidden changed=${changed.size}")
         assertTrue(changed.toString(), changed.isEmpty())
+    }
+
+    @Test
+    fun `unbroken keyboard-like synthetic noise is hidden with fresh identities`() {
+        val random = Random(seed)
+        val alphabet = "bdfhijknrtuv"
+        val filter = SpamFilter(clock = { timestampMs })
+        val counts = (0 until 1_000).map { index ->
+            val content = buildString { repeat(100) { append(alphabet[random.nextInt(alphabet.length)]) } }
+            filter.check("mesh:" + identity(random, 16), "keyboard-$index", content, timestampMs)
+        }.groupingBy { it }.eachCount()
+        println("TEST_SEED=$seed unbroken-keyboard-messages=1000 verdicts=$counts")
+        assertTrue("TEST_SEED=$seed $counts", counts.getOrDefault(SpamVerdict.ENGLISH_GIBBERISH, 0) >= 990)
     }
 }

@@ -566,7 +566,7 @@ def scenario_broadcast_gibberish(a: Device, b: Device) -> dict:
     token = uuid.uuid4().hex
     messages = [
         f"qxjvtpk zmxqvfb jkvxzpq vxjqzmt qzpvxjk {token}-a",
-        f"vxqjzmp qzjxvkt xjkvzpq zqvxmjk pvxqjzt {token}-b",
+        f"vxqjzmpqzjxvktxjkvzpqzvxmjkpvxqjzt {token}-b",
         f"This ordinary synthetic example should remain visible after the unwanted messages. {token}-c",
     ]
     with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:

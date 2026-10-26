@@ -85,6 +85,15 @@ class GeohashMessageHandlerSpamTest {
 
     @Test
     fun `English model suppresses the signed random identity flood while ordinary messages arrive`() {
+        verifyRandomIdentityFlood(spaced = true)
+    }
+
+    @Test
+    fun `long unbroken gibberish from fresh signed identities is filtered before the timeline`() {
+        verifyRandomIdentityFlood(spaced = false)
+    }
+
+    private fun verifyRandomIdentityFlood(spaced: Boolean) {
         val seed = System.getenv("TEST_SEED")?.toIntOrNull() ?: 999
         val random = kotlin.random.Random(seed)
         val sentIds = HashSet<String>()
@@ -96,7 +105,7 @@ class GeohashMessageHandlerSpamTest {
             }
             val identity = NostrIdentity.fromPrivateKey(privateKey)
             val content = buildString {
-                repeat(80) { index -> append(if (index % 8 == 7) ' ' else 'a' + random.nextInt(26)) }
+                repeat(80) { index -> append(if (spaced && index % 8 == 7) ' ' else 'a' + random.nextInt(26)) }
             }
             val signed = event(identity, content)
             sentIds.add(signed.id)
@@ -110,7 +119,7 @@ class GeohashMessageHandlerSpamTest {
         setup()
         events.forEach { handler.onEvent(it, geohash) }
         val received = chatState.getChannelMessagesValue()["geo:$geohash"].orEmpty()
-        println("TEST_SEED=$seed signed-random-identities sent=${sentIds.size} baselineReceived=500 received=${received.size}")
+        println("TEST_SEED=$seed signed-random-identities spaced=$spaced sent=${sentIds.size} baselineReceived=500 received=${received.size}")
         assertEquals(500, senders.size)
         assertTrue("TEST_SEED=$seed admitted=${received.size}", received.size <= 5)
         assertTrue(received.all { it.id in sentIds && it.senderNostrPubkey in senders })
