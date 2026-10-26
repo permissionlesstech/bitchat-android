@@ -96,6 +96,14 @@ older rules. Separate tests exercise default-enabled admission, non-text
 exemption, configuration changes, caching, budget preservation, and debug bypass.
 Literal score vectors and shared tests check phone/watch consistency.
 
+The [machine-readable results](test-results/english-gibberish-filter.json)
+record the implementation revision, benchmark counts, seeds, model checksum,
+and validation outcomes. The full unit suites passed 763 app tests and 296
+watch tests, with three pre-existing app tests ignored. Both debug builds
+passed. Lint completed under the repository's nonblocking configuration with
+repository-wide findings; the new filter, tests, and hooks had no findings.
+Physical validation is recorded as unrun.
+
 Run the focused regression and comparison suite with JDK 21 and the project SDK:
 
 ```sh
