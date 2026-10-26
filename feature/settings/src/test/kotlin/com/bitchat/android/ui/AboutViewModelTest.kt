@@ -221,6 +221,18 @@ class AboutViewModelTest {
         assertEquals(14, viewModel.uiState.value.powDifficulty)
     }
 
+    // AA17: the spam filter switch writes through the store and follows its flow.
+    @Test
+    fun spamFilterToggle_writesThroughTheStore() {
+        val viewModel = newViewModel()
+        assertTrue(viewModel.uiState.value.spamFilterEnabled)
+
+        viewModel.onAction(AboutAction.SpamFilterToggled(enabled = false))
+
+        assertEquals(listOf(false), store.spamFilterWrites)
+        assertFalse(viewModel.uiState.value.spamFilterEnabled)
+    }
+
     // AA1, AA15
     @Test
     fun backAndDebug_areEvents() = runTest {
@@ -238,6 +250,7 @@ class AboutViewModelTest {
         override val chatUiMode = MutableStateFlow(ChatUiMode.Bubbles)
         override val powEnabled = MutableStateFlow(false)
         override val powDifficulty = MutableStateFlow(12)
+        override val spamFilterEnabled = MutableStateFlow(true)
         override val torMode = MutableStateFlow(TorMode.ON)
 
         var onLoadPow: () -> Unit = {}
@@ -248,6 +261,7 @@ class AboutViewModelTest {
         val torWrites = mutableListOf<TorMode>()
         val liveVoiceWrites = mutableListOf<Boolean>()
         val difficultyWrites = mutableListOf<Int>()
+        val spamFilterWrites = mutableListOf<Boolean>()
 
         override fun loadPow() {
             loadPowCalls++
@@ -281,6 +295,11 @@ class AboutViewModelTest {
         override fun setPowDifficulty(difficulty: Int) {
             difficultyWrites += difficulty
             powDifficulty.value = difficulty.coerceIn(0, 32)
+        }
+
+        override fun setSpamFilterEnabled(enabled: Boolean) {
+            spamFilterWrites += enabled
+            spamFilterEnabled.value = enabled
         }
 
         override fun setTorMode(mode: TorMode) {

@@ -132,5 +132,5 @@
         <item quantity="one">eta beste %d</item>
         <item quantity="other">eta beste %d</item>
     </plurals>
-
+    <string name="image_star">image/*</string>
 </resources>

@@ -88,6 +88,9 @@ fun ChatScreen(
 
     var messageText by rememberComposerText(selectedPrivatePeer, viewModel::conversationDraft)
     var passwordInput by remember { mutableStateOf("") }
+    // Triple-tapping the logo asks first: the same logo opens App Info on a
+    // single tap, so a fumbled tap must never be able to wipe the device.
+    var showPanicConfirmation by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     var showFullScreenImageViewer by remember { mutableStateOf(false) }
     var viewerImagePaths by remember { mutableStateOf(emptyList<String>()) }
     var initialViewerIndex by remember { mutableStateOf(0) }
@@ -395,7 +398,7 @@ fun ChatScreen(
             colorScheme = colorScheme,
             onSidebarToggle = onShowPeerList,
             onShowAppInfo = onShowAbout,
-            onPanicClear = { onAction(ChatAction.PanicClear) },
+            onPanicClear = { showPanicConfirmation = true },
             onLocationChannelsClick = onShowLocationChannels,
             onLocationNotesClick = {
                 nearbyNotesController.reveal()
@@ -465,6 +468,32 @@ fun ChatScreen(
         },
         onPasswordDismiss = { onAction(ChatAction.DismissPasswordPrompt) },
     )
+
+    if (showPanicConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showPanicConfirmation = false },
+            title = { Text(stringResource(R.string.panic_confirm_title)) },
+            text = { Text(stringResource(R.string.panic_confirm_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showPanicConfirmation = false
+                        onAction(ChatAction.PanicClear)
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text(stringResource(R.string.panic_confirm_action))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPanicConfirmation = false }) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            }
+        )
+    }
 
     dialogs.legacyPrivateMediaConsent?.let { request ->
         AlertDialog(

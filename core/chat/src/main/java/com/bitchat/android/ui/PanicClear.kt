@@ -7,6 +7,7 @@ import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.geohash.GeohashBookmarksStore
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.identity.SecureIdentityStateManager
+import com.bitchat.android.core.chat.R
 import com.bitchat.android.services.ConversationListPreferences
 import com.bitchat.android.services.SeenMessageStore
 import dagger.Lazy
@@ -96,37 +97,55 @@ class PanicClear @Inject constructor(
         dataManager.clearAllData()
         conversationListPreferences.clearAll()
         
+        // Every stage that wipes data at rest reports here. The success message is a
+        // security assurance, so it requires all of them, not just the conversation database.
+        var wipeComplete = true
+
         // Clear seen message store and MessageRouter outbox
         try {
             seenMessageStore.clear()
-        } catch (_: Exception) { }
+        } catch (_: Exception) {
+            wipeComplete = false
+        }
         try {
             com.bitchat.android.services.MessageRouter.tryGetInstance()?.clearAll()
-        } catch (_: Exception) { }
+        } catch (_: Exception) {
+            wipeComplete = false
+        }
+
+        // The spam filter keeps recent message text and sender keys for its repeat checks
+        com.bitchat.android.spam.SpamFilter.shared.reset()
         
         // Clear all cryptographic data
-        clearAllCryptographicData()
+        if (!clearAllCryptographicData()) wipeComplete = false
         
         // Clear all notifications
         notificationManager.clearAllNotifications(removeConversationShortcuts = true)
 
         // Clear all media files
-        com.bitchat.android.features.file.FileUtils.clearAllMedia(context)
+        if (!com.bitchat.android.features.file.FileUtils.clearAllMedia(context)) {
+            wipeComplete = false
+        }
         
         // Clear Nostr/geohash state, keys, connections, bookmarks, and reinitialize from scratch
         try {
             // Clear geohash bookmarks too (panic should remove everything)
             try {
                 geohashBookmarksStore.clearAll()
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+                wipeComplete = false
+            }
 
             try {
                 locationChannelManager.clearPersistedChannel()
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+                wipeComplete = false
+            }
 
-            geohashSession.panicReset()
+            if (!geohashSession.panicReset()) wipeComplete = false
         } catch (e: Exception) {
             Log.e(TAG, "Failed to reset Nostr/geohash: ${e.message}")
+            wipeComplete = false
         }
 
         // Reset nickname
@@ -138,6 +157,9 @@ class PanicClear @Inject constructor(
             // Privacy wins over availability: keep private-message admission and transports
             // stopped if SQLite could not prove that the conversation history was erased.
             Log.e(TAG, "🚨 PANIC MODE INCOMPLETE - conversation database wipe failed")
+            // A wipe that does not commit must be as visible as the wipe itself: the
+            // person who triggered it may be relying on the device being clean.
+            messageManager.addSystemMessage(context.getString(R.string.system_panic_incomplete))
             return
         }
 
@@ -145,6 +167,17 @@ class PanicClear @Inject constructor(
         com.bitchat.android.services.AppStateStore
             .resumePrivateConversationsAfterPanic()
         recreateMeshServiceAfterPanic()
+
+        // In a duress scenario "did it work?" must not be a guess: the natural
+        // response to uncertainty is to trigger the wipe again. Announce success
+        // only when every stage confirmed its wipe.
+        val outcome = if (wipeComplete) {
+            R.string.system_panic_completed
+        } else {
+            Log.e(TAG, "🚨 PANIC MODE INCOMPLETE - a wipe stage did not confirm")
+            R.string.system_panic_incomplete
+        }
+        messageManager.addSystemMessage(context.getString(outcome))
 
         Log.w(TAG, "🚨 PANIC MODE COMPLETED - New identity: ${mesh.myPeerID}")
     }
@@ -187,36 +220,40 @@ class PanicClear @Inject constructor(
         }
     }
     
-    /**
-     * Clear all cryptographic data including persistent identity
-     */
-    private fun clearAllCryptographicData() {
+    /** Returns true only when every identity, key, and favorites store confirmed its wipe. */
+    private fun clearAllCryptographicData(): Boolean {
+        var cleared = true
         try {
             // Clear encryption service persistent identity (Ed25519 signing keys)
-            mesh.clearAllEncryptionData()
+            if (!mesh.clearAllEncryptionData()) cleared = false
             
             // Clear secure identity state (if used)
             try {
                 val identityManager = SecureIdentityStateManager(context)
-                identityManager.clearIdentityData()
+                if (!identityManager.clearIdentityData()) cleared = false
                 // Also clear secure values used by FavoritesPersistenceService (favorites + peerID index)
-                try {
-                    identityManager.clearSecureValues("favorite_relationships", "favorite_peerid_index")
-                } catch (_: Exception) { }
+                if (!identityManager.clearSecureValuesSynchronously("favorite_relationships", "favorite_peerid_index")) {
+                    cleared = false
+                }
                 Log.d(TAG, "✅ Cleared secure identity state and secure favorites store")
             } catch (e: Exception) {
-                Log.d(TAG, "SecureIdentityStateManager not available or already cleared: ${e.message}")
+                Log.e(TAG, "❌ Failed to clear secure identity state: ${e.message}")
+                cleared = false
             }
 
             // Clear FavoritesPersistenceService persistent relationships
             try {
                 FavoritesPersistenceService.shared.clearAllFavorites()
                 Log.d(TAG, "✅ Cleared FavoritesPersistenceService relationships")
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+                cleared = false
+            }
             
             Log.d(TAG, "✅ Cleared all cryptographic data")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error clearing cryptographic data: ${e.message}")
+            cleared = false
         }
+        return cleared
     }
 }

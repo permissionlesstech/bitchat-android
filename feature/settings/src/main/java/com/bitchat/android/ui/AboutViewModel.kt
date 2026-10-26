@@ -22,7 +22,7 @@ import kotlinx.coroutines.withContext
 /**
  * About's state and the writes behind its controls.
  *
- * Theme, chat mode, PoW and the Tor mode follow their stored flows, so the Tor switch and
+ * Theme, chat mode, PoW, the spam filter and the Tor mode follow their stored flows, so the Tor switch and
  * the status card read the same value. Background mode and live voice are read once, when
  * About opens. The version and the language list are read off the main thread.
  */
@@ -59,6 +59,7 @@ class AboutViewModel internal constructor(
                 selectedLanguageTag = store.currentLanguageTag(),
                 powEnabled = store.powEnabled.value,
                 powDifficulty = store.powDifficulty.value,
+                spamFilterEnabled = store.spamFilterEnabled.value,
                 backgroundEnabled = backgroundMesh.isEnabled(),
                 liveVoiceEnabled = store.isLiveVoiceEnabled(),
                 torMode = store.torMode.value,
@@ -73,6 +74,7 @@ class AboutViewModel internal constructor(
         follow(store.chatUiMode) { copy(chatUiMode = it) }
         follow(store.powEnabled) { copy(powEnabled = it) }
         follow(store.powDifficulty) { copy(powDifficulty = it) }
+        follow(store.spamFilterEnabled) { copy(spamFilterEnabled = it) }
         follow(store.torMode) { copy(torMode = it) }
         follow(tor.status) { copy(torStatus = it) }
 
@@ -105,6 +107,7 @@ class AboutViewModel internal constructor(
             }
             is AboutAction.PowToggled -> store.setPowEnabled(action.enabled)
             is AboutAction.PowDifficultyChanged -> store.setPowDifficulty(action.difficulty)
+            is AboutAction.SpamFilterToggled -> store.setSpamFilterEnabled(action.enabled)
             is AboutAction.TorToggled ->
                 if (_uiState.value.torAvailable) store.setTorMode(torModeFor(action.enabled))
         }

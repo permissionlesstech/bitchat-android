@@ -43,6 +43,9 @@ dependencies {
 
     testImplementation(testFixtures(project(":core:mesh")))
     testImplementation(libs.bundles.testing)
+    // MessagesListFollowTest drives the timeline under Robolectric.
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
     // The Compose BOM for androidTest comes from bitchat.android.library.compose.
     androidTestImplementation(libs.bundles.compose.testing)
     androidTestImplementation(libs.androidx.test.ext.junit)

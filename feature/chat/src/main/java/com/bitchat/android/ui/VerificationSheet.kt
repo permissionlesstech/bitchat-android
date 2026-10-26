@@ -519,7 +519,8 @@ private fun bitmapFromMatrix(matrix: BitMatrix): Bitmap {
     return bitmap
 }
 
-private class QRCodeAnalyzer(
+// Public so the app module's release-build scanner test can construct it under R8.
+class QRCodeAnalyzer(
     private val onCode: (String) -> Unit
 ) : ImageAnalysis.Analyzer {
     private val scanner = BarcodeScanning.getClient(

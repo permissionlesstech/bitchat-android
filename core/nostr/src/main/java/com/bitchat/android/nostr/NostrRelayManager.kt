@@ -430,7 +430,7 @@ class NostrRelayManager private constructor() {
         liveLocationConnectionJobs.forEach(Job::cancel)
         liveLocationConnectionJobs.clear()
 
-        val sockets = connections.values.toList()
+        val sockets = buildList { connections.values.forEach { add(it) } }
         connections.clear()
         sockets.forEach { webSocket ->
             webSocket.close(1000, "Manual disconnect")
@@ -520,7 +520,10 @@ class NostrRelayManager private constructor() {
 
         scope.launch {
             if (!isNetworkActionAllowed(subscriptionInfo.liveLocationToken)) return@launch
-            val targetRelays = subscriptionInfo.targetRelayUrls?.toList() ?: connections.keys.toList()
+            // A concurrent view can shrink between Collection.size and iterator.next.
+            // Build by iteration instead of Kotlin's size-based toList fast paths.
+            val targetRelays = subscriptionInfo.targetRelayUrls?.toList()
+                ?: buildList { connections.keys.forEach { add(it) } }
             
             targetRelays.forEach { relayUrl ->
                 val webSocket = connections[relayUrl]

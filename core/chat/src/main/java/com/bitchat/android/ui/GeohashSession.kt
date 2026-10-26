@@ -127,7 +127,8 @@ class GeohashSession(
         }
     }
 
-    fun panicReset() {
+    /** Returns true only when the persisted Nostr identity was wiped; the rest is in-memory teardown. */
+    fun panicReset(): Boolean {
         repo.clearAll()
         GeohashAliasRegistry.clear()
         GeohashConversationRegistry.clear()
@@ -136,10 +137,15 @@ class GeohashSession(
         activeChannelGeohash = null
         geoTimer?.cancel()
         geoTimer = null
-        try { NostrIdentityBridge.clearAllAssociations(application) } catch (_: Exception) {}
+        val identityCleared = try {
+            NostrIdentityBridge.clearAllAssociations(application)
+        } catch (_: Exception) {
+            false
+        }
         NostrBackgroundRuntime.resetSubscriptions()
         try { com.bitchat.android.nostr.NostrRelayManager.getInstance(application).clearAllOnPanic() } catch (_: Exception) {}
         try { com.bitchat.android.nostr.LocationNotesManager.getInstance().stop() } catch (_: Exception) {}
+        return identityCleared
     }
 
     fun sendGeohashMessage(content: String, channel: com.bitchat.android.geohash.GeohashChannel, myPeerID: String, nickname: String?) {
@@ -294,10 +300,12 @@ class GeohashSession(
 
     fun getNostrKeyMapping(): Map<String, String> = repo.getNostrKeyMapping()
 
-    fun blockUserInGeohash(targetNickname: String) {
-        val pubkey = repo.findPubkeyByNickname(targetNickname)
+    fun blockUserInGeohash(targetNickname: String, pubkeyHex: String? = null) {
+        val pubkey = pubkeyHex?.takeIf { it.isNotBlank() }?.lowercase()
+            ?: repo.findPubkeyByNickname(targetNickname)
         if (pubkey != null) {
             dataManager.addGeohashBlockedUser(pubkey)
+            messageManager.removeGeohashMessagesFromSender(pubkey)
             // Refresh people list and counts to remove blocked entry immediately
             repo.refreshGeohashPeople()
             repo.updateReactiveParticipantCounts()

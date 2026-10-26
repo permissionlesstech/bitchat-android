@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.foundation.background
@@ -524,6 +525,21 @@ private fun AboutContent(
                                 color = colorScheme.outlineVariant
                             )
 
+                            // Spam Filter Toggle
+                            SettingsToggleRow(
+                                icon = Icons.Filled.FilterAlt,
+                                title = stringResource(R.string.about_spam_filter_title),
+                                subtitle = stringResource(R.string.about_spam_filter_desc),
+                                checked = uiState.spamFilterEnabled,
+                                onCheckedChange = { onAction(AboutAction.SpamFilterToggled(it)) }
+                            )
+
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 54.dp),
+                                thickness = 1.dp,
+                                color = colorScheme.outlineVariant
+                            )
+
                             // Tor Toggle
                             SettingsToggleRow(
                                 icon = Icons.Filled.Security,
@@ -814,6 +830,7 @@ internal fun previewAboutUiState(): AboutUiState = AboutUiState(
     selectedLanguageTag = "",
     powEnabled = true,
     powDifficulty = 12,
+    spamFilterEnabled = true,
     backgroundEnabled = true,
     liveVoiceEnabled = true,
     torMode = TorMode.ON,

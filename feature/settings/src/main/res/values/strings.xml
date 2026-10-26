@@ -95,4 +95,6 @@
   <string name="about_app_language">App language</string>
   <string name="about_system_default">System default</string>
   <string name="about_select_language">Select language</string>
+  <string name="about_spam_filter_title">Spam Filter</string>
+  <string name="about_spam_filter_desc">Hide public messages from people who post too fast, repeat themselves, or flood links.</string>
 </resources>

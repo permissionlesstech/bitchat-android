@@ -436,6 +436,11 @@ object BinaryProtocol {
                 return null
             }
 
+            // Per-type ceiling on the decoded payload, compressed or not, checked
+            // before any allocation: see PacketPayloadLimits for why one
+            // frame-wide cap is not enough.
+            val maxPayloadSize = PacketPayloadLimits.maxPayloadBytes(type)
+
             var expectedSize = headerSize + SENDER_ID_SIZE + payloadLength.toInt()
             if (hasRecipient) expectedSize += RECIPIENT_ID_SIZE
             var routeCount = 0
@@ -498,11 +503,10 @@ object BinaryProtocol {
                     buffer.getShort().toUShort().toInt()
                 }
 
-                val maxExpandedSize = com.bitchat.android.util.AppConstants.Protocol.MAX_PAYLOAD_LENGTH
-                if (originalSize <= 0 || originalSize > maxExpandedSize) {
+                if (originalSize <= 0 || originalSize > maxPayloadSize) {
                     Log.w(
                         "BinaryProtocol",
-                        "Expanded payload size $originalSize is outside the allowed range 1..$maxExpandedSize"
+                        "Expanded payload size $originalSize for type $type is outside the allowed range 1..$maxPayloadSize"
                     )
                     return null
                 }
@@ -514,9 +518,8 @@ object BinaryProtocol {
                     return null
                 }
                 // Security check: Compression bomb protection
-                val ratio = originalSize.toDouble() / compressedSize.toDouble()
-                if (ratio > 50_000.0) {
-                    Log.w("BinaryProtocol", "🚫 Suspicious compression ratio: ${ratio}:1")
+                if (originalSize.toLong() > compressedSize.toLong() * PacketPayloadLimits.MAX_DEFLATE_RATIO) {
+                    Log.w("BinaryProtocol", "🚫 Impossible compression ratio: $originalSize bytes from $compressedSize")
                     return null
                 }
                 
@@ -539,6 +542,12 @@ object BinaryProtocol {
                 }
                 expandedPayload
             } else {
+                // Uncompressed payloads get the same ceiling, or a large frame
+                // could arrive as small compressed fragments and be reassembled.
+                if (payloadLength > maxPayloadSize.toUInt()) {
+                    Log.w("BinaryProtocol", "Payload for type $type is $payloadLength bytes (cap $maxPayloadSize)")
+                    return null
+                }
                 val payloadBytes = ByteArray(payloadLength.toInt())
                 buffer.get(payloadBytes)
                 payloadBytes

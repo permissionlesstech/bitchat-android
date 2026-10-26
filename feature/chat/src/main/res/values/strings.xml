@@ -162,4 +162,7 @@
   <string name="pwd_prompt_message">Channel %1$s is password protected. Enter the password to join.</string>
   <string name="pwd_label">Password</string>
   <string name="join">Join</string>
+    <string name="panic_confirm_title" tools:ignore="MissingTranslation">Wipe all data?</string>
+    <string name="panic_confirm_body" tools:ignore="MissingTranslation">This permanently deletes your identity, keys, messages, and media on this device and creates a new identity. It can\'t be undone.</string>
+    <string name="panic_confirm_action" tools:ignore="MissingTranslation">Wipe</string>
 </resources>

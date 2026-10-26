@@ -19,6 +19,7 @@ data class AboutUiState(
     val selectedLanguageTag: String,
     val powEnabled: Boolean,
     val powDifficulty: Int,
+    val spamFilterEnabled: Boolean,
     val backgroundEnabled: Boolean,
     val liveVoiceEnabled: Boolean,
     /** The stored Tor mode; both the switch and the status card read it. */
@@ -28,7 +29,7 @@ data class AboutUiState(
     val versionName: String,
 )
 
-/** What the user does on About (inventory AA1-AA16; the tab and the language menu stay in the UI). */
+/** What the user does on About (inventory AA1-AA17; the tab and the language menu stay in the UI). */
 sealed interface AboutAction {
     /** AA1 */
     data object BackClicked : AboutAction
@@ -59,6 +60,9 @@ sealed interface AboutAction {
 
     /** AA15 */
     data object DebugSettingsClicked : AboutAction
+
+    /** AA17 */
+    data class SpamFilterToggled(val enabled: Boolean) : AboutAction
 }
 
 sealed interface AboutEvent {

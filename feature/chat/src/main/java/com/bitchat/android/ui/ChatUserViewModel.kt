@@ -75,7 +75,8 @@ class ChatUserViewModel @AssistedInject constructor(
             ChatUserAction.Hug -> messageSender.send("/hug $nickname")
             ChatUserAction.Block ->
                 if (state.selectedLocationChannel.value is ChannelID.Location) {
-                    geohashSession.blockUserInGeohash(nickname)
+                    // Block the exact sender key; nicknames are not unique
+                    geohashSession.blockUserInGeohash(nickname, uiState.value.message?.senderNostrPubkey)
                 } else {
                     messageSender.send("/block $nickname")
                 }

@@ -321,6 +321,9 @@ internal fun DebugSettingsScreen(
             item {
                 DistributionInfoSection(uiState.distributionInfo) { onAction(DebugSettingsAction.CopyCertificateClicked(it)) }
             }
+            item {
+                SpamFilterDebugSection()
+            }
             // Verbose logging toggle
             item {
                 Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {

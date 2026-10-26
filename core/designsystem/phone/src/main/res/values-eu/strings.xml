@@ -16,4 +16,5 @@
     <string name="open_settings">Ireki ezarpenak</string>
     <string name="cancel">Utzi</string>
     <string name="tor_not_available_in_this_build">Tor ez dago erabilgarri konpilazio honetan</string>
+    <string name="app_name">bitchat</string>
 </resources>

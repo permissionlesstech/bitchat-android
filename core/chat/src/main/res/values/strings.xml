@@ -35,4 +35,6 @@
     <item quantity="one">and %d more</item>
     <item quantity="other">and %d more</item>
   </plurals>
+  <string name="system_panic_completed" tools:ignore="MissingTranslation">all data wiped — new identity created</string>
+  <string name="system_panic_incomplete" tools:ignore="MissingTranslation">wipe incomplete — some data may remain. triple-tap the logo to try again.</string>
 </resources>

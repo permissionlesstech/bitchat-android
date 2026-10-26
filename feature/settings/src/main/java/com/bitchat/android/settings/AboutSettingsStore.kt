@@ -6,6 +6,7 @@ import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.net.TorMode
 import com.bitchat.android.net.TorPreferenceManager
 import com.bitchat.android.nostr.PoWPreferenceManager
+import com.bitchat.android.spam.SpamFilterPreferences
 import com.bitchat.android.ui.AppLanguage
 import com.bitchat.android.ui.LanguagePreferenceManager
 import com.bitchat.android.ui.aboutVersionLabel
@@ -31,6 +32,7 @@ interface AboutSettingsStore {
     val chatUiMode: StateFlow<ChatUiMode>
     val powEnabled: StateFlow<Boolean>
     val powDifficulty: StateFlow<Int>
+    val spamFilterEnabled: StateFlow<Boolean>
     val torMode: StateFlow<TorMode>
 
     /** Loads the stored PoW settings if nothing has yet; a no-op after the first call. */
@@ -53,6 +55,7 @@ interface AboutSettingsStore {
     fun setLanguage(tag: String)
     fun setPowEnabled(enabled: Boolean)
     fun setPowDifficulty(difficulty: Int)
+    fun setSpamFilterEnabled(enabled: Boolean)
     fun setTorMode(mode: TorMode)
     fun setLiveVoiceEnabled(enabled: Boolean)
 }
@@ -71,6 +74,7 @@ internal class ObjectBackedAboutSettingsStore @Inject constructor(
     override val chatUiMode: StateFlow<ChatUiMode> = ChatUiModeManager.modeFlow
     override val powEnabled: StateFlow<Boolean> = PoWPreferenceManager.powEnabled
     override val powDifficulty: StateFlow<Int> = PoWPreferenceManager.powDifficulty
+    override val spamFilterEnabled: StateFlow<Boolean> = SpamFilterPreferences.enabled
     override val torMode: StateFlow<TorMode> = TorPreferenceManager.modeFlow
 
     override fun loadPow() = PoWPreferenceManager.init(context)
@@ -85,6 +89,7 @@ internal class ObjectBackedAboutSettingsStore @Inject constructor(
     override fun setLanguage(tag: String) = LanguagePreferenceManager.setLanguage(tag)
     override fun setPowEnabled(enabled: Boolean) = PoWPreferenceManager.setPowEnabled(enabled)
     override fun setPowDifficulty(difficulty: Int) = PoWPreferenceManager.setPowDifficulty(difficulty)
+    override fun setSpamFilterEnabled(enabled: Boolean) = SpamFilterPreferences.setEnabled(enabled)
     override fun setTorMode(mode: TorMode) = TorPreferenceManager.set(context, mode)
     override fun setLiveVoiceEnabled(enabled: Boolean) = LiveVoicePreferences.setEnabled(context, enabled)
 }

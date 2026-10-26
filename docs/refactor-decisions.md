@@ -375,6 +375,7 @@ behaviour.
 | During Phase 8: 2.0.3 / Wear 0.1.5 (#977, #979, #981) | Chat workload bounds under heavy activity; geohash presence UI stalls. | See below. |
 | Phase 9 | None. Upstream had not moved. | — |
 | After Phase 9 (#985, #986, #989, #991) | Cashu display amounts; missing geohash channel participants; onboarding margins and colors; a Basque translation. | See below. |
+| After Phase 10a: 2.1.0 / Wear 0.1.6 (65 commits, to `eed88190`) | Spam filter; panic wipe confirmation and outcome; geohash block by pubkey; payload caps; hex, Bech32, GCS and verification-QR input hardening; fragment injection guard; backup exclusions; release scanner fix; Wear UI polish and app menu. | See below. |
 
 The 2.0.3 merge re-homed each change to where its subject now lives:
 - `:core:mesh`: the batched identity cache, packet processor and gossip sync load bounds, the
@@ -400,6 +401,37 @@ The merge after Phase 9 re-homed:
 - `:feature:onboarding`: the margin and color changes merged without conflict.
 - The Basque `strings.xml` was split across the eight modules that own its strings. Its
   `fingerprint_no_peer` was dropped: that string was deleted as unused in Phase 4.
+
+The 2.1.0 merge re-homed:
+- `:core:mesh`: the new `spam` package (`SpamFilter`, its preferences and tuning). Its only
+  dependencies are the `:core:domain` model and `SharedPreferences`, and every caller (Nostr,
+  chat, settings, the app's admission and the watch) already sees `:core:mesh`. The watch gets
+  it through its `:core:mesh` dependency instead of upstream's shared-source include, and keeps
+  the default (on), as upstream intends. `PacketPayloadLimits` and its tests, and upstream's
+  `HexStringTest`, `VerificationServiceTest` and `PacketPayloadLimitsWireContractTest` also
+  went here (the last two read `internal` helpers).
+- `:core:nostr`: the spam check in `GeohashMessageHandler`. Upstream's spam and nickname-lookup
+  tests now collect from the handler's `addChannelMessage` and build `GeohashRepository` with a
+  nickname lambda instead of `ChatState`.
+- `:core:chat`: the panic outcome (every wipe stage reports, success is announced only when all
+  confirm, the spam filter's memory is wiped) went into `PanicClear`; `GeohashSession.panicReset`
+  returns whether the identity was wiped. The panic outcome strings live in `:core:chat`.
+  Upstream's blocked-geohash-sender test was rebuilt on `ChatPrivateMessageInbox`, next to this
+  branch's refused-inbox test.
+- `:feature:chat`: the panic confirmation dialog (a `rememberSaveable` flag in `ChatScreen`, not
+  ViewModel state; a candidate for Phase 10b), the block-by-pubkey in `ChatUserViewModel`, the
+  network sheet's QR tint, and `MessagesListFollowTest` (with Compose test on the JVM classpath).
+  `QRCodeAnalyzer` is public, because upstream's release-build scanner test in `:app` constructs it.
+- `:feature:settings`: the spam filter switch goes through the About MVI path
+  (`AboutSettingsStore.spamFilterEnabled`, `AboutAction.SpamFilterToggled`, AA17), with a test.
+  The debug section moved with the debug sheet.
+- `:app`: the instrumentation runner stays `AndroidJUnitRunner` unless `-PreleaseUiTests=true`
+  selects upstream's `ReleaseScannerTestRunner`. Upstream's `PerformanceTestRunner` is still not
+  taken (decision R).
+- The 35 locale files: the new strings went to the module that owns each one.
+- Wear: upstream's reworked screens were taken whole, then this branch's edits re-applied (theme
+  from `com.bitchat.android.ui.theme`, peer colours keyed by `PeerIdentity.stableKey`).
+- Upstream's verify-sheet reopen flag was already gone: Navigation 3 stacks the sheet.
 
 PRs #912 and #913 were open upstream at last record, and this branch contains both. If they
 merge first, expect a Back-handling conflict in `MainActivity`. Keep this branch's handler

@@ -1,6 +1,7 @@
 package com.bitchat.android.services
 
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.spam.SpamFilter
 import kotlinx.coroutines.runBlocking
 
 /**
@@ -8,7 +9,8 @@ import kotlinx.coroutines.runBlocking
  *
  * Private-message admission is authoritative: a duplicate or a message rejected while panic mode
  * is wiping state must not continue to UI delegates, unread tracking, haptics, or notifications.
- * Public and channel messages retain their existing best-effort behavior if state reflection fails.
+ * Public and channel messages retain their existing best-effort behavior if state reflection fails,
+ * and are refused (no timeline row, no UI callback) when the spam filter hides them.
  */
 internal object IncomingMessageAdmission {
     fun admitToAppState(message: BitchatMessage): Boolean = try {
@@ -27,6 +29,8 @@ internal object IncomingMessageAdmission {
                 }
             }
 
+            isHiddenAsSpam(message) -> false
+
             channel != null -> {
                 AppStateStore.addChannelMessage(channel, message)
                 true
@@ -41,5 +45,10 @@ internal object IncomingMessageAdmission {
         // Preserve the pre-existing best-effort dispatch for public/channel messages, but never
         // bypass private-message admission when persistence or canonicalization fails.
         !message.isPrivate
+    }
+
+    private fun isHiddenAsSpam(message: BitchatMessage): Boolean {
+        if (SpamFilter.isLocalNotice(message)) return false
+        return SpamFilter.shared.shouldHide(message, SpamFilter.meshSenderKey(message))
     }
 }

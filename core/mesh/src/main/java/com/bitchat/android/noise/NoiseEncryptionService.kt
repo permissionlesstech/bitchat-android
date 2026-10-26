@@ -159,11 +159,11 @@ class NoiseEncryptionService(private val context: Context) {
     /**
      * Clear persistent identity (for panic mode)
      */
-    fun clearPersistentIdentity() {
+    fun clearPersistentIdentity(): Boolean {
         Log.w(TAG, "Panic: clearing persistent identity and rotating in-memory keys")
         
         // 1. Clear storage
-        identityStateManager.clearIdentityData()
+        val storageCleared = identityStateManager.clearIdentityData()
         
         // 2. Clear all sessions immediately
         if (::sessionManager.isInitialized) {
@@ -175,7 +175,8 @@ class NoiseEncryptionService(private val context: Context) {
         
         // 4. Re-initialize SessionManager with new keys
         initializeSessionManager()
-        
+
+        return storageCleared
     }
     
     // MARK: - Handshake Management

@@ -72,12 +72,19 @@ class GeohashRepository(
     @Synchronized
     fun getConversationGeohash(convKey: String): String? = conversationGeohash[convKey]
 
+    /**
+     * Resolve a nickname, optionally with its "#abcd" pubkey suffix, to a single pubkey.
+     * Returns null when the name is ambiguous so callers never act on the wrong user.
+     */
     @Synchronized
     fun findPubkeyByNickname(targetNickname: String): String? {
-        return geoNicknames.entries.firstOrNull { (_, nickname) ->
-            val base = nickname.split("#").firstOrNull() ?: nickname
-            base == targetNickname
-        }?.key
+        val targetBase = targetNickname.substringBefore("#")
+        val targetSuffix = targetNickname.substringAfter("#", "").takeIf { it.isNotEmpty() }
+        val matches = geoNicknames.entries.filter { (pubkey, nickname) ->
+            nickname.substringBefore("#") == targetBase &&
+                (targetSuffix == null || pubkey.endsWith(targetSuffix, ignoreCase = true))
+        }
+        return matches.singleOrNull()?.key
     }
 
     @Synchronized
