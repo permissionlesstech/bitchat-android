@@ -35,6 +35,7 @@ fun SpamFilterDebugSection() {
     val colorScheme = MaterialTheme.colorScheme
     val filterEnabled by SpamFilterPreferences.enabled.collectAsState()
     val bypass by SpamFilterPreferences.debugBypass.collectAsState()
+    val identityProof by SpamFilterPreferences.geohashIdentityProof.collectAsState()
     val tuning by SpamFilterPreferences.tuning.collectAsState()
     val flagged by SpamFilter.shared.flagged.collectAsState()
     val update: (SpamTuning) -> Unit = SpamFilterPreferences::setTuning
@@ -58,6 +59,18 @@ fun SpamFilterDebugSection() {
                     )
                 }
                 Switch(checked = bypass, onCheckedChange = SpamFilterPreferences::setDebugBypass, enabled = filterEnabled)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text("Proof-of-work geohash identities", fontFamily = BitchatFontFamily, fontSize = 12.sp)
+                    Text(
+                        "Experimental. Grinds a channel-bound proof into your geohash keys so new-sender limits skip you. Changes your geohash identity in every channel.",
+                        fontFamily = BitchatFontFamily,
+                        fontSize = 11.sp,
+                        color = colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                }
+                Switch(checked = identityProof, onCheckedChange = SpamFilterPreferences::setGeohashIdentityProof)
             }
 
             Text(

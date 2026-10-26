@@ -10,6 +10,7 @@ import android.util.Log
 import androidx.core.app.ActivityCompat
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
+import com.bitchat.android.nostr.GeohashIdentityProof
 import com.bitchat.android.nostr.NostrIdentityBridge
 import kotlinx.coroutines.*
 import com.google.gson.Gson
@@ -455,7 +456,12 @@ class LocationChannelManager private constructor(private val context: Context) {
 
         if (!canUseLiveLocation(token)) return
         _availableChannels.value = result
-        
+        if (GeohashIdentityProof.grindEnabled) {
+            scope.launch(Dispatchers.Default) {
+                result.forEach { NostrIdentityBridge.grindGeohashIdentity(it.geohash, context) { isActive } }
+            }
+        }
+
         val selectedChannelValue = _selectedChannel.value
         if (selectedChannelValue is ChannelID.Location &&
             selectedLocationSource == LocationSelectionSource.NEARBY

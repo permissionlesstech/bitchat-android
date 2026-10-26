@@ -27,6 +27,27 @@ data class SpamFilterConfig(
      * older or future timestamps are clamped into [now - maxBackdateMs, now].
      */
     val maxBackdateMs: Long = 60 * 60 * 1000L,
+    /**
+     * Geohash senders not yet established in a channel share this bucket, one per channel:
+     * a burst of 6, then 6 per minute. Fresh identities cost nothing, so this caps what a
+     * flood of them can show.
+     */
+    val newSenderPool: TokenBucketConfig = TokenBucketConfig(
+        capacity = 6.0,
+        refillPerSecond = 6.0 / 60.0
+    ),
+    /**
+     * A geohash sender is established in a channel once one of its admitted messages there is
+     * at least this much older (message time) than the current one. Zero: established from the
+     * first admitted message on. Longer delays hide ordinary chat in busy channels.
+     */
+    val establishAfterMs: Long = 0L,
+    /** When false, only [SpamFilter.check]'s `proven` senders skip the new-sender pool. */
+    val establishByTime: Boolean = true,
+    /** Least recently active geohash channels beyond this lose their pool and established set. */
+    val maxPoolChannels: Int = 64,
+    /** Established senders remembered per channel. */
+    val maxEstablishedPerChannel: Int = 1_000,
     /** Least recently active senders beyond this are forgotten. */
     val maxTrackedSenders: Int = 1_000,
     /** Verdicts remembered by message ID so multi-transport duplicates are judged once. */

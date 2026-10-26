@@ -26,6 +26,7 @@ object SpamFilterPreferences {
     private const val KEY_REPEAT_WINDOW_MINUTES = "spam_filter_repeat_window_minutes"
     private const val KEY_SELF_MATCH_THRESHOLD = "spam_filter_self_match_threshold"
     private const val KEY_SELF_MATCH_MIN_LENGTH = "spam_filter_self_match_min_length"
+    private const val KEY_GEOHASH_IDENTITY_PROOF = "spam_filter_geohash_identity_proof"
     private const val DEFAULT_ENABLED = true
 
     private val _enabled = MutableStateFlow(DEFAULT_ENABLED)
@@ -33,6 +34,10 @@ object SpamFilterPreferences {
 
     private val _debugBypass = MutableStateFlow(false)
     val debugBypass: StateFlow<Boolean> = _debugBypass.asStateFlow()
+
+    private val _geohashIdentityProof = MutableStateFlow(false)
+    /** Debug experiment: grind channel-bound proofs into this device's geohash keys. */
+    val geohashIdentityProof: StateFlow<Boolean> = _geohashIdentityProof.asStateFlow()
 
     private val _tuning = MutableStateFlow(SpamTuning.DEFAULT)
     val tuning: StateFlow<SpamTuning> = _tuning.asStateFlow()
@@ -47,6 +52,20 @@ object SpamFilterPreferences {
         applyEnabled(prefs.getBoolean(KEY_ENABLED, DEFAULT_ENABLED))
         applyDebugBypass(prefs.getBoolean(KEY_DEBUG_BYPASS, false))
         applyTuning(readTuning(prefs))
+        applyGeohashIdentityProof(prefs.getBoolean(KEY_GEOHASH_IDENTITY_PROOF, false))
+    }
+
+    /** Switching changes this device's geohash keys once, in every channel. */
+    fun setGeohashIdentityProof(enabled: Boolean) {
+        if (_geohashIdentityProof.value == enabled) return
+        sharedPrefs?.edit()?.putBoolean(KEY_GEOHASH_IDENTITY_PROOF, enabled)?.apply()
+        applyGeohashIdentityProof(enabled)
+        com.bitchat.android.nostr.NostrIdentityBridge.clearAllGeohashIdentityCache()
+    }
+
+    private fun applyGeohashIdentityProof(enabled: Boolean) {
+        _geohashIdentityProof.value = enabled
+        com.bitchat.android.nostr.GeohashIdentityProof.grindEnabled = enabled
     }
 
     fun setEnabled(enabled: Boolean) {

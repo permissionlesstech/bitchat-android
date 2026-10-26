@@ -115,7 +115,12 @@ class GeohashMessageHandler(
                     } catch (_: Exception) { null }
                 )
                 val hide = withContext(spamFilterDispatcher) {
-                    SpamFilter.shared.shouldHide(msg, SpamFilter.nostrSenderKey(pubkey))
+                    SpamFilter.shared.shouldHide(
+                        msg,
+                        SpamFilter.nostrSenderKey(pubkey),
+                        channel = subscribedGeohash.lowercase(),
+                        proven = GeohashIdentityProof.isProven(pubkey, subscribedGeohash)
+                    )
                 }
                 if (hide) {
                     Log.d(TAG, "Hiding geohash spam ${event.id.take(8)}...")

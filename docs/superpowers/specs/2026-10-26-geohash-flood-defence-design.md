@@ -236,3 +236,42 @@ builder does not decide whether the fix passes.
 2. Separately: the per-message PoW mismatch, raised with the maintainer.
 3. Part 2 as a proposal plus the Android branch, once the maintainer and iOS
    agree on the rule, N and the one-time key change.
+
+## Results (2026-10-26, local)
+
+Verdict: **the pool alone does not meet the bars; channel-bound identity PoW with proof-only
+admission does, but only once real users' clients grind proofs (needs iOS).**
+
+Deviations from the design, both forced by measurements:
+
+- "Established" uses message time, not device time: with device time a joiner's whole backfill
+  arrives within seconds, so nobody could be established and channel history would be hidden.
+- Default `establishAfterMs` is 0 (established from the first admitted message). With 2 minutes,
+  a busy channel with no flood lost 228 of 712 messages.
+
+E1, default config (pool + #999), already in channel, 10-minute flood:
+
+| Bot shape | Normal shown | Bots/min after first minute |
+|---|---|---|
+| one post per key, 1/17/100 msg/s | 205/209 | 6.0 |
+| 3 posts per key | 205/209 | 14 |
+| backdated up to 1 h, 1 msg/s | 205/209 | 34 |
+| keep posting every 10 s | 205/209 | 42–231 |
+
+- No flood, busy (6 new posters/min): 712/712, identical to #999. Backfill of 40 senders: 399/400.
+- A second channel during a flood: unaffected (86/86).
+- Join during flood: 156/197 normal shown (one-post bots); 175/197 with persistent bots, which
+  then show ≈ 191/min.
+
+Proof-only (`establishByTime = false`) with real users proven (E3): normal 209/209 and 197/197,
+newcomer 14/14, bots ≈ 6/min, plus a one-time burst of ≤ 41 when joining mid-flood. Without
+proofs, unproven real users are crushed (35/209), so proof-only cannot ship before clients grind.
+
+E2: app 782 tests, wear 238 tests, 0 failures. Lint: no new issues on changed lines.
+
+E4 (single core, binding hash included): desktop JVM 500k tries/s; Android emulator 197k tries/s.
+At 22 bits: emulator mean 21 s per channel (p90 ≈ 3.8× median); 10,000 bot identities cost
+23 desktop core-hours. Pixel not measured yet. Default `requiredBits` = 22.
+
+Open: Pixel timing (E4), Mesh Lab (E6), GPU cost (E5 unmeasured), backdated bots at low
+flood rates, mesh flooding (identity PoW for mesh requested as a follow-up).

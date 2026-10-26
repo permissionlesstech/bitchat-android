@@ -15,7 +15,8 @@ enum class SpamVerdict {
     LINK_RATE,
     REPEATED_MESSAGE,
     REPEATED_ACROSS_USERS,
-    REPEATED_CHARACTERS;
+    REPEATED_CHARACTERS,
+    NEW_SENDER_POOL;
 
     val isSpam: Boolean get() = this != ALLOWED
 }
@@ -49,6 +50,7 @@ class SpamFilter(
                 senders.clear()
                 verdicts.clear()
                 recentTexts.clear()
+                pools.clear()
             }
         }
 
@@ -81,6 +83,28 @@ class SpamFilter(
     /** Recent texts from every sender, for the cross-user repeat check. */
     private val recentTexts = ArrayDeque<SharedEntry>()
 
+    /** One geohash channel: the bucket its new senders share, and who is established there. */
+    private inner class ChannelPool {
+        val bucket = TokenBucketSchedule(listOf(config.newSenderPool))
+
+        /** Sender key to the earliest message time admitted from it in this channel. */
+        val established = object : LinkedHashMap<String, Long>(64, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Long>) =
+                size > config.maxEstablishedPerChannel
+        }
+
+        fun isEstablished(senderKey: String, timeMs: Long): Boolean {
+            if (!config.establishByTime) return false
+            val first = established[senderKey] ?: return false
+            return timeMs - first >= config.establishAfterMs
+        }
+    }
+
+    private val pools = object : LinkedHashMap<String, ChannelPool>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ChannelPool>) =
+            size > config.maxPoolChannels
+    }
+
     private val verdicts = object : LinkedHashMap<String, SpamVerdict>(256, 0.75f, false) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, SpamVerdict>) =
             size > config.maxRememberedVerdicts
@@ -90,8 +114,13 @@ class SpamFilter(
      * Returns true when [message] must be kept out of the chat. With [debugBypass] on, spam is
      * let through and recorded in [flagged] instead.
      */
-    fun shouldHide(message: BitchatMessage, senderKey: String): Boolean {
-        val verdict = check(message, senderKey)
+    fun shouldHide(
+        message: BitchatMessage,
+        senderKey: String,
+        channel: String? = null,
+        proven: Boolean = false
+    ): Boolean {
+        val verdict = check(message, senderKey, channel, proven)
         if (!verdict.isSpam) return false
         if (!debugBypass) return true
         _flagged.update { current ->
@@ -105,20 +134,35 @@ class SpamFilter(
     }
 
     /** Checks a received message; [senderKey] must identify the author stably within a transport. */
-    fun check(message: BitchatMessage, senderKey: String): SpamVerdict = check(
+    fun check(
+        message: BitchatMessage,
+        senderKey: String,
+        channel: String? = null,
+        proven: Boolean = false
+    ): SpamVerdict = check(
         senderKey = senderKey,
         messageId = message.id,
         content = message.content,
         timestampMs = message.timestamp.time,
-        isText = message.type == BitchatMessageType.Message
+        isText = message.type == BitchatMessageType.Message,
+        channel = channel,
+        proven = proven
     )
 
+    /**
+     * [channel] is set for geohash messages only. There, a sender that is neither [proven] nor
+     * established in the channel must first win a token from the channel's shared new-sender
+     * pool. Messages the pool refuses leave no sender state or history behind, so a flood of
+     * fresh identities cannot push real senders out.
+     */
     fun check(
         senderKey: String,
         messageId: String,
         content: String,
         timestampMs: Long,
-        isText: Boolean = true
+        isText: Boolean = true,
+        channel: String? = null,
+        proven: Boolean = false
     ): SpamVerdict {
         if (!enabled) return SpamVerdict.ALLOWED
         synchronized(this) {
@@ -127,12 +171,24 @@ class SpamFilter(
             val now = clock()
             val oldestTrusted = now - config.maxBackdateMs
             val time = timestampMs.coerceIn(oldestTrusted, now)
-            val state = senders.getOrPut(senderKey) { SenderState() }
-            state.rate.prune(oldestTrusted)
-
             val repetition = config.repetition
             val text = if (isText) RepetitionDetector.normalize(content, repetition.maxAnalyzedLength) else null
             val fingerprint = text?.let { fingerprint(it, time) }
+
+            val pool = channel?.let { pools.getOrPut(it) { ChannelPool() } }
+            if (pool != null && !proven && !pool.isEstablished(senderKey, time)) {
+                // Text the content checks already catch is judged below and spends no pool token.
+                val caughtByContent = text != null &&
+                    (hasRepeatedCharacters(text) || repeatsOtherSenders(senderKey, text.size, fingerprint!!))
+                pool.bucket.prune(oldestTrusted)
+                if (!caughtByContent && pool.bucket.tryAdmit(time, doubleArrayOf(1.0)) != -1) {
+                    verdicts[messageId] = SpamVerdict.NEW_SENDER_POOL
+                    return SpamVerdict.NEW_SENDER_POOL
+                }
+            }
+
+            val state = senders.getOrPut(senderKey) { SenderState() }
+            state.rate.prune(oldestTrusted)
             val verdict = when {
                 text != null && hasRepeatedCharacters(text) -> SpamVerdict.REPEATED_CHARACTERS
                 text != null && repeatsHistory(state, text.size, fingerprint!!) -> SpamVerdict.REPEATED_MESSAGE
@@ -149,6 +205,9 @@ class SpamFilter(
                     while (recentTexts.size > repetition.crossUserHistorySize) recentTexts.removeFirst()
                 }
             }
+            if (pool != null && verdict == SpamVerdict.ALLOWED) {
+                pool.established[senderKey] = minOf(pool.established[senderKey] ?: time, time)
+            }
             verdicts[messageId] = verdict
             return verdict
         }
@@ -160,6 +219,7 @@ class SpamFilter(
             senders.clear()
             verdicts.clear()
             recentTexts.clear()
+            pools.clear()
         }
         _flagged.value = emptyMap()
     }
