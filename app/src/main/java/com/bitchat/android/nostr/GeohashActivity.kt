@@ -54,21 +54,23 @@ fun estimateDistinctPeople(
 }
 
 /**
- * Folds global kind-20000/20001 traffic into per-channel activity, the way bitmap.lat does:
- * chat messages count for an hour, heartbeats for five minutes.
+ * The one rule for "who is in a geohash channel", shared by the channel sheet and the globe:
+ * anyone with a heartbeat or message in the last five minutes, plus anyone who wrote in the
+ * last hour. Chat messages are counted for the hour as well.
  *
  * Geohash identities are derived per channel, so a person active in several channels is
- * counted once in each. Not thread-safe; the owner serializes access.
+ * counted once in each. Timestamps are milliseconds; future timestamps are clamped to now so a
+ * skewed clock cannot pin anyone online. Not thread-safe; the owner serializes access.
  */
 class GeohashActivityAggregator(
-    private val presenceWindowSeconds: Long = PRESENCE_WINDOW_SECONDS,
-    private val chatWindowSeconds: Long = CHAT_WINDOW_SECONDS,
+    private val presenceWindowMillis: Long = PRESENCE_WINDOW_SECONDS * 1_000,
+    private val chatWindowMillis: Long = CHAT_WINDOW_SECONDS * 1_000,
     private val maxChannels: Int = MAX_CHANNELS
 ) {
     private class Message(val pubkey: String, val createdAt: Long)
 
     private class Channel(val latitude: Double, val longitude: Double) {
-        /** pubkey -> newest event of either kind. */
+        /** pubkey -> newest activity of any kind. */
         val lastSeen = HashMap<String, Long>()
         /** event id -> message, for chat events only. */
         val messages = LinkedHashMap<String, Message>()
@@ -77,31 +79,41 @@ class GeohashActivityAggregator(
 
     private val channels = HashMap<String, Channel>()
 
+    val geohashes: Set<String> get() = channels.keys
+
     /**
      * True when [record] would add a person or a message rather than refresh a timestamp.
-     * The monitor verifies signatures only for these, so forged events cannot inflate counts.
+     * The globe verifies signatures only for these, so forged events cannot inflate counts.
      */
     fun wouldGrow(geohash: String, pubkey: String, isChat: Boolean, eventId: String): Boolean {
         val channel = channels[normalize(geohash) ?: return false] ?: return true
         return if (isChat) eventId !in channel.messages else pubkey.lowercase() !in channel.lastSeen
     }
 
-    /** Records one event. Returns true when the aggregate changed. */
+    /** Records one kind-20000/20001 event. Returns true when the aggregate changed. */
     fun record(
         kind: Int,
         eventId: String,
         pubkey: String,
         geohash: String,
-        createdAt: Long,
+        createdAtMillis: Long,
         content: String,
-        nowSeconds: Long
+        nowMillis: Long
     ): Boolean {
         if (kind != NostrKind.EPHEMERAL_EVENT && kind != NostrKind.GEOHASH_PRESENCE) return false
-        val cell = normalize(geohash) ?: return false
-        if (createdAt > nowSeconds + MAX_CLOCK_SKEW_SECONDS) return false
         val isChat = kind == NostrKind.EPHEMERAL_EVENT && content.isNotBlank()
-        val window = if (isChat) chatWindowSeconds else presenceWindowSeconds
-        if (createdAt < nowSeconds - window) return false
+        return add(geohash, pubkey, createdAtMillis, if (isChat) eventId else null, nowMillis)
+    }
+
+    /** Records that [pubkey] was seen in [geohash] without writing publicly (e.g. a geohash DM). */
+    fun recordPresence(geohash: String, pubkey: String, atMillis: Long, nowMillis: Long): Boolean =
+        add(geohash, pubkey, atMillis, chatEventId = null, nowMillis = nowMillis)
+
+    private fun add(geohash: String, pubkey: String, atMillis: Long, chatEventId: String?, nowMillis: Long): Boolean {
+        val cell = normalize(geohash) ?: return false
+        val at = atMillis.coerceAtMost(nowMillis)
+        val window = if (chatEventId != null) chatWindowMillis else presenceWindowMillis
+        if (at < nowMillis - window) return false
 
         val channel = channels[cell] ?: run {
             val (lat, lon) = Geohash.decodeToCenter(cell)
@@ -110,32 +122,32 @@ class GeohashActivityAggregator(
         val key = pubkey.lowercase()
         var changed = false
         val previous = channel.lastSeen[key]
-        if (previous == null || createdAt > previous) {
-            channel.lastSeen[key] = createdAt
+        if (previous == null || at > previous) {
+            channel.lastSeen[key] = at
             changed = true
         }
-        if (isChat && eventId !in channel.messages) {
-            channel.messages[eventId] = Message(key, createdAt)
+        if (chatEventId != null && chatEventId !in channel.messages) {
+            channel.messages[chatEventId] = Message(key, at)
             if (channel.messages.size > MAX_MESSAGES_PER_CHANNEL) {
                 channel.messages.remove(channel.messages.keys.first())
             }
             changed = true
         }
-        if (createdAt > channel.lastActiveAt) channel.lastActiveAt = createdAt
+        if (at > channel.lastActiveAt) channel.lastActiveAt = at
         if (channels.size > maxChannels) evictStalest()
         return changed
     }
 
-    /** Drops events that left their window. Returns true when anything was removed. */
-    fun prune(nowSeconds: Long): Boolean {
+    /** Drops activity that left its window. Returns true when anything was removed. */
+    fun prune(nowMillis: Long): Boolean {
         var changed = false
         val iterator = channels.values.iterator()
         while (iterator.hasNext()) {
             val channel = iterator.next()
-            if (channel.messages.values.removeAll { it.createdAt < nowSeconds - chatWindowSeconds }) changed = true
+            if (channel.messages.values.removeAll { it.createdAt < nowMillis - chatWindowMillis }) changed = true
             val chatters = channel.messages.values.mapTo(HashSet()) { it.pubkey }
             if (channel.lastSeen.entries.removeAll { (pubkey, seen) ->
-                    seen < nowSeconds - presenceWindowSeconds && pubkey !in chatters
+                    seen < nowMillis - presenceWindowMillis && pubkey !in chatters
                 }
             ) changed = true
             if (channel.lastSeen.isEmpty() && channel.messages.isEmpty()) {
@@ -146,49 +158,62 @@ class GeohashActivityAggregator(
         return changed
     }
 
-    fun snapshot(nowSeconds: Long): GeohashActivitySnapshot {
-        val presenceCutoff = nowSeconds - presenceWindowSeconds
-        val chatCutoff = nowSeconds - chatWindowSeconds
-        val totalOnline: Int
+    /** People counted in [geohash] right now, with their newest activity in milliseconds. */
+    fun activePeople(geohash: String, nowMillis: Long): Map<String, Long> {
+        val channel = channels[normalize(geohash) ?: return emptyMap()] ?: return emptyMap()
+        return tally(channel, nowMillis).people.associateWith { channel.lastSeen.getValue(it) }
+    }
+
+    /**
+     * Every channel under the rule. [exclude] drops identities (blocked users) from every count
+     * so the globe and the channel sheet agree.
+     */
+    fun snapshot(nowMillis: Long, exclude: (String) -> Boolean = { false }): GeohashActivitySnapshot {
         var activeChats = 0
         val result = ArrayList<GeohashChannelActivity>(channels.size)
         for ((geohash, channel) in channels) {
-            val chatters = HashSet<String>()
-            var messages = 0
-            for (message in channel.messages.values) {
-                if (message.createdAt < chatCutoff) continue
-                chatters.add(message.pubkey)
-                messages++
-            }
-            var online = 0
-            val people = HashSet<String>(chatters)
-            for ((pubkey, seen) in channel.lastSeen) {
-                if (seen >= presenceCutoff) {
-                    online++
-                    people.add(pubkey)
-                }
-            }
-            if (people.isEmpty()) continue
-            if (messages > 0) activeChats++
+            val tally = tally(channel, nowMillis, exclude)
+            if (tally.people.isEmpty()) continue
+            if (tally.messages > 0) activeChats++
             result.add(
                 GeohashChannelActivity(
                     geohash = geohash,
                     latitude = channel.latitude,
                     longitude = channel.longitude,
-                    online = online,
-                    chatters = chatters.size,
-                    messages = messages,
-                    people = people.size,
-                    lastActiveAt = channel.lastActiveAt
+                    online = tally.online,
+                    chatters = tally.chatters,
+                    messages = tally.messages,
+                    people = tally.people.size,
+                    lastActiveAt = channel.lastActiveAt / 1_000
                 )
             )
         }
         result.sortWith(compareByDescending<GeohashChannelActivity> { it.people }.thenByDescending { it.messages })
-        totalOnline = estimateDistinctPeople(result) { it.online }
-        return GeohashActivitySnapshot(result, totalOnline, activeChats)
+        return GeohashActivitySnapshot(result, estimateDistinctPeople(result) { it.online }, activeChats)
     }
 
     fun clear() = channels.clear()
+
+    private class Tally(val people: Set<String>, val online: Int, val chatters: Int, val messages: Int)
+
+    /** The rule itself: online in the presence window, or wrote in the chat window. */
+    private fun tally(channel: Channel, nowMillis: Long, exclude: (String) -> Boolean = { false }): Tally {
+        val chatters = HashSet<String>()
+        var messages = 0
+        for (message in channel.messages.values) {
+            if (message.createdAt < nowMillis - chatWindowMillis || exclude(message.pubkey)) continue
+            chatters.add(message.pubkey)
+            messages++
+        }
+        val people = HashSet<String>(chatters)
+        var online = 0
+        for ((pubkey, seen) in channel.lastSeen) {
+            if (seen < nowMillis - presenceWindowMillis || exclude(pubkey)) continue
+            online++
+            people.add(pubkey)
+        }
+        return Tally(people, online, chatters.size, messages)
+    }
 
     private fun evictStalest() {
         val stalest = channels.minByOrNull { it.value.lastActiveAt }?.key ?: return
@@ -206,7 +231,6 @@ class GeohashActivityAggregator(
         const val CHAT_WINDOW_SECONDS = 3_600L
         private const val MAX_CHANNELS = 600
         private const val MAX_MESSAGES_PER_CHANNEL = 500
-        private const val MAX_CLOCK_SKEW_SECONDS = 300L
         private const val MAX_GEOHASH_LENGTH = 12
         private const val GEOHASH_ALPHABET = "0123456789bcdefghjkmnpqrstuvwxyz"
     }

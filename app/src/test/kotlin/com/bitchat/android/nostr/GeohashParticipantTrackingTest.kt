@@ -157,15 +157,22 @@ class GeohashParticipantTrackingTest {
     }
 
     @Test
-    fun `chat participants expire from both the list and counts after five minutes`() = runBlocking {
+    fun `chat participants stay an hour then expire from both the list and counts`() = runBlocking {
         receiveChat()
 
+        // Writing keeps someone in the channel for the hour, the same rule the globe uses.
         now += 300_001
         repo.refreshGeohashPeople()
-        withTimeout(5_000) { state.geohashParticipantCounts.first { it[geohash] == 0 } }
+        repo.updateReactiveParticipantCounts()
+        assertEquals(identity.publicKeyHex, state.geohashPeople.value.single().id)
+        assertEquals(1, state.geohashParticipantCounts.value[geohash])
+
+        now += 3_300_000
+        repo.refreshGeohashPeople()
+        withTimeout(5_000) { state.geohashParticipantCounts.first { (it[geohash] ?: 0) == 0 } }
 
         assertTrue(state.geohashPeople.value.isEmpty())
-        assertEquals(0, state.geohashParticipantCounts.value[geohash])
+        assertEquals(0, state.geohashParticipantCounts.value[geohash] ?: 0)
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)

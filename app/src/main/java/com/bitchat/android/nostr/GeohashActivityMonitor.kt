@@ -2,6 +2,7 @@ package com.bitchat.android.nostr
 
 import android.content.Context
 import com.bitchat.android.geohash.Geohash
+import com.bitchat.android.ui.DataManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -25,7 +26,7 @@ import java.util.UUID
  * the few nearest to wherever the user parks the globe, mirroring bitmap.lat's relay plan.
  * Everything is torn down in [stop]; relays this monitor opened are released again.
  */
-class GeohashActivityMonitor(context: Context) {
+class GeohashActivityMonitor(private val context: Context) {
 
     enum class Status { CONNECTING, LIVE, OFFLINE }
 
@@ -47,6 +48,8 @@ class GeohashActivityMonitor(context: Context) {
     private var lastFocusCell: String? = null
     /** Confined to the monitor's single-threaded scope. */
     private var dirty = false
+    /** Blocked identities, hidden from counts exactly as the channel sheet hides them. */
+    private var blocked: Set<String> = emptySet()
 
     fun start() {
         if (scope != null) return
@@ -58,8 +61,12 @@ class GeohashActivityMonitor(context: Context) {
         _status.value = Status.CONNECTING
 
         newScope.launch {
+            blocked = DataManager(context.applicationContext)
+                .apply { loadGeohashBlockedUsers() }
+                .geohashBlockedUsers
+                .mapTo(HashSet()) { it.lowercase() }
             for (event in events) {
-                if (ingest(event, System.currentTimeMillis() / 1000)) dirty = true
+                if (ingest(event, System.currentTimeMillis())) dirty = true
             }
         }
         newScope.launch { publishLoop() }
@@ -160,19 +167,27 @@ class GeohashActivityMonitor(context: Context) {
             delay(PUBLISH_INTERVAL_MS)
             val nowMs = System.currentTimeMillis()
             if (nowMs - lastPrune >= PRUNE_INTERVAL_MS) {
-                if (aggregator.prune(nowMs / 1000)) dirty = true
+                if (aggregator.prune(nowMs)) dirty = true
                 lastPrune = nowMs
             }
             if (!dirty) continue
             dirty = false
-            _snapshot.value = aggregator.snapshot(nowMs / 1000)
+            val hidden = blocked
+            _snapshot.value = aggregator.snapshot(nowMs) { it in hidden }
             _status.value = Status.LIVE
         }
     }
 
-    private fun ingest(event: NostrEvent, nowSeconds: Long): Boolean {
+    private fun ingest(event: NostrEvent, nowMillis: Long): Boolean {
         val geohash = event.tags.firstOrNull { it.size >= 2 && it[0] == "g" }?.get(1) ?: return false
         val isChat = event.kind == NostrKind.EPHEMERAL_EVENT && event.content.isNotBlank()
+        // Same proof-of-work gate the chat applies, so the sheet and globe see the same events.
+        if (event.kind == NostrKind.EPHEMERAL_EVENT) {
+            val pow = PoWPreferenceManager.getCurrentSettings()
+            if (pow.enabled && pow.difficulty > 0 && !NostrProofOfWork.validateDifficulty(event, pow.difficulty)) {
+                return false
+            }
+        }
         // Refreshing a known person's timestamp needs no proof; adding anyone or anything does.
         if (aggregator.wouldGrow(geohash, event.pubkey, isChat, event.id) && !event.isValidSignature()) {
             return false
@@ -182,9 +197,9 @@ class GeohashActivityMonitor(context: Context) {
             eventId = event.id,
             pubkey = event.pubkey,
             geohash = geohash,
-            createdAt = event.createdAt.toLong(),
+            createdAtMillis = event.createdAt * 1000L,
             content = event.content,
-            nowSeconds = nowSeconds
+            nowMillis = nowMillis
         )
     }
 

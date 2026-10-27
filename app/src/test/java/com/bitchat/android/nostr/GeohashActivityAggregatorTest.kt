@@ -8,7 +8,7 @@ import org.junit.Test
 
 class GeohashActivityAggregatorTest {
 
-    private val now = 1_800_000_000L
+    private val now = 1_800_000_000_000L
     private val aggregator = GeohashActivityAggregator()
 
     private fun chat(id: String, pubkey: String, geohash: String = "u0", at: Long = now, content: String = "hi") =
@@ -43,8 +43,8 @@ class GeohashActivityAggregatorTest {
 
     @Test
     fun `heartbeats expire after five minutes but messages last an hour`() {
-        heartbeat("e1", "carol", at = now - 301)
-        chat("e2", "alice", at = now - 3_000)
+        heartbeat("e1", "carol", at = now - 301_000)
+        chat("e2", "alice", at = now - 3_000_000)
 
         val channel = aggregator.snapshot(now).channel("u0")!!
 
@@ -54,12 +54,39 @@ class GeohashActivityAggregatorTest {
     }
 
     @Test
-    fun `events outside their window or from the future are ignored`() {
-        assertFalse(heartbeat("e1", "carol", at = now - 600))
-        assertFalse(chat("e2", "alice", at = now - 4_000))
-        assertFalse(chat("e3", "bob", at = now + 3_600))
+    fun `events outside their window are ignored`() {
+        assertFalse(heartbeat("e1", "carol", at = now - 600_000))
+        assertFalse(chat("e2", "alice", at = now - 4_000_000))
 
         assertTrue(aggregator.snapshot(now).channels.isEmpty())
+    }
+
+    @Test
+    fun `future timestamps are clamped to now`() {
+        heartbeat("e1", "carol", at = now + 3_600_000)
+
+        assertEquals(mapOf("carol" to now), aggregator.activePeople("u0", now))
+        assertTrue(aggregator.activePeople("u0", now + 300_001).isEmpty())
+    }
+
+    @Test
+    fun `a chatter stays counted for the hour after their heartbeats stop`() {
+        chat("e1", "alice", at = now)
+
+        assertEquals(setOf("alice"), aggregator.activePeople("u0", now + 40 * 60_000).keys)
+        assertTrue(aggregator.activePeople("u0", now + 61 * 60_000).isEmpty())
+    }
+
+    @Test
+    fun `excluded identities drop out of every count`() {
+        chat("e1", "alice")
+        heartbeat("e2", "blocked")
+
+        val channel = aggregator.snapshot(now) { it == "blocked" }.channel("u0")!!
+
+        assertEquals(1, channel.people)
+        assertEquals(1, channel.online)
+        assertEquals(1, channel.messages)
     }
 
     @Test
@@ -83,10 +110,10 @@ class GeohashActivityAggregatorTest {
 
     @Test
     fun `prune drops channels whose activity has left every window`() {
-        heartbeat("e1", "carol", at = now - 200)
+        heartbeat("e1", "carol", at = now - 200_000)
 
-        assertTrue(aggregator.prune(now + 200))
-        assertNull(aggregator.snapshot(now + 200).channel("u0"))
+        assertTrue(aggregator.prune(now + 200_000))
+        assertNull(aggregator.snapshot(now + 200_000).channel("u0"))
     }
 
     @Test
