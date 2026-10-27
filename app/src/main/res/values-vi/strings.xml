@@ -145,7 +145,6 @@
     <string name="cd_offline_favorite">Yêu thích (ngoại tuyến)</string>
     <string name="cd_decrease_precision">Giảm độ chính xác</string>
     <string name="cd_increase_precision">Tăng độ chính xác</string>
-    <string name="cd_select_geohash">Chọn geohash</string>
     <string name="cd_scroll_to_bottom">Cuộn xuống dưới</string>
     <string name="cd_file">File</string>
     <string name="cd_image">Hình ảnh</string>
@@ -280,8 +279,6 @@
     <string name="location_tracking_warning">bitchat KHÔNG theo dõi vị trí của bạn</string>
     <string name="nobody_around">không có ai xung quanh …</string>
     <string name="you_suffix"> (bạn)</string>
-    <string name="pan_zoom_instruction">di chuyển và zoom để chọn geohash</string>
-    <string name="select">chọn</string>
     <string name="type_a_message_placeholder">Nhập tin nhắn …</string>
     <string name="mention">nhắc đến</string>
     <string name="version_prefix">v%1$s</string>
@@ -382,4 +379,14 @@
     <string name="about_select_language">Chọn ngôn ngữ</string>
     <string name="about_spam_filter_title">Bộ lọc thư rác</string>
     <string name="about_spam_filter_desc">Ẩn tin nhắn công khai từ những người gửi quá nhanh, lặp lại nội dung hoặc gửi quá nhiều liên kết.</string>
+    <string name="globe_live">trực tiếp</string>
+    <string name="globe_connecting">đang kết nối</string>
+    <string name="globe_offline">ngoại tuyến</string>
+    <string name="globe_hint_drag">xoay</string>
+    <string name="globe_hint_pinch">thu phóng</string>
+    <string name="globe_hint_tap">chạm vào một chấm</string>
+    <string name="globe_no_activity">không có hoạt động gần đây</string>
+    <string name="cd_show_whole_globe">Hiển thị toàn bộ địa cầu</string>
+    <string name="cd_globe_activity">%1$d cuộc trò chuyện đang hoạt động, %2$d người trực tuyến</string>
+    <string name="cd_channel_activity">%1$d người, %2$d tin nhắn trong giờ qua</string>
 </resources>

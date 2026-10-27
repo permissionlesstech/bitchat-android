@@ -188,7 +188,6 @@
   <string name="cd_offline_favorite">ஆஃப்லைன் பிடித்தவை</string>
   <string name="cd_decrease_precision">துல்லியத்தைக் குறை</string>
   <string name="cd_increase_precision">துல்லியத்தை அதிகரி</string>
-  <string name="cd_select_geohash">ஜியோஹாஷைத் தேர்ந்தெடு</string>
   <string name="cd_scroll_to_bottom">கீழே ஸ்க்ரோல் செய்</string>
   <string name="cd_file">கோப்பு</string>
   <string name="cd_image">படம்</string>
@@ -336,8 +335,6 @@
   <string name="channel_count_prefix"> · ⧉ </string>
   <string name="nobody_around">யாரும் அருகில் இல்லை…</string>
   <string name="you_suffix"> (நீங்கள்)</string>
-  <string name="pan_zoom_instruction">ஜியோஹாஷைத் தேர்ந்தெடுக்க பான் செய்து ஜூம் செய்யவும்</string>
-  <string name="select">தேர்ந்தெடு</string>
   <string name="type_a_message_placeholder">செய்தியை உள்ளிடவும்…</string>
   <string name="mention_suggestion_at">@%1$s</string>
   <string name="mention">குறிப்பிடு</string>
@@ -392,4 +389,14 @@
     <string name="about_select_language">மொழியைத் தேர்ந்தெடுக்கவும்</string>
     <string name="about_spam_filter_title">ஸ்பேம் வடிகட்டி</string>
     <string name="about_spam_filter_desc">மிக வேகமாகச் செய்திகளை அனுப்புபவர்கள், ஒரே கருத்தைத் திரும்பத் திரும்பக் கூறுபவர்கள் அல்லது அதிக இணைப்புகளை அனுப்புபவர்களின் பொதுச் செய்திகளை மறைக்கவும்.</string>
+        <string name="globe_live">நேரலை</string>
+        <string name="globe_connecting">இணைக்கிறது</string>
+        <string name="globe_offline">ஆஃப்லைன்</string>
+        <string name="globe_hint_drag">சுழற்று</string>
+        <string name="globe_hint_pinch">பெரிதாக்கு</string>
+        <string name="globe_hint_tap">ஒரு புள்ளியைத் தட்டவும்</string>
+        <string name="globe_no_activity">சமீபத்திய செயல்பாடு இல்லை</string>
+        <string name="cd_show_whole_globe">முழு உலக உருண்டையைக் காட்டு</string>
+        <string name="cd_globe_activity">%1$d செயலில் உள்ள அரட்டைகள், %2$d பேர் ஆன்லைனில்</string>
+        <string name="cd_channel_activity">%1$d பேர், கடந்த ஒரு மணி நேரத்தில் %2$d செய்திகள்</string>
 </resources>

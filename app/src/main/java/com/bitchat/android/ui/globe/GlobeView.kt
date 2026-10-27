@@ -20,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
@@ -42,6 +43,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.geohash.Geohash
+import com.bitchat.android.nostr.GeohashChannelActivity
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlin.math.ceil
@@ -152,7 +154,11 @@ fun GlobeView(
     cities: List<LandData.City>,
     labelTypeface: Typeface?,
     labelTypefaceBold: Typeface?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    activity: List<GeohashChannelActivity> = emptyList(),
+    activityColors: GlobeActivityColors? = null,
+    onMarkerTap: ((GlobeMarker) -> Unit)? = null,
+    onBackgroundTap: (() -> Unit)? = null
 ) {
     val view = LocalView.current
     val density = LocalDensity.current
@@ -183,6 +189,17 @@ fun GlobeView(
             style = Paint.Style.STROKE
         }
     }
+
+    val markerLayout = remember { GlobeMarkerLayout() }
+    val markerTextPaint = remember { Paint(Paint.ANTI_ALIAS_FLAG) }
+    val markerPulse by rememberInfiniteTransition(label = "markers").animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1800), RepeatMode.Restart),
+        label = "markerPulse"
+    )
+    val currentOnMarkerTap by rememberUpdatedState(onMarkerTap)
+    val currentOnBackgroundTap by rememberUpdatedState(onBackgroundTap)
 
     val pulse by rememberInfiniteTransition(label = "crosshair").animateFloat(
         initialValue = 0.45f,
@@ -313,7 +330,16 @@ fun GlobeView(
                         upTime - downTime < 400 &&
                         moved.getDistance() < viewConfiguration.touchSlop
 
-                    if (isTap) {
+                    val tappedMarker = if (isTap) {
+                        currentOnMarkerTap?.let {
+                            markerLayout.hitTest(downPos, MARKER_TAP_SLOP_DP * density.density)
+                        }
+                    } else null
+                    if (tappedMarker != null) {
+                        lastTapTime = 0L
+                        currentOnMarkerTap?.invoke(tappedMarker)
+                    } else if (isTap) {
+                        currentOnBackgroundTap?.invoke()
                         val cx = size.width / 2f
                         val cy = size.height / 2f
                         val r = state.globeRadiusPx
@@ -490,9 +516,51 @@ fun GlobeView(
             drawLine(crossColor, Offset(cx, cy + gap), Offset(cx, cy + gap + len), strokeW)
             drawCircle(crossColor, radius = 1.8f * density.density, center = Offset(cx, cy))
         }
+        // Activity markers get their own layer, above the crosshair so a centered marker's
+        // count stays readable; their pulse never redraws the globe geometry.
+        if (activityColors != null) {
+            Canvas(modifier = Modifier.matchParentSize()) {
+                val r = state.globeRadiusPx
+                if (state.baseRadiusPx <= 0f || activity.isEmpty()) {
+                    markerLayout.markers = emptyList()
+                    return@Canvas
+                }
+                val markers = layoutGlobeMarkers(
+                    channels = activity,
+                    projector = GlobeMath.PreparedProjector(
+                        state.centerLat.toDouble(),
+                        state.centerLon.toDouble()
+                    ),
+                    cx = size.width / 2f,
+                    cy = size.height / 2f,
+                    r = r,
+                    width = size.width,
+                    height = size.height,
+                    density = density.density
+                )
+                markerLayout.markers = markers
+                val nowSeconds = System.currentTimeMillis() / 1000
+                // Only recently active markers pulse; reading the clock just for them keeps a
+                // quiet globe from redrawing every frame.
+                val anyRecent = markers.any {
+                    it.messages > 0 && nowSeconds - it.lastActiveAt < MARKER_RECENT_SECONDS
+                }
+                drawGlobeMarkers(
+                    markers = markers,
+                    colors = activityColors,
+                    selectedGeohash = state.selectedGeohash,
+                    pulsePhase = if (anyRecent) markerPulse else 0f,
+                    nowSeconds = nowSeconds,
+                    textPaint = markerTextPaint,
+                    typeface = labelTypefaceBold ?: labelTypeface,
+                    density = density.density
+                )
+            }
+        }
     }
 }
 
+private const val MARKER_TAP_SLOP_DP = 12f
 private const val FRAME_SAMPLE_COUNT = 8
 private const val MAX_SAMPLED_FRAME_MILLIS = 50f
 private const val SMOOTH_FRAME_MILLIS = 18.5f

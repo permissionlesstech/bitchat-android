@@ -145,7 +145,6 @@
     <string name="cd_offline_favorite">Offline favoriet</string>
     <string name="cd_decrease_precision">Precisie verlagen</string>
     <string name="cd_increase_precision">Precisie verhogen</string>
-    <string name="cd_select_geohash">Geohash selecteren</string>
     <string name="cd_scroll_to_bottom">Naar beneden scrollen</string>
     <string name="cd_file">Bestand</string>
     <string name="cd_image">Afbeelding</string>
@@ -280,8 +279,6 @@
     <string name="location_tracking_warning">bitchat volgt NIET uw locatie</string>
     <string name="nobody_around">niemand in de buurt…</string>
     <string name="you_suffix"> (jij)</string>
-    <string name="pan_zoom_instruction">pan en zoom om een geohash te selecteren</string>
-    <string name="select">selecteren</string>
     <string name="type_a_message_placeholder">typ een bericht…</string>
     <string name="mention">vermelden</string>
     <string name="version_prefix">v%1$s</string>
@@ -420,4 +417,14 @@
     <string name="about_select_language">Taal selecteren</string>
     <string name="about_spam_filter_title">Spamfilter</string>
     <string name="about_spam_filter_desc">Verberg openbare berichten van mensen die te snel posten, zichzelf herhalen of te veel links sturen.</string>
+    <string name="globe_live">live</string>
+    <string name="globe_connecting">verbinden</string>
+    <string name="globe_offline">offline</string>
+    <string name="globe_hint_drag">draaien</string>
+    <string name="globe_hint_pinch">zoomen</string>
+    <string name="globe_hint_tap">tik op een stip</string>
+    <string name="globe_no_activity">geen recente activiteit</string>
+    <string name="cd_show_whole_globe">Hele wereldbol tonen</string>
+    <string name="cd_globe_activity">%1$d actieve chats, %2$d mensen online</string>
+    <string name="cd_channel_activity">%1$d mensen, %2$d berichten in het afgelopen uur</string>
 </resources>

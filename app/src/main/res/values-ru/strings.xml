@@ -134,7 +134,6 @@
     <string name="cd_offline_favorite">Избранное (оффлайн)</string>
     <string name="cd_decrease_precision">Уменьшить точность</string>
     <string name="cd_increase_precision">Увеличить точность</string>
-    <string name="cd_select_geohash">Выбрать geohash</string>
     <string name="cd_scroll_to_bottom">Прокрутить вниз</string>
     <string name="cd_file">Файл</string>
     <string name="cd_image">Изображение</string>
@@ -259,8 +258,6 @@
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="nobody_around">никого рядом…</string>
     <string name="you_suffix"> (вы)</string>
-    <string name="pan_zoom_instruction">прокрутите/масштабируйте для выбора geohash</string>
-    <string name="select">выбрать</string>
     <string name="type_a_message_placeholder">введите сообщение…</string>
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">упоминание</string>
@@ -382,4 +379,14 @@
     <string name="about_select_language">Выбрать язык</string>
     <string name="about_spam_filter_title">Спам-фильтр</string>
     <string name="about_spam_filter_desc">Скрывать публичные сообщения от тех, кто пишет слишком быстро, повторяется или отправляет слишком много ссылок.</string>
+    <string name="globe_live">в эфире</string>
+    <string name="globe_connecting">подключение</string>
+    <string name="globe_offline">офлайн</string>
+    <string name="globe_hint_drag">вращать</string>
+    <string name="globe_hint_pinch">масштаб</string>
+    <string name="globe_hint_tap">нажмите на точку</string>
+    <string name="globe_no_activity">нет недавней активности</string>
+    <string name="cd_show_whole_globe">Показать весь глобус</string>
+    <string name="cd_globe_activity">Активных чатов: %1$d, людей онлайн: %2$d</string>
+    <string name="cd_channel_activity">Людей: %1$d, сообщений за последний час: %2$d</string>
 </resources>

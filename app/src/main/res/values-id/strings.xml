@@ -145,7 +145,6 @@
     <string name="cd_offline_favorite">Favorit (offline)</string>
     <string name="cd_decrease_precision">Kurangi presisi</string>
     <string name="cd_increase_precision">Tingkatkan presisi</string>
-    <string name="cd_select_geohash">Pilih geohash</string>
     <string name="cd_scroll_to_bottom">Gulir ke bawah</string>
     <string name="cd_file">File</string>
     <string name="cd_image">Gambar</string>
@@ -280,8 +279,6 @@
     <string name="location_tracking_warning">bitchat TIDAK melacak lokasi Anda</string>
     <string name="nobody_around">tidak ada orang di sekitar …</string>
     <string name="you_suffix"> (Anda)</string>
-    <string name="pan_zoom_instruction">geser dan zoom untuk memilih geohash</string>
-    <string name="select">pilih</string>
     <string name="type_a_message_placeholder">Ketik pesan …</string>
     <string name="mention">sebut</string>
     <string name="version_prefix">v%1$s</string>
@@ -395,4 +392,14 @@
     <string name="about_select_language">Pilih bahasa</string>
     <string name="about_spam_filter_title">Filter spam</string>
     <string name="about_spam_filter_desc">Sembunyikan pesan publik dari orang yang mengirim terlalu cepat, mengulang pesan, atau membanjiri obrolan dengan tautan.</string>
+    <string name="globe_live">langsung</string>
+    <string name="globe_connecting">menghubungkan</string>
+    <string name="globe_offline">offline</string>
+    <string name="globe_hint_drag">putar</string>
+    <string name="globe_hint_pinch">zoom</string>
+    <string name="globe_hint_tap">ketuk titik</string>
+    <string name="globe_no_activity">tidak ada aktivitas terbaru</string>
+    <string name="cd_show_whole_globe">Tampilkan seluruh globe</string>
+    <string name="cd_globe_activity">%1$d obrolan aktif, %2$d orang online</string>
+    <string name="cd_channel_activity">%1$d orang, %2$d pesan dalam satu jam terakhir</string>
 </resources>

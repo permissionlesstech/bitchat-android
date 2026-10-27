@@ -145,7 +145,6 @@
     <string name="cd_offline_favorite">收藏（离线）</string>
     <string name="cd_decrease_precision">降低精度</string>
     <string name="cd_increase_precision">提高精度</string>
-    <string name="cd_select_geohash">选择 geohash</string>
     <string name="cd_scroll_to_bottom">滚动到底部</string>
     <string name="cd_file">文件</string>
     <string name="cd_image">图片</string>
@@ -275,8 +274,6 @@
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="nobody_around">附近无人…</string>
     <string name="you_suffix"> (你)</string>
-    <string name="pan_zoom_instruction">拖动/缩放以选择 geohash</string>
-    <string name="select">选择</string>
     <string name="type_a_message_placeholder">输入消息…</string>
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">提及</string>
@@ -406,4 +403,14 @@
     <string name="about_select_language">选择语言</string>
     <string name="about_spam_filter_title">垃圾消息过滤器</string>
     <string name="about_spam_filter_desc">隐藏发送过快、重复发言或发送过多链接的用户的公开消息。</string>
+    <string name="globe_live">实时</string>
+    <string name="globe_connecting">连接中</string>
+    <string name="globe_offline">离线</string>
+    <string name="globe_hint_drag">旋转</string>
+    <string name="globe_hint_pinch">缩放</string>
+    <string name="globe_hint_tap">点按圆点</string>
+    <string name="globe_no_activity">最近没有活动</string>
+    <string name="cd_show_whole_globe">显示整个地球</string>
+    <string name="cd_globe_activity">%1$d 个活跃聊天，%2$d 人在线</string>
+    <string name="cd_channel_activity">%1$d 人，过去一小时 %2$d 条消息</string>
 </resources>

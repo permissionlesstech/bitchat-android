@@ -134,7 +134,6 @@
     <string name="cd_offline_favorite">Favorit (offline)</string>
     <string name="cd_decrease_precision">Minska precision</string>
     <string name="cd_increase_precision">Öka precision</string>
-    <string name="cd_select_geohash">Välj geohash</string>
     <string name="cd_scroll_to_bottom">Rulla längst ned</string>
     <string name="cd_file">Fil</string>
     <string name="cd_image">Bild</string>
@@ -259,8 +258,6 @@
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="nobody_around">ingen i närheten…</string>
     <string name="you_suffix"> (du)</string>
-    <string name="pan_zoom_instruction">panorera och zooma för att välja geohash</string>
-    <string name="select">välj</string>
     <string name="type_a_message_placeholder">skriv ett meddelande…</string>
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">nämn</string>
@@ -380,4 +377,14 @@
     <string name="about_select_language">Välj språk</string>
     <string name="about_spam_filter_title">Spamfilter</string>
     <string name="about_spam_filter_desc">Dölj offentliga meddelanden från personer som skriver för snabbt, upprepar sig eller skickar för många länkar.</string>
+    <string name="globe_live">live</string>
+    <string name="globe_connecting">ansluter</string>
+    <string name="globe_offline">offline</string>
+    <string name="globe_hint_drag">snurra</string>
+    <string name="globe_hint_pinch">zooma</string>
+    <string name="globe_hint_tap">tryck på en prick</string>
+    <string name="globe_no_activity">ingen aktivitet nyligen</string>
+    <string name="cd_show_whole_globe">Visa hela jordklotet</string>
+    <string name="cd_globe_activity">%1$d aktiva chattar, %2$d personer online</string>
+    <string name="cd_channel_activity">%1$d personer, %2$d meddelanden den senaste timmen</string>
 </resources>
