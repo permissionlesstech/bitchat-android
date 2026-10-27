@@ -37,7 +37,8 @@ class GlobeState(
         private set
     var centerLon by mutableDoubleStateOf(if (startZoomedOut) GlobeMath.normalizeLon(targetLon - 70.0) else targetLon)
         private set
-    var zoom by mutableFloatStateOf(if (startZoomedOut) GlobeMath.MIN_ZOOM else 1f)
+    // The opening rotation starts a little smaller than the whole-globe view and grows into it.
+    var zoom by mutableFloatStateOf(if (startZoomedOut) INTRO_START_ZOOM else 1f)
         private set
     var precision by mutableIntStateOf(initialPrecision.coerceIn(1, GlobeMath.MAX_PRECISION))
         private set
@@ -93,7 +94,9 @@ class GlobeState(
     /** Continuous zoom from pinch gestures; precision follows automatically. */
     fun zoomBy(factor: Float) {
         if (factor == 1f) return
-        zoom = (zoom * factor).coerceIn(GlobeMath.MIN_ZOOM, GlobeMath.MAX_ZOOM)
+        // An interrupted intro can leave the globe below the minimum; continue from there rather
+        // than snapping up, while never pinching further out than the current size.
+        zoom = (zoom * factor).coerceIn(minOf(GlobeMath.MIN_ZOOM, zoom), GlobeMath.MAX_ZOOM)
         syncPrecisionFromZoom()
         syncSelection()
     }
@@ -192,7 +195,10 @@ class GlobeState(
         animateTo(centerLat, centerLon, targetZoom, p, durationMs = 450)
     }
 
-    /** Cinematic intro: spin and zoom from a far view into the target location. */
+    /**
+     * Cinematic intro: turn to the target while gently zooming from [INTRO_START_ZOOM] into the
+     * frame for [targetPrecision] (the whole globe at level 1).
+     */
     private fun playIntro(targetLat: Double, targetLon: Double, targetPrecision: Int) {
         if (baseRadiusPx <= 0f) {
             // viewport not ready yet; retry once attached to layout via caller
@@ -255,6 +261,11 @@ class GlobeState(
         // clamping tighter would make syncSelection() encode the wrong cell.
         const val MIN_LAT = -89.0
         const val MAX_LAT = 89.0
+        /**
+         * Where the opening rotation's gentle zoom-in starts. Within [FLIGHT_ZOOM_RATIO] of the
+         * whole-globe view, so the intro rotates and zooms together on the glide path.
+         */
+        const val INTRO_START_ZOOM = 0.72f
         /** Zoom changes beyond this factor fly along [GlobeFlight]; smaller ones glide. */
         const val FLIGHT_ZOOM_RATIO = 1.5f
         const val FLIGHT_MS_PER_UNIT = 230.0
