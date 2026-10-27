@@ -490,6 +490,19 @@ class LocationChannelsViewModelTest {
         assertTrue(viewModel.uiState.value.teleported!!.isBookmarked)
     }
 
+    /** Q-L5: the flag matches as the store's lookup did, after its normalization (case). */
+    @Test
+    fun bookmarkFlags_matchIgnoringCase() = runTest(dispatcher) {
+        location.availableChannels.value = listOf(GeohashChannel(CITY, "S0000"))
+        location.selectedChannel.value = ChannelID.Location(GeohashChannel(NEIGHBORHOOD, "s00000"))
+        bookmarks.bookmarks.value = listOf("s0000", "S00000")
+        val viewModel = newViewModel()
+        collectState(viewModel)
+
+        assertEquals(listOf(true), viewModel.uiState.value.nearby.rows.map { it.isBookmarked })
+        assertTrue(viewModel.uiState.value.teleported!!.isBookmarked)
+    }
+
     private fun note(id: String) = LocationNotesManager.Note(
         id = id,
         pubkey = "0".repeat(60) + "abcd",

@@ -1,6 +1,7 @@
 package com.bitchat.android.ui
 
 import com.bitchat.android.geohash.ChannelID
+import com.bitchat.android.geohash.GeohashBookmarksStore
 import com.bitchat.android.geohash.GeohashChannel
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager.PermissionState
@@ -144,8 +145,10 @@ internal fun locationChannelsUiState(
     torAvailable: Boolean,
 ): LocationChannelsUiState = with(snapshot) {
     val nearbyChannels = nearbyChannelsOf(availableChannels)
-    val bookmarkSet = bookmarks.toSet()
-    val isBookmarked: (String) -> Boolean = { it in bookmarkSet }
+    // Both sides normalized as the store's own lookup did (lowercase, `#` and foreign characters
+    // dropped).
+    val bookmarkSet = bookmarks.mapTo(HashSet()) { GeohashBookmarksStore.normalize(it) }
+    val isBookmarked: (String) -> Boolean = { GeohashBookmarksStore.normalize(it) in bookmarkSet }
     LocationChannelsUiState(
         mesh = meshRow(meshPeopleCount, wifiAwareEnabled, selectedChannel),
         teleported = teleportedRow(

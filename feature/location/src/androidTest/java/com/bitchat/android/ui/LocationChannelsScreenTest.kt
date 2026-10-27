@@ -9,6 +9,9 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
 import androidx.test.platform.app.InstrumentationRegistry
 import com.bitchat.android.feature.location.R
 import com.bitchat.android.geohash.ChannelID
@@ -56,7 +59,11 @@ class LocationChannelsScreenTest {
         compose.onNode(hasText(meshTitle) and hasClickAction()).performClick()
         compose.waitForIdle()
 
-        assertEquals(listOf<LocationChannelsAction>(LocationChannelsAction.MeshClicked), actions)
+        // The bookmark row also reports itself (BookmarkShown); the tap adds exactly MeshClicked.
+        assertEquals(
+            listOf<LocationChannelsAction>(LocationChannelsAction.MeshClicked),
+            actions.filterNot { it is LocationChannelsAction.BookmarkShown },
+        )
     }
 
     /** Review Focus 4, Q-L2: a rejected map pick lands in the field, with the error under it. */
@@ -66,6 +73,15 @@ class LocationChannelsScreenTest {
             InertLocation(), InertNotes(), InertGate(), InertBookmarks(), InertTor(), InertSession(),
             Dispatchers.Default,
         )
+        // Owned by a store, so clearing it at the end stops its sampling collector.
+        val store = ViewModelStore()
+        ViewModelProvider(
+            store,
+            object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T = viewModel as T
+            },
+        )[LocationChannelsViewModel::class.java]
         compose.setContent {
             BitchatTheme {
                 LocationChannelsRoot(onClose = {}, onShowLocationNotes = {}, viewModel = viewModel)
@@ -79,8 +95,12 @@ class LocationChannelsScreenTest {
         val error = context.getString(R.string.invalid_geohash)
         compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText(error))
 
-        compose.onAllNodesWithText("not-a-geohash").onFirst().assertIsDisplayed()
-        compose.onAllNodesWithText(error).onFirst().assertIsDisplayed()
+        try {
+            compose.onAllNodesWithText("not-a-geohash").onFirst().assertIsDisplayed()
+            compose.onAllNodesWithText(error).onFirst().assertIsDisplayed()
+        } finally {
+            compose.runOnUiThread { store.clear() }
+        }
     }
 
     private class InertLocation : NotesLocationSource {
