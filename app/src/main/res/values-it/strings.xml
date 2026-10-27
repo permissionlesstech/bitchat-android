@@ -65,7 +65,7 @@
     <string name="notification_more_locations">e altre %1$d posizioni</string>
     <string name="notification_and_more">e altri %1$d</string>
 
-    <!-- Accessibilità favoriti -->
+    <!-- Accessibilità preferiti -->
     <string name="cd_add_favorite">Aggiungi ai preferiti</string>
     <string name="cd_remove_favorite">Rimuovi dai preferiti</string>
     <string name="cd_add_bookmark">Aggiungi segnalibro</string>
@@ -201,7 +201,7 @@
     <string name="disable_location_services">disattiva servizi di localizzazione</string>
     <string name="enable_location_services">attiva servizi di localizzazione</string>
     <string name="mesh_label">mesh</string>
-    <string name="location_level_block">blocco</string>
+    <string name="location_level_block">isolato</string>
     <string name="location_level_neighborhood">quartiere</string>
     <string name="location_level_city">città</string>
     <string name="location_level_province">provincia</string>
