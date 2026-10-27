@@ -24,76 +24,74 @@ class GlobeMarkerAnimatorTest {
     )
 
     @Test
-    fun newMarker_popsInAndSettlesAtFullSize() {
+    fun newMarker_fadesInInPlaceAndSettlesAtFullSize() {
         val animator = GlobeMarkerAnimator()
         val a = marker(100f, 100f, 10f, "u0")
 
-        val first = animator.frame(listOf(a), 0L)
-        assertTrue(first.all { it.radius < 10f })
+        animator.frame(listOf(a), 0L)
+        val appearing = animator.frame(listOf(a), 80 * ms).single()
+        assertEquals(100f, appearing.x, 0f)
+        assertEquals(100f, appearing.y, 0f)
+        assertTrue(appearing.alpha in 0.01f..0.99f)
+        assertTrue(appearing.radius in 6f..9.99f)
         assertTrue(animator.isAnimating)
 
-        val settled = animator.frame(listOf(a), 600 * ms).single()
+        val settled = animator.frame(listOf(a), 250 * ms).single()
         assertEquals(10f, settled.radius, 0.01f)
         assertEquals(1f, settled.alpha, 0.01f)
-        animator.frame(listOf(a), 616 * ms)
+        animator.frame(listOf(a), 266 * ms)
         assertFalse(animator.isAnimating)
     }
 
     @Test
-    fun removedMarker_shrinksOutThenDisappears() {
+    fun appearing_neverOvershootsFullSize() {
+        val animator = GlobeMarkerAnimator()
+        val a = marker(100f, 100f, 10f, "u0")
+
+        for (t in 0..250 step 8) {
+            assertTrue(animator.frame(listOf(a), t * ms).single().radius <= 10f)
+        }
+    }
+
+    @Test
+    fun removedMarker_fadesOutWhereItWasThenDisappears() {
         val animator = GlobeMarkerAnimator()
         val a = marker(100f, 100f, 10f, "u0")
         animator.frame(listOf(a), 0L)
-        animator.frame(listOf(a), 600 * ms)
+        animator.frame(listOf(a), 300 * ms)
 
-        animator.frame(emptyList(), 600 * ms)
-        val leaving = animator.frame(emptyList(), 680 * ms).single()
-        assertTrue(leaving.radius in 0.1f..9.99f)
-        assertTrue(leaving.alpha < 1f)
+        animator.frame(emptyList(), 300 * ms)
+        val leaving = animator.frame(emptyList(), 370 * ms).single()
+        assertEquals(100f, leaving.x, 0f)
+        assertTrue(leaving.radius in 7f..9.99f)
+        assertTrue(leaving.alpha in 0.01f..0.99f)
 
-        assertTrue(animator.frame(emptyList(), 800 * ms).isEmpty())
+        assertTrue(animator.frame(emptyList(), 460 * ms).isEmpty())
         assertFalse(animator.isAnimating)
     }
 
     @Test
-    fun mergedMarker_fliesIntoItsCluster() {
+    fun mergingIntoACluster_fadesInPlaceWithoutTravelling() {
         val animator = GlobeMarkerAnimator()
         val a = marker(100f, 100f, 10f, "u0")
         val b = marker(200f, 100f, 10f, "u1")
         animator.frame(listOf(a, b), 0L)
-        animator.frame(listOf(a, b), 600 * ms)
+        animator.frame(listOf(a, b), 300 * ms)
 
         val cluster = marker(100f, 100f, 14f, "u0", "u1")
-        animator.frame(listOf(cluster), 610 * ms)
-        val ghost = animator.frame(listOf(cluster), 720 * ms).first { it.marker.primary.geohash == "u1" }
+        animator.frame(listOf(cluster), 310 * ms)
+        val ghost = animator.frame(listOf(cluster), 360 * ms).first { it.marker.primary.geohash == "u1" }
 
-        assertTrue("ghost should travel toward the cluster", ghost.x < 200f)
-    }
-
-    @Test
-    fun splitMarker_startsFromItsCluster() {
-        val animator = GlobeMarkerAnimator()
-        val cluster = marker(100f, 100f, 14f, "u0", "u1")
-        animator.frame(listOf(cluster), 0L)
-        animator.frame(listOf(cluster), 600 * ms)
-
-        val a = marker(100f, 100f, 10f, "u0")
-        val b = marker(200f, 100f, 10f, "u1")
-        animator.frame(listOf(a, b), 616 * ms)
-        val early = animator.frame(listOf(a, b), 640 * ms).first { it.marker.primary.geohash == "u1" }
-        assertTrue("split marker starts near the cluster", early.x < 150f)
-
-        val settled = animator.frame(listOf(a, b), 1_200 * ms).first { it.marker.primary.geohash == "u1" }
-        assertEquals(200f, settled.x, 0.01f)
+        assertEquals(200f, ghost.x, 0f)
     }
 
     @Test
     fun clusterGrowth_easesInsteadOfJumping() {
         val animator = GlobeMarkerAnimator()
         animator.frame(listOf(marker(100f, 100f, 10f, "u0")), 0L)
-        animator.frame(listOf(marker(100f, 100f, 10f, "u0")), 600 * ms)
+        animator.frame(listOf(marker(100f, 100f, 10f, "u0")), 300 * ms)
 
-        val grown = animator.frame(listOf(marker(100f, 100f, 16f, "u0")), 616 * ms).single()
+        val grown = animator.frame(listOf(marker(100f, 100f, 16f, "u0")), 316 * ms).single()
 
         assertTrue(grown.radius in 10.01f..15.99f)
         assertTrue(animator.isAnimating)
@@ -114,12 +112,5 @@ class GlobeMarkerAnimatorTest {
         assertEquals(0f, limbFade(0f), 0f)
         assertTrue(limbFade(0.1f) in 0.01f..0.99f)
         assertEquals(1f, limbFade(0.5f), 0f)
-    }
-
-    @Test
-    fun popIn_overshootsThenLands() {
-        assertEquals(0f, easeOutBack(0f), 0.001f)
-        assertTrue((1..9).any { easeOutBack(it / 10f) > 1f })
-        assertEquals(1f, easeOutBack(1f), 0.001f)
     }
 }
