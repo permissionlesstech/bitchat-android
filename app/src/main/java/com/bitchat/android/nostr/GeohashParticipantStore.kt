@@ -4,32 +4,47 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.Locale
 
-/** In-memory participant metadata shared by service chat handlers and foreground presence handlers. */
+/**
+ * In-memory participant metadata shared by service chat handlers and foreground presence handlers.
+ *
+ * Who counts as a participant is decided by [GeohashActivityAggregator], the same rule the globe
+ * picker uses, so the channel sheet and the globe agree.
+ */
 class GeohashParticipantStore(
     private val nowMillis: () -> Long = System::currentTimeMillis
 ) {
     internal data class Snapshot(
+        /** geohash -> participant pubkey -> newest activity (ms), already filtered by the rule. */
         val participants: Map<String, Map<String, Long>> = emptyMap(),
         val nicknames: Map<String, String> = emptyMap(),
         val teleported: Set<String> = emptySet()
     )
 
+    private val activity = GeohashActivityAggregator()
     private val mutableSnapshot = MutableStateFlow(Snapshot())
     internal val snapshots = mutableSnapshot.asStateFlow()
-    internal val cutoffMillis: Long get() = nowMillis() - 5 * 60 * 1000L
 
+    /** Records a kind-20000/20001 event seen in [geohash]. */
+    @Synchronized
+    fun recordEvent(
+        geohash: String,
+        pubkey: String,
+        kind: Int,
+        eventId: String,
+        createdAtMillis: Long,
+        content: String
+    ) {
+        val now = nowMillis()
+        if (activity.record(kind, eventId, pubkey, geohash, createdAtMillis, content, now)) {
+            publish(geohash, now)
+        }
+    }
+
+    /** Records that [pubkey] was active in [geohash] without a public event, e.g. a geohash DM. */
     @Synchronized
     fun updateParticipant(geohash: String, pubkey: String, lastSeenMillis: Long) {
-        val snapshot = mutableSnapshot.value
-        val participants = snapshot.participants[geohash].orEmpty()
-        val key = pubkey.lowercase(Locale.ROOT)
-        // Relays can replay newest-first or send future timestamps. Preserve the freshest
-        // observation without allowing a future event to pin an identity online.
-        val effective = lastSeenMillis.coerceAtMost(nowMillis())
-        if (effective <= (participants[key] ?: Long.MIN_VALUE)) return
-        mutableSnapshot.value = snapshot.copy(
-            participants = snapshot.participants + (geohash to (participants + (key to effective)))
-        )
+        val now = nowMillis()
+        if (activity.recordPresence(geohash, pubkey, lastSeenMillis, now)) publish(geohash, now)
     }
 
     @Synchronized
@@ -50,17 +65,24 @@ class GeohashParticipantStore(
 
     @Synchronized
     fun pruneExpired() {
-        val cutoff = cutoffMillis
-        val snapshot = mutableSnapshot.value
-        mutableSnapshot.value = snapshot.copy(
-            participants = snapshot.participants.mapValues { (_, people) ->
-                people.filterValues { it >= cutoff }
-            }
+        val now = nowMillis()
+        activity.prune(now)
+        mutableSnapshot.value = mutableSnapshot.value.copy(
+            participants = activity.geohashes.associateWith { activity.activePeople(it, now) }
         )
     }
 
     @Synchronized
     fun clear() {
+        activity.clear()
         mutableSnapshot.value = Snapshot()
+    }
+
+    private fun publish(geohash: String, now: Long) {
+        val key = geohash.lowercase(Locale.ROOT)
+        val snapshot = mutableSnapshot.value
+        mutableSnapshot.value = snapshot.copy(
+            participants = snapshot.participants + (key to activity.activePeople(key, now))
+        )
     }
 }

@@ -145,7 +145,6 @@
     <string name="cd_offline_favorite">რჩეული (ოფლაინ)</string>
     <string name="cd_decrease_precision">სიზუსტის შემცირება</string>
     <string name="cd_increase_precision">სიზუსტის გაზრდა</string>
-    <string name="cd_select_geohash">აირჩიეთ geohash</string>
     <string name="cd_scroll_to_bottom">ქვემოთ გადახვევა</string>
     <string name="cd_file">ფაილი</string>
     <string name="cd_image">სურათი</string>
@@ -280,8 +279,6 @@
     <string name="location_tracking_warning">bitchat არ აკონტროლებს თქვენს მდებარეობას</string>
     <string name="nobody_around">არავინ არის ახლოს…</string>
     <string name="you_suffix"> (თქვენ)</string>
-    <string name="pan_zoom_instruction">პანორამირება/ზუმი geohash-ის ასარჩევად</string>
-    <string name="select">არჩევა</string>
     <string name="type_a_message_placeholder">შეიყვანეთ შეტყობინება…</string>
     <string name="mention">ხსენება</string>
     <string name="version_prefix">v%1$s</string>
@@ -382,4 +379,14 @@
     <string name="about_select_language">ენის არჩევა</string>
     <string name="about_spam_filter_title">სპამის ფილტრი</string>
     <string name="about_spam_filter_desc">დამალე იმ ადამიანების საჯარო შეტყობინებები, რომლებიც ზედმეტად სწრაფად წერენ, იმეორებენ შეტყობინებებს ან აგზავნიან ზედმეტად ბევრ ბმულს.</string>
+    <string name="globe_live">ლაივი</string>
+    <string name="globe_connecting">უკავშირდება</string>
+    <string name="globe_offline">ხაზგარეშე</string>
+    <string name="globe_hint_drag">ტრიალი</string>
+    <string name="globe_hint_pinch">მასშტაბი</string>
+    <string name="globe_hint_tap">შეეხეთ წერტილს</string>
+    <string name="globe_no_activity">ბოლო აქტივობა არ არის</string>
+    <string name="cd_show_whole_globe">მთელი გლობუსის ჩვენება</string>
+    <string name="cd_globe_activity">%1$d აქტიური ჩატი, %2$d ადამიანი ონლაინ</string>
+    <string name="cd_channel_activity">%1$d ადამიანი, %2$d შეტყობინება ბოლო საათში</string>
 </resources>

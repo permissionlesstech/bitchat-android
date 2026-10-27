@@ -145,7 +145,6 @@
     <string name="cd_offline_favorite">مفضل (غير متصل)</string>
     <string name="cd_decrease_precision">خفض الدقة</string>
     <string name="cd_increase_precision">رفع الدقة</string>
-    <string name="cd_select_geohash">اختر geohash</string>
     <string name="cd_scroll_to_bottom">التمرير إلى الأسفل</string>
     <string name="cd_file">ملف</string>
     <string name="cd_image">صورة</string>
@@ -280,8 +279,6 @@
     <string name="location_tracking_warning">bitchat لا يتتبع موقعك</string>
     <string name="nobody_around">لا أحد هنا…</string>
     <string name="you_suffix"> (أنت)</string>
-    <string name="pan_zoom_instruction">حرّك وقرّب لاختيار geohash</string>
-    <string name="select">اختيار</string>
     <string name="type_a_message_placeholder">اكتب رسالة…</string>
     <string name="mention">إشارة</string>
     <string name="version_prefix">v%1$s</string>
@@ -395,4 +392,14 @@
     <string name="about_select_language">اختر اللغة</string>
     <string name="about_spam_filter_title">فلتر الرسائل المزعجة</string>
     <string name="about_spam_filter_desc">إخفاء الرسائل العامة من الأشخاص الذين يرسلون بسرعة مفرطة أو يكررون رسائلهم أو يغرقون الدردشة بالروابط.</string>
+    <string name="globe_live">مباشر</string>
+    <string name="globe_connecting">جارٍ الاتصال</string>
+    <string name="globe_offline">غير متصل</string>
+    <string name="globe_hint_drag">تدوير</string>
+    <string name="globe_hint_pinch">تكبير</string>
+    <string name="globe_hint_tap">اضغط على نقطة</string>
+    <string name="globe_no_activity">لا يوجد نشاط حديث</string>
+    <string name="cd_show_whole_globe">عرض الكرة الأرضية كاملة</string>
+    <string name="cd_globe_activity">%1$d محادثات نشطة، %2$d أشخاص متصلون</string>
+    <string name="cd_channel_activity">%1$d أشخاص، %2$d رسائل في الساعة الأخيرة</string>
 </resources>

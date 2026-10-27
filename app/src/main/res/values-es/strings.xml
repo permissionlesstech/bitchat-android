@@ -145,7 +145,6 @@
     <string name="cd_offline_favorite">Favorito (sin conexión)</string>
     <string name="cd_decrease_precision">Disminuir precisión</string>
     <string name="cd_increase_precision">Aumentar precisión</string>
-    <string name="cd_select_geohash">Seleccionar geohash</string>
     <string name="cd_scroll_to_bottom">Desplazar al final</string>
     <string name="cd_file">Archivo</string>
     <string name="cd_image">Imagen</string>
@@ -280,8 +279,6 @@
     <string name="location_tracking_warning">bitchat NO rastrea tu ubicación</string>
     <string name="nobody_around">nadie por aquí…</string>
     <string name="you_suffix"> (tú)</string>
-    <string name="pan_zoom_instruction">desplaza y hace zoom para seleccionar un geohash</string>
-    <string name="select">seleccionar</string>
     <string name="type_a_message_placeholder">Escribe un mensaje…</string>
     <string name="mention">mencionar</string>
     <string name="version_prefix">v%1$s</string>
@@ -395,4 +392,14 @@
     <string name="about_select_language">Seleccionar idioma</string>
     <string name="about_spam_filter_title">Filtro de spam</string>
     <string name="about_spam_filter_desc">Oculta los mensajes públicos de quienes publican demasiado rápido, se repiten o envían demasiados enlaces.</string>
+    <string name="globe_live">en vivo</string>
+    <string name="globe_connecting">conectando</string>
+    <string name="globe_offline">sin conexión</string>
+    <string name="globe_hint_drag">girar</string>
+    <string name="globe_hint_pinch">zoom</string>
+    <string name="globe_hint_tap">toca un punto</string>
+    <string name="globe_no_activity">sin actividad reciente</string>
+    <string name="cd_show_whole_globe">Mostrar todo el globo</string>
+    <string name="cd_globe_activity">%1$d chats activos, %2$d personas en línea</string>
+    <string name="cd_channel_activity">%1$d personas, %2$d mensajes en la última hora</string>
 </resources>

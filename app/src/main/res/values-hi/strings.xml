@@ -145,7 +145,6 @@
     <string name="cd_offline_favorite">पसंदीदा (ऑफ़लाइन)</string>
     <string name="cd_decrease_precision">सटीकता घटाएँ</string>
     <string name="cd_increase_precision">सटीकता बढ़ाएँ</string>
-    <string name="cd_select_geohash">geohash चुनें</string>
     <string name="cd_scroll_to_bottom">नीचे स्क्रॉल करें</string>
     <string name="cd_file">फ़ाइल</string>
     <string name="cd_image">छवि</string>
@@ -280,8 +279,6 @@
     <string name="location_tracking_warning">bitchat आपकी लोकेशन ट्रैक नहीं करती</string>
     <string name="nobody_around">आस‑पास कोई नहीं…</string>
     <string name="you_suffix"> (आप)</string>
-    <string name="pan_zoom_instruction">geohash चुनने के लिए पैन/ज़ूम करें</string>
-    <string name="select">चयन करें</string>
     <string name="type_a_message_placeholder">संदेश लिखें…</string>
     <string name="mention">उल्लेख</string>
     <string name="version_prefix">v%1$s</string>
@@ -395,4 +392,14 @@
     <string name="about_select_language">भाषा चुनें</string>
     <string name="about_spam_filter_title">स्पैम फ़िल्टर</string>
     <string name="about_spam_filter_desc">बहुत तेज़ी से संदेश भेजने, एक ही बात दोहराने या बहुत अधिक लिंक भेजने वाले लोगों के सार्वजनिक संदेश छिपाएँ।</string>
+    <string name="globe_live">लाइव</string>
+    <string name="globe_connecting">कनेक्ट हो रहा है</string>
+    <string name="globe_offline">ऑफ़लाइन</string>
+    <string name="globe_hint_drag">घुमाएँ</string>
+    <string name="globe_hint_pinch">ज़ूम</string>
+    <string name="globe_hint_tap">किसी बिंदु पर टैप करें</string>
+    <string name="globe_no_activity">हाल की कोई गतिविधि नहीं</string>
+    <string name="cd_show_whole_globe">पूरा ग्लोब दिखाएँ</string>
+    <string name="cd_globe_activity">%1$d सक्रिय चैट, %2$d लोग ऑनलाइन</string>
+    <string name="cd_channel_activity">%1$d लोग, पिछले घंटे में %2$d संदेश</string>
 </resources>

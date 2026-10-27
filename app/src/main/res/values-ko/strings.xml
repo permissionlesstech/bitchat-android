@@ -145,7 +145,6 @@
     <string name="cd_offline_favorite">즐겨찾기 (오프라인)</string>
     <string name="cd_decrease_precision">정밀도 낮추기</string>
     <string name="cd_increase_precision">정밀도 높이기</string>
-    <string name="cd_select_geohash">geohash 선택</string>
     <string name="cd_scroll_to_bottom">아래로 스크롤</string>
     <string name="cd_file">파일</string>
     <string name="cd_image">이미지</string>
@@ -280,8 +279,6 @@
     <string name="location_tracking_warning">bitchat은 사용자의 위치를 추적하지 않습니다</string>
     <string name="nobody_around">주변에 아무도 없음 …</string>
     <string name="you_suffix"> (나)</string>
-    <string name="pan_zoom_instruction">geohash를 선택하려면 이동하고 확대/축소하세요</string>
-    <string name="select">선택</string>
     <string name="type_a_message_placeholder">메시지 입력 …</string>
     <string name="mention">멘션</string>
     <string name="version_prefix">v%1$s</string>
@@ -395,4 +392,14 @@
     <string name="about_select_language">언어 선택</string>
     <string name="about_spam_filter_title">스팸 필터</string>
     <string name="about_spam_filter_desc">너무 빠르게 메시지를 보내거나, 같은 내용을 반복하거나, 링크를 과도하게 보내는 사람의 공개 메시지를 숨깁니다.</string>
+    <string name="globe_live">라이브</string>
+    <string name="globe_connecting">연결 중</string>
+    <string name="globe_offline">오프라인</string>
+    <string name="globe_hint_drag">회전</string>
+    <string name="globe_hint_pinch">확대</string>
+    <string name="globe_hint_tap">점을 탭하세요</string>
+    <string name="globe_no_activity">최근 활동 없음</string>
+    <string name="cd_show_whole_globe">지구 전체 보기</string>
+    <string name="cd_globe_activity">활성 채팅 %1$d개, 온라인 %2$d명</string>
+    <string name="cd_channel_activity">%1$d명, 지난 1시간 메시지 %2$d개</string>
 </resources>
