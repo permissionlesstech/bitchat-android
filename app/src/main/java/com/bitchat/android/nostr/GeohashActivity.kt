@@ -123,7 +123,8 @@ class GeohashActivityAggregator(
             if (at > (channel.lastChat[key] ?: Long.MIN_VALUE)) channel.lastChat[key] = at
             channel.messages[chatEventId] = Message(key, at)
             if (channel.messages.size > MAX_MESSAGES_PER_CHANNEL) {
-                channel.messages.remove(channel.messages.keys.first())
+                // Relay backfills arrive newest first, so arrival order is not age: drop the oldest.
+                channel.messages.remove(channel.messages.entries.minBy { it.value.createdAt }.key)
             }
             changed = true
         }
