@@ -106,6 +106,20 @@ class GeohashActivityAggregatorTest {
     }
 
     @Test
+    fun `a newest-first backfill past the cap keeps the newest messages`() {
+        // Relays return stored events newest first: message 0 is a minute old, message 599 about
+        // 51 minutes old. Only the oldest should be dropped at the cap.
+        repeat(600) { chat("m$it", "bob", at = now - 60_000 - it * 5_000L) }
+
+        // Twenty minutes on, messages 0..468 are still inside the hour. Dropping by arrival order
+        // would have kept 100..599 instead and counted only 369.
+        val later = now + 1_200_000
+        val messages = aggregator.snapshot(later).channel("u0")?.messages
+
+        assertEquals(469, messages)
+    }
+
+    @Test
     fun `excluded identities drop out of every count`() {
         chat("e1", "alice")
         heartbeat("e2", "blocked")
