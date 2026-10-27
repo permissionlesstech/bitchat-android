@@ -6,7 +6,6 @@ import androidx.compose.material.icons.outlined.*
 import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.feature.chat.R
 import android.text.format.DateUtils
-import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -722,8 +721,6 @@ fun PeopleSection(
                 ?.lowercase()
             return nostrHex != null && connectedNostrHexes.contains(nostrHex)
         }
-
-        Log.d("SidebarComponents", "Recomposing with ${favoritePeers.size} favorites, peer states: $peerFavoriteStates")
 
         // Smart sorting: unread DMs first, then by most recent DM, then favorites, then alphabetical
         val sortedPeers = connectedPeers.sortedWith(
