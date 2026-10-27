@@ -328,6 +328,7 @@
   <string name="location_notes_no_relays_title">yakınlarda coğrafi röle yok</string>
   <string name="location_notes_no_relays_desc">notlar coğrafi rölelere bağlıdır. bağlantıyı kontrol edip tekrar deneyin.</string>
   <string name="loading_location_notes">notlar yükleniyor…</string>
+  <string name="location_notes_relays_slow">rölelere henüz ulaşılamıyor — denemeye devam ediliyor…</string>
   <string name="location_notes_empty_title">henüz not yok</string>
   <string name="location_notes_empty_desc">bu yer için ilk notu ekleyen siz olun.</string>
   <string name="dismiss">kapat</string>

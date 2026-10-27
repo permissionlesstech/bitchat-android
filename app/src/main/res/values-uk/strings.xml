@@ -236,6 +236,7 @@
     <string name="location_notes_no_relays_title">поруч немає гео-ретрансляторів</string>
     <string name="location_notes_no_relays_desc">нотатки залежать від гео-ретрансляторів. перевірте з’єднання і спробуйте ще раз.</string>
     <string name="loading_location_notes">завантаження нотаток…</string>
+    <string name="location_notes_relays_slow">ретранслятори поки недоступні — продовжуємо спроби…</string>
     <string name="location_notes_empty_title">поки що немає нотаток</string>
     <string name="location_notes_empty_desc">будьте першим, хто додасть нотатку для цього місця.</string>
     <string name="dismiss">закрити</string>

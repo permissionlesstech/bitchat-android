@@ -452,6 +452,7 @@
   <string name="location_notes_no_relays_title">No geo relays nearby</string>
   <string name="location_notes_no_relays_desc">Notes rely on geo relays. Check connection and try again.</string>
   <string name="loading_location_notes">Loading notes…</string>
+  <string name="location_notes_relays_slow">Can\'t reach relays yet — still trying…</string>
   <string name="location_notes_empty_title">No notes yet</string>
   <string name="location_notes_empty_desc">Be the first to add one for this spot.</string>
   <string name="dismiss">Dismiss</string>

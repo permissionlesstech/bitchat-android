@@ -159,6 +159,20 @@ class NostrEventDeduplicator(
     }
     
     /**
+     * Forget specific event IDs so a later delivery of them is treated as new.
+     * IDs that are not cached are ignored; statistics are unchanged.
+     */
+    fun forget(eventIds: Collection<String>) {
+        synchronized(lruLock) {
+            eventIds.forEach { eventId ->
+                val node = nodeMap.remove(eventId) ?: return@forEach
+                node.prev?.next = node.next
+                node.next?.prev = node.prev
+            }
+        }
+    }
+
+    /**
      * Check if the deduplicator contains a specific event ID
      */
     fun contains(eventId: String): Boolean {

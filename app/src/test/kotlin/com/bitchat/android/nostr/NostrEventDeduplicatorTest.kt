@@ -1,6 +1,7 @@
 package com.bitchat.android.nostr
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.concurrent.CountDownLatch
@@ -62,5 +63,20 @@ class NostrEventDeduplicatorTest {
             (threadCount * checksPerThread).toLong(),
             deduplicator.getStats().totalChecks
         )
+    }
+
+    @Test
+    fun `forget makes an id deliverable again and leaves others deduplicated`() {
+        val deduplicator = NostrEventDeduplicator(maxCapacity = 10)
+        assertFalse(deduplicator.isDuplicate("a"))
+        assertFalse(deduplicator.isDuplicate("b"))
+
+        deduplicator.forget(listOf("a", "missing"))
+
+        assertFalse(deduplicator.contains("a"))
+        assertTrue(deduplicator.contains("b"))
+        assertFalse(deduplicator.isDuplicate("a"))
+        assertTrue(deduplicator.isDuplicate("b"))
+        assertEquals(2, deduplicator.size())
     }
 }

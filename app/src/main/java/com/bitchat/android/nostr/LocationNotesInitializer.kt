@@ -21,7 +21,7 @@ object LocationNotesInitializer {
         return try {
             LocationNotesManager.getInstance().initialize(
                 relayManager = { NostrRelayManager.getInstance(context) },
-                subscribe = { filter, id, handler ->
+                subscribe = { filter, id, handler, onEndOfStoredEvents ->
                     // CRITICAL FIX: Extract geohash properly from filter using getGeohash() method
                     val geohashFromFilter = filter.getGeohash() ?: run {
                         Log.e(TAG, "❌ Cannot extract geohash from filter for location notes")
@@ -37,7 +37,8 @@ object LocationNotesInitializer {
                         handler = handler,
                         includeDefaults = true,
                         nRelays = 5,
-                        liveLocationToken = token
+                        liveLocationToken = token,
+                        onEndOfStoredEvents = { onEndOfStoredEvents() }
                     )
                 },
                 unsubscribe = { id ->

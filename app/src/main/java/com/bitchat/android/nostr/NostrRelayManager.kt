@@ -1,6 +1,7 @@
 package com.bitchat.android.nostr
 
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import com.bitchat.android.geohash.LiveLocationPrivacyGate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -102,7 +103,8 @@ class NostrRelayManager private constructor() {
         val createdAt: Long = System.currentTimeMillis(),
         val originGeohash: String? = null,
         val owner: String = OWNER_LEGACY,
-        val liveLocationToken: Long? = null
+        val liveLocationToken: Long? = null,
+        val onEndOfStoredEvents: ((relayUrl: String) -> Unit)? = null
     )
     
     // Event deduplication system
@@ -192,7 +194,8 @@ class NostrRelayManager private constructor() {
         includeDefaults: Boolean = false,
         nRelays: Int = 5,
         owner: String = OWNER_LEGACY,
-        liveLocationToken: Long? = null
+        liveLocationToken: Long? = null,
+        onEndOfStoredEvents: ((String) -> Unit)? = null
     ): String {
         if (!isNetworkActionAllowed(liveLocationToken)) return id
         ensureGeohashRelaysConnected(
@@ -209,7 +212,8 @@ class NostrRelayManager private constructor() {
             handler = handler,
             targetRelayUrls = relayUrls,
             owner = owner,
-            liveLocationToken = liveLocationToken
+            liveLocationToken = liveLocationToken,
+            onEndOfStoredEvents = onEndOfStoredEvents
         ).also { subscriptionId ->
             activeSubscriptions[subscriptionId]?.let { subscription ->
                 activeSubscriptions[subscriptionId] =
@@ -484,7 +488,8 @@ class NostrRelayManager private constructor() {
         handler: (NostrEvent) -> Unit,
         targetRelayUrls: List<String>? = null,
         owner: String = OWNER_LEGACY,
-        liveLocationToken: Long? = null
+        liveLocationToken: Long? = null,
+        onEndOfStoredEvents: ((String) -> Unit)? = null
     ): String {
         val subscriptionInfo = SubscriptionInfo(
             id = id,
@@ -492,7 +497,8 @@ class NostrRelayManager private constructor() {
             handler = handler,
             targetRelayUrls = targetRelayUrls?.toSet(),
             owner = owner,
-            liveLocationToken = liveLocationToken
+            liveLocationToken = liveLocationToken,
+            onEndOfStoredEvents = onEndOfStoredEvents
         )
         
         runNetworkAction(liveLocationToken) {
@@ -909,7 +915,8 @@ class NostrRelayManager private constructor() {
         }
     }
 
-    private fun handleMessage(message: String, relayUrl: String) {
+    @VisibleForTesting
+    internal fun handleMessage(message: String, relayUrl: String) {
         try {
             val jsonElement = JsonParser.parseString(message)
             if (!jsonElement.isJsonArray) {
@@ -957,7 +964,15 @@ class NostrRelayManager private constructor() {
                 }
 
                 is NostrResponse.EndOfStoredEvents -> {
-                    // No action needed
+                    val subscriptionInfo = activeSubscriptions[response.subscriptionId] ?: return
+                    val callback = subscriptionInfo.onEndOfStoredEvents ?: return
+                    if (!isNetworkActionAllowed(subscriptionInfo.liveLocationToken)) return
+                    // Same path as event handlers, so EOSE never overtakes this relay's events
+                    scope.launch(Dispatchers.Main) {
+                        if (isNetworkActionAllowed(subscriptionInfo.liveLocationToken)) {
+                            callback(relayUrl)
+                        }
+                    }
                 }
 
                 is NostrResponse.Ok -> {

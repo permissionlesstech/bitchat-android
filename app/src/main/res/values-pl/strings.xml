@@ -12,6 +12,7 @@
   <string name="location_notes_no_relays_title">brak przekaźników geo w pobliżu</string>
   <string name="location_notes_no_relays_desc">notatki zależą od przekaźników geo. sprawdź połączenie i spróbuj ponownie.</string>
   <string name="loading_location_notes">ładowanie notatek…</string>
+  <string name="location_notes_relays_slow">nie można jeszcze połączyć się z przekaźnikami — wciąż próbujemy…</string>
   <string name="location_notes_empty_title">brak notatek</string>
   <string name="location_notes_empty_desc">bądź pierwszy, który doda notatkę dla tego miejsca.</string>
   <string name="dismiss">zamknij</string>

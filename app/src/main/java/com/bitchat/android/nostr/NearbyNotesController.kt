@@ -1,5 +1,7 @@
 package com.bitchat.android.nostr
 
+import android.os.Handler
+import android.os.Looper
 import androidx.annotation.MainThread
 import com.bitchat.android.geohash.GeohashChannel
 import com.bitchat.android.geohash.GeohashChannelLevel
@@ -18,6 +20,9 @@ import kotlinx.coroutines.flow.asStateFlow
 class NearbyNotesController internal constructor(
     private val subscribe: (String) -> Unit,
     private val unsubscribe: () -> Unit,
+    /** Runs the action after the delay and returns a function that cancels it. */
+    private val scheduleRelease: (delayMs: Long, action: () -> Unit) -> () -> Unit =
+        { _, action -> action(); {} },
 ) {
     private val _revealed = MutableStateFlow(false)
     val revealed: StateFlow<Boolean> = _revealed.asStateFlow()
@@ -28,6 +33,8 @@ class NearbyNotesController internal constructor(
     private var appForeground = false
     private var buildingGeohash: String? = null
     private var subscribedGeohash: String? = null
+    private var releasePending = false
+    private var cancelRelease: (() -> Unit)? = null
 
     /**
      * Unlocks nearby notes for this process session. Deactivation deliberately
@@ -41,13 +48,27 @@ class NearbyNotesController internal constructor(
 
     /** Holds the subscription while a nearby-notes surface is visible. */
     fun activate() {
+        cancelPendingRelease()
         activeHolders += 1
         reconcileSubscription()
     }
 
-    /** Releases a matching [activate] hold and unsubscribes after the last one. */
+    /**
+     * Releases a matching [activate] hold. After the last one the subscription
+     * closes once [RELEASE_GRACE_MS] passes without a new hold, so a surface
+     * that is rebuilt (dispose, then compose again) keeps its notes.
+     */
     fun deactivate() {
         activeHolders = (activeHolders - 1).coerceAtLeast(0)
+        if (activeHolders == 0 && subscribedGeohash != null && !releasePending) {
+            releasePending = true
+            val cancel = scheduleRelease(RELEASE_GRACE_MS) {
+                releasePending = false
+                cancelRelease = null
+                reconcileSubscription()
+            }
+            if (releasePending) cancelRelease = cancel
+        }
         reconcileSubscription()
     }
 
@@ -83,13 +104,17 @@ class NearbyNotesController internal constructor(
             buildingGeohash != null
 
     private fun reconcileSubscription() {
-        val target = buildingGeohash.takeIf {
-            activeHolders > 0 &&
-                appForeground &&
+        val allowed = buildingGeohash.takeIf {
+            appForeground &&
                 _revealed.value &&
                 locationEnabled &&
                 locationAuthorized
         }
+        // The release grace only keeps an open subscription; any privacy change ends it
+        if (allowed == null || (activeHolders == 0 && allowed != subscribedGeohash)) {
+            cancelPendingRelease()
+        }
+        val target = allowed.takeIf { activeHolders > 0 || releasePending }
 
         if (subscribedGeohash != null && subscribedGeohash != target) {
             unsubscribe()
@@ -102,12 +127,26 @@ class NearbyNotesController internal constructor(
         }
     }
 
+    private fun cancelPendingRelease() {
+        cancelRelease?.invoke()
+        cancelRelease = null
+        releasePending = false
+    }
+
     companion object {
+        const val RELEASE_GRACE_MS = 1_000L
+
         val shared: NearbyNotesController by lazy {
             val manager = LocationNotesManager.getInstance()
+            val mainHandler = Handler(Looper.getMainLooper())
             NearbyNotesController(
                 subscribe = manager::setGeohash,
                 unsubscribe = manager::stop,
+                scheduleRelease = { delayMs, action ->
+                    val runnable = Runnable(action)
+                    mainHandler.postDelayed(runnable, delayMs)
+                    ({ mainHandler.removeCallbacks(runnable) })
+                },
             )
         }
     }

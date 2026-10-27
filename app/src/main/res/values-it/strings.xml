@@ -370,6 +370,7 @@
   <string name="location_notes_no_relays_title">nessun relay geolocalizzato nelle vicinanze</string>
   <string name="location_notes_no_relays_desc">le note dipendono dai relay geo. controlla la connessione e riprova.</string>
   <string name="loading_location_notes">caricamento note…</string>
+  <string name="location_notes_relays_slow">relay non ancora raggiungibili — nuovo tentativo in corso…</string>
   <string name="location_notes_empty_title">nessuna nota ancora</string>
   <string name="location_notes_empty_desc">sii il primo ad aggiungerne una per questo posto.</string>
   <string name="dismiss">chiudi</string>

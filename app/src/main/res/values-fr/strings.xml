@@ -355,6 +355,7 @@
   <string name="location_notes_no_relays_title">aucun relais géo à proximité</string>
   <string name="location_notes_no_relays_desc">les notes dépendent des relais géo. vérifiez la connexion et réessayez.</string>
   <string name="loading_location_notes">chargement des notes…</string>
+  <string name="location_notes_relays_slow">relais encore injoignables — nouvelle tentative en cours…</string>
   <string name="location_notes_empty_title">aucune note pour le moment</string>
   <string name="location_notes_empty_desc">soyez le premier à en ajouter pour cet endroit.</string>
   <string name="dismiss">fermer</string>

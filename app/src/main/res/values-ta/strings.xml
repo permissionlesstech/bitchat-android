@@ -247,6 +247,7 @@
   <string name="location_notes_no_relays_title">அருகில் ஜியோ ரிலேகள் இல்லை</string>
   <string name="location_notes_no_relays_desc">குறிப்புகள் ஜியோ ரிலேகளை நம்பியுள்ளன. இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.</string>
   <string name="loading_location_notes">குறிப்புகளை ஏற்றுகிறது…</string>
+  <string name="location_notes_relays_slow">ரிலேக்களை இன்னும் அணுக முடியவில்லை — தொடர்ந்து முயற்சிக்கிறது…</string>
   <string name="location_notes_empty_title">இதுவரை குறிப்புகள் இல்லை</string>
   <string name="location_notes_empty_desc">இந்த இடத்திற்கு முதலில் ஒன்றைச் சேர்க்கவும்.</string>
   <string name="dismiss">நிராகரி</string>

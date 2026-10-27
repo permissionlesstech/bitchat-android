@@ -19,6 +19,8 @@ class LocationNotesManager private constructor() {
     companion object {
         private const val TAG = "LocationNotesManager"
         private const val MAX_NOTES_IN_MEMORY = 500
+        /** How long to wait for any relay to answer before reporting slow relays. */
+        internal const val INITIAL_LOAD_FALLBACK_MS = 10_000L
         
         @Volatile
         private var INSTANCE: LocationNotesManager? = null
@@ -81,6 +83,10 @@ class LocationNotesManager private constructor() {
     
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    /** True while loading has waited [INITIAL_LOAD_FALLBACK_MS] with no relay answer. */
+    private val _relaysSlow = MutableStateFlow(false)
+    val relaysSlow: StateFlow<Boolean> = _relaysSlow.asStateFlow()
     
     // Private state
     private var subscriptionIDs: MutableMap<String, String> = mutableMapOf()
@@ -89,7 +95,7 @@ class LocationNotesManager private constructor() {
     
     // Dependencies (injected via setters for flexibility)
     private var relayLookup: (() -> NostrRelayManager)? = null
-    private var subscribeFunc: ((NostrFilter, String, (NostrEvent) -> Unit) -> String)? = null
+    private var subscribeFunc: ((NostrFilter, String, (NostrEvent) -> Unit, () -> Unit) -> String)? = null
     private var unsubscribeFunc: ((String) -> Unit)? = null
     private var sendEventFunc: ((NostrEvent, List<String>?, Long) -> Unit)? = null
     private var deriveIdentityFunc: ((String) -> NostrIdentity)? = null
@@ -99,6 +105,8 @@ class LocationNotesManager private constructor() {
     private var liveLocationToken: Long? = null
     private var subscribeRetryJob: Job? = null
     private var initialLoadJob: Job? = null
+    // Bumped on every subscribe and cancel, so an older subscription's EOSE is ignored
+    private var loadGeneration = 0L
 
     init {
         LiveLocationPrivacyGate.addRevocationListener(::stop)
@@ -109,7 +117,7 @@ class LocationNotesManager private constructor() {
      */
     fun initialize(
         relayManager: () -> NostrRelayManager,
-        subscribe: (NostrFilter, String, (NostrEvent) -> Unit) -> String,
+        subscribe: (NostrFilter, String, (NostrEvent) -> Unit, () -> Unit) -> String,
         unsubscribe: (String) -> Unit,
         sendEvent: (NostrEvent, List<String>?, Long) -> Unit,
         deriveIdentity: (String) -> NostrIdentity
@@ -155,8 +163,7 @@ class LocationNotesManager private constructor() {
         _errorMessage.value = null
         
         // Clear notes
-        _notes.value = emptyList()
-        noteIDs.clear()
+        clearNotes()
         _geohash.value = normalized
         
         // Compute target geohashes: center + neighbors (±1)
@@ -196,8 +203,7 @@ class LocationNotesManager private constructor() {
         cancel()
         if (!LiveLocationPrivacyGate.accepts(token)) return
         liveLocationToken = token
-        _notes.value = emptyList()
-        noteIDs.clear()
+        clearNotes()
         _initialLoadComplete.value = false
         // Rebuild subscribedGeohashes and resubscribe
         val neighbors = try {
@@ -370,6 +376,7 @@ class LocationNotesManager private constructor() {
         }
 
         _state.value = State.LOADING
+        val generation = ++loadGeneration
         
         // Subscribe for each geohash in the ±1 set
         subscribedGeohashes.forEach { gh ->
@@ -383,7 +390,12 @@ class LocationNotesManager private constructor() {
             try {
                 var id: String? = null
                 LiveLocationPrivacyGate.runIfAllowed(token) {
-                    id = subscribe(filter, subId) { event -> handleEvent(event) }
+                    id = subscribe(
+                        filter,
+                        subId,
+                        { event -> handleEvent(event) },
+                        { handleEndOfStoredEvents(generation, token) }
+                    )
                 }
                 id?.let { subscriptionIDs[gh] = it }
             } catch (e: Exception) {
@@ -391,17 +403,37 @@ class LocationNotesManager private constructor() {
             }
         }
         
-        // Mark initial load complete after brief delay to allow relay responses
+        // The load completes when a relay answers; until then keep loading, and
+        // tell the user after a while that relays are slow (never "no notes")
         initialLoadJob = scope.launch {
-            delay(2000) // Wait 2 seconds for initial batch
+            delay(INITIAL_LOAD_FALLBACK_MS)
             if (_geohash.value == currentGeohash &&
                 LiveLocationPrivacyGate.accepts(token) &&
                 !_initialLoadComplete.value
             ) {
-                _initialLoadComplete.value = true
-                _state.value = State.READY
+                _relaysSlow.value = true
             }
         }
+    }
+
+    /**
+     * A relay sent all stored notes it has for one of the subscriptions.
+     * Ignored when it belongs to an earlier subscription or consent changed since.
+     */
+    private fun handleEndOfStoredEvents(generation: Long, token: Long) {
+        if (generation != loadGeneration ||
+            !LiveLocationPrivacyGate.accepts(token) ||
+            _initialLoadComplete.value
+        ) return
+        completeInitialLoad()
+    }
+
+    private fun completeInitialLoad() {
+        initialLoadJob?.cancel()
+        initialLoadJob = null
+        _initialLoadComplete.value = true
+        _relaysSlow.value = false
+        _state.value = State.READY
     }
     
     /**
@@ -409,7 +441,10 @@ class LocationNotesManager private constructor() {
      */
     private fun handleEvent(event: NostrEvent) {
         val token = liveLocationToken
-        if (token == null || !LiveLocationPrivacyGate.accepts(token)) return
+        if (token == null || !LiveLocationPrivacyGate.accepts(token)) {
+            forgetDroppedEvent(event)
+            return
+        }
 
         // Validate event
         if (event.kind != NostrKind.TEXT_NOTE) {
@@ -432,6 +467,7 @@ class LocationNotesManager private constructor() {
         // Check if matches current geohash
         val eventGeohash = geohashTag[1]
         if (!subscribedGeohashes.contains(eventGeohash)) {
+            forgetDroppedEvent(event)
             return
         }
         
@@ -464,12 +500,20 @@ class LocationNotesManager private constructor() {
         }
         
         // Update state
-        if (!_initialLoadComplete.value!!) {
-            _initialLoadComplete.value = true
+        if (!_initialLoadComplete.value) {
+            completeInitialLoad()
         }
         _state.value = State.READY
     }
     
+    /**
+     * The relay manager marked this event seen before it reached us; a note that
+     * arrives after its subscription ended must stay deliverable to the next one.
+     */
+    private fun forgetDroppedEvent(event: NostrEvent) {
+        NostrEventDeduplicator.getInstance().forget(listOf(event.id))
+    }
+
     /**
      * Trim oldest notes to stay within memory limit
      */
@@ -487,6 +531,17 @@ class LocationNotesManager private constructor() {
         Log.d(TAG, "Trimmed notes to $MAX_NOTES_IN_MEMORY (removed ${currentNotes.size - trimmed.size})")
     }
     
+    /**
+     * Drop the shown notes. Their ids are also forgotten by the relay manager's
+     * global deduplicator, otherwise a later subscription in this process could
+     * never receive the same stored notes again.
+     */
+    private fun clearNotes() {
+        NostrEventDeduplicator.getInstance().forget(noteIDs)
+        noteIDs.clear()
+        _notes.value = emptyList()
+    }
+
     /**
      * Clear error message - matches iOS clearError()
      */
@@ -512,6 +567,8 @@ class LocationNotesManager private constructor() {
             subscriptionIDs.clear()
         }
         subscribedGeohashes = emptySet()
+        loadGeneration++
+        _relaysSlow.value = false
         _state.value = State.IDLE
     }
 
@@ -524,8 +581,7 @@ class LocationNotesManager private constructor() {
         cancel()
         liveLocationToken = null
         _geohash.value = null
-        _notes.value = emptyList()
-        noteIDs.clear()
+        clearNotes()
         _initialLoadComplete.value = false
         _errorMessage.value = null
     }

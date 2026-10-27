@@ -63,8 +63,9 @@ fun LocationNotesSheet(
     val state by notesManager.state.collectAsStateWithLifecycle(LocationNotesManager.State.IDLE)
     val errorMessage by notesManager.errorMessage.collectAsStateWithLifecycle()
     val initialLoadComplete by notesManager.initialLoadComplete.collectAsStateWithLifecycle(false)
+    val relaysSlow by notesManager.relaysSlow.collectAsStateWithLifecycle()
     val permissionState by locationManager.permissionState.collectAsStateWithLifecycle()
-    val locationEnabled by locationManager.effectiveLocationEnabled.collectAsStateWithLifecycle(false)
+    val locationEnabled by locationManager.effectiveLocationEnabled.collectAsStateWithLifecycle()
     
     // SIMPLIFIED: Get count directly from notes list (no separate counter needed)
     val count = notes.size
@@ -145,7 +146,12 @@ fun LocationNotesSheet(
                     }
                     state == LocationNotesManager.State.LOADING && !initialLoadComplete -> {
                         item {
-                            LoadingRow()
+                            LoadingRow(
+                                text = stringResource(
+                                    if (relaysSlow) R.string.location_notes_relays_slow
+                                    else R.string.loading_location_notes
+                                )
+                            )
                         }
                     }
                     notes.isEmpty() -> {
@@ -367,7 +373,7 @@ private fun NoRelaysRow(onRetry: () -> Unit) {
  * Loading row - matches iOS loadingRow
  */
 @Composable
-private fun LoadingRow() {
+private fun LoadingRow(text: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -381,7 +387,7 @@ private fun LoadingRow() {
         )
         Spacer(modifier = Modifier.width(10.dp))
         Text(
-            text = stringResource(R.string.loading_location_notes),
+            text = text,
             fontFamily = BitchatFontFamily,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)

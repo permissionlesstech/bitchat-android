@@ -343,6 +343,7 @@
   <string name="location_notes_no_relays_title">nenhum relé geográfico nas proximidades</string>
   <string name="location_notes_no_relays_desc">as notas dependem de relés geográficos. verifique a conexão e tente novamente.</string>
   <string name="loading_location_notes">carregando notas…</string>
+  <string name="location_notes_relays_slow">ainda não foi possível alcançar os relays — tentando novamente…</string>
   <string name="location_notes_empty_title">ainda não há notas</string>
   <string name="location_notes_empty_desc">seja o primeiro a adicionar uma para este local.</string>
   <string name="dismiss">fechar</string>

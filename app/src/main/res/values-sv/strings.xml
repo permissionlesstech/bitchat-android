@@ -328,6 +328,7 @@
   <string name="location_notes_no_relays_title">inga geo-reläer i närheten</string>
   <string name="location_notes_no_relays_desc">anteckningar är beroende av geo-reläer. kontrollera anslutningen och försök igen.</string>
   <string name="loading_location_notes">laddar anteckningar…</string>
+  <string name="location_notes_relays_slow">når inte reläerna än — försöker fortfarande…</string>
   <string name="location_notes_empty_title">inga anteckningar ännu</string>
   <string name="location_notes_empty_desc">var först med att lägga till en anteckning för den här platsen.</string>
   <string name="dismiss">stäng</string>

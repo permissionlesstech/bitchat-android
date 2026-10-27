@@ -225,6 +225,7 @@
   <string name="location_notes_no_relays_title">tiada geganti geo berdekatan</string>
   <string name="location_notes_no_relays_desc">nota bergantung pada geganti geo. semak sambungan dan cuba lagi.</string>
   <string name="loading_location_notes">memuatkan nota…</string>
+  <string name="location_notes_relays_slow">belum dapat mencapai relay — masih mencuba…</string>
   <string name="location_notes_empty_title">belum ada nota</string>
   <string name="location_notes_empty_desc">jadilah yang pertama menambah satu untuk tempat ini.</string>
   <string name="dismiss">tolak</string>
