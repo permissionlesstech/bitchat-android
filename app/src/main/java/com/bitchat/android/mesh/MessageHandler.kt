@@ -39,6 +39,11 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
     // Reference to PacketProcessor for recursive packet handling
     var packetProcessor: PacketProcessor? = null
 
+    // A transport recreated after panic receives a new admission generation. Delayed callbacks
+    // from this handler must retain their original generation, including after reception resumes.
+    private val liveVoiceReceiverGeneration =
+        LiveVoiceManager.getInstance(appContext).currentReceiverGeneration()
+
     // Coroutines
     private val handlerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -183,7 +188,8 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                         nickname = delegate?.getPeerNickname(peerID) ?: peerID,
                         scope = LiveVoiceScope.DIRECT_MESSAGE,
                         payload = noisePayload.data,
-                        timestampMs = packet.timestamp.toLong()
+                        timestampMs = packet.timestamp.toLong(),
+                        receiverGeneration = liveVoiceReceiverGeneration
                     )
                 }
 
@@ -522,7 +528,8 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
             nickname = delegate?.getPeerNickname(peerID) ?: peerID,
             scope = LiveVoiceScope.PUBLIC_MESH,
             payload = packet.payload,
-            timestampMs = packet.timestamp.toLong()
+            timestampMs = packet.timestamp.toLong(),
+            receiverGeneration = liveVoiceReceiverGeneration
         )
     }
     

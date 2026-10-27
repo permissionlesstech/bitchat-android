@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
@@ -64,7 +65,10 @@ sealed interface LiveVoiceEvent {
 }
 
 /** Shared phone/Wear receiver: bounded assembly, live playback, bubble state and note absorption. */
-class LiveVoiceManager private constructor(private val context: Context) {
+class LiveVoiceManager internal constructor(
+    context: Context,
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+) {
     companion object {
         private const val TAG = "LiveVoiceManager"
         private const val MAX_CONCURRENT_ASSEMBLIES = 8
@@ -92,6 +96,8 @@ class LiveVoiceManager private constructor(private val context: Context) {
             }?.lowercase()
         }
     }
+
+    private val context = context.applicationContext
 
     private data class AssemblyKey(
         val peerID: String,
@@ -131,7 +137,8 @@ class LiveVoiceManager private constructor(private val context: Context) {
         val bytes: Int
     )
 
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var receiverGeneration = 0L
+    private var panicSuspended = false
     private val assemblies = linkedMapOf<AssemblyKey, Assembly>()
     private val finishedBursts = linkedMapOf<AssemblyKey, FinishedBurst>()
     private val _liveMessageIDs = MutableStateFlow<Set<String>>(emptySet())
@@ -178,16 +185,18 @@ class LiveVoiceManager private constructor(private val context: Context) {
         visiblePeerID = null
     }
 
-    /** Returns false only when the frame itself violates the live-voice wire/resource contract. */
+    /** Returns true for framing-valid stale or suspended reception without creating a local assembly. */
     @Synchronized
     fun handleFrame(
         peerID: String,
         nickname: String,
         scope: LiveVoiceScope,
         payload: ByteArray,
-        timestampMs: Long
+        timestampMs: Long,
+        receiverGeneration: Long
     ): Boolean {
         val packet = VoiceBurstPacket.decode(payload) ?: return false
+        if (panicSuspended || receiverGeneration != this.receiverGeneration) return true
         if (!LiveVoicePreferences.isEnabled(context)) return true
         val burstHex = VoiceBurstPacket.burstIDHex(packet.burstID)
         val key = AssemblyKey(peerID, scope, burstHex)
@@ -278,6 +287,22 @@ class LiveVoiceManager private constructor(private val context: Context) {
     }
 
     @Synchronized
+    fun currentReceiverGeneration(): Long = receiverGeneration
+
+    /** Revoke old receivers and cancel assemblies before message/media storage is erased. */
+    @Synchronized
+    fun suspendForPanic() {
+        panicSuspended = true
+        receiverGeneration += 1
+        reset()
+    }
+
+    @Synchronized
+    fun resumeAfterPanic() {
+        panicSuspended = false
+    }
+
+    @Synchronized
     fun reset() {
         assemblies.values.toList().forEach(::cancelAssembly)
         activePlayer?.stop()
@@ -337,6 +362,8 @@ class LiveVoiceManager private constructor(private val context: Context) {
                 assembly.gapJob = scope.launch {
                     delay(GAP_SKIP_MS)
                     synchronized(this@LiveVoiceManager) {
+                        // Cancellation can happen after the delay while this callback waits for the lock.
+                        if (!isActive) return@synchronized
                         val current = assemblies[key] ?: return@synchronized
                         current.buffered.firstKey()?.let { skipGap(current, it) }
                         current.gapJob = null
@@ -455,6 +482,8 @@ class LiveVoiceManager private constructor(private val context: Context) {
         assembly.idleJob = scope.launch {
             delay(IDLE_TIMEOUT_MS)
             synchronized(this@LiveVoiceManager) {
+                // Recheck cancellation after acquiring the monitor, before touching a replacement.
+                if (!isActive) return@synchronized
                 assemblies[key]?.let(::finalizeAssembly)
             }
         }
