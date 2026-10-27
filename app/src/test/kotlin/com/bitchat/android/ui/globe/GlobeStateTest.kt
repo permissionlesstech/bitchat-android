@@ -25,11 +25,30 @@ class GlobeStateTest {
 
     @Test
     fun wholeGlobeFrame_isLevelOne() {
-        // The intro lands on the level-1 frame, which is the whole-globe view.
+        // The whole-globe button's frame is the level-1 frame.
         assertEquals(
             GlobeMath.MIN_ZOOM,
             GlobeMath.zoomForPrecision(1, baseRadiusPx = 475f, screenMinPx = 1080f)
         )
+    }
+
+    @Test
+    fun intro_zoomsWellInButStaysBelowTwoLetterCells() {
+        val state = introState()
+        val end = state.introEndZoom()
+
+        assertTrue("intro should zoom past the whole globe, was $end", end > 3f)
+        assertEquals(1, GlobeMath.autoPrecision(475f * end, 1080f))
+        assertTrue(end < GlobeMath.thresholdZoomForPrecision(2, 475f, 1080f))
+    }
+
+    @Test
+    fun thresholdZoom_matchesAutoPrecisionOnBothSides() {
+        for (precision in 2..6) {
+            val threshold = GlobeMath.thresholdZoomForPrecision(precision, 475f, 1080f)
+            assertEquals(precision, GlobeMath.autoPrecision(475f * threshold * 1.001f, 1080f))
+            assertEquals(precision - 1, GlobeMath.autoPrecision(475f * threshold * 0.999f, 1080f))
+        }
     }
 
     @Test
