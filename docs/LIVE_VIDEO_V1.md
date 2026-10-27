@@ -33,9 +33,12 @@ All multi-byte integers use network byte order (big-endian).
 
 | Layer | Name | Value | Purpose |
 | --- | --- | --- | --- |
-| Outer mesh packet | `MessageType.VIDEO_FRAME` | `0x2A` | Signed public-mesh live video packet |
+| Outer mesh packet | `MessageType.VIDEO_FRAME` | `0x2D` | Signed public-mesh live video packet |
 | Noise inner payload | `NoisePayloadType.VIDEO_FRAME` | `0x0A` | Encrypted direct-message live video packet |
 | Outer private packet | `MessageType.NOISE_ENCRYPTED` | `0x11` | Existing recipient-directed Noise envelope |
+
+Outer types `0x2A` and `0x2B` are reserved for courier spray ack and decline,
+so live video does not use them.
 
 Receivers cap the decoded `VIDEO_FRAME` payload at 4 KiB, the same control
 ceiling as `VOICE_FRAME` (see [PACKET_PAYLOAD_LIMITS.md](PACKET_PAYLOAD_LIMITS.md)).

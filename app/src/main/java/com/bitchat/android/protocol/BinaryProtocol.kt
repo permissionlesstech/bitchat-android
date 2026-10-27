@@ -20,7 +20,7 @@ enum class MessageType(val value: UByte) {
     REQUEST_SYNC(0x21u), // GCS-based sync request
     FILE_TRANSFER(0x22u), // New: File transfer packet (BLE voice notes, etc.)
     VOICE_FRAME(0x29u), // Ephemeral live push-to-talk frame; never added to gossip sync
-    VIDEO_FRAME(0x2Au); // Ephemeral live video packet; never added to gossip sync
+    VIDEO_FRAME(0x2Du); // Ephemeral live video packet; never added to gossip sync
 
     companion object {
         fun fromValue(value: UByte): MessageType? {
