@@ -8,7 +8,6 @@
     <string name="cd_remove_bookmark">বুকমার্ক সরান</string>
     <string name="cd_decrease_precision">নির্ভুলতা কমান</string>
     <string name="cd_increase_precision">নির্ভুলতা বাড়ান</string>
-    <string name="cd_select_geohash">জিওহ্যাশ নির্বাচন করুন</string>
     <!-- জিওহ্যাশ চ্যানেল শিট -->
     <string name="location_channels_title">#অবস্থান চ্যানেল</string>
     <string name="location_channels_desc">জিওহ্যাশ চ্যানেলের মাধ্যমে আপনার কাছাকাছি মানুষদের সাথে চ্যাট করুন। শুধুমাত্র রূঢ় জিওহ্যাশ শেয়ার করা হয়, সঠিক GPS ডেটা নয়। গোপনীয়তার জন্য দয়া করে এই ভিউ স্ক্রিনশট করবেন না বা শেয়ার করবেন না।</string>
@@ -27,12 +26,22 @@
     <string name="location_level_region">অঞ্চল</string>
     <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
 
-    <string name="pan_zoom_instruction">জিওহ্যাশ নির্বাচন করতে প্যান এবং জুম করুন</string>
-    <string name="select">নির্বাচন করুন</string>
     <plurals name="people_count">
         <item quantity="one">১ জন</item>
         <item quantity="other">%d জন</item>
     </plurals>
 
   <string name="nearby_notes_reveal">এখানে রাখা নোট আছে কি না দেখুন</string>
+    <string name="globe_live">লাইভ</string>
+    <string name="globe_connecting">সংযুক্ত হচ্ছে</string>
+    <string name="globe_offline">অফলাইন</string>
+    <string name="globe_hint_drag">ঘোরান</string>
+    <string name="globe_hint_pinch">জুম</string>
+    <string name="globe_hint_tap">একটি বিন্দুতে ট্যাপ করুন</string>
+    <string name="globe_no_activity">সাম্প্রতিক কোনো কার্যকলাপ নেই</string>
+    <string name="cd_show_whole_globe">পুরো গ্লোব দেখান</string>
+    <string name="cd_globe_activity">%1$dটি সক্রিয় চ্যাট, %2$d জন অনলাইনে</string>
+    <string name="cd_channel_activity">%1$d জন, গত এক ঘণ্টায় %2$dটি বার্তা</string>
+    <string name="join">যোগ দিন</string>
+    <string name="cd_close">বন্ধ করুন</string>
 </resources>

@@ -8,7 +8,6 @@
     <string name="cd_remove_bookmark">ブックマークを削除</string>
     <string name="cd_decrease_precision">精度を下げる</string>
     <string name="cd_increase_precision">精度を上げる</string>
-    <string name="cd_select_geohash">Geohash を選択</string>
     <!-- Geohash チャンネル シート -->
     <string name="location_channels_title">#ロケーション・チャンネル</string>
     <string name="location_channels_desc">Geohash チャンネルで近くの人とチャットしましょう。共有されるのは大まかな geohash のみで、正確な GPS データは共有されません。プライバシー保護のため、この画面のスクリーンショットや共有は行わないでください。</string>
@@ -27,8 +26,6 @@
     <string name="location_level_region">地域</string>
     <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
 
-    <string name="pan_zoom_instruction">パン/ズームして geohash を選択</string>
-    <string name="select">選択</string>
     <plurals name="people_count">
         <item quantity="one">1 人</item>
         <item quantity="other">%d 人</item>
@@ -48,4 +45,16 @@
   <string name="dismiss">閉じる</string>
   <string name="location_notes_input_placeholder">この場所へのメモを追加</string>
   <string name="nearby_notes_reveal">ここに残されたメモを確認</string>
+    <string name="globe_live">ライブ</string>
+    <string name="globe_connecting">接続中</string>
+    <string name="globe_offline">オフライン</string>
+    <string name="globe_hint_drag">回転</string>
+    <string name="globe_hint_pinch">ズーム</string>
+    <string name="globe_hint_tap">ドットをタップ</string>
+    <string name="globe_no_activity">最近のアクティビティなし</string>
+    <string name="cd_show_whole_globe">地球全体を表示</string>
+    <string name="cd_globe_activity">アクティブなチャット %1$d 件、オンライン %2$d 人</string>
+    <string name="cd_channel_activity">%1$d 人、過去1時間のメッセージ %2$d 件</string>
+    <string name="join">参加</string>
+    <string name="cd_close">閉じる</string>
 </resources>

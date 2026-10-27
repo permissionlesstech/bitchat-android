@@ -8,7 +8,6 @@
     <string name="cd_remove_bookmark">Lesezeichen entfernen</string>
     <string name="cd_decrease_precision">Genauigkeit verringern</string>
     <string name="cd_increase_precision">Genauigkeit erhöhen</string>
-    <string name="cd_select_geohash">Geohash auswählen</string>
     <!-- Geohash‑Kanäle Sheet -->
     <string name="location_channels_title">#Standort‑Kanäle</string>
     <string name="location_channels_desc">Chatte mit Menschen in deiner Nähe über Geohash‑Kanäle. Es wird nur ein grober Geohash geteilt, niemals exakte GPS‑Daten. Mache zur Wahrung deiner Privatsphäre keine Screenshots und teile diesen Bildschirm nicht.</string>
@@ -27,8 +26,6 @@
     <string name="location_level_region">Region</string>
     <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
 
-    <string name="pan_zoom_instruction">schwenken und zoomen, um einen Geohash auszuwählen</string>
-    <string name="select">auswählen</string>
     <plurals name="people_count">
         <item quantity="one">1 Person</item>
         <item quantity="other">%d Personen</item>
@@ -49,4 +46,16 @@
   <string name="dismiss">schließen</string>
   <string name="location_notes_input_placeholder">füge eine Notiz zu diesem Ort hinzu</string>
   <string name="nearby_notes_reveal">nachsehen, ob hier notizen hinterlassen wurden</string>
+    <string name="globe_live">live</string>
+    <string name="globe_connecting">verbinde</string>
+    <string name="globe_offline">offline</string>
+    <string name="globe_hint_drag">drehen</string>
+    <string name="globe_hint_pinch">zoomen</string>
+    <string name="globe_hint_tap">Punkt antippen</string>
+    <string name="globe_no_activity">keine aktuelle Aktivität</string>
+    <string name="cd_show_whole_globe">Ganzen Globus anzeigen</string>
+    <string name="cd_globe_activity">%1$d aktive Chats, %2$d Personen online</string>
+    <string name="cd_channel_activity">%1$d Personen, %2$d Nachrichten in der letzten Stunde</string>
+    <string name="join">Beitreten</string>
+    <string name="cd_close">Schließen</string>
 </resources>

@@ -8,7 +8,6 @@
     <string name="cd_remove_bookmark">북마크 제거</string>
     <string name="cd_decrease_precision">정밀도 낮추기</string>
     <string name="cd_increase_precision">정밀도 높이기</string>
-    <string name="cd_select_geohash">geohash 선택</string>
     <!-- geohash 채널 시트 -->
     <string name="location_channels_title">#위치 채널</string>
     <string name="location_channels_desc">geohash 채널을 통해 주변 사람들과 채팅하세요. 정확한 GPS 데이터가 아닌 대략적인 geohash만 공유됩니다. 개인 정보 보호를 위해 이 화면을 스크린샷하거나 공유하지 마세요.</string>
@@ -27,8 +26,6 @@
     <string name="location_level_region">지역</string>
     <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
 
-    <string name="pan_zoom_instruction">geohash를 선택하려면 이동하고 확대/축소하세요</string>
-    <string name="select">선택</string>
     <plurals name="people_count">
         <item quantity="one">1명</item>
         <item quantity="other">%d명</item>
@@ -48,4 +45,16 @@
   <string name="dismiss">닫기</string>
   <string name="location_notes_input_placeholder">이 장소에 노트 추가</string>
   <string name="nearby_notes_reveal">여기 남겨진 쪽지 확인</string>
+    <string name="globe_live">라이브</string>
+    <string name="globe_connecting">연결 중</string>
+    <string name="globe_offline">오프라인</string>
+    <string name="globe_hint_drag">회전</string>
+    <string name="globe_hint_pinch">확대</string>
+    <string name="globe_hint_tap">점을 탭하세요</string>
+    <string name="globe_no_activity">최근 활동 없음</string>
+    <string name="cd_show_whole_globe">지구 전체 보기</string>
+    <string name="cd_globe_activity">활성 채팅 %1$d개, 온라인 %2$d명</string>
+    <string name="cd_channel_activity">%1$d명, 지난 1시간 메시지 %2$d개</string>
+    <string name="join">참가</string>
+    <string name="cd_close">닫기</string>
 </resources>

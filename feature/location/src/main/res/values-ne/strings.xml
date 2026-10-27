@@ -8,7 +8,6 @@
     <string name="cd_remove_bookmark">बुकमार्क हटाउनुहोस्</string>
     <string name="cd_decrease_precision">शुद्धता घटाउनुहोस्</string>
     <string name="cd_increase_precision">शुद्धता बढाउनुहोस्</string>
-    <string name="cd_select_geohash">geohash छान्नुहोस्</string>
     <!-- स्थान च्यानल शीट -->
     <string name="location_channels_title">#स्थान च्यानल</string>
     <string name="location_channels_desc">तपाईंको वरिपरिका मानिसहरूसँग geohash च्यानल प्रयोग गरी च्याट गर्नुहोस्। केवल सामान्य geohash साझा हुन्छ, कहिल्यै ठ्याक्कै GPS होइन। गोपनीयताका लागि स्क्रिनसट नलिनुहोस् र नबाँड्नुहोस्।</string>
@@ -27,8 +26,6 @@
     <string name="location_level_province">प्रान्त</string>
     <string name="location_level_region">क्षेत्र</string>
 
-    <string name="pan_zoom_instruction">geohash छान्न प्यान र जुम गर्नुहोस्</string>
-    <string name="select">छान्नुहोस्</string>
     <string name="hash_symbol">#</string>
     <plurals name="people_count">
         <item quantity="one">1 जना</item>
@@ -36,4 +33,15 @@
     </plurals>
 
   <string name="nearby_notes_reveal">यहाँ छोडिएका नोटहरू छन् कि हेर्नुहोस्</string>
+    <string name="globe_live">लाइभ</string>
+    <string name="globe_connecting">जडान हुँदै</string>
+    <string name="globe_offline">अफलाइन</string>
+    <string name="globe_hint_drag">घुमाउनुहोस्</string>
+    <string name="globe_hint_pinch">जुम</string>
+    <string name="globe_hint_tap">एउटा बिन्दुमा ट्याप गर्नुहोस्</string>
+    <string name="globe_no_activity">हालको कुनै गतिविधि छैन</string>
+    <string name="cd_show_whole_globe">पूरै ग्लोब देखाउनुहोस्</string>
+    <string name="cd_globe_activity">%1$d सक्रिय च्याट, %2$d जना अनलाइन</string>
+    <string name="cd_channel_activity">%1$d जना, पछिल्लो एक घण्टामा %2$d सन्देश</string>
+    <string name="join">जोडिनुहोस्</string>
 </resources>

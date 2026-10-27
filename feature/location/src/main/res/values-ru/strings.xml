@@ -8,7 +8,6 @@
     <string name="cd_remove_bookmark">Удалить закладку</string>
     <string name="cd_decrease_precision">Уменьшить точность</string>
     <string name="cd_increase_precision">Увеличить точность</string>
-    <string name="cd_select_geohash">Выбрать geohash</string>
     <string name="location_channels_title">#каналы локации</string>
     <string name="location_channels_desc">общайся с людьми рядом через каналы geohash. делится только грубый geohash, никогда точный gps. не делай скриншоты и не делись экраном для защиты приватности.</string>
     <string name="location_permission_denied">доступ к локации запрещён. включите в настройках для использования каналов.</string>
@@ -26,8 +25,6 @@
     <string name="location_level_province">область</string>
     <string name="location_level_region">регион</string>
 
-    <string name="pan_zoom_instruction">прокрутите/масштабируйте для выбора geohash</string>
-    <string name="select">выбрать</string>
     <string name="hash_symbol">#</string>
     <plurals name="people_count">
         <item quantity="one">1 человек</item>
@@ -48,4 +45,15 @@
   <string name="dismiss">закрыть</string>
   <string name="location_notes_input_placeholder">добавьте заметку для этого места</string>
   <string name="nearby_notes_reveal">проверить, есть ли здесь заметки</string>
+    <string name="globe_live">в эфире</string>
+    <string name="globe_connecting">подключение</string>
+    <string name="globe_offline">офлайн</string>
+    <string name="globe_hint_drag">вращать</string>
+    <string name="globe_hint_pinch">масштаб</string>
+    <string name="globe_hint_tap">нажмите на точку</string>
+    <string name="globe_no_activity">нет недавней активности</string>
+    <string name="cd_show_whole_globe">Показать весь глобус</string>
+    <string name="cd_globe_activity">Активных чатов: %1$d, людей онлайн: %2$d</string>
+    <string name="cd_channel_activity">Людей: %1$d, сообщений за последний час: %2$d</string>
+    <string name="join">Войти</string>
 </resources>

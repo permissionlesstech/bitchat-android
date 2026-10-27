@@ -22,7 +22,6 @@
   <string name="cd_remove_bookmark">移除書籤</string>
   <string name="cd_decrease_precision">降低精確度</string>
   <string name="cd_increase_precision">提高精確度</string>
-  <string name="cd_select_geohash">選擇地理雜湊</string>
   <string name="location_bluetooth_subtitle">#藍牙 • %1$s</string>
   <string name="location_channels_title">#位置頻道</string>
   <string name="location_channels_desc">使用地理雜湊頻道與你附近的人聊天。僅分享粗略的地理雜湊，絕不分享精確的 GPS 位置。請勿對此畫面截圖或分享，以保護你的隱私。</string>
@@ -39,10 +38,20 @@
   <string name="location_level_city">城市</string>
   <string name="location_level_province">省份</string>
   <string name="location_level_region">地區</string>
-  <string name="pan_zoom_instruction">平移並縮放以選擇地理雜湊</string>
-  <string name="select">選擇</string>
   <string name="hash_symbol">#</string>
   <plurals name="people_count">
     <item quantity="other">%1$d 人</item>
   </plurals>
+    <string name="globe_live">即時</string>
+    <string name="globe_connecting">連線中</string>
+    <string name="globe_offline">離線</string>
+    <string name="globe_hint_drag">旋轉</string>
+    <string name="globe_hint_pinch">縮放</string>
+    <string name="globe_hint_tap">點一下圓點</string>
+    <string name="globe_no_activity">最近沒有活動</string>
+    <string name="cd_show_whole_globe">顯示整個地球</string>
+    <string name="cd_globe_activity">%1$d 個活躍聊天，%2$d 人在線上</string>
+    <string name="cd_channel_activity">%1$d 人，過去一小時 %2$d 則訊息</string>
+    <string name="join">加入</string>
+    <string name="cd_close">關閉</string>
 </resources>

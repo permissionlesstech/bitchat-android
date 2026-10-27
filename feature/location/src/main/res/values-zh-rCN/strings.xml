@@ -22,7 +22,6 @@
   <string name="cd_remove_bookmark">移除书签</string>
   <string name="cd_decrease_precision">降低精度</string>
   <string name="cd_increase_precision">提高精度</string>
-  <string name="cd_select_geohash">选择 Geohash</string>
   <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
   <string name="location_channels_title">#位置频道</string>
   <string name="location_channels_desc">使用 Geohash 频道与你附近的人聊天。仅分享粗略的 Geohash，绝不分享精确的 GPS 位置。请勿截图或分享此屏幕，以保护你的隐私。</string>
@@ -39,10 +38,20 @@
   <string name="location_level_city">城市</string>
   <string name="location_level_province">省份</string>
   <string name="location_level_region">地区</string>
-  <string name="pan_zoom_instruction">拖动并缩放以选择一个 geohash</string>
-  <string name="select">选择</string>
   <string name="hash_symbol">#</string>
   <plurals name="people_count">
     <item quantity="other">%1$d 人</item>
   </plurals>
+    <string name="globe_live">实时</string>
+    <string name="globe_connecting">连接中</string>
+    <string name="globe_offline">离线</string>
+    <string name="globe_hint_drag">旋转</string>
+    <string name="globe_hint_pinch">缩放</string>
+    <string name="globe_hint_tap">点按圆点</string>
+    <string name="globe_no_activity">最近没有活动</string>
+    <string name="cd_show_whole_globe">显示整个地球</string>
+    <string name="cd_globe_activity">%1$d 个活跃聊天，%2$d 人在线</string>
+    <string name="cd_channel_activity">%1$d 人，过去一小时 %2$d 条消息</string>
+    <string name="join">加入</string>
+    <string name="cd_close">关闭</string>
 </resources>

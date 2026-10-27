@@ -27,6 +27,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.bundles.testing)
+    testImplementation(libs.gson)
 
     // The Compose BOM for androidTest comes from bitchat.android.library.compose.
     androidTestImplementation(libs.bundles.compose.testing)

@@ -8,7 +8,6 @@
     <string name="cd_remove_bookmark">Rimuovi segnalibro</string>
     <string name="cd_decrease_precision">Diminuisci precisione</string>
     <string name="cd_increase_precision">Aumenta precisione</string>
-    <string name="cd_select_geohash">Seleziona geohash</string>
     <!-- Schermata canali di posizione -->
     <string name="location_channels_title">#canali di posizione</string>
     <string name="location_channels_desc">chatta con persone vicino a te usando i canali geohash. viene condiviso solo un geohash approssimativo, mai la posizione GPS esatta. non fare screenshot o condividere questa schermata per proteggere la tua privacy.</string>
@@ -27,8 +26,6 @@
     <string name="location_level_region">regione</string>
     <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
 
-    <string name="pan_zoom_instruction">scorri e ingrandisci per selezionare un geohash</string>
-    <string name="select">seleziona</string>
     <string name="hash_symbol">#</string>
     <plurals name="people_count">
         <item quantity="one">1 persona</item>
@@ -49,4 +46,16 @@
   <string name="dismiss">chiudi</string>
   <string name="location_notes_input_placeholder">aggiungi una nota per questo luogo</string>
   <string name="nearby_notes_reveal">controlla se ci sono note lasciate qui</string>
+    <string name="globe_live">live</string>
+    <string name="globe_connecting">connessione</string>
+    <string name="globe_offline">offline</string>
+    <string name="globe_hint_drag">ruota</string>
+    <string name="globe_hint_pinch">zoom</string>
+    <string name="globe_hint_tap">tocca un punto</string>
+    <string name="globe_no_activity">nessuna attività recente</string>
+    <string name="cd_show_whole_globe">Mostra tutto il globo</string>
+    <string name="cd_globe_activity">%1$d chat attive, %2$d persone online</string>
+    <string name="cd_channel_activity">%1$d persone, %2$d messaggi nell\'ultima ora</string>
+    <string name="join">Entra</string>
+    <string name="cd_close">Chiudi</string>
 </resources>

@@ -8,7 +8,6 @@
     <string name="cd_remove_bookmark">Retirer le signet</string>
     <string name="cd_decrease_precision">Diminuer la précision</string>
     <string name="cd_increase_precision">Augmenter la précision</string>
-    <string name="cd_select_geohash">Sélectionner le geohash</string>
     <!-- Feuille des canaux de lieu -->
     <string name="location_channels_title">#canaux de lieu</string>
     <string name="location_channels_desc">discute avec des personnes proches via des canaux geohash. seul un geohash approximatif est partagé, jamais un GPS exact. ne prends pas de capture d’écran et ne partage pas cet écran pour protéger ta vie privée.</string>
@@ -27,8 +26,6 @@
     <string name="location_level_province">province</string>
     <string name="location_level_region">région</string>
 
-    <string name="pan_zoom_instruction">déplacer et zoomer pour choisir un geohash</string>
-    <string name="select">sélectionner</string>
     <string name="hash_symbol">#</string>
     <plurals name="people_count">
         <item quantity="one">1 personne</item>
@@ -49,4 +46,15 @@
   <string name="dismiss">fermer</string>
   <string name="location_notes_input_placeholder">ajoutez une note pour cet endroit</string>
   <string name="nearby_notes_reveal">vérifier s\'il y a des notes laissées ici</string>
+    <string name="globe_live">en direct</string>
+    <string name="globe_connecting">connexion</string>
+    <string name="globe_offline">hors ligne</string>
+    <string name="globe_hint_drag">tourner</string>
+    <string name="globe_hint_pinch">zoomer</string>
+    <string name="globe_hint_tap">touchez un point</string>
+    <string name="globe_no_activity">aucune activité récente</string>
+    <string name="cd_show_whole_globe">Afficher tout le globe</string>
+    <string name="cd_globe_activity">%1$d discussions actives, %2$d personnes en ligne</string>
+    <string name="cd_channel_activity">%1$d personnes, %2$d messages au cours de la dernière heure</string>
+    <string name="join">Rejoindre</string>
 </resources>

@@ -8,7 +8,6 @@
     <string name="cd_remove_bookmark">เอาที่คั่นหน้าออก</string>
     <string name="cd_decrease_precision">ลดความแม่นยำ</string>
     <string name="cd_increase_precision">เพิ่มความแม่นยำ</string>
-    <string name="cd_select_geohash">เลือก geohash</string>
     <!-- แผ่นช่อง geohash -->
     <string name="location_channels_title">#ช่องตามตำแหน่ง</string>
     <string name="location_channels_desc">แชทกับผู้คนใกล้คุณผ่านช่อง geohash จะแชร์เฉพาะ geohash โดยคร่าว ๆ เท่านั้น ไม่ใช่ข้อมูล GPS ที่แม่นยำ เพื่อคุ้มครองความเป็นส่วนตัวของคุณ โปรดอย่าถ่ายภาพหน้าจอหรือแชร์หน้าจอนี้</string>
@@ -27,12 +26,22 @@
     <string name="location_level_region">ภูมิภาค</string>
     <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
 
-    <string name="pan_zoom_instruction">ลาก/ซูมเพื่อเลือก geohash</string>
-    <string name="select">เลือก</string>
     <plurals name="people_count">
         <item quantity="one">1 คน</item>
         <item quantity="other">%d คน</item>
     </plurals>
 
   <string name="nearby_notes_reveal">ดูว่ามีโน้ตทิ้งไว้ที่นี่หรือไม่</string>
+    <string name="globe_live">สด</string>
+    <string name="globe_connecting">กำลังเชื่อมต่อ</string>
+    <string name="globe_offline">ออฟไลน์</string>
+    <string name="globe_hint_drag">หมุน</string>
+    <string name="globe_hint_pinch">ซูม</string>
+    <string name="globe_hint_tap">แตะที่จุด</string>
+    <string name="globe_no_activity">ไม่มีกิจกรรมล่าสุด</string>
+    <string name="cd_show_whole_globe">แสดงลูกโลกทั้งใบ</string>
+    <string name="cd_globe_activity">แชทที่ใช้งานอยู่ %1$d รายการ ออนไลน์ %2$d คน</string>
+    <string name="cd_channel_activity">%1$d คน ข้อความ %2$d รายการในชั่วโมงที่ผ่านมา</string>
+    <string name="join">เข้าร่วม</string>
+    <string name="cd_close">ปิด</string>
 </resources>

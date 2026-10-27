@@ -7,7 +7,6 @@
     <string name="cd_remove_bookmark">Прибрати закладку</string>
     <string name="cd_decrease_precision">Зменшити точність</string>
     <string name="cd_increase_precision">Збільшити точність</string>
-    <string name="cd_select_geohash">Вибрати геохеш</string>
     <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
     <string name="location_channels_title">#канали за геолокацією</string>
     <string name="location_channels_desc">спілкуйтеся з людьми поруч, використовуючи канали за геохешем. надається лише приблизний геохеш, ніколи точні gps-координати. не робіть скріншотів і не діліться цим екраном, щоб захистити свою приватність.</string>
@@ -33,8 +32,6 @@
     <string name="location_notes_empty_desc">будьте першим, хто додасть нотатку для цього місця.</string>
     <string name="dismiss">закрити</string>
     <string name="location_notes_input_placeholder">додати нотатку для цього місця</string>
-    <string name="pan_zoom_instruction">панорамуйте та масштабуйте, щоб вибрати геохеш</string>
-    <string name="select">вибрати</string>
     <string name="hash_symbol">#</string>
     <plurals name="location_notes_title">
         <item quantity="one">#%1$s ± 1 • %2$d нотатка</item>
@@ -50,4 +47,16 @@
         <item quantity="many">%1$d людей</item>
         <item quantity="other">%1$d людини</item>
     </plurals>
+    <string name="globe_live">наживо</string>
+    <string name="globe_connecting">підключення</string>
+    <string name="globe_offline">офлайн</string>
+    <string name="globe_hint_drag">обертати</string>
+    <string name="globe_hint_pinch">масштаб</string>
+    <string name="globe_hint_tap">торкніться точки</string>
+    <string name="globe_no_activity">немає нещодавньої активності</string>
+    <string name="cd_show_whole_globe">Показати весь глобус</string>
+    <string name="cd_globe_activity">Активних чатів: %1$d, людей онлайн: %2$d</string>
+    <string name="cd_channel_activity">Людей: %1$d, повідомлень за останню годину: %2$d</string>
+    <string name="join">Приєднатися</string>
+    <string name="cd_close">Закрити</string>
 </resources>

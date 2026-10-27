@@ -20,6 +20,7 @@ import com.bitchat.watch.service.WearMeshForegroundService
 import com.bitchat.watch.ui.WearPeerIdentityState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
@@ -236,24 +237,17 @@ object WearTestHookDriver {
         val timeoutMs = intent.getLongExtra("timeout_ms", DEFAULT_RECV_TIMEOUT_MS)
         val fromPeer = intent.getStringExtra("peer")
         val contains = intent.getStringExtra("contains")
-        val startTime = System.currentTimeMillis()
         val mesh = mesh(context)
-        val match = withTimeoutOrNull(timeoutMs) {
-            AppStateStore.privateMessages.first { conversations ->
-                conversations.values.flatten().any { msg ->
-                    msg.timestamp.time >= startTime &&
-                        msg.senderPeerID != mesh.myPeerID &&
-                        (fromPeer == null || msg.senderPeerID == fromPeer) &&
-                        (contains == null || msg.content.contains(contains))
-                }
-            }
-        } ?: return err("dm_recv", "timeout after ${timeoutMs}ms")
-        val msg = match.values.flatten().first { msg ->
-            msg.timestamp.time >= startTime &&
-                msg.senderPeerID != mesh.myPeerID &&
+        val matcher = ArrivedMessageMatcher(AppStateStore.privateMessages.value.values.flatten()) { msg ->
+            msg.senderPeerID != mesh.myPeerID &&
                 (fromPeer == null || msg.senderPeerID == fromPeer) &&
                 (contains == null || msg.content.contains(contains))
         }
+        val msg = withTimeoutOrNull(timeoutMs) {
+            AppStateStore.privateMessages
+                .mapNotNull { conversations -> matcher.firstArrived(conversations.values.flatten()) }
+                .first()
+        } ?: return err("dm_recv", "timeout after ${timeoutMs}ms")
         return ok("dm_recv")
             .put("from", msg.senderPeerID)
             .put("sender", msg.sender)
@@ -264,15 +258,13 @@ object WearTestHookDriver {
     private suspend fun msgRecv(context: Context, intent: Intent): JSONObject {
         val timeoutMs = intent.getLongExtra("timeout_ms", DEFAULT_RECV_TIMEOUT_MS)
         val contains = intent.getStringExtra("contains")
-        val startTime = System.currentTimeMillis()
         val mesh = mesh(context)
-        val matches: (com.bitchat.android.model.BitchatMessage) -> Boolean = { msg ->
-            msg.timestamp.time >= startTime &&
-                msg.senderPeerID != mesh.myPeerID &&
+        val matcher = ArrivedMessageMatcher(AppStateStore.publicMessages.value) { msg ->
+            msg.senderPeerID != mesh.myPeerID &&
                 (contains == null || msg.content.contains(contains))
         }
         val found = withTimeoutOrNull(timeoutMs) {
-            AppStateStore.publicMessages.first { l -> l.any(matches) }.first(matches)
+            AppStateStore.publicMessages.mapNotNull(matcher::firstArrived).first()
         } ?: return err("msg_recv", "timeout after ${timeoutMs}ms")
         return ok("msg_recv")
             .put("from", found.senderPeerID)

@@ -8,7 +8,6 @@
     <string name="cd_remove_bookmark">Quitar marcador</string>
     <string name="cd_decrease_precision">Disminuir precisión</string>
     <string name="cd_increase_precision">Aumentar precisión</string>
-    <string name="cd_select_geohash">Seleccionar geohash</string>
     <!-- Hoja de canales geohash -->
     <string name="location_channels_title">#Canales de ubicación</string>
     <string name="location_channels_desc">Chatea con personas cerca de ti a través de canales geohash. Solo se comparte un geohash aproximado, nunca datos GPS exactos. Para preservar tu privacidad, no tomes capturas de pantalla ni compartas esta pantalla.</string>
@@ -27,8 +26,6 @@
     <string name="location_level_region">Región</string>
     <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
 
-    <string name="pan_zoom_instruction">desplaza y hace zoom para seleccionar un geohash</string>
-    <string name="select">seleccionar</string>
     <plurals name="people_count">
         <item quantity="one">1 persona</item>
         <item quantity="other">%d personas</item>
@@ -48,4 +45,16 @@
   <string name="dismiss">cerrar</string>
   <string name="location_notes_input_placeholder">agrega una nota para este lugar</string>
   <string name="nearby_notes_reveal">buscar notas dejadas aquí</string>
+    <string name="globe_live">en vivo</string>
+    <string name="globe_connecting">conectando</string>
+    <string name="globe_offline">sin conexión</string>
+    <string name="globe_hint_drag">girar</string>
+    <string name="globe_hint_pinch">zoom</string>
+    <string name="globe_hint_tap">toca un punto</string>
+    <string name="globe_no_activity">sin actividad reciente</string>
+    <string name="cd_show_whole_globe">Mostrar todo el globo</string>
+    <string name="cd_globe_activity">%1$d chats activos, %2$d personas en línea</string>
+    <string name="cd_channel_activity">%1$d personas, %2$d mensajes en la última hora</string>
+    <string name="join">Unirse</string>
+    <string name="cd_close">Cerrar</string>
 </resources>

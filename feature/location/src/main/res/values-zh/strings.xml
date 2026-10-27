@@ -8,7 +8,6 @@
     <string name="cd_remove_bookmark">移除书签</string>
     <string name="cd_decrease_precision">降低精度</string>
     <string name="cd_increase_precision">提高精度</string>
-    <string name="cd_select_geohash">选择 geohash</string>
     <!-- 地点频道面板 -->
     <string name="location_channels_title">#地点频道</string>
     <string name="location_channels_desc">使用 geohash 频道与附近的人聊天。仅共享粗略的 geohash，从不共享精确 GPS。为保护隐私，请勿截图或分享此页面。</string>
@@ -27,8 +26,6 @@
     <string name="location_level_province">省/州</string>
     <string name="location_level_region">地区</string>
 
-    <string name="pan_zoom_instruction">拖动/缩放以选择 geohash</string>
-    <string name="select">选择</string>
     <string name="hash_symbol">#</string>
     <plurals name="people_count">
         <item quantity="one">1 人</item>
@@ -49,4 +46,15 @@
   <string name="dismiss">关闭</string>
   <string name="location_notes_input_placeholder">为此地点添加一条笔记</string>
   <string name="nearby_notes_reveal">查看这里留下的留言</string>
+    <string name="globe_live">实时</string>
+    <string name="globe_connecting">连接中</string>
+    <string name="globe_offline">离线</string>
+    <string name="globe_hint_drag">旋转</string>
+    <string name="globe_hint_pinch">缩放</string>
+    <string name="globe_hint_tap">点按圆点</string>
+    <string name="globe_no_activity">最近没有活动</string>
+    <string name="cd_show_whole_globe">显示整个地球</string>
+    <string name="cd_globe_activity">%1$d 个活跃聊天，%2$d 人在线</string>
+    <string name="cd_channel_activity">%1$d 人，过去一小时 %2$d 条消息</string>
+    <string name="join">加入</string>
 </resources>

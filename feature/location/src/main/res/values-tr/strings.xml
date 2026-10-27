@@ -8,7 +8,6 @@
     <string name="cd_remove_bookmark">Yer imini kaldır</string>
     <string name="cd_decrease_precision">Hassasiyeti azalt</string>
     <string name="cd_increase_precision">Hassasiyeti artır</string>
-    <string name="cd_select_geohash">Geohash seç</string>
     <string name="location_channels_title">#konum kanalları</string>
     <string name="location_channels_desc">yakındaki insanlarla geohash kanallarıyla sohbet et. yalnızca kabaca geohash paylaşılır, kesin gps asla değil. gizliliğin için ekran görüntüsü alma ve paylaşma.</string>
     <string name="location_permission_denied">konum izni reddedildi. konum kanalları için ayarlardan etkinleştir.</string>
@@ -26,8 +25,6 @@
     <string name="location_level_province">eyalet</string>
     <string name="location_level_region">bölge</string>
 
-    <string name="pan_zoom_instruction">geohash seçmek için kaydır/zoom yap</string>
-    <string name="select">seç</string>
     <string name="hash_symbol">#</string>
     <plurals name="people_count">
         <item quantity="one">1 kişi</item>
@@ -47,4 +44,15 @@
   <string name="dismiss">kapat</string>
   <string name="location_notes_input_placeholder">bu yer için bir not ekleyin</string>
   <string name="nearby_notes_reveal">buraya bırakılan notlara bak</string>
+    <string name="globe_live">canlı</string>
+    <string name="globe_connecting">bağlanıyor</string>
+    <string name="globe_offline">çevrimdışı</string>
+    <string name="globe_hint_drag">döndür</string>
+    <string name="globe_hint_pinch">yakınlaştır</string>
+    <string name="globe_hint_tap">bir noktaya dokun</string>
+    <string name="globe_no_activity">yakın zamanda etkinlik yok</string>
+    <string name="cd_show_whole_globe">Tüm küreyi göster</string>
+    <string name="cd_globe_activity">%1$d etkin sohbet, %2$d kişi çevrimiçi</string>
+    <string name="cd_channel_activity">%1$d kişi, son bir saatte %2$d mesaj</string>
+    <string name="join">Katıl</string>
 </resources>

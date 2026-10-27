@@ -8,7 +8,6 @@
     <string name="cd_remove_bookmark">Hapus bookmark</string>
     <string name="cd_decrease_precision">Kurangi presisi</string>
     <string name="cd_increase_precision">Tingkatkan presisi</string>
-    <string name="cd_select_geohash">Pilih geohash</string>
     <!-- Sheet channel geohash -->
     <string name="location_channels_title">#Channel lokasi</string>
     <string name="location_channels_desc">Chat dengan orang-orang di dekat Anda melalui channel geohash. Hanya geohash kasar yang dibagikan, bukan data GPS yang tepat. Harap jangan tangkap layar atau bagikan tampilan ini untuk privasi.</string>
@@ -27,8 +26,6 @@
     <string name="location_level_region">Wilayah</string>
     <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
 
-    <string name="pan_zoom_instruction">geser dan zoom untuk memilih geohash</string>
-    <string name="select">pilih</string>
     <plurals name="people_count">
         <item quantity="one">1 orang</item>
         <item quantity="other">%d orang</item>
@@ -48,4 +45,16 @@
   <string name="dismiss">tutup</string>
   <string name="location_notes_input_placeholder">tambahkan catatan untuk tempat ini</string>
   <string name="nearby_notes_reveal">periksa catatan yang ditinggalkan di sini</string>
+    <string name="globe_live">langsung</string>
+    <string name="globe_connecting">menghubungkan</string>
+    <string name="globe_offline">offline</string>
+    <string name="globe_hint_drag">putar</string>
+    <string name="globe_hint_pinch">zoom</string>
+    <string name="globe_hint_tap">ketuk titik</string>
+    <string name="globe_no_activity">tidak ada aktivitas terbaru</string>
+    <string name="cd_show_whole_globe">Tampilkan seluruh globe</string>
+    <string name="cd_globe_activity">%1$d obrolan aktif, %2$d orang online</string>
+    <string name="cd_channel_activity">%1$d orang, %2$d pesan dalam satu jam terakhir</string>
+    <string name="join">Bergabung</string>
+    <string name="cd_close">Tutup</string>
 </resources>

@@ -8,7 +8,6 @@
     <string name="cd_remove_bookmark">Alisin ang bookmark</string>
     <string name="cd_decrease_precision">Bawasan ang precision</string>
     <string name="cd_increase_precision">Dagdagan ang precision</string>
-    <string name="cd_select_geohash">Piliin ang geohash</string>
     <!-- Location channels sheet -->
     <string name="location_channels_title">#mga channel sa lokasyon</string>
     <string name="location_channels_desc">makipag‑usap sa mga tao sa paligid gamit ang mga geohash na channel. tanging malabong geohash ang ibinabahagi, hindi eksaktong gps. huwag mag‑screenshot o ibahagi ang screen na ito para sa privacy.</string>
@@ -27,8 +26,6 @@
     <string name="location_level_province">probinsya</string>
     <string name="location_level_region">rehiyon</string>
 
-    <string name="pan_zoom_instruction">i‑pan at i‑zoom para pumili ng geohash</string>
-    <string name="select">piliin</string>
     <string name="hash_symbol">#</string>
     <plurals name="people_count">
         <item quantity="one">1 tao</item>
@@ -36,4 +33,15 @@
     </plurals>
 
   <string name="nearby_notes_reveal">tingnan kung may mga note na naiwan dito</string>
+    <string name="globe_live">live</string>
+    <string name="globe_connecting">kumokonekta</string>
+    <string name="globe_offline">offline</string>
+    <string name="globe_hint_drag">iikot</string>
+    <string name="globe_hint_pinch">zoom</string>
+    <string name="globe_hint_tap">i-tap ang tuldok</string>
+    <string name="globe_no_activity">walang kamakailang aktibidad</string>
+    <string name="cd_show_whole_globe">Ipakita ang buong globo</string>
+    <string name="cd_globe_activity">%1$d aktibong chat, %2$d tao ang online</string>
+    <string name="cd_channel_activity">%1$d tao, %2$d mensahe sa nakaraang oras</string>
+    <string name="join">Sumali</string>
 </resources>

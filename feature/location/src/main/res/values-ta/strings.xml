@@ -12,7 +12,6 @@
   <string name="cd_remove_bookmark">புக்மார்க்கை அகற்று</string>
   <string name="cd_decrease_precision">துல்லியத்தைக் குறை</string>
   <string name="cd_increase_precision">துல்லியத்தை அதிகரி</string>
-  <string name="cd_select_geohash">ஜியோஹாஷைத் தேர்ந்தெடு</string>
   <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
   <string name="location_channels_title">#இருப்பிட சேனல்கள்</string>
   <string name="location_channels_desc">ஜியோஹாஷ் சேனல்களைப் பயன்படுத்தி உங்களுக்கு அருகிலுள்ளவர்களுடன் அரட்டையடியுங்கள். ஒரு தோராயமான ஜியோஹாஷ் மட்டுமே பகிரப்படும், துல்லியமான ஜிபிஎஸ் ஒருபோதும் இல்லை. உங்கள் தனியுரிமையைப் பாதுகாக்க இந்த திரையை ஸ்க்ரீன்ஷாட் எடுக்காதீர்கள் அல்லது பகிர வேண்டாம்.</string>
@@ -42,7 +41,17 @@
   <string name="location_notes_empty_desc">இந்த இடத்திற்கு முதலில் ஒன்றைச் சேர்க்கவும்.</string>
   <string name="dismiss">நிராகரி</string>
   <string name="location_notes_input_placeholder">இந்த இடத்திற்கான குறிப்பைச் சேர்க்கவும்</string>
-  <string name="pan_zoom_instruction">ஜியோஹாஷைத் தேர்ந்தெடுக்க பான் செய்து ஜூம் செய்யவும்</string>
-  <string name="select">தேர்ந்தெடு</string>
   <string name="hash_symbol">#</string>
+    <string name="globe_live">நேரலை</string>
+    <string name="globe_connecting">இணைக்கிறது</string>
+    <string name="globe_offline">ஆஃப்லைன்</string>
+    <string name="globe_hint_drag">சுழற்று</string>
+    <string name="globe_hint_pinch">பெரிதாக்கு</string>
+    <string name="globe_hint_tap">ஒரு புள்ளியைத் தட்டவும்</string>
+    <string name="globe_no_activity">சமீபத்திய செயல்பாடு இல்லை</string>
+    <string name="cd_show_whole_globe">முழு உலக உருண்டையைக் காட்டு</string>
+    <string name="cd_globe_activity">%1$d செயலில் உள்ள அரட்டைகள், %2$d பேர் ஆன்லைனில்</string>
+    <string name="cd_channel_activity">%1$d பேர், கடந்த ஒரு மணி நேரத்தில் %2$d செய்திகள்</string>
+    <string name="join">சேர்</string>
+    <string name="cd_close">மூடு</string>
 </resources>

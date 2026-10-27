@@ -8,7 +8,6 @@
     <string name="cd_remove_bookmark">Hanesorana bookmark</string>
     <string name="cd_decrease_precision">Hampihenana ny fahamarinana</string>
     <string name="cd_increase_precision">Hampitombo ny fahamarinana</string>
-    <string name="cd_select_geohash">Hifidy geohash</string>
     <!-- Takelaka fantsona toerana -->
     <string name="location_channels_title">#fantsona toerana</string>
     <string name="location_channels_desc">miresaka amin\'ny olona akaiky anao amin\'ny fampiasana fantsona geohash. geohash marivo ihany no zarainy, tsy GPS marina akory. aza maka sary an-efijery na mizara ity efijery ity mba hiarovana ny fiainanao manokana.</string>
@@ -27,8 +26,6 @@
     <string name="location_level_region">faritra</string>
     <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
 
-    <string name="pan_zoom_instruction">ahetsika sy ataovy lehibe mba hifidianana geohash</string>
-    <string name="select">hifidy</string>
     <string name="hash_symbol">#</string>
     <plurals name="people_count">
         <item quantity="one">Olona 1</item>
@@ -36,4 +33,16 @@
     </plurals>
 
   <string name="nearby_notes_reveal">hizaha raha misy naoty navela teto</string>
+    <string name="globe_live">mivantana</string>
+    <string name="globe_connecting">mampifandray</string>
+    <string name="globe_offline">tsy mifandray</string>
+    <string name="globe_hint_drag">ahodino</string>
+    <string name="globe_hint_pinch">hanalehibe</string>
+    <string name="globe_hint_tap">tsindrio teboka iray</string>
+    <string name="globe_no_activity">tsy misy hetsika vao haingana</string>
+    <string name="cd_show_whole_globe">Asehoy ny tany manontolo</string>
+    <string name="cd_globe_activity">resaka mavitrika %1$d, olona %2$d an-tserasera</string>
+    <string name="cd_channel_activity">olona %1$d, hafatra %2$d tao anatin\'ny ora farany</string>
+    <string name="join">Hiditra</string>
+    <string name="cd_close">Hanakatona</string>
 </resources>

@@ -8,7 +8,6 @@
     <string name="cd_remove_bookmark">Ta bort bokmärke</string>
     <string name="cd_decrease_precision">Minska precision</string>
     <string name="cd_increase_precision">Öka precision</string>
-    <string name="cd_select_geohash">Välj geohash</string>
     <string name="location_channels_title">#platskanaler</string>
     <string name="location_channels_desc">chatta med folk nära dig via geohash‑kanaler. endast en grov geohash delas, aldrig exakt gps. ta inte skärmdumpar eller dela skärmen för att skydda din integritet.</string>
     <string name="location_permission_denied">platsbehörighet nekades. aktivera i inställningar för att använda platskanaler.</string>
@@ -26,8 +25,6 @@
     <string name="location_level_province">län</string>
     <string name="location_level_region">region</string>
 
-    <string name="pan_zoom_instruction">panorera och zooma för att välja geohash</string>
-    <string name="select">välj</string>
     <string name="hash_symbol">#</string>
     <plurals name="people_count">
         <item quantity="one">1 person</item>
@@ -47,4 +44,15 @@
   <string name="dismiss">stäng</string>
   <string name="location_notes_input_placeholder">lägg till en anteckning för den här platsen</string>
   <string name="nearby_notes_reveal">kolla om anteckningar lämnats här</string>
+    <string name="globe_live">live</string>
+    <string name="globe_connecting">ansluter</string>
+    <string name="globe_offline">offline</string>
+    <string name="globe_hint_drag">snurra</string>
+    <string name="globe_hint_pinch">zooma</string>
+    <string name="globe_hint_tap">tryck på en prick</string>
+    <string name="globe_no_activity">ingen aktivitet nyligen</string>
+    <string name="cd_show_whole_globe">Visa hela jordklotet</string>
+    <string name="cd_globe_activity">%1$d aktiva chattar, %2$d personer online</string>
+    <string name="cd_channel_activity">%1$d personer, %2$d meddelanden den senaste timmen</string>
+    <string name="join">Gå med</string>
 </resources>

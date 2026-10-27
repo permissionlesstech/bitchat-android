@@ -8,7 +8,6 @@
     <string name="cd_remove_bookmark">بک مارک ہٹائیں</string>
     <string name="cd_decrease_precision">درستگی کم کریں</string>
     <string name="cd_increase_precision">درستگی بڑھائیں</string>
-    <string name="cd_select_geohash">geohash منتخب کریں</string>
     <!-- geohash چینلز شیٹ -->
     <string name="location_channels_title">#مقام چینلز</string>
     <string name="location_channels_desc">geohash چینلز کے ذریعے اپنے قریب کے لوگوں سے چیٹ کریں۔ صرف ایک مبہم geohash شیئر کیا جاتا ہے، کبھی درست GPS ڈیٹا نہیں۔ اپنی پرائیویسی کے لیے، اس اسکرین کا اسکرین شاٹ نہ لیں اور اسے شیئر نہ کریں۔</string>
@@ -27,8 +26,6 @@
     <string name="location_level_region">علاقہ</string>
     <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
 
-    <string name="pan_zoom_instruction">geohash منتخب کرنے کے لیے پین/زوم کریں</string>
-    <string name="select">منتخب کریں</string>
     <plurals name="people_count">
         <item quantity="one">1 شخص</item>
         <item quantity="other">%d لوگ</item>
@@ -48,4 +45,16 @@
   <string name="dismiss">بند کریں</string>
   <string name="location_notes_input_placeholder">اس جگہ کے لیے ایک نوٹ شامل کریں</string>
   <string name="nearby_notes_reveal">دیکھیں کہ یہاں نوٹ چھوڑے گئے ہیں یا نہیں</string>
+    <string name="globe_live">لائیو</string>
+    <string name="globe_connecting">جڑ رہا ہے</string>
+    <string name="globe_offline">آف لائن</string>
+    <string name="globe_hint_drag">گھمائیں</string>
+    <string name="globe_hint_pinch">زوم</string>
+    <string name="globe_hint_tap">کسی نقطے پر ٹیپ کریں</string>
+    <string name="globe_no_activity">کوئی حالیہ سرگرمی نہیں</string>
+    <string name="cd_show_whole_globe">پورا گلوب دکھائیں</string>
+    <string name="cd_globe_activity">%1$d فعال چیٹس، %2$d لوگ آن لائن</string>
+    <string name="cd_channel_activity">%1$d لوگ، پچھلے گھنٹے میں %2$d پیغامات</string>
+    <string name="join">شامل ہوں</string>
+    <string name="cd_close">بند کریں</string>
 </resources>

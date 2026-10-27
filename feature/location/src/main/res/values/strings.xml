@@ -8,7 +8,6 @@
   <string name="cd_remove_bookmark">Remove bookmark</string>
   <string name="cd_decrease_precision">Decrease precision</string>
   <string name="cd_increase_precision">Increase precision</string>
-  <string name="cd_select_geohash">Select geohash</string>
   <string name="location_bluetooth_subtitle">Bluetooth • %1$s</string>
   <string name="location_bluetooth_wifi_subtitle">Bluetooth • Wifi • %1$s</string>
 
@@ -55,12 +54,22 @@
   <string name="dismiss">Dismiss</string>
   <string name="location_notes_input_placeholder">Add a note for this place</string>
 
-  <string name="pan_zoom_instruction">Drag to spin · Pinch to zoom · Tap to focus</string>
-  <string name="select">Select</string>
   <string name="hash_symbol">#</string>
   <plurals name="people_count">
     <item quantity="one">1 person</item>
     <item quantity="other">%d people</item>
   </plurals>
 
+    <string name="globe_live">live</string>
+    <string name="globe_connecting">connecting</string>
+    <string name="globe_offline">offline</string>
+    <string name="globe_hint_drag">spin</string>
+    <string name="globe_hint_pinch">zoom</string>
+    <string name="globe_hint_tap">tap a dot</string>
+    <string name="globe_no_activity">no recent activity</string>
+    <string name="cd_show_whole_globe">Show the whole globe</string>
+    <string name="cd_globe_activity">%1$d active chats, %2$d people online</string>
+    <string name="cd_channel_activity">%1$d people, %2$d messages in the last hour</string>
+    <string name="join">Join</string>
+    <string name="cd_close">Close</string>
 </resources>

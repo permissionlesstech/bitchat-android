@@ -8,7 +8,6 @@
   <string name="cd_remove_bookmark">Alih keluar penanda buku</string>
   <string name="cd_decrease_precision">Kurangkan ketepatan</string>
   <string name="cd_increase_precision">Tingkatkan ketepatan</string>
-  <string name="cd_select_geohash">Pilih geohash</string>
   <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
 
   <!-- Location channels sheet -->
@@ -43,11 +42,21 @@
   <string name="dismiss">tolak</string>
   <string name="location_notes_input_placeholder">tambah nota untuk tempat ini</string>
 
-  <string name="pan_zoom_instruction">gerak dan zum untuk memilih geohash</string>
-  <string name="select">pilih</string>
   <string name="hash_symbol">#</string>
   <plurals name="people_count">
     <item quantity="other">%d orang</item>
   </plurals>
 
+    <string name="globe_live">langsung</string>
+    <string name="globe_connecting">menyambung</string>
+    <string name="globe_offline">luar talian</string>
+    <string name="globe_hint_drag">putar</string>
+    <string name="globe_hint_pinch">zum</string>
+    <string name="globe_hint_tap">ketik satu titik</string>
+    <string name="globe_no_activity">tiada aktiviti terkini</string>
+    <string name="cd_show_whole_globe">Tunjukkan seluruh glob</string>
+    <string name="cd_globe_activity">%1$d sembang aktif, %2$d orang dalam talian</string>
+    <string name="cd_channel_activity">%1$d orang, %2$d mesej dalam sejam lepas</string>
+    <string name="join">Sertai</string>
+    <string name="cd_close">Tutup</string>
 </resources>
