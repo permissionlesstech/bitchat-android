@@ -2,14 +2,12 @@ package com.bitchat.android.ui
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
-import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -21,15 +19,15 @@ import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.ui.theme.colorForPeer
 import com.bitchat.android.feature.chat.R
 import com.bitchat.android.ui.theme.LocalBitchatPalette
-import java.util.*
 
 /**
  * Geohash people list — card groups matching location / settings sheet rows.
  */
 
 @Composable
-fun GeohashPeopleList(
+internal fun GeohashPeopleList(
     viewModel: MeshPeerListViewModel,
+    lookups: PeerListLookups,
     modifier: Modifier = Modifier,
     excludedIdentityAliases: Set<String> = emptySet()
 ) {
@@ -42,68 +40,36 @@ fun GeohashPeopleList(
 
     val palette = LocalBitchatPalette.current
     val colorScheme = MaterialTheme.colorScheme
-    val appContext = LocalContext.current.applicationContext
     val myHex = remember(selectedLocationChannel) {
-        when (val channel = selectedLocationChannel) {
-            is com.bitchat.android.geohash.ChannelID.Location -> {
-                try {
-                    val identity = com.bitchat.android.nostr.NostrIdentityBridge.deriveIdentity(
-                        forGeohash = channel.channel.geohash,
-                        context = appContext
-                    )
-                    identity.publicKeyHex.lowercase(Locale.ROOT)
-                } catch (e: Exception) {
-                    Log.e("GeohashPeopleList", "Failed to derive identity: ${e.message}")
-                    null
-                }
-            }
-            else -> null
-        }
+        myGeohashHex(selectedLocationChannel, lookups)
     }
-    val peopleIncludingSelf = remember(geohashPeople, myHex, nickname) {
-        if (myHex != null && geohashPeople.none { it.id.equals(myHex, ignoreCase = true) }) {
-            listOf(
-                GeoPerson(
-                    id = myHex,
-                    displayName = nickname.ifBlank { "anon" },
-                    lastSeen = Date(0)
-                )
-            ) + geohashPeople
-        } else {
-            geohashPeople
-        }
-    }
-    val visiblePeople = remember(peopleIncludingSelf, excludedIdentityAliases) {
-        peopleIncludingSelf.filterNot { person ->
-            val alias = "nostr_${person.id.take(16)}".lowercase()
-            alias in excludedIdentityAliases
-        }
-    }
-    val sections = remember(visiblePeople, myHex, isTeleported, teleportedGeo) {
-        sectionGeohashPeople(
-            people = visiblePeople,
-            myId = myHex,
-            selfIsTeleported = isTeleported,
-            teleportedIds = teleportedGeo
+    val people = remember(
+        geohashPeople,
+        myHex,
+        nickname,
+        isTeleported,
+        teleportedGeo,
+        unreadPrivateMessages,
+        excludedIdentityAliases
+    ) {
+        buildGeohashPeopleRows(
+            geohashPeople = geohashPeople,
+            myHex = myHex,
+            nickname = nickname,
+            isTeleported = isTeleported,
+            teleportedGeo = teleportedGeo,
+            unreadPrivateMessages = unreadPrivateMessages,
+            excludedIdentityAliases = excludedIdentityAliases
         )
-    }
-    val displayedPeople = remember(sections) {
-        sections.onLocation + sections.teleportedIn
-    }
-    val teleportedPersonIds = remember(sections.teleportedIn) {
-        sections.teleportedIn.mapTo(mutableSetOf()) { it.id.lowercase(Locale.ROOT) }
-    }
-    val duplicateBaseNames = remember(displayedPeople) {
-        duplicateGeohashBaseNames(displayedPeople)
     }
 
     Column(modifier = modifier) {
         SheetIconSectionHeader(
             iconRes = R.drawable.ic_spec_people,
-            title = stringResource(R.string.people_count_title, displayedPeople.size)
+            title = stringResource(R.string.people_count_title, people.count)
         )
 
-        if (displayedPeople.isEmpty()) {
+        if (people.count == 0) {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -125,43 +91,30 @@ fun GeohashPeopleList(
             }
         } else {
             @Composable
-            fun personRow(person: GeoPerson) {
-                val isMe = myHex != null && person.id.equals(myHex, ignoreCase = true)
-                val personIsTeleported = if (isMe) {
-                    isTeleported
-                } else {
-                    person.id.lowercase(Locale.ROOT) in teleportedPersonIds
-                }
+            fun personRow(row: GeoPersonRowUi) {
                 GeohashPersonItem(
-                    person = person,
-                    isMe = isMe,
-                    hasUnreadDM = unreadPrivateMessages.contains("nostr_${person.id.take(16)}"),
-                    isTeleported = personIsTeleported,
-                    viewModel = viewModel,
-                    showHashSuffix = splitSuffix(person.displayName)
-                        .first
-                        .lowercase(Locale.ROOT) in duplicateBaseNames,
+                    row = row,
                     onTap = {
-                        if (!isMe) {
+                        if (!row.isMe) {
                             // Pushes the chat over the list; closing the list here would pop it again.
-                            viewModel.startGeohashDM(person.id)
+                            viewModel.startGeohashDM(row.id)
                         }
                     }
                 )
             }
 
-            if (sections.onLocation.isNotEmpty()) {
+            if (people.onLocation.isNotEmpty()) {
                 AboutSectionLabel(text = stringResource(R.string.section_on_location))
                 PeopleCard(
-                    people = sections.onLocation,
+                    people = people.onLocation,
                     row = { personRow(it) }
                 )
             }
 
-            if (sections.teleportedIn.isNotEmpty()) {
+            if (people.teleportedIn.isNotEmpty()) {
                 AboutSectionLabel(text = stringResource(R.string.section_teleported_in))
                 PeopleCard(
-                    people = sections.teleportedIn,
+                    people = people.teleportedIn,
                     row = { personRow(it) }
                 )
             }
@@ -169,49 +122,11 @@ fun GeohashPeopleList(
     }
 }
 
-internal data class GeohashPeopleSections(
-    val onLocation: List<GeoPerson>,
-    val teleportedIn: List<GeoPerson>
-)
-
-/**
- * Split announced identities by how they entered this geohash. Bare `anon` heartbeat identities
- * are omitted, while announced names such as `anon1234` remain ordinary participants. Self is
- * retained even before a nickname announcement and is always first in the matching section.
- */
-internal fun sectionGeohashPeople(
-    people: List<GeoPerson>,
-    myId: String?,
-    selfIsTeleported: Boolean,
-    teleportedIds: Set<String>
-): GeohashPeopleSections {
-    val normalizedMyId = myId?.lowercase(Locale.ROOT)
-    val normalizedTeleportedIds = teleportedIds
-        .mapTo(mutableSetOf()) { it.lowercase(Locale.ROOT) }
-    fun isSelf(person: GeoPerson): Boolean =
-        normalizedMyId != null && person.id.lowercase(Locale.ROOT) == normalizedMyId
-    fun isTeleported(person: GeoPerson): Boolean =
-        if (isSelf(person)) selfIsTeleported
-        else person.id.lowercase(Locale.ROOT) in normalizedTeleportedIds
-
-    val displayedPeople = people.filter { person ->
-        isSelf(person) || !isUnannouncedNickname(person.displayName)
-    }
-    val ordered = displayedPeople.sortedWith(
-        compareByDescending<GeoPerson>(::isSelf)
-            .thenByDescending { it.lastSeen }
-    )
-    return GeohashPeopleSections(
-        onLocation = ordered.filterNot(::isTeleported),
-        teleportedIn = ordered.filter(::isTeleported)
-    )
-}
-
 /** One uncapped card of people. The enclosing sheet owns scrolling. */
 @Composable
 private fun PeopleCard(
-    people: List<GeoPerson>,
-    row: @Composable (GeoPerson) -> Unit
+    people: List<GeoPersonRowUi>,
+    row: @Composable (GeoPersonRowUi) -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
@@ -234,14 +149,12 @@ private fun PeopleCard(
 
 @Composable
 private fun GeohashPersonItem(
-    person: GeoPerson,
-    isMe: Boolean,
-    hasUnreadDM: Boolean,
-    isTeleported: Boolean,
-    viewModel: MeshPeerListViewModel,
-    showHashSuffix: Boolean,
+    row: GeoPersonRowUi,
     onTap: () -> Unit
 ) {
+    val isMe = row.isMe
+    val hasUnreadDM = row.hasUnreadDM
+    val isTeleported = row.isTeleported
     val palette = LocalBitchatPalette.current
     val colorScheme = MaterialTheme.colorScheme
 
@@ -249,13 +162,10 @@ private fun GeohashPersonItem(
         if (isTeleported) R.drawable.ic_spec_teleport
         else R.drawable.ic_spec_on_location_person
 
-    val (baseNameRaw, _) = splitSuffix(person.displayName)
+    val baseNameRaw = row.baseName
     val baseName = truncateNickname(baseNameRaw)
-    val suffix = geohashIdentitySuffix(person, showHashSuffix)
-    val assignedColor = colorForPeer(
-        viewModel.peerIdentityForNostrPubkey(person.id).stableKey,
-        palette
-    )
+    val suffix = row.suffix
+    val assignedColor = colorForPeer(row.colorKey, palette)
     val baseColor = if (isMe) palette.accentOrange else assignedColor
 
     Row(

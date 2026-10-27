@@ -48,17 +48,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.core.ui.component.button.CloseButton
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
 import com.bitchat.android.core.ui.component.screen.BitchatScreenTopBar
-import com.bitchat.android.favorites.FavoriteRelationship
-import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.geohash.ChannelID
-import com.bitchat.android.identity.SecureIdentityStateManager
-import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 import com.bitchat.android.ui.theme.colorForPeer
-import com.bitchat.android.services.ContactDirectory
-import com.bitchat.android.services.ContactIdentityResolver
-import com.bitchat.android.util.hexEncodedString
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
@@ -93,43 +86,32 @@ fun MeshPeerListScreen(
     val peerDirect by viewModel.peerDirect.collectAsStateWithLifecycle()
     val geohashPeopleCount = geohashPeople.size
     val wifiAwareConnected by viewModel.wifiAwareConnected.collectAsStateWithLifecycle()
-    val wifiAwarePeerIDs = remember(wifiAwareConnected) { wifiAwareConnected.keys.toSet() }
-    val directPeerIdentityIDs = remember(peerDirect) {
-        peerDirect
-            .asSequence()
-            .filter { (_, isDirect) -> isDirect }
-            .mapTo(mutableSetOf()) { (peerID, _) -> peerID.lowercase() }
+    val context = LocalContext.current
+    val lookups = remember(viewModel, context) {
+        viewModel.peerListLookups(context.applicationContext)
     }
+    val wifiAwarePeerIDs = remember(wifiAwareConnected) { wifiAwarePeerIDs(wifiAwareConnected) }
+    val directPeerIdentityIDs = remember(peerDirect) { directPeerIdentityIDs(peerDirect) }
     val wifiAwareIdentityIDs = remember(wifiAwarePeerIDs) {
-        wifiAwarePeerIDs.mapTo(mutableSetOf()) { it.lowercase() }
+        wifiAwareIdentityIDs(wifiAwarePeerIDs)
     }
     val conversationIdentityAliases = remember(conversations) {
-        conversations
-            .flatMapTo(mutableSetOf()) { it.identityAliases }
+        conversationIdentityAliases(conversations)
     }
-    val visibleConnectedPeers = connectedPeers.filterNot { peerID ->
-        val aliases = runCatching {
-            ContactDirectory.aliasesForConversation(peerID)
-        }.getOrDefault(setOf(peerID))
-        aliases.any { it.lowercase() in conversationIdentityAliases }
-    }
+    val visibleConnectedPeers =
+        visibleConnectedPeers(connectedPeers, conversationIdentityAliases, lookups)
     var pendingConversationDelete by remember {
         mutableStateOf<ConversationSummary?>(null)
     }
     var conversationQuery by rememberSaveable { mutableStateOf("") }
     val filteredConversations = remember(conversations, conversationQuery) {
-        val query = conversationQuery.trim()
-        if (query.isEmpty()) conversations else conversations.filter { conversation ->
-            conversation.displayName.contains(query, ignoreCase = true) ||
-                conversation.latestMessagePreview.contains(query, ignoreCase = true) ||
-                conversation.draft?.contains(query, ignoreCase = true) == true
-        }
+        filterConversations(conversations, conversationQuery)
     }
     val onlineConversations = remember(filteredConversations) {
-        filteredConversations.filter(ConversationSummary::isConnected)
+        onlineConversations(filteredConversations)
     }
     val offlineConversations = remember(filteredConversations) {
-        filteredConversations.filterNot(ConversationSummary::isConnected)
+        offlineConversations(filteredConversations)
     }
     val sheetScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -166,7 +148,7 @@ fun MeshPeerListScreen(
         ) {
             val peopleCount = when (selectedLocationChannel) {
                 is ChannelID.Location -> geohashPeopleCount
-                else -> visibleConnectedPeers.count { it != viewModel.myPeerID }
+                else -> meshPeopleCount(visibleConnectedPeers, viewModel.myPeerID)
             }
 
             item(key = "private_conversations_header") {
@@ -177,7 +159,7 @@ fun MeshPeerListScreen(
                 )
             }
 
-            if (conversations.size >= CONVERSATION_SEARCH_THRESHOLD) {
+            if (showConversationSearch(conversations)) {
                 item(key = "private_conversations_search") {
                     OutlinedTextField(
                         value = conversationQuery,
@@ -216,10 +198,14 @@ fun MeshPeerListScreen(
                 }
             }
 
-            when {
-                conversationStoreState is
-                    com.bitchat.android.services.ConversationStoreState.Loading &&
-                    conversations.isEmpty() -> {
+            when (
+                conversationSectionStatus(
+                    conversationStoreState,
+                    conversations,
+                    filteredConversations
+                )
+            ) {
+                ConversationStatusKind.Loading -> {
                     item(key = "private_conversations_loading") {
                         ConversationSectionStatus(
                             icon = { CircularProgressIndicator(Modifier.size(20.dp)) },
@@ -228,9 +214,7 @@ fun MeshPeerListScreen(
                     }
                 }
 
-                conversationStoreState is
-                    com.bitchat.android.services.ConversationStoreState.Error &&
-                    conversations.isEmpty() -> {
+                ConversationStatusKind.Error -> {
                     item(key = "private_conversations_error") {
                         ConversationSectionStatus(
                             icon = {
@@ -245,7 +229,7 @@ fun MeshPeerListScreen(
                     }
                 }
 
-                conversations.isEmpty() -> {
+                ConversationStatusKind.Empty -> {
                     item(key = "private_conversations_empty") {
                         ConversationSectionStatus(
                             icon = {
@@ -259,7 +243,7 @@ fun MeshPeerListScreen(
                     }
                 }
 
-                filteredConversations.isEmpty() -> {
+                ConversationStatusKind.NoResults -> {
                     item(key = "private_conversations_no_results") {
                         ConversationSectionStatus(
                             icon = {
@@ -269,6 +253,8 @@ fun MeshPeerListScreen(
                         )
                     }
                 }
+
+                null -> Unit
             }
 
             if (onlineConversations.isNotEmpty()) {
@@ -288,6 +274,7 @@ fun MeshPeerListScreen(
                         directPeerIdentityIDs = directPeerIdentityIDs,
                         wifiAwareIdentityIDs = wifiAwareIdentityIDs,
                         viewModel = viewModel,
+                        lookups = lookups,
                         isFirst = index == 0,
                         isLast = index == onlineConversations.lastIndex,
                         onPrivateChatStart = viewModel::openPrivateChat,
@@ -319,6 +306,7 @@ fun MeshPeerListScreen(
                         directPeerIdentityIDs = directPeerIdentityIDs,
                         wifiAwareIdentityIDs = wifiAwareIdentityIDs,
                         viewModel = viewModel,
+                        lookups = lookups,
                         isFirst = index == 0,
                         isLast = index == offlineConversations.lastIndex,
                         onPrivateChatStart = viewModel::openPrivateChat,
@@ -353,14 +341,17 @@ fun MeshPeerListScreen(
                             shape = AboutCardShape
                         ) {
                             Column {
-                                joinedChannels.toList().forEachIndexed { index, channel ->
+                                buildChannelRows(
+                                    joinedChannels,
+                                    currentChannel,
+                                    unreadChannelMessages
+                                ).forEachIndexed { index, row ->
                                     if (index > 0) SheetCardDivider()
-                                    val isSelected = channel == currentChannel
-                                    val unreadCount = unreadChannelMessages[channel] ?: 0
+                                    val channel = row.name
                                     ChannelRow(
                                         channel = channel,
-                                        isSelected = isSelected,
-                                        unreadCount = unreadCount,
+                                        isSelected = row.isSelected,
+                                        unreadCount = row.unread,
                                         colorScheme = colorScheme,
                                         onChannelClick = {
                                             if (channel.startsWith("@")) {
@@ -392,6 +383,7 @@ fun MeshPeerListScreen(
                     is ChannelID.Location -> {
                         GeohashPeopleList(
                             viewModel = viewModel,
+                            lookups = lookups,
                             excludedIdentityAliases = conversationIdentityAliases,
                             modifier = Modifier.padding(
                                 top = if (
@@ -420,6 +412,7 @@ fun MeshPeerListScreen(
                             peopleCount = peopleCount,
                             excludedIdentityAliases = conversationIdentityAliases,
                             viewModel = viewModel,
+                            lookups = lookups,
                             onPrivateChatStart = viewModel::openPrivateChat
                         )
                     }
@@ -544,7 +537,6 @@ fun MeshPeerListScreen(
 
 /** Icon size for trailing actions on peer rows (matches settings glyph scale). */
 private val PeerRowIconSize = 22.dp
-private const val CONVERSATION_SEARCH_THRESHOLD = 8
 
 @Composable
 private fun ChannelRow(
@@ -607,7 +599,7 @@ private fun ChannelRow(
 
 
 @Composable
-fun PeopleSection(
+internal fun PeopleSection(
     modifier: Modifier  = Modifier,
     connectedPeers: List<String>,
     peerNicknames: Map<String, String>,
@@ -619,13 +611,9 @@ fun PeopleSection(
     peopleCount: Int = 0,
     excludedIdentityAliases: Set<String> = emptySet(),
     viewModel: MeshPeerListViewModel,
+    lookups: PeerListLookups,
     onPrivateChatStart: (String) -> Unit
 ) {
-    val context = LocalContext.current
-    val identityStateManager = remember(context) {
-        SecureIdentityStateManager(context.applicationContext)
-    }
-
     val palette = LocalBitchatPalette.current
 
     Column(modifier = modifier) {
@@ -665,206 +653,48 @@ fun PeopleSection(
 
         // Reactive favorite computation for all peers
         val peerFavoriteStates = remember(favoritePeers, peerFingerprints, connectedPeers) {
-            connectedPeers.associateWith { peerID ->
-                val fingerprint = peerFingerprints[peerID]
-                if (fingerprint != null) favoritePeers.contains(fingerprint) else viewModel.isFavorite(peerID)
-            }
+            peerFavoriteStates(connectedPeers, favoritePeers, peerFingerprints, lookups)
         }
 
         // Same "they favorited us" signal the private-chat header uses for orange outline stars.
         val peerTheyFavoritedUsStates = remember(peerFavoritedUs, peerFingerprints, connectedPeers) {
-            connectedPeers.associateWith { peerID ->
-                val fingerprint = peerFingerprints[peerID]
-                if (fingerprint != null && peerFavoritedUs.contains(fingerprint)) {
-                    true
-                } else {
-                    try {
-                        FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.theyFavoritedUs == true
-                    } catch (_: Exception) {
-                        false
-                    }
-                }
-            }
+            peerTheyFavoritedUsStates(connectedPeers, peerFavoritedUs, peerFingerprints, lookups)
         }
 
         val peerVerifiedStates = remember(verifiedFingerprints, peerFingerprints, connectedPeers) {
-            connectedPeers.associateWith { peerID ->
-                viewModel.isPeerVerified(peerID, verifiedFingerprints)
-            }
+            peerVerifiedStates(connectedPeers, verifiedFingerprints, lookups)
         }
 
-        // Build mapping of connected peerID -> Noise key hex to unify with offline favorites.
-        val noiseHexByPeerID: Map<String, String> = connectedPeers.associateWith { pid ->
-            try {
-                viewModel.getMeshPeerInfo(pid)?.noisePublicKey?.hexEncodedString()
-                    ?: identityStateManager.getCachedNoiseKey(pid)
-            } catch (_: Exception) { null }
-        }.filterValues { it != null }.mapValues { it.value!! }
-
-        val nostrHexByPeerID: Map<String, String> = connectedPeers.associateWith { pid ->
-            try {
-                FavoritesPersistenceService.shared
-                    .findNostrPubkeyForPeerID(pid)
-                    ?.let { ContactIdentityResolver.nostrPubkeyHex(it) }
-            } catch (_: Exception) { null }
-        }.filterValues { it != null }.mapValues { it.value!! }
-
-        val connectedNoiseHexes = noiseHexByPeerID.values.map { it.lowercase() }.toSet()
-        val connectedNostrHexes = nostrHexByPeerID.values.map { it.lowercase() }.toSet()
-
-        fun isFavoriteMappedToConnected(favorite: FavoriteRelationship): Boolean {
-            val noiseHex = ContactIdentityResolver.noiseKeyHex(favorite.peerNoisePublicKey).lowercase()
-            if (connectedNoiseHexes.contains(noiseHex)) return true
-
-            val nostrHex = favorite.peerNostrPublicKey
-                ?.let { ContactIdentityResolver.nostrPubkeyHex(it) }
-                ?.lowercase()
-            return nostrHex != null && connectedNostrHexes.contains(nostrHex)
-        }
-
-        // Smart sorting: unread DMs first, then by most recent DM, then favorites, then alphabetical
-        val sortedPeers = connectedPeers.sortedWith(
-            compareBy<String> { !hasUnreadPrivateMessages.contains(it) } // Unread DM senders first
-            .thenByDescending { privateChats[it]?.maxByOrNull { msg -> msg.timestamp }?.timestamp?.time ?: 0L } // Most recent DM (convert Date to Long)
-            .thenBy { !(peerFavoriteStates[it] ?: false) } // Favorites first
-            .thenBy { (if (it == nickname) "You" else (peerNicknames[it] ?: it)).lowercase() } // Alphabetical
-        )
-        
-        // Build a map of base name counts across all people shown in the list (connected + offline + nostr)
-        // Helper to compute display name used for a given key
-        fun computeDisplayNameForPeerId(key: String): String {
-            return if (key == nickname) "You" else (peerNicknames[key] ?: (privateChats[key]?.lastOrNull()?.sender ?: key.take(12)))
-        }
-
-        val baseNameCounts = mutableMapOf<String, Int>()
-
-        // Connected peers
-        sortedPeers.forEach { pid ->
-            val dn = computeDisplayNameForPeerId(pid)
-            val (b, _) = splitSuffix(dn)
-            if (b != "You") baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
-        }
-
-        // Offline favorites (exclude ones mapped to connected)
-        val offlineFavorites = FavoritesPersistenceService.shared.getOurFavorites()
-        offlineFavorites.forEach { fav ->
-            val favPeerID = ContactIdentityResolver.noiseKeyHex(fav.peerNoisePublicKey)
-            if (
-                favPeerID.lowercase() !in excludedIdentityAliases &&
-                !isFavoriteMappedToConnected(fav)
-            ) {
-                val dn = peerNicknames[favPeerID] ?: fav.peerNickname
-                val (b, _) = splitSuffix(dn)
-                if (b != "You") baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
-            }
-        }
-
-        // Every row this card will show, in final order, so the animated list can key on identity
-        // and animate reordering. Offline favourites are appended after the connected peers.
         // Collected once for the whole card rather than once per row.
         val directMap by viewModel.peerDirect.collectAsStateWithLifecycle()
 
-        val offlineFavoriteRows = offlineFavorites.filterNot { favorite ->
-            val favoriteNoiseKey = ContactIdentityResolver.noiseKeyHex(
-                favorite.peerNoisePublicKey
-            )
-            favoriteNoiseKey.lowercase() in excludedIdentityAliases ||
-                isFavoriteMappedToConnected(favorite)
-        }
-        val rowKeys: List<String> = sortedPeers +
-            offlineFavoriteRows.map { ContactIdentityResolver.noiseKeyHex(it.peerNoisePublicKey) }
+        // Every row this card will show, in final order, so the animated list can key on identity
+        // and animate reordering. Offline favourites are appended after the connected peers.
+        val rows = meshPeopleRows(
+            connectedPeers = connectedPeers,
+            peerNicknames = peerNicknames,
+            peerDirect = directMap,
+            wifiAwarePeerIDs = wifiAwarePeerIDs,
+            verifiedFingerprints = verifiedFingerprints,
+            unreadPrivateMessages = hasUnreadPrivateMessages,
+            privateChats = privateChats,
+            selectedPrivatePeer = selectedPrivatePeer,
+            nickname = nickname,
+            excludedIdentityAliases = excludedIdentityAliases,
+            peerFavoriteStates = peerFavoriteStates,
+            peerTheyFavoritedUsStates = peerTheyFavoritedUsStates,
+            peerVerifiedStates = peerVerifiedStates,
+            lookups = lookups,
+        )
 
-        AnimatedRowColumn(items = rowKeys, key = { it }) { rowIndex, rowKey ->
+        AnimatedRowColumn(items = rows, key = { it.key }) { rowIndex, row ->
         Column {
         if (rowIndex > 0) SheetCardDivider()
-        val connectedPeerForRow = sortedPeers.firstOrNull { it == rowKey }
-        if (connectedPeerForRow != null) {
-            val peerID = connectedPeerForRow
-            val conversationID = ContactDirectory.canonicalConversationId(peerID)
-            val isFavorite = peerFavoriteStates[peerID] ?: false
-            val theyFavoritedUs = peerTheyFavoritedUsStates[peerID] ?: false
-            val isVerified = peerVerifiedStates[peerID] ?: false
-            // fingerprint and favorite relationship resolution not needed here; UI will show Nostr globe for appended offline favorites below
-
-            val noiseHex = noiseHexByPeerID[peerID]
-            val meshUnread = hasUnreadPrivateMessages.contains(conversationID) || hasUnreadPrivateMessages.contains(peerID)
-            val nostrUnread = if (noiseHex != null) hasUnreadPrivateMessages.contains(noiseHex) else false
-            val combinedHasUnread = meshUnread || nostrUnread
-            val combinedUnreadCount = (
-                privateChats[conversationID]?.count { msg -> msg.sender != nickname && meshUnread } ?: 0
-            ) + (
-                if (noiseHex != null) privateChats[noiseHex]?.count { msg -> msg.sender != nickname && nostrUnread } ?: 0 else 0
-            )
-
-            val displayName = if (peerID == nickname) "You" else (peerNicknames[peerID] ?: (privateChats[peerID]?.lastOrNull()?.sender ?: peerID.take(12)))
-            val (bName, _) = splitSuffix(displayName)
-            val showHash = (baseNameCounts[bName] ?: 0) > 1
-
-            val isDirectLive = directMap[peerID] ?: try { viewModel.getMeshPeerInfo(peerID)?.isDirectConnection == true } catch (_: Exception) { false }
-            PeerItem(
-                peerID = peerID,
-                displayName = displayName,
-                isDirect = isDirectLive,
-                isWifiAware = peerID in wifiAwarePeerIDs,
-                isConnected = true,
-                isSelected = conversationID == selectedPrivatePeer || peerID == selectedPrivatePeer,
-                isFavorite = isFavorite,
-                theyFavoritedUs = theyFavoritedUs,
-                isVerified = isVerified,
-                colorScheme = colorScheme,
-                viewModel = viewModel,
-                onItemClick = { onPrivateChatStart(peerID) },
-                unreadCount = if (combinedUnreadCount > 0) combinedUnreadCount else if (combinedHasUnread) 1 else 0,
-                showNostrGlobe = false,
-                showHashSuffix = showHash
-            )
-        } else {
-            // Offline favourite: still worth showing, reachable over Nostr.
-            val fav = offlineFavoriteRows.first {
-                ContactIdentityResolver.noiseKeyHex(it.peerNoisePublicKey) == rowKey
-            }
-            val favPeerID = rowKey
-
-            val nostrConvKey: String? = try {
-                FavoritesPersistenceService.shared.findNostrPubkey(fav.peerNoisePublicKey)
-                    ?.let { ContactIdentityResolver.nostrAliasForPubkey(it) }
-            } catch (_: Exception) { null }
-
-            val conversationID = ContactDirectory.canonicalConversationId(favPeerID)
-            val hasUnread = hasUnreadPrivateMessages.contains(conversationID) ||
-                hasUnreadPrivateMessages.contains(favPeerID) ||
-                (nostrConvKey != null && hasUnreadPrivateMessages.contains(nostrConvKey))
-
-            val mappedConnectedPeerID = noiseHexByPeerID.entries.firstOrNull { it.value.equals(favPeerID, ignoreCase = true) }?.key
-            val dn = peerNicknames[favPeerID] ?: fav.peerNickname
-            val (bName, _) = splitSuffix(dn)
-            val showHash = (baseNameCounts[bName] ?: 0) > 1
-
-            val isVerified = viewModel.isNoisePublicKeyVerified(fav.peerNoisePublicKey, verifiedFingerprints)
-
-            val unreadCount = (
-                privateChats[conversationID]?.count { msg -> msg.sender != nickname && hasUnreadPrivateMessages.contains(conversationID) } ?: 0
-            ) + (
-                if (nostrConvKey != null) privateChats[nostrConvKey]?.count { msg -> msg.sender != nickname && hasUnreadPrivateMessages.contains(nostrConvKey) } ?: 0 else 0
-            )
-
-            PeerItem(
-                peerID = favPeerID,
-                displayName = dn,
-                isDirect = false,
-                isConnected = false,
-                isSelected = conversationID == selectedPrivatePeer || (mappedConnectedPeerID ?: favPeerID) == selectedPrivatePeer,
-                isFavorite = true,
-                theyFavoritedUs = fav.theyFavoritedUs,
-                isVerified = isVerified,
-                colorScheme = colorScheme,
-                viewModel = viewModel,
-                onItemClick = { onPrivateChatStart(mappedConnectedPeerID ?: favPeerID) },
-                unreadCount = if (unreadCount > 0) unreadCount else if (hasUnread) 1 else 0,
-                showNostrGlobe = (fav.isMutual && fav.peerNostrPublicKey != null),
-                showHashSuffix = showHash
-            )
-        }
+        PeerItem(
+            row = row,
+            colorScheme = colorScheme,
+            onItemClick = { onPrivateChatStart(row.openPeerID) }
+        )
         }
         }
             }
@@ -926,6 +756,7 @@ private fun ConversationSwipeItem(
     directPeerIdentityIDs: Set<String>,
     wifiAwareIdentityIDs: Set<String>,
     viewModel: MeshPeerListViewModel,
+    lookups: PeerListLookups,
     isFirst: Boolean,
     isLast: Boolean,
     onPrivateChatStart: (String) -> Unit,
@@ -940,42 +771,22 @@ private fun ConversationSwipeItem(
     val peerFavoritedUs by viewModel.peerFavoritedUs.collectAsStateWithLifecycle()
     val peerFingerprints by viewModel.peerFingerprints.collectAsStateWithLifecycle()
     val verifiedFingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
-    val favoriteTargetID = conversation.connectedPeerID ?: conversation.conversationID
     val favoriteRelationship = remember(
         conversation.identityAliases,
         favoritePeers,
         peerFavoritedUs
     ) {
-        conversation.identityAliases
-            .asSequence()
-            .mapNotNull { alias ->
-                runCatching {
-                    FavoritesPersistenceService.shared.getFavoriteStatus(alias)
-                }.getOrNull()
-            }
-            .firstOrNull()
+        conversationFavoriteRelationship(conversation.identityAliases, lookups)
     }
-    val fingerprint = conversation.connectedPeerID
-        ?.let(peerFingerprints::get)
-        ?: conversation.identityAliases
-            .asSequence()
-            .mapNotNull(peerFingerprints::get)
-            .firstOrNull()
-        ?: ContactIdentityResolver.fingerprintFromContactConversationId(
-            conversation.conversationID
-        )
-        ?: favoriteRelationship?.peerNoisePublicKey?.let {
-            ContactIdentityResolver.fingerprintHex(it)
-        }
-    val isFavorite = if (fingerprint != null) {
-        fingerprint in favoritePeers
-    } else {
-        viewModel.isFavorite(favoriteTargetID)
-    }
-    val theyFavoritedUs =
-        (fingerprint != null && fingerprint in peerFavoritedUs) ||
-            favoriteRelationship?.theyFavoritedUs == true
-    val isVerified = fingerprint != null && fingerprint in verifiedFingerprints
+    val favoriteFlags = conversationFavoriteFlags(
+        conversation = conversation,
+        favoriteRelationship = favoriteRelationship,
+        favoritePeers = favoritePeers,
+        peerFavoritedUs = peerFavoritedUs,
+        peerFingerprints = peerFingerprints,
+        verifiedFingerprints = verifiedFingerprints,
+        lookups = lookups
+    )
     val dismissState = rememberSwipeToDismissBoxState()
     val shape = RoundedCornerShape(
         topStart = if (isFirst) 14.dp else 0.dp,
@@ -1068,10 +879,8 @@ private fun ConversationSwipeItem(
                     conversation = conversation,
                     directPeerIdentityIDs = directPeerIdentityIDs,
                     wifiAwareIdentityIDs = wifiAwareIdentityIDs,
-                    viewModel = viewModel,
-                    isFavorite = isFavorite,
-                    theyFavoritedUs = theyFavoritedUs,
-                    isVerified = isVerified,
+                    lookups = lookups,
+                    favoriteFlags = favoriteFlags,
                     deleteDescription = deleteDescription,
                     onClick = { onPrivateChatStart(conversation.conversationID) },
                     onTogglePinned = {
@@ -1095,10 +904,8 @@ private fun ConversationRow(
     conversation: ConversationSummary,
     directPeerIdentityIDs: Set<String>,
     wifiAwareIdentityIDs: Set<String>,
-    viewModel: MeshPeerListViewModel,
-    isFavorite: Boolean,
-    theyFavoritedUs: Boolean,
-    isVerified: Boolean,
+    lookups: PeerListLookups,
+    favoriteFlags: ConversationFavoriteFlags,
     deleteDescription: String,
     onClick: () -> Unit,
     onTogglePinned: () -> Unit,
@@ -1109,55 +916,43 @@ private fun ConversationRow(
     val palette = LocalBitchatPalette.current
     val colorScheme = MaterialTheme.colorScheme
     var showActions by remember { mutableStateOf(false) }
-    val liveIdentityIDs = conversation.identityAliases +
-        listOfNotNull(conversation.connectedPeerID?.lowercase())
-    val isWifiAware = liveIdentityIDs.any(wifiAwareIdentityIDs::contains)
-    val isDirect = liveIdentityIDs.any(directPeerIdentityIDs::contains) ||
-        conversation.connectedPeerID?.let { peerID ->
-            runCatching {
-                viewModel.getMeshPeerInfo(peerID)?.isDirectConnection == true
-            }.getOrDefault(false)
-        } == true
-    val connectionDescription = meshConnectionDescription(
-        isWifiAware = isWifiAware,
-        isDirect = isDirect
+    val row = buildConversationRow(
+        conversation = conversation,
+        favoriteFlags = favoriteFlags,
+        directPeerIdentityIDs = directPeerIdentityIDs,
+        wifiAwareIdentityIDs = wifiAwareIdentityIDs,
+        lookups = lookups
     )
-    // A local, because a property from another module cannot be smart-cast.
-    val draft = conversation.draft
-    val basePreview = when {
-        !draft.isNullOrBlank() -> stringResource(
+    val isWifiAware = row.isWifiAware
+    val isDirect = row.isDirect
+    val isFavorite = row.isFavorite
+    val theyFavoritedUs = row.theyFavoritedUs
+    val isVerified = row.isVerified
+    val connectionDescription = meshConnectionDescription(row.connection)
+    val basePreview = when (val kind = row.previewKind) {
+        is ConversationPreviewKind.Draft -> stringResource(
             R.string.conversation_draft_preview,
-            draft
+            kind.text
         )
-        conversation.latestMessageType == BitchatMessageType.Image ->
-            stringResource(R.string.notification_sent_image)
-        conversation.latestMessageType == BitchatMessageType.Audio ->
-            stringResource(R.string.notification_sent_voice)
-        conversation.latestMessageType == BitchatMessageType.File ->
-            conversation.latestMessagePreview
-                .takeIf(String::isNotBlank)
-                ?.let { "📎 $it" }
-                ?: stringResource(R.string.notification_sent_file)
-        else -> conversation.latestMessagePreview.ifBlank { "…" }
+        ConversationPreviewKind.Image -> stringResource(R.string.notification_sent_image)
+        ConversationPreviewKind.Voice -> stringResource(R.string.notification_sent_voice)
+        ConversationPreviewKind.File -> stringResource(R.string.notification_sent_file)
+        is ConversationPreviewKind.Literal -> kind.text
     }
-    val messagePreview = if (
-        conversation.latestMessageIsOutgoing && conversation.draft.isNullOrBlank()
-    ) {
+    val messagePreview = if (row.previewIsOutgoing) {
         stringResource(R.string.conversation_you_preview, basePreview)
     } else {
         basePreview
     }
-    val presenceDescription = when {
-        conversation.isConnected -> connectionDescription
-        conversation.transport == DirectMessageTransport.NOSTR ->
+    val presenceDescription = when (row.presence) {
+        ConversationPresence.Connected -> connectionDescription
+        ConversationPresence.ReachableViaNostr ->
             stringResource(R.string.offline_reachable_via_nostr)
-        else -> stringResource(R.string.offline_not_in_mesh)
+        ConversationPresence.NotInMesh -> stringResource(R.string.offline_not_in_mesh)
     }
-    val peerIdentity = conversation.nostrPubkey
-        ?.let(viewModel::peerIdentityForNostrPubkey)
-        ?: viewModel.peerIdentityForMeshPeer(conversation.conversationID)
-    val assignedColor = colorForPeer(peerIdentity.stableKey, palette)
-    val (baseNameRaw, suffix) = splitSuffix(conversation.displayName)
+    val assignedColor = colorForPeer(row.colorKey, palette)
+    val baseNameRaw = row.baseName
+    val suffix = row.suffix
     val relativeTime by produceState(
         initialValue = conversationRelativeTime(conversation.latestMessageAt),
         conversation.latestMessageAt
@@ -1228,8 +1023,8 @@ private fun ConversationRow(
             theyFavoritedUs = theyFavoritedUs,
             isVerified = isVerified,
             badge = {
-                when {
-                    conversation.isConnected -> Icon(
+                when (row.presence) {
+                    ConversationPresence.Connected -> Icon(
                         painter = painterResource(
                             conversationTransportIcon(
                                 isReachedOverInternet = false,
@@ -1242,7 +1037,7 @@ private fun ConversationRow(
                         tint = colorScheme.primary
                     )
 
-                    conversation.transport == DirectMessageTransport.NOSTR -> Icon(
+                    ConversationPresence.ReachableViaNostr -> Icon(
                         painter = painterResource(R.drawable.ic_spec_globe),
                         contentDescription = stringResource(
                             R.string.offline_reachable_via_nostr
@@ -1251,7 +1046,7 @@ private fun ConversationRow(
                         tint = palette.accentPurple
                     )
 
-                    else -> Icon(
+                    ConversationPresence.NotInMesh -> Icon(
                         imageVector = Icons.Outlined.Circle,
                         contentDescription = stringResource(R.string.offline_not_in_mesh),
                         modifier = Modifier.size(11.dp),
@@ -1317,13 +1112,13 @@ private fun ConversationRow(
                     text = messagePreview,
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontFamily = BitchatFontFamily,
-                        fontWeight = if (!conversation.draft.isNullOrBlank()) {
+                        fontWeight = if (row.hasDraft) {
                             FontWeight.Medium
                         } else {
                             FontWeight.Normal
                         }
                     ),
-                    color = if (!conversation.draft.isNullOrBlank()) {
+                    color = if (row.hasDraft) {
                         palette.accentOrange
                     } else {
                         palette.textTertiary
@@ -1436,39 +1231,31 @@ private fun conversationRelativeTime(timestamp: Long): String =
 
 @Composable
 private fun PeerItem(
-    peerID: String,
-    displayName: String,
-    isDirect: Boolean,
-    isWifiAware: Boolean = false,
-    isConnected: Boolean = true,
-    isSelected: Boolean,
-    isFavorite: Boolean,
-    theyFavoritedUs: Boolean = false,
-    isVerified: Boolean,
+    row: MeshPersonRowUi,
     colorScheme: ColorScheme,
-    viewModel: MeshPeerListViewModel,
     onItemClick: () -> Unit,
-    unreadCount: Int = 0,
-    showNostrGlobe: Boolean = false,
-    showHashSuffix: Boolean = true
 ) {
-    val currentNickname by viewModel.nickname.collectAsStateWithLifecycle()
+    val isDirect = row.isDirect
+    val isWifiAware = row.isWifiAware
+    val isConnected = row.isConnected
+    val isSelected = row.isSelected
+    val isFavorite = row.isFavorite
+    val theyFavoritedUs = row.theyFavoritedUs
+    val isVerified = row.isVerified
+    val unreadCount = row.unreadCount
+    val showNostrGlobe = row.showNostrGlobe
     val connectionDescription = meshConnectionDescription(
-        isWifiAware = isWifiAware,
-        isDirect = isDirect
+        meshConnectionKind(isWifiAware = isWifiAware, isDirect = isDirect)
     )
     // Split display name for hashtag suffix support (iOS-compatible)
-    val (baseNameRaw, suffixRaw) = splitSuffix(displayName)
+    val baseNameRaw = row.baseName
     val baseName = truncateNickname(baseNameRaw)
-    val suffix = if (showHashSuffix) suffixRaw else ""
-    val isMe = displayName == "You" || peerID == currentNickname
+    val suffix = row.suffix
+    val isMe = row.isMe
 
     // Get consistent peer color (iOS-compatible)
     val palette = LocalBitchatPalette.current
-    val assignedColor = colorForPeer(
-        viewModel.peerIdentityForMeshPeer(peerID).stableKey,
-        palette
-    )
+    val assignedColor = colorForPeer(row.colorKey, palette)
     val baseColor = if (isMe) palette.accentOrange else assignedColor
 
     Row(
@@ -1562,14 +1349,11 @@ private fun PeerItem(
 }
 
 @Composable
-private fun meshConnectionDescription(
-    isWifiAware: Boolean,
-    isDirect: Boolean
-): String = stringResource(
-    when {
-        isWifiAware -> R.string.cd_direct_wifi_aware
-        isDirect -> R.string.cd_direct_bluetooth
-        else -> R.string.cd_routed_mesh
+private fun meshConnectionDescription(connection: MeshConnectionKind): String = stringResource(
+    when (connection) {
+        MeshConnectionKind.WifiAware -> R.string.cd_direct_wifi_aware
+        MeshConnectionKind.Bluetooth -> R.string.cd_direct_bluetooth
+        MeshConnectionKind.Routed -> R.string.cd_routed_mesh
     }
 )
 

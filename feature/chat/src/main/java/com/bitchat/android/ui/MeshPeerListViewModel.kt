@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.mesh.PeerInfo
@@ -79,6 +80,10 @@ class MeshPeerListViewModel @Inject constructor(
 
     fun isNoisePublicKeyVerified(noisePublicKey: ByteArray, verifiedFingerprints: Set<String>): Boolean =
         verifiedFingerprints.contains(verificationHandler.fingerprintFromNoiseBytes(noisePublicKey))
+
+    /** The list's non-snapshot reads, over this ViewModel's collaborators. */
+    internal fun peerListLookups(appContext: Context): PeerListLookups =
+        RealPeerListLookups(appContext, contactFavorites, verificationHandler, sessionMesh)
 
     /** Shows the private chat with [peerID] over the list; Back returns to it. */
     fun openPrivateChat(peerID: String) {
