@@ -28,6 +28,11 @@ object WifiAwareController {
     private var appContext: Context? = null
     private val lifecycleLock = Any()
     private var starting = false
+    private var lifecycleGeneration = 0L
+    private var stopsInProgress = 0
+    private var restartAfterStop = false
+    private var panicSuspended = false
+    private var panicGeneration = 0L
     private val restartInFlight = AtomicBoolean(false)
     private val restartRequested = AtomicBoolean(false)
     private var awareReceiverRegistered = false
@@ -53,7 +58,7 @@ object WifiAwareController {
 
     private fun heldForHotspot(): Boolean = isHeldForHotspot()
 
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val _enabled = MutableStateFlow(false)
     val enabled: StateFlow<Boolean> = _enabled.asStateFlow()
@@ -109,6 +114,29 @@ object WifiAwareController {
         _enabled.value = value
         if (value) startIfPossible() else stop()
     }
+
+    /** Hold replacement startup across panic cleanup, including a failed wipe awaiting retry. */
+    fun suspendForPanic(): Long {
+        val generation = synchronized(lifecycleLock) {
+            panicSuspended = true
+            panicGeneration += 1
+            panicGeneration
+        }
+        stop()
+        return generation
+    }
+
+    /** A successful retry may release its hold; an older completion may not. */
+    fun resumeAfterPanic(generation: Long) {
+        val resume = synchronized(lifecycleLock) {
+            if (!panicSuspended || generation != panicGeneration) return
+            panicSuspended = false
+            _enabled.value
+        }
+        if (resume) restartIfStillEnabled()
+    }
+
+    private fun heldForPanic(): Boolean = synchronized(lifecycleLock) { panicSuspended }
 
     /**
      * A session-scoped claim on the Wi-Fi radio.
@@ -167,10 +195,15 @@ object WifiAwareController {
     }
 
     fun startIfPossible() {
-        val reusableService = synchronized(lifecycleLock) {
+        val (reusableService, startGeneration) = synchronized(lifecycleLock) {
             if (!_enabled.value) return
+            if (panicSuspended) return
             if (heldForHotspot()) {
                 Log.d(TAG, "Not starting Wi-Fi Aware: held down for the hotspot")
+                return
+            }
+            if (stopsInProgress > 0) {
+                restartAfterStop = true
                 return
             }
             val existing = service
@@ -180,63 +213,57 @@ object WifiAwareController {
             }
             if (starting) return
             starting = true
-            existing
+            existing to lifecycleGeneration
         }
 
-        val ctx = appContext ?: run {
-            synchronized(lifecycleLock) { starting = false }
-            return
-        }
-
-        val status = refreshSupportStatus(ctx)
-        if (!status.supported) {
-            val reason = status.reason ?: "not supported"
-            Log.w(TAG, "Wi‑Fi Aware unsupported; not starting ($reason)")
-            addBlockedDebugMessage("unsupported:$reason", "Wi-Fi Aware not supported on this device ($reason)")
-            synchronized(lifecycleLock) { starting = false }
-            return
-        }
-
-        val awareManager = WifiAwareSupport.getManager(ctx)
-        if (awareManager == null || !status.available) {
-            Log.w(TAG, "Wi-Fi Aware is not currently available; not starting")
-            addBlockedDebugMessage("unavailable", "Wi-Fi Aware is not available right now")
-            synchronized(lifecycleLock) { starting = false }
-            return
-        }
-
-        // Check system location setting: WifiAwareManager.attach() throws SecurityException if disabled
-        val lm = ctx.getSystemService(Context.LOCATION_SERVICE) as? android.location.LocationManager
-        val locationEnabled = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            lm?.isLocationEnabled == true
-        } else {
-            @Suppress("DEPRECATION")
-            lm?.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER) == true ||
-            lm?.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER) == true
-        }
-
-        if (!locationEnabled) {
-            Log.w(TAG, "Location services are disabled; Wi-Fi Aware cannot start.")
-            addBlockedDebugMessage("location-disabled", "Enable Location Services to start Wi-Fi Aware")
-            synchronized(lifecycleLock) { starting = false }
-            return
-        }
-
-        // Android 13+: require NEARBY_WIFI_DEVICES runtime permission
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val granted = androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.NEARBY_WIFI_DEVICES) == android.content.pm.PackageManager.PERMISSION_GRANTED
-            if (!granted) {
-                Log.w(TAG, "Missing NEARBY_WIFI_DEVICES permission; not starting Wi‑Fi Aware")
-                addBlockedDebugMessage("missing-nearby-wifi", "Grant Nearby Wi-Fi Devices to start Wi-Fi Aware")
-                synchronized(lifecycleLock) { starting = false }
+        try {
+            val ctx = appContext ?: run {
                 return
             }
-        }
-        if (!_enabled.value || heldForHotspot()) {
-            synchronized(lifecycleLock) { starting = false }
-            return
-        }
-        try {
+
+            val status = refreshSupportStatus(ctx)
+            if (!status.supported) {
+                val reason = status.reason ?: "not supported"
+                Log.w(TAG, "Wi‑Fi Aware unsupported; not starting ($reason)")
+                addBlockedDebugMessage("unsupported:$reason", "Wi-Fi Aware not supported on this device ($reason)")
+                return
+            }
+
+            val awareManager = WifiAwareSupport.getManager(ctx)
+            if (awareManager == null || !status.available) {
+                Log.w(TAG, "Wi-Fi Aware is not currently available; not starting")
+                addBlockedDebugMessage("unavailable", "Wi-Fi Aware is not available right now")
+                return
+            }
+
+            // Check system location setting: WifiAwareManager.attach() throws SecurityException if disabled
+            val lm = ctx.getSystemService(Context.LOCATION_SERVICE) as? android.location.LocationManager
+            val locationEnabled = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                lm?.isLocationEnabled == true
+            } else {
+                @Suppress("DEPRECATION")
+                lm?.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER) == true ||
+                lm?.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER) == true
+            }
+
+            if (!locationEnabled) {
+                Log.w(TAG, "Location services are disabled; Wi-Fi Aware cannot start.")
+                addBlockedDebugMessage("location-disabled", "Enable Location Services to start Wi-Fi Aware")
+                return
+            }
+
+            // Android 13+: require NEARBY_WIFI_DEVICES runtime permission
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val granted = androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.NEARBY_WIFI_DEVICES) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                if (!granted) {
+                    Log.w(TAG, "Missing NEARBY_WIFI_DEVICES permission; not starting Wi‑Fi Aware")
+                    addBlockedDebugMessage("missing-nearby-wifi", "Grant Nearby Wi-Fi Devices to start Wi-Fi Aware")
+                    return
+                }
+            }
+            if (!_enabled.value || heldForHotspot() || heldForPanic()) {
+                return
+            }
             val startedService = reusableService ?: run {
                 Log.i(TAG, "Instantiating WifiAwareMeshService...")
                 WifiAwareMeshService(ctx)
@@ -246,15 +273,16 @@ object WifiAwareController {
             // Test the hold inside the same lock that publishes the service, and that
             // stop() takes. Testing it outside leaves a window where acquiring a lease
             // sets the flag and stop() finds nothing published yet, and this block then
-            // publishes anyway — resurrecting NAN while the hotspot owns the radio.
+            // publishes afterward. That would start NAN while the hotspot owns the radio.
             // Ordering holds because acquireHotspotLease() increments before calling
             // stop(): either we see the flag here, or stop() sees our published service.
             val published = synchronized(lifecycleLock) {
-                val canPublish = !heldForHotspot() && startedService.isRunning()
+                val canPublish = startGeneration == lifecycleGeneration && _enabled.value &&
+                    !heldForHotspot() && !panicSuspended && startedService.isRunning()
                 if (canPublish) {
                     service = startedService
                     _running.value = true
-                } else {
+                } else if (startGeneration == lifecycleGeneration) {
                     if (service === startedService) service = null
                     _running.value = false
                 }
@@ -268,9 +296,7 @@ object WifiAwareController {
             } else {
                 // stopServices() can block, so keep it out of the lock.
                 val heldForHotspot = heldForHotspot()
-                if (heldForHotspot || reusableService == null) {
-                    try { startedService.stopServices() } catch (_: Exception) { }
-                }
+                try { startedService.stopServices() } catch (_: Exception) { }
                 if (heldForHotspot) {
                     Log.i(TAG, "Abandoned Wi-Fi Aware start: hotspot claimed the radio")
                 }
@@ -279,25 +305,49 @@ object WifiAwareController {
             }
         } catch (e: Throwable) {
             Log.e(TAG, "Failed to start WifiAwareMeshService", e)
-            _running.value = false
+            synchronized(lifecycleLock) {
+                if (startGeneration == lifecycleGeneration) _running.value = false
+            }
             try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware failed to start: ${e.message}")) } catch (_: Exception) {}
         } finally {
-            synchronized(lifecycleLock) { starting = false }
+            finishStart(startGeneration)
         }
+    }
+
+    private fun finishStart(startGeneration: Long) {
+        val retry = synchronized(lifecycleLock) {
+            starting = false
+            startGeneration != lifecycleGeneration && _enabled.value && !heldForHotspot() && !panicSuspended
+        }
+        if (retry) restartIfStillEnabled()
     }
 
     fun stop() {
         val stopped = synchronized(lifecycleLock) {
+            // Revoke starts that have not published their service yet.
+            lifecycleGeneration += 1
+            stopsInProgress += 1
             val current = service
             service = null
-            starting = false
+            // A pending start owns shared transport setup until its rejected-start cleanup ends.
+            // Keep successors waiting until finishStart releases startup ownership.
             _running.value = false
             current
         }
-        try { stopped?.stopServices() } catch (_: Exception) { }
-        try { com.bitchat.android.services.AppStateStore.clearTransportPeers("WIFI") } catch (_: Exception) { }
-        clearDebugSnapshot()
-        try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware stopped")) } catch (_: Exception) {}
+        try {
+            try { stopped?.stopServices() } catch (_: Exception) { }
+            try { com.bitchat.android.services.AppStateStore.clearTransportPeers("WIFI") } catch (_: Exception) { }
+            clearDebugSnapshot()
+            try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware stopped")) } catch (_: Exception) {}
+        } finally {
+            val retry = synchronized(lifecycleLock) {
+                stopsInProgress -= 1
+                val requested = stopsInProgress == 0 && restartAfterStop
+                if (stopsInProgress == 0) restartAfterStop = false
+                requested && _enabled.value && !heldForHotspot() && !panicSuspended
+            }
+            if (retry) restartIfStillEnabled()
+        }
     }
 
     internal fun onServiceStopped(stoppedService: WifiAwareMeshService) {
@@ -317,6 +367,7 @@ object WifiAwareController {
      * startServices() defers and we must try again rather than give up.
      */
     internal fun restartIfStillEnabled(delayMs: Long = 0L) {
+        if (heldForPanic()) return
         // Record the request before coalescing. A request that arrives while a loop is
         // already running — the final lease closing during a loop that has been
         // burning attempts against the hold — would otherwise be dropped, and the old
@@ -336,7 +387,7 @@ object WifiAwareController {
                     // the attempts below schedules another pass.
                     restartRequested.set(false)
                     var attempt = 0
-                    while (_enabled.value && !_running.value && attempt < MAX_RESTART_ATTEMPTS) {
+                    while (_enabled.value && !_running.value && !heldForPanic() && attempt < MAX_RESTART_ATTEMPTS) {
                         val ctx = appContext
                         if (ctx != null && !refreshSupportStatus(ctx).supported) break
                         startIfPossible()
@@ -344,7 +395,7 @@ object WifiAwareController {
                         attempt++
                         delay(RESTART_RETRY_DELAY_MS)
                     }
-                } while (restartRequested.get() && _enabled.value && !_running.value)
+                } while (restartRequested.get() && _enabled.value && !_running.value && !heldForPanic())
             } finally {
                 restartInFlight.set(false)
             }
@@ -352,7 +403,7 @@ object WifiAwareController {
             // A request landing between the loop exiting and the flag clearing finds
             // restartInFlight still set and returns; pick it up here. Terminates because
             // each pass consumes the flag before doing any work.
-            if (restartRequested.get() && _enabled.value && !_running.value) {
+            if (restartRequested.get() && _enabled.value && !_running.value && !heldForPanic()) {
                 restartIfStillEnabled()
             }
         }

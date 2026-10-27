@@ -1638,7 +1638,10 @@ class ChatViewModel(
         suspend fun step(action: suspend () -> Unit) {
             try { action() } catch (_: Exception) { successful = false }
         }
+        val liveVoiceManager = com.bitchat.android.features.voice.LiveVoiceManager.getInstance(getApplication())
+        liveVoiceManager.suspendForPanic()
         groupCoordinator.suspendForPanic()
+        val wifiPanicGeneration = com.bitchat.android.wifiaware.WifiAwareController.suspendForPanic()
         step { com.bitchat.android.geohash.LocationChannelManager.getInstance(getApplication()).disableLocationServices() }
         step { com.bitchat.android.services.bridge.MeshGatewayService.wipe() }
         step { MeshBridgeService.wipe() }
@@ -1676,9 +1679,11 @@ class ChatViewModel(
         dataManager.saveNickname(newNickname)
         recreateMeshServiceAfterPanic()
         com.bitchat.android.services.AppStateStore.resumePrivateConversationsAfterPanic()
+        liveVoiceManager.resumeAfterPanic()
         groupCoordinator.resumeAfterPanic()
         MeshBridgeService.resumeAfterPanic()
         com.bitchat.android.services.PrivateMediaOutbox.tryGetInstance()?.resume()
+        com.bitchat.android.wifiaware.WifiAwareController.resumeAfterPanic(wifiPanicGeneration)
         return true
     }
 
