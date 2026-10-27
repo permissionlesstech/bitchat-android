@@ -65,6 +65,33 @@ class CharacterMarkovModelTest {
     }
 
     @Test
+    fun `larger native alphabets are retained while oversized alphabets remain rejected`() {
+        fun largeAlphabet(size: Int): ByteArray = ByteArrayOutputStream().also { output ->
+            DataOutputStream(output).use { data ->
+                data.writeInt(0x42434d31)
+                data.writeShort(size)
+                data.writeFloat(2f)
+                data.writeShort(40960)
+                data.writeShort(4096)
+                data.writeInt(1)
+                repeat(size) { index ->
+                    data.writeInt(if (index == 0) ' '.code else 0x4e00 + index)
+                    data.writeShort(4096)
+                    data.writeShort(0)
+                }
+                data.writeInt(1)
+                data.writeShort(8192)
+            }
+        }.toByteArray()
+        val raw = largeAlphabet(5000)
+        assertEquals(2.0, CharacterMarkovModel.decode(digest(raw), compressed(raw)).score(intArrayOf(0x4e01)), 0.0)
+        val oversized = largeAlphabet(16385)
+        assertThrows(IllegalArgumentException::class.java) {
+            CharacterMarkovModel.decode(digest(oversized), compressed(oversized))
+        }
+    }
+
+    @Test
     fun `decompression has a hard upper bound even before checksum verification`() {
         val oversized = ByteArray(1_048_577)
         assertThrows(IllegalArgumentException::class.java) {

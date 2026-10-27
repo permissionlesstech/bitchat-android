@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Build fixed Unicode bigram models using only repository text and synthetic examples.
+"""Build fixed Unicode bigram models offline from pinned local training corpora.
 
-No network, messages, device data, or runtime training. Python standard library only.
-Resource keys determine disjoint train/calibration/test partitions across translations.
+No network, device data, or runtime training. Python standard library only.
+Public text stays in the ignored corpus cache; generated JVM fixtures remain synthetic/static.
 --check reproduces all generated files without modifying them.
 """
 
 import argparse
 import base64
 from collections import Counter
+from contextlib import nullcontext
 import gzip
 import hashlib
 import json
@@ -20,6 +21,13 @@ import struct
 import unicodedata
 import xml.etree.ElementTree as ET
 
+try:
+    from .corpus_training import CorpusPartitions
+    from .conversational_corpora import load_catalog, matches_script
+except ImportError:
+    from corpus_training import CorpusPartitions
+    from conversational_corpora import load_catalog, matches_script
+
 
 ROOT = Path(__file__).resolve().parents[2]
 DIRECTORY = ROOT / "tools/spam_filter"
@@ -28,6 +36,8 @@ TEST = ROOT / "app/src/test/java/com/bitchat/android/spam"
 SCALE = 4096
 BACKOFF = 5.0
 MAX_COST = 15.99
+MAX_ALPHABET = 16384
+MAX_MODEL_BYTES = 1024 * 1024
 GROUPS = {
     "latin": "en de es eu fil fr id it mg ms nl pl pt sv tr vi".split(),
     "cyrillic": ["ru", "uk"], "arabic": ["ar", "fa", "pa", "ur"],
@@ -158,7 +168,7 @@ def train(lines):
         previous.update(text[:-1])
     # All printable ASCII characters get a learned/backoff score, never a content exemption.
     alphabet = sorted(set(unigrams) | {chr(i) for i in range(32, 127)})
-    if len(alphabet) > 4096:
+    if len(alphabet) > MAX_ALPHABET:
         raise ValueError("Alphabet exceeds the bounded decoder")
     positions = {c: i for i, c in enumerate(alphabet)}
     denominator = sum(unigrams.values()) + 0.25 * len(alphabet)
@@ -195,30 +205,66 @@ def train(lines):
     return alphabet, unigram_costs, backoff_costs, observed, unknown, score
 
 
-def generate():
+def repository_fixture_text():
+    # Protect independent synthetic regression cohorts from exact corpus overlap too.
+    for path in TEST.glob("*.kt"):
+        for literal in re.findall(r'"(?:[^"\\]|\\.)*"', path.read_text()):
+            try:
+                yield json.loads(literal.replace("\\$", "$"))
+            except json.JSONDecodeError:
+                continue
+
+
+def generate(corpus_directory=None, evaluation_directory=None):
     aliases, data, synthetic, sources = input_data()
+    protected = [text for rows in data.values() for texts in rows.values() for text in texts]
+    protected.extend(repository_fixture_text())
+    corpus_context = CorpusPartitions(corpus_directory, protected, normalize, LANGUAGES) if corpus_directory else nullcontext(None)
+    with corpus_context as corpus:
+        return generate_models(aliases, data, synthetic, sources, corpus, evaluation_directory)
+
+
+def generate_models(aliases, data, synthetic, sources, corpus, evaluation_directory):
     metadata = {
         "formatVersion": 1, "training": "offline only; no device data", "aliases": aliases,
         "normalization": "NFKC, lowercase, collapsed whitespace; Hangul syllables remain intact",
         "bigramBackoff": BACKOFF, "unigramPseudocount": 0.25, "quantizationScale": SCALE,
-        "positiveCalibrationQuantile": 0.95, "positiveCalibrationMargin": 0.35,
+        "positiveCalibrationQuantile": 0.95, "positiveCalibrationMargin": 0.55 if corpus else 0.35,
         "negativeCalibration": {"seed": 424242, "samples": 256, "length": 96, "quantile": 0.01, "marginMultiplier": 0.98},
         "models": [],
     }
+    catalog = load_catalog() if corpus else None
+    if corpus:
+        if corpus.manifest["catalogSha256"] != hashlib.sha256((DIRECTORY / "corpus-sources.json").read_bytes()).hexdigest():
+            raise ValueError("Prepared corpus source catalog differs")
+        metadata["corpusTraining"] = {
+            "catalogSha256": corpus.manifest["catalogSha256"],
+            "partitions": "80/10/10 by source conversation group; identical normalized text uses the most conservative partition across languages; repository fixtures excluded",
+            "sources": {ident: {key: stats[key] for key in ("kind", "homepage", "license", "revision")}
+                        for ident, stats in corpus.manifest["sources"].items()},
+            "preparedSha256": {language: stats["sha256"] for language, stats in corpus.manifest["languages"].items()},
+        }
+    if evaluation_directory:
+        (evaluation_directory / "models").mkdir(parents=True, exist_ok=True)
+        (evaluation_directory / "held-out").mkdir(exist_ok=True)
     declarations, loaders = [], []
     tests = []
     for language in LANGUAGES:
-        alphabet, unigrams, backoff, observed, unknown, score = train(data[language]["train"])
+        corpus_rows, corpus_sources, exclusions = corpus.language(language) if corpus else ({part: [] for part in data[language]}, {}, {})
+        rows = {part: texts + corpus_rows[part] for part, texts in data[language].items()}
+        alphabet, unigrams, backoff, observed, unknown, score = train(rows["train"])
         # Calibrate only on the calibration partition, never on tests or flood samples.
-        calibration = [score(text) for text in data[language]["calibration"]
+        calibration = [score(text) for text in rows["calibration"]
                        if sum(c.isalpha() for c in text) >= 24]
         calibration.extend(score(t) for t in synthetic[language]["calibration"])
         calibration.sort()
         # Keep language support from opening a bypass for random native-script characters.
         # Negative calibration is generated only from the training alphabet with its own seed.
-        positive_threshold = calibration[math.ceil(0.95 * len(calibration)) - 1] + 0.35
-        noise_alphabet = [c for c in alphabet if c.isalpha() and
-                          (language in GROUPS["latin"] or "LATIN" not in unicodedata.name(c, ""))]
+        positive_threshold = calibration[math.ceil(0.95 * len(calibration)) - 1] + metadata["positiveCalibrationMargin"]
+        noise_alphabet = [c for c in alphabet if c.isalpha() and (
+            matches_script(c, language, catalog["languages"][language]) if corpus else
+            language in GROUPS["latin"] or "LATIN" not in unicodedata.name(c, "")
+        )]
         rng = random.Random(424242)
         negative_scores = sorted(score("".join(rng.choice(noise_alphabet) for _ in range(96)))
                                  for _ in range(256))
@@ -229,15 +275,18 @@ def generate():
         raw += b"".join(struct.pack(">IHH", ord(c), quantize(u), quantize(b))
                         for c, u, b in zip(alphabet, unigrams, backoff))
         raw += b"".join(struct.pack(">IH", key, quantize(cost)) for key, cost in observed.items())
+        if len(raw) > MAX_MODEL_BYTES:
+            raise ValueError("Model exceeds the bounded decoder")
         digest = hashlib.sha256(raw).hexdigest()
         compressed = gzip.compress(raw, compresslevel=9, mtime=0)
         compressed = compressed[:9] + b"\xff" + compressed[10:]  # Platform-independent gzip OS byte.
         encoded = base64.b64encode(compressed).decode()
+        if len(encoded) > MAX_MODEL_BYTES:
+            raise ValueError("Encoded model exceeds the bounded decoder")
         chunks = [encoded[i:i + 12000] for i in range(0, len(encoded), 12000)]
         declarations.append("    private val " + language + " by lazy { decode(\"" + digest + "\",\n" +
                             ",\n".join('        "' + chunk + '"' for chunk in chunks) + "\n    ) }")
         loaders.append(f'        "{language}" -> {language}')
-        rows = data[language]
         metadata["models"].append({
             "language": language, "group": next(g for g, ls in GROUPS.items() if language in ls),
             "sources": sources[language], "trainSamples": len(rows["train"]),
@@ -251,7 +300,20 @@ def generate():
             "calibrationConflict": positive_threshold > negative_ceiling,
             "rawBytes": len(raw), "gzipBytes": len(compressed), "sha256": digest,
         })
-        for index, content in enumerate(rows["test"]):
+        if corpus:
+            metadata["models"][-1].update(
+                corpusPartitions={part: len(texts) for part, texts in corpus_rows.items()},
+                corpusSources=corpus_sources, corpusExclusions=exclusions,
+                repositoryTestSamples=len(data[language]["test"]),
+            )
+        if evaluation_directory:
+            (evaluation_directory / "models" / f"{language}.bcm.gz").write_bytes(compressed)
+            with gzip.open(evaluation_directory / "held-out" / f"{language}.jsonl.gz", "wt", encoding="utf-8") as output:
+                for text in corpus_rows["test"]:
+                    output.write(json.dumps({"text": text}, ensure_ascii=False) + "\n")
+        print(f'Trained {language}: {len(rows["train"])} samples; {len(alphabet)} characters; {len(compressed)} compressed bytes', flush=True)
+        # Downloaded text never enters the synthetic/static repository test fixtures.
+        for index, content in enumerate(data[language]["test"]):
             tests.append({"language": language, "id": f"{language}-{index:03d}", "content": content,
                           "synthetic": content in synthetic[language]["test"]})
     alias_source = ", ".join(f'"{tag}" to "{language}"' for tag, language in aliases.items())
@@ -293,8 +355,25 @@ internal object LanguageHeldOutSamples {
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--corpus-dir", type=Path, default=ROOT / "build/corpora/conversational")
+    parser.add_argument("--repository-only", action="store_true", help="Reproduce the historical UI/synthetic training input")
+    parser.add_argument("--evaluation-dir", type=Path, help="Write private held-out corpus text and binary weights into an ignored local directory")
     arguments = parser.parse_args()
-    generated = generate()
+    if arguments.check and arguments.evaluation_dir:
+        parser.error("--check cannot write evaluation artifacts")
+    if not arguments.repository_only and not (arguments.corpus_dir / "manifest.json").is_file():
+        parser.error("Prepared corpus missing; fetch and prepare it with conversational_corpora.py first")
+    if arguments.evaluation_dir:
+        destination = arguments.evaluation_dir.resolve()
+        if destination.is_relative_to(ROOT) and not destination.is_relative_to(ROOT / "build"):
+            parser.error("Private evaluation artifacts must stay under ignored build/ or outside the repository")
+        destination.mkdir(parents=True, exist_ok=True)
+        for source, name in [(SOURCE / "LanguageModelPack.kt", "baseline-pack.kt"),
+                             (DIRECTORY / "language-models.json", "baseline-models.json")]:
+            target = destination / name
+            if not target.exists():
+                target.write_bytes(source.read_bytes())
+    generated = generate(None if arguments.repository_only else arguments.corpus_dir, arguments.evaluation_dir)
     for path, content in generated.items():
         if arguments.check:
             if not path.exists() or path.read_text() != content:

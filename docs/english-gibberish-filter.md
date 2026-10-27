@@ -9,8 +9,8 @@ messages, non-text routing, and packet formats retain their existing behavior.
 
 ## Model pack and training
 
-The pack contains 109,359 compressed bytes (about 107 KiB). Its decoded weight
-arrays occupy 222,452 bytes, excluding object and string overhead. Models load
+The retrained pack contains 1,587,413 compressed bytes (about 1.51 MiB). Its decoded weight
+arrays occupy 3,015,144 bytes, excluding object and string overhead. Models load
 lazily and share immutable weights across scoring calls. Script selection
 limits work to at most 16 candidate models rather than all 32.
 
@@ -21,12 +21,21 @@ variants share a model; simplified and traditional Chinese share a model.
 Punjabi covers the declared `pa-PK` Arabic-script locale. These weights do
 not establish support for other scripts or romanizations of those languages.
 
-Training uses filtered static translations already in `app/src/main/res`,
-the original synthetic English corpus, and original invented examples in
-`tools/spam_filter/language-examples.json`. No live conversations, account
-information, device data, or external corpus service is used. The native-script
-corpus includes additional Japanese, Korean, and Chinese paragraphs to improve
-character coverage. The examples have not received independent linguistic review.
+Training runs in the separate Python tools under `tools/spam_filter`; none of
+that machinery ships in the app. It uses the pinned public corpus candidates
+described below, filtered static translations in `app/src/main/res`, the original
+synthetic English corpus, and invented examples in `language-examples.json`.
+The generator performs no network requests and reads no app messages or device
+data. Python's standard library is sufficient after corpus preparation.
+
+Public corpus input is partitioned 80/10/10 by conversation/source group across
+languages. If identical normalized text occurs in different groups or languages,
+it is retained only in the most conservative partition: test before calibration,
+calibration before training. Repository fixtures are excluded from all public
+corpus partitions. The resulting public input has 810,272 training, 100,630
+calibration and 100,618 held-out texts. Including static/synthetic input gives
+816,092 training, 101,205 calibration and 101,090 test texts. Processing uses one
+language at a time and a local SQLite index to bound memory.
 
 Resource keys are deterministically split into training, calibration, and test
 partitions using SHA-256. Synthetic examples have explicit separate partitions.
@@ -40,8 +49,11 @@ python3 tools/spam_filter/train_languages.py
 python3 tools/spam_filter/train_languages.py --check
 ```
 
-The standard-library-only generator produces `LanguageModelPack.kt`, shared
-held-out JVM fixtures, and `tools/spam_filter/language-models.json`. The manifest
+These commands require the verified prepared corpus cache. `--repository-only`
+selects the historical UI/synthetic input instead. The generator produces
+`LanguageModelPack.kt`, shared static/synthetic held-out JVM fixtures, and
+`tools/spam_filter/language-models.json`. Downloaded text never enters those JVM
+fixtures. The manifest
 records locale aliases, corpus hashes, per-language thresholds, sample counts,
 weight sizes, and SHA-256 checksums. Adding a declared locale without a model
 causes generation to fail.
@@ -52,15 +64,100 @@ costs use 16-bit quantization at a scale of 4,096. Only observed bigrams are sto
 unseen pairs use the stored backoff and unigram costs. Untrained characters
 receive the model's strongest bounded fallback cost. The decoder checks the
 checksum, format, array ordering, bounds, finite threshold, and decompression
-limit before exposing weights.
+limit before exposing weights. The alphabet bound is 16,384 code points, retaining
+all 5,002 characters observed in Chinese training; each decoded model remains
+bounded to 1 MiB. Characters seen only in held-out input receive the ordinary
+unknown-character score.
 
 Thresholds use the 95th percentile of sentence-length positive calibration
-scores plus `0.35`. Separate seeded noise calibration generates 256 random
-96-character samples from each training alphabet. The final threshold is capped
+scores plus `0.55`. The margin allows ordinary formatted chat, including synthetic
+reference codes, without exempting any characters from scoring. Separate seeded
+noise calibration generates 256 random 96-character samples from each native-script
+training alphabet. The final threshold is capped
 at `0.98` times that noise set's first percentile. Noise calibration uses seed
 `424242`; evaluation uses different seeds and samples. The manifest records
 both thresholds and whether the cap conflicts with positive calibration. None
 of the final models has that conflict, but held-out false positives still occur.
+
+## Downloaded conversational training candidates
+
+A separate acquisition workflow has fetched and prepared **1,011,664 distinct
+text records across all 32 language families**. The bundled app weights now use
+the training partition of these candidates. The source acquisition report is a
+snapshot taken before this retraining; the separate retraining report records
+the new model's measured behavior.
+
+The [source catalog](../tools/spam_filter/corpus-sources.json) records public URLs,
+pinned revisions, artifact checksums, declared licenses, and source limitations.
+The [aggregate coverage report](test-results/conversational-corpus-coverage.json)
+and [language table](test-results/conversational-corpus-coverage.csv) contain only
+counts and provenance. Corpus text remains in the ignored local directory
+`build/corpora/conversational`:
+
+- `raw/`: source snapshots and extracted dialogue subsets;
+- `prepared/<language>.jsonl.gz`: text records with source and grouping references;
+- `manifest.json`: per-language sizes, checksums, source counts and filtering outcomes;
+- `licenses/`: source notices retained locally.
+
+Selected sources include [SOC-2508-MULTI](https://huggingface.co/datasets/marcodsn/SOC-2508-MULTI)
+synthetic online chat; the [Aya Collection's SODA component](https://huggingface.co/datasets/CohereLabs/aya_collection)
+of machine-translated synthetic dialogue; original human-authored
+[Aya Q&A](https://huggingface.co/datasets/CohereLabs/aya_dataset);
+[Tatoeba](https://en.wiki.tatoeba.org/articles/show/using-the-tatoeba-corpus)
+authored sentences; and [MASSIVE](https://huggingface.co/datasets/AmazonScience/massive)
+assistant utterances. Additional synthetic Malagasy exchanges, translated Georgian
+roleplay, professional Shahmukhi sentence translations and domain-specific Punjabi
+QA supplement the low-resource languages. These source types are labelled separately.
+
+The SODA acquisition samples training row groups through bounded HTTP range
+requests. Only text and source references enter the extracted files. The full
+multi-gigabyte original shards are not downloaded, so their complete-file hashes
+are recorded as provider declarations rather than claimed as verified. HTTP
+range offsets, total sizes and extracted-subset checksums are verified.
+
+Preparation samples up to 10,000 unique texts per source and language using
+content hashes, preserves accents/punctuation/numbers/emoji, and deduplicates
+across sources. It projects away contributor, persona and worker metadata,
+filters obvious contacts/long identifiers and invalid controls, checks scripts,
+and excludes upstream MASSIVE validation/test rows. It never selects examples
+by whether the current spam model accepts them. The resulting text is not
+guaranteed anonymized; keep it local and separate from repository test fixtures.
+Tatoeba sentence IDs are retained for the required per-author attribution work
+before any text redistribution.
+
+Coverage limitations remain explicit:
+
+- French has 41,895 selected texts, including 20,000 dialogue records; Italian
+  has 40,311, also including 20,000 dialogue records.
+- Filipino has 21,533 selected authored sentences, QA texts and assistant
+  utterances. A general-dialogue SODA subset was not found.
+- `pa-PK` has 1,750 selected records. The strongest supplements are 863 distinct
+  professionally translated sentences and 748 agricultural QA texts. A broad
+  casual-chat corpus remains unverified. Aya's Punjabi-letter examples use
+  Gurmukhi and are rejected for this locale. SACOR's advertised 5,127 rows contain
+  only 53 distinct target strings, which are counted once.
+- The full Chinese candidate set exceeded the earlier 4,096-character model
+  alphabet bound. The updated decoder permits 16,384 code points while retaining
+  the 1 MiB per-model decompression bound; no training characters are discarded.
+
+Offline extraction requires the optional tools dependency in
+`tools/spam_filter/requirements-corpora.txt`; it is not an Android dependency.
+With PyArrow available in the Python environment:
+
+```sh
+python3 tools/spam_filter/conversational_corpora.py fetch
+python3 tools/spam_filter/conversational_corpora.py prepare --per-source-limit 10000
+python3 tools/spam_filter/conversational_corpora.py verify
+python3 -m unittest tools.spam_filter.test_corpus_http tools.spam_filter.test_conversational_corpora
+```
+
+The current local cache also contains an isolated reader under `deps/`. Set
+`PYTHONPATH=build/corpora/conversational/deps` for these commands when using that
+reader. Weekly Tatoeba URLs can change: a fresh download with a different checksum
+is rejected until the source snapshot is deliberately updated. The cached snapshot
+remains usable offline. OpenSubtitles is not selected because the published OPUS
+page does not provide a clear open-data license grant and the upstream terms
+restrict commercial use.
 
 ## Runtime behavior
 
@@ -90,9 +187,58 @@ The historical `englishGibberishEnabled` configuration field and
 verdict caching, sender budgets, and repetition filtering retain their behavior.
 The debug explanation now says "unlikely character sequence".
 
-## Paired evaluation
+## Conversational retraining evaluation
 
-The baseline is an actual build of `055360a4`, the previous English-only filter
+The [aggregate retraining report](test-results/conversational-gibberish-retraining.json)
+and [per-language comparison](test-results/conversational-gibberish-languages.csv)
+compare the previous multilingual UI/synthetic weights with the conversational
+weights on the same 100,618 public held-out texts. The standalone evaluator uses
+the actual compiled JVM normalizer, candidate selection, model decoder and
+quantized scorer for both packs. It writes counts, never source text, to the
+repository report. Public corpus texts are training candidates, not independently
+verified abuse labels; these rejection rates are specific to this corpus.
+
+| Held-out corpus | Texts | Previous blocked | Retrained blocked |
+|---|---:|---:|---:|
+| All 32 language families | 100,618 | 16,945 (16.84%) | 1,506 (1.50%) |
+| French | 4,300 | 597 (13.88%) | 14 (0.33%) |
+| Italian | 4,084 | 268 (6.56%) | 21 (0.51%) |
+| Korean | 2,998 | 2,694 (89.86%) | 237 (7.91%) |
+| Chinese | 3,733 | 3,489 (93.46%) | 334 (8.95%) |
+
+All 60,000 seeded fresh-identity flood messages remain hidden, covering spaced
+letters, unbroken letters and mixed printable ASCII through mesh and Nostr sender
+keys. All 3,200 independent native-script random strings are flagged. Independent
+letter seeds and keyboard-like noise regressions also pass. These JVM tests prove
+local admission behavior, not physical radio delivery.
+
+The separate invented chat cohort improves from 3/128 blocked to 0/128. The broader
+static/synthetic language cohort regresses from 20/472 to 26/472, primarily on
+out-of-domain UI labels. The strict number/symbol cohort also regresses slightly,
+from 68/120 to 70/120 blocked. Its category details remain in the aggregate report;
+URLs, standalone numbers, hashes and code still have substantial false positives.
+No content exemption has been restored. Chinese and Korean rejection rates remain
+too high to describe language coverage as uniformly reliable.
+
+To repeat a training and measurement run using the prepared cache:
+
+```sh
+python3 tools/spam_filter/train_languages.py \
+  --evaluation-dir build/reports/conversational-retraining
+./gradlew :app:compileDebugKotlin
+python3 tools/spam_filter/evaluate_corpora.py
+```
+
+On the first run in an evaluation directory, the generator preserves the previous
+pack as `baseline-pack.kt` and never overwrites that comparison snapshot. Use a
+new ignored output directory for a new comparison. Held-out public text and raw
+tool output remain private under that directory. The evaluator uses JDK 21+
+and the existing cached Kotlin/Gson build dependencies; none ships as an added
+Android dependency.
+
+## Historical UI/synthetic evaluation
+
+The historical baseline is an actual build of `055360a4`, the previous English-only filter
 with all character exemptions removed. Identical test fixtures run against the
 baseline and multilingual builds. False positives are recorded rather than
 removed from the report. These are small constructed samples, not estimates of
@@ -146,18 +292,20 @@ Both clients must produce identical case reports and score vectors. Tests cover
 all locale aliases, normalization, bounded work, malformed packs, concurrent
 scoring, multilingual admission, and random-identity floods. Evaluation tests
 can write synthetic-only JSON under the optional `spam.evaluation.dir` JVM test
-property. To reproduce the baseline comparison, copy only the generated held-out
+property. To reproduce the historical English-only comparison, copy only the generated held-out
 fixture and generic evaluation test into an isolated baseline checkout; keep its
 original detector intact. The original 220-case evaluation is already present
 there. The language evaluation writes its measurements before enforcing current
 multilingual accuracy guards. The English-only baseline is expected to fail
 those guards; its saved measurements are the baseline comparison.
 
-Both debug builds pass. Full JVM results are 772 app passes with three
-pre-existing ignored tests, and 303 watch passes. All six host-side scenario
-tests pass. Lint completes under the repository's nonblocking configuration:
-the app has 311 errors, 335 warnings, and 19 hints; watch has 37 errors,
-51 warnings, and 10 hints. None is in the new model or evaluation files.
+Both retrained debug APKs build and contain all 32 new model digests. Full JVM
+results are 774 app passes with three pre-existing ignored tests, and 305 watch
+passes. All 21 host-side corpus, partition and scenario checks pass. The generator
+reproduces all artifacts with `--check`, and phone/watch synthetic case reports
+are identical. Lint completes under the repository's nonblocking configuration:
+the app has 311 errors, 356 warnings, and 19 hints; watch has 37 errors,
+51 warnings, and 10 hints. None is in the changed model or evaluation files.
 
 Physical Mesh Lab validation is **blocked (not run)** because no physical
 endpoints are available. The focused scenario observes two hidden noise samples

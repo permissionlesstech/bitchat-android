@@ -43,7 +43,7 @@
   "unigramPseudocount": 0.25,
   "quantizationScale": 4096,
   "positiveCalibrationQuantile": 0.95,
-  "positiveCalibrationMargin": 0.35,
+  "positiveCalibrationMargin": 0.55,
   "negativeCalibration": {
     "seed": 424242,
     "samples": 256,
@@ -58,21 +58,50 @@
       "sources": [
         "app/src/main/res/values-ar/strings.xml"
       ],
-      "trainSamples": 162,
-      "calibrationSamples": 17,
-      "testSamples": 13,
-      "trainingSha256": "b20e46c131b588fa76a9e6e5719b87a12d7f80a7c20735ba7d0e1c6f5a4d9db0",
-      "calibrationSha256": "e851b191845189fe0895c42a69541928a5c98805d844d5e66a6e05eb4ef2dfb3",
-      "heldOutSha256": "b3666158bd6bb49fc3d8e895cc85d22bdd91610fe3b85944ae948c299aeddd7c",
-      "alphabetSize": 144,
-      "observedBigrams": 637,
-      "threshold": 4.137155,
-      "positiveCalibrationThreshold": 4.137155,
-      "noiseCalibrationCeiling": 5.073908,
+      "trainSamples": 32310,
+      "calibrationSamples": 3996,
+      "testSamples": 3875,
+      "trainingSha256": "e8a6be5d8baa98ad36ecef74556493e925418727396769a7b1164fa3fdc63ab3",
+      "calibrationSha256": "817bc94712d63db13abc487ae3610054dc020d9511723f0bb348bbefd8294e8d",
+      "heldOutSha256": "aad8b2d87631eb198764cf1489a0c7e088aded6628addaeb919566d3ecd3a6eb",
+      "alphabetSize": 221,
+      "observedBigrams": 3753,
+      "threshold": 3.5636,
+      "positiveCalibrationThreshold": 3.5636,
+      "noiseCalibrationCeiling": 7.169717,
       "calibrationConflict": false,
-      "rawBytes": 4992,
-      "gzipBytes": 3448,
-      "sha256": "f01703f26dc25cc218d9594eae40c1a30c56523888150666d1720686e233e5ad"
+      "rawBytes": 24304,
+      "gzipBytes": 18344,
+      "sha256": "0b3ac4476cae0f04635e8c2713f476a03dc0445772cc55b9a953141f0d1431c7",
+      "corpusPartitions": {
+        "train": 32148,
+        "calibration": 3979,
+        "test": 3862
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 8076,
+          "aya": 8031,
+          "tatoeba": 7995,
+          "massive": 8046
+        },
+        "calibration": {
+          "aya-soda": 957,
+          "aya": 1012,
+          "tatoeba": 1019,
+          "massive": 991
+        },
+        "test": {
+          "aya-soda": 967,
+          "aya": 956,
+          "tatoeba": 984,
+          "massive": 955
+        }
+      },
+      "corpusExclusions": {
+        "crossPartitionDuplicate": 1
+      },
+      "repositoryTestSamples": 13
     },
     {
       "language": "bn",
@@ -80,21 +109,50 @@
       "sources": [
         "app/src/main/res/values-bn/strings.xml"
       ],
-      "trainSamples": 154,
-      "calibrationSamples": 15,
-      "testSamples": 14,
-      "trainingSha256": "37726637b17c1243dae06b32cbe7713407dec1bfa77250eb1c4c6630833e18fe",
-      "calibrationSha256": "c9c042a71cf6ebd79ea34fb5e002621e1af33c48805c545064eea99ec43bb63d",
-      "heldOutSha256": "f0f96c928c7b27df3fb73cf92b76ffbf45dfcc3d9e477ceec06eebce62da3cb2",
-      "alphabetSize": 150,
-      "observedBigrams": 615,
-      "threshold": 4.231524,
-      "positiveCalibrationThreshold": 4.231524,
-      "noiseCalibrationCeiling": 6.123635,
+      "trainSamples": 25376,
+      "calibrationSamples": 3144,
+      "testSamples": 3145,
+      "trainingSha256": "e4736c95fea86199eca040c0a4989996d1d6be7dfc99433caf093efebcc0d059",
+      "calibrationSha256": "d4147d0ba77890f568818e99578ec5fdc2db23b46f577959319f0613121638aa",
+      "heldOutSha256": "e34901e81f3778c7f4bb736153619b7adfb775e343f255a3625c07f3ab6f7ff4",
+      "alphabetSize": 183,
+      "observedBigrams": 3334,
+      "threshold": 3.377852,
+      "positiveCalibrationThreshold": 3.377852,
+      "noiseCalibrationCeiling": 8.431054,
       "calibrationConflict": false,
-      "rawBytes": 4908,
-      "gzipBytes": 3424,
-      "sha256": "8b714692584cac1c46af8fb9db8a8593c205b4954b6eb8027701731ca9c5bd22"
+      "rawBytes": 21486,
+      "gzipBytes": 16327,
+      "sha256": "118e5c39abbed603f1ff7ca245c984d71331f8061363df1f81249bf4b5752978",
+      "corpusPartitions": {
+        "train": 25222,
+        "calibration": 3129,
+        "test": 3131
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 7975,
+          "aya": 1201,
+          "tatoeba": 8012,
+          "massive": 8034
+        },
+        "calibration": {
+          "aya-soda": 1008,
+          "aya": 151,
+          "tatoeba": 976,
+          "massive": 994
+        },
+        "test": {
+          "aya-soda": 1017,
+          "aya": 132,
+          "tatoeba": 1012,
+          "massive": 970
+        }
+      },
+      "corpusExclusions": {
+        "repositoryFixtureOverlap": 1
+      },
+      "repositoryTestSamples": 14
     },
     {
       "language": "de",
@@ -102,21 +160,53 @@
       "sources": [
         "app/src/main/res/values-de/strings.xml"
       ],
-      "trainSamples": 165,
-      "calibrationSamples": 17,
-      "testSamples": 14,
-      "trainingSha256": "711362a8630867e6b045def9a4fae77e5e7e78d12eb861d3725121d8a3b207c2",
-      "calibrationSha256": "fe8e0c7e7ddc7da87a592b760442bf860249e8ceaa5fc2087ae268c9b6af98c3",
-      "heldOutSha256": "c91ad77f72f008316457a61019d9de24e9b3226248e0c56fb59a52323af21988",
-      "alphabetSize": 107,
-      "observedBigrams": 438,
-      "threshold": 3.138422,
-      "positiveCalibrationThreshold": 3.138422,
-      "noiseCalibrationCeiling": 5.014831,
+      "trainSamples": 32332,
+      "calibrationSamples": 3969,
+      "testSamples": 4102,
+      "trainingSha256": "4e400b405743708cf38d485ee1929835e04057fb354b8d7663d9a77a5b0481cd",
+      "calibrationSha256": "9d00017ffdae4bd05812cf06262817b5de7a69da80da06515ec58a2e12e15426",
+      "heldOutSha256": "7dec00c268be4c5e3a66df17e5866d747f5653d6732aea801b7ca731c5e11cd9",
+      "alphabetSize": 598,
+      "observedBigrams": 3792,
+      "threshold": 3.208827,
+      "positiveCalibrationThreshold": 3.208827,
+      "noiseCalibrationCeiling": 7.589401,
       "calibrationConflict": false,
-      "rawBytes": 3502,
-      "gzipBytes": 2382,
-      "sha256": "5f1839de4ba0c48366f1154766c9a9df8948ef2012266d9e6f4ebb3c6e5520a5"
+      "rawBytes": 27554,
+      "gzipBytes": 18597,
+      "sha256": "054df79df73550e524cd1c22f759027a6efe94c62aa71fbe72550d53b54af406",
+      "corpusPartitions": {
+        "train": 32167,
+        "calibration": 3952,
+        "test": 4088
+      },
+      "corpusSources": {
+        "train": {
+          "soc": 8003,
+          "aya-soda": 7952,
+          "aya": 175,
+          "tatoeba": 8010,
+          "massive": 8027
+        },
+        "calibration": {
+          "soc": 866,
+          "aya-soda": 1048,
+          "aya": 18,
+          "tatoeba": 1001,
+          "massive": 1019
+        },
+        "test": {
+          "soc": 1130,
+          "aya-soda": 1000,
+          "aya": 19,
+          "tatoeba": 989,
+          "massive": 950
+        }
+      },
+      "corpusExclusions": {
+        "repositoryFixtureOverlap": 5
+      },
+      "repositoryTestSamples": 14
     },
     {
       "language": "en",
@@ -124,21 +214,54 @@
       "sources": [
         "app/src/main/res/values/strings.xml"
       ],
-      "trainSamples": 447,
-      "calibrationSamples": 32,
-      "testSamples": 20,
-      "trainingSha256": "0dc4a293c32674e3454ddc88b83fb1de4cb817f299c01c28ab7c8b54dbc7a5ac",
-      "calibrationSha256": "339a17ce87ba594548d27f4586afaa7b3c543bea75b9c567fcd20bc7d28d6121",
-      "heldOutSha256": "fe8263c2d65c83bfc63b2edebcf9294499de44d5bedd98e052e6a0d35a2bcd32",
-      "alphabetSize": 108,
-      "observedBigrams": 624,
-      "threshold": 3.162406,
-      "positiveCalibrationThreshold": 3.162406,
-      "noiseCalibrationCeiling": 5.063116,
+      "trainSamples": 35713,
+      "calibrationSamples": 4355,
+      "testSamples": 4529,
+      "trainingSha256": "6496f7aee6e99169829ccf5affe681741f4bfaaa6df0fcff56816b52c25d0fcf",
+      "calibrationSha256": "64e7e956faa0651d3f524f5fd9cd212916930f40d89304a93343d73b0f3cf50b",
+      "heldOutSha256": "fa4b04a79a358bd077e5e260790fe06e9d168bca9334092d5d231be5ed9390ca",
+      "alphabetSize": 643,
+      "observedBigrams": 3973,
+      "threshold": 3.304337,
+      "positiveCalibrationThreshold": 3.304337,
+      "noiseCalibrationCeiling": 8.539756,
       "calibrationConflict": false,
-      "rawBytes": 4626,
-      "gzipBytes": 3201,
-      "sha256": "b118d0e7550080f7f49238f33faf7853237e66902518119185e56f3f1dfebc98"
+      "rawBytes": 29000,
+      "gzipBytes": 19416,
+      "sha256": "483cbea78f7ca544a1c95e03258dee810d0a41cfcfbc46e46b61f5f3af8ab1f4",
+      "corpusPartitions": {
+        "train": 35266,
+        "calibration": 4323,
+        "test": 4509
+      },
+      "corpusSources": {
+        "train": {
+          "soc": 7994,
+          "aya-soda": 8049,
+          "aya": 3264,
+          "tatoeba": 7960,
+          "massive": 7999
+        },
+        "calibration": {
+          "soc": 905,
+          "aya-soda": 966,
+          "aya": 440,
+          "tatoeba": 991,
+          "massive": 1021
+        },
+        "test": {
+          "soc": 1099,
+          "aya-soda": 985,
+          "aya": 404,
+          "tatoeba": 1049,
+          "massive": 972
+        }
+      },
+      "corpusExclusions": {
+        "repositoryFixtureOverlap": 11,
+        "crossPartitionDuplicate": 7
+      },
+      "repositoryTestSamples": 20
     },
     {
       "language": "es",
@@ -146,21 +269,54 @@
       "sources": [
         "app/src/main/res/values-es/strings.xml"
       ],
-      "trainSamples": 165,
-      "calibrationSamples": 17,
-      "testSamples": 14,
-      "trainingSha256": "bf908c5a9912a8ba9bd7c16d4e17304095416d2550e62267193c41efed72a7a8",
-      "calibrationSha256": "56aa761ba8c9444c048f118c4b4e46378c05bd03f42a772062048f0451869fad",
-      "heldOutSha256": "16ed75f8d33a15cfbdb97b2161e81edb1ffc02583e69365b3ce1b574b0a1837a",
-      "alphabetSize": 111,
-      "observedBigrams": 348,
-      "threshold": 3.190737,
-      "positiveCalibrationThreshold": 3.190737,
-      "noiseCalibrationCeiling": 5.209645,
+      "trainSamples": 33455,
+      "calibrationSamples": 4033,
+      "testSamples": 4325,
+      "trainingSha256": "94ef6922fbf1083dcc489e88c9ffc29e6bfe2f6ce7c5987950907e7c85639bd3",
+      "calibrationSha256": "f85a51f6e67232619769aeaf717952a3170145684778177b5f8826b548915222",
+      "heldOutSha256": "c8b463711a8ab4d460b8468b79b7679f024ecedd8d324a16ebcc5f618375f809",
+      "alphabetSize": 608,
+      "observedBigrams": 4094,
+      "threshold": 3.19354,
+      "positiveCalibrationThreshold": 3.19354,
+      "noiseCalibrationCeiling": 7.580049,
       "calibrationConflict": false,
-      "rawBytes": 2994,
-      "gzipBytes": 1994,
-      "sha256": "2353ed5fe03dc3e1c970d15a5bb3ee4f23db1693c83f738ddb4a86b23e9448e8"
+      "rawBytes": 29446,
+      "gzipBytes": 20049,
+      "sha256": "bf55eb69e84ef740f315c72b41a2c4c17f8c913dd3bf1049aca7c0319f047393",
+      "corpusPartitions": {
+        "train": 33290,
+        "calibration": 4016,
+        "test": 4311
+      },
+      "corpusSources": {
+        "train": {
+          "soc": 7995,
+          "aya-soda": 7935,
+          "aya": 1290,
+          "tatoeba": 8035,
+          "massive": 8035
+        },
+        "calibration": {
+          "soc": 889,
+          "aya-soda": 1005,
+          "aya": 181,
+          "tatoeba": 927,
+          "massive": 1014
+        },
+        "test": {
+          "soc": 1114,
+          "aya-soda": 1060,
+          "aya": 152,
+          "tatoeba": 1037,
+          "massive": 948
+        }
+      },
+      "corpusExclusions": {
+        "repositoryFixtureOverlap": 5,
+        "crossPartitionDuplicate": 4
+      },
+      "repositoryTestSamples": 14
     },
     {
       "language": "eu",
@@ -168,21 +324,47 @@
       "sources": [
         "app/src/main/res/values-eu/strings.xml"
       ],
-      "trainSamples": 270,
-      "calibrationSamples": 32,
-      "testSamples": 20,
-      "trainingSha256": "a5c366c8482c49768d838ad67612b5871fc96b179e7104ec9e2b8f2c299c3e64",
-      "calibrationSha256": "25857ff40bcb2b4c5cd495b87931ad713de40213c4f6d1ffc7cb976eb7759392",
-      "heldOutSha256": "d4759f72bd5ea32ae2dc5cfbd3b3c7d6ebde3979ab23daaee5fe55793d9ef13d",
-      "alphabetSize": 105,
-      "observedBigrams": 371,
-      "threshold": 2.880029,
-      "positiveCalibrationThreshold": 2.880029,
-      "noiseCalibrationCeiling": 5.364598,
+      "trainSamples": 14605,
+      "calibrationSamples": 1840,
+      "testSamples": 1875,
+      "trainingSha256": "de1238feb2710b0513e756c02dbf43996829a005b21031a8ae0dd85f7c691b31",
+      "calibrationSha256": "a3863b2328008bc76c3a49a1e52bdd06deff005e23dcc61ce532b305d54d0d5d",
+      "heldOutSha256": "8f817f3999d653b3212ab4217827bdefa05bfc5936f8b21fac0ebd211d3dc2ac",
+      "alphabetSize": 121,
+      "observedBigrams": 1205,
+      "threshold": 3.098935,
+      "positiveCalibrationThreshold": 3.098935,
+      "noiseCalibrationCeiling": 7.177013,
       "calibrationConflict": false,
-      "rawBytes": 3084,
-      "gzipBytes": 2084,
-      "sha256": "5549f60c55d1e44bcc7c84cfe2861f7c37fe06ac7eafe7dab7ca41792a1b477a"
+      "rawBytes": 8216,
+      "gzipBytes": 6004,
+      "sha256": "dc0b3d033f9a20229f2da0c1ad5c222fde8268f611cf6c701fb9183cacb552c1",
+      "corpusPartitions": {
+        "train": 14335,
+        "calibration": 1808,
+        "test": 1855
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 7975,
+          "aya": 1230,
+          "tatoeba": 5130
+        },
+        "calibration": {
+          "aya-soda": 1009,
+          "aya": 163,
+          "tatoeba": 636
+        },
+        "test": {
+          "aya-soda": 1013,
+          "aya": 180,
+          "tatoeba": 662
+        }
+      },
+      "corpusExclusions": {
+        "repositoryFixtureOverlap": 1
+      },
+      "repositoryTestSamples": 20
     },
     {
       "language": "fa",
@@ -190,21 +372,50 @@
       "sources": [
         "app/src/main/res/values-fa/strings.xml"
       ],
-      "trainSamples": 160,
-      "calibrationSamples": 17,
-      "testSamples": 14,
-      "trainingSha256": "b1b96b512f50e49f2176fd12112be3c2a11fe66a4a139a070da75c19b96975db",
-      "calibrationSha256": "02fda50fc299774c533056073cbd86a3bf6b05ba08915d3650cad0117014f41f",
-      "heldOutSha256": "1e777aab3edcc14cfde1f8ca3fe0abdf81bb49a146df590a7051b6cae4e8170d",
-      "alphabetSize": 141,
-      "observedBigrams": 556,
-      "threshold": 4.221292,
-      "positiveCalibrationThreshold": 4.221292,
-      "noiseCalibrationCeiling": 5.229969,
+      "trainSamples": 25357,
+      "calibrationSamples": 3278,
+      "testSamples": 3050,
+      "trainingSha256": "d817a00f40fb2ae583728114f0af4456d2c0fa8ee18bc04714f5d3fc9b1bfaa8",
+      "calibrationSha256": "a409427c9bd9c6ca72479c56fb8220d4ae4908d617ba1593be547333e4fb6c07",
+      "heldOutSha256": "7e4ddd8c7cdd24e172ad6b20f7948efb49c4ac23014f4be92e7bdc4f10094184",
+      "alphabetSize": 193,
+      "observedBigrams": 2586,
+      "threshold": 3.428463,
+      "positiveCalibrationThreshold": 3.428463,
+      "noiseCalibrationCeiling": 7.514898,
       "calibrationConflict": false,
-      "rawBytes": 4482,
-      "gzipBytes": 3066,
-      "sha256": "0258c9a248670ec021dac1a0bd1b289588b4d3fb7dcaa39c2fb5dc5c3631d084"
+      "rawBytes": 17078,
+      "gzipBytes": 12588,
+      "sha256": "5cef58a5a81f1b47b10ffda103f3d3b217a1a8fd1e8d0713ed88ad430fdcf91c",
+      "corpusPartitions": {
+        "train": 25197,
+        "calibration": 3261,
+        "test": 3036
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 7961,
+          "aya": 1181,
+          "tatoeba": 8030,
+          "massive": 8025
+        },
+        "calibration": {
+          "aya-soda": 1044,
+          "aya": 190,
+          "tatoeba": 1014,
+          "massive": 1013
+        },
+        "test": {
+          "aya-soda": 994,
+          "aya": 130,
+          "tatoeba": 955,
+          "massive": 957
+        }
+      },
+      "corpusExclusions": {
+        "repositoryFixtureOverlap": 2
+      },
+      "repositoryTestSamples": 14
     },
     {
       "language": "fil",
@@ -212,21 +423,48 @@
       "sources": [
         "app/src/main/res/values-fil/strings.xml"
       ],
-      "trainSamples": 161,
-      "calibrationSamples": 17,
-      "testSamples": 14,
-      "trainingSha256": "0b0910dfc39dfed46ca26a003d393e1f7b40d42bf0a0d2f727865b83c74a8b33",
-      "calibrationSha256": "11538c1d729b64a254d25f3305d801eedbf54b210a939df24f1828ce9eb20728",
-      "heldOutSha256": "6603f440bc614ad9c30839fe4886c05e6c3d51ee4ea9f1e58590edb2376d6cc3",
-      "alphabetSize": 103,
-      "observedBigrams": 365,
-      "threshold": 3.023794,
-      "positiveCalibrationThreshold": 3.023794,
-      "noiseCalibrationCeiling": 4.976134,
+      "trainSamples": 17477,
+      "calibrationSamples": 2117,
+      "testSamples": 2126,
+      "trainingSha256": "137bd4a8621cf06fb2a0ec249136ed15aaf17547bb6c266b52186fb3324e339c",
+      "calibrationSha256": "6abd9bd8dee18913dbe97fda87c576bc85e200055098ca7cd3897693360e4d63",
+      "heldOutSha256": "d96bba6fdf28c6c82869acb663f93a585a051abb2b1ae660a2a45f7f0b277499",
+      "alphabetSize": 145,
+      "observedBigrams": 1592,
+      "threshold": 3.071304,
+      "positiveCalibrationThreshold": 3.071304,
+      "noiseCalibrationCeiling": 7.327018,
       "calibrationConflict": false,
-      "rawBytes": 3032,
-      "gzipBytes": 2024,
-      "sha256": "f41a0682268bf77137da1baf2a802685c20f6bcab8dfe8c5e7d13a4be8bddb80"
+      "rawBytes": 10730,
+      "gzipBytes": 7899,
+      "sha256": "ce6645b0f54a441d9acdb6f665b78efb3c275bfb056fcfaaa26ee87257ff8899",
+      "corpusPartitions": {
+        "train": 17316,
+        "calibration": 2100,
+        "test": 2112
+      },
+      "corpusSources": {
+        "train": {
+          "aya": 1229,
+          "tatoeba": 8054,
+          "massive": 8033
+        },
+        "calibration": {
+          "aya": 135,
+          "tatoeba": 963,
+          "massive": 1002
+        },
+        "test": {
+          "aya": 168,
+          "tatoeba": 983,
+          "massive": 961
+        }
+      },
+      "corpusExclusions": {
+        "crossPartitionDuplicate": 1,
+        "repositoryFixtureOverlap": 4
+      },
+      "repositoryTestSamples": 14
     },
     {
       "language": "fr",
@@ -234,21 +472,54 @@
       "sources": [
         "app/src/main/res/values-fr/strings.xml"
       ],
-      "trainSamples": 161,
-      "calibrationSamples": 17,
-      "testSamples": 14,
-      "trainingSha256": "c0203fbc6b3f48ffcfb1e81a2aa5697680503ac7ac6ab656c719af9e0bea1cd5",
-      "calibrationSha256": "fd5c601ce04ff45e1a1b8f33e881c67c0a11bd1e2225de04c888d654e8c10e81",
-      "heldOutSha256": "3712eb8adbca030a03665977cfbe5d38b0552cc0725c55ccf5a771bdbec748f3",
-      "alphabetSize": 112,
-      "observedBigrams": 368,
-      "threshold": 3.275226,
-      "positiveCalibrationThreshold": 3.275226,
-      "noiseCalibrationCeiling": 5.348608,
+      "trainSamples": 33720,
+      "calibrationSamples": 4048,
+      "testSamples": 4314,
+      "trainingSha256": "040e36337459bc3ae6b482bc9755ece019507d7d76ed2a2ace9e51b385be8fea",
+      "calibrationSha256": "fd3ff1ae6dc27ceab3cc2b1a7afa89d2d0266b88e0b8377dfd9a816afe128b7f",
+      "heldOutSha256": "462eba8e55f320ee288a63c85f28ea61ac3e17e2fe97d89c33e07d9a20cede13",
+      "alphabetSize": 641,
+      "observedBigrams": 3927,
+      "threshold": 3.218117,
+      "positiveCalibrationThreshold": 3.218117,
+      "noiseCalibrationCeiling": 8.33962,
       "calibrationConflict": false,
-      "rawBytes": 3122,
-      "gzipBytes": 2061,
-      "sha256": "987506cd4e272baa770e5e3247b40127b5ffb21c74159f45a59abd87f00a404b"
+      "rawBytes": 28708,
+      "gzipBytes": 19432,
+      "sha256": "e1e8a6e58fbb7581225e2807e129f4f2a1878e410ca7332603f0ce12e01eb7fe",
+      "corpusPartitions": {
+        "train": 33559,
+        "calibration": 4031,
+        "test": 4300
+      },
+      "corpusSources": {
+        "train": {
+          "soc": 7979,
+          "aya-soda": 8015,
+          "aya": 1537,
+          "tatoeba": 7996,
+          "massive": 8032
+        },
+        "calibration": {
+          "soc": 900,
+          "aya-soda": 987,
+          "aya": 173,
+          "tatoeba": 971,
+          "massive": 1000
+        },
+        "test": {
+          "soc": 1120,
+          "aya-soda": 998,
+          "aya": 183,
+          "tatoeba": 1033,
+          "massive": 966
+        }
+      },
+      "corpusExclusions": {
+        "repositoryFixtureOverlap": 3,
+        "crossPartitionDuplicate": 2
+      },
+      "repositoryTestSamples": 14
     },
     {
       "language": "he",
@@ -256,21 +527,47 @@
       "sources": [
         "app/src/main/res/values-he/strings.xml"
       ],
-      "trainSamples": 158,
-      "calibrationSamples": 17,
-      "testSamples": 14,
-      "trainingSha256": "531c14a092372384be0c6b3b725934cb34cb1cd45447d0a41b6414ff7e95fd89",
-      "calibrationSha256": "e48d1d7136ace3ce919475259820a1cf8bce848ae78acc0104cdca308f2baeb0",
-      "heldOutSha256": "d60f43e97f9b757bacb18bc0db131c847512fc5132c45e3caa59b6a2126333fd",
-      "alphabetSize": 130,
-      "observedBigrams": 455,
-      "threshold": 3.389276,
-      "positiveCalibrationThreshold": 3.389276,
-      "noiseCalibrationCeiling": 4.552396,
+      "trainSamples": 24149,
+      "calibrationSamples": 3061,
+      "testSamples": 2978,
+      "trainingSha256": "3b78fced6a9fb584031444529b32f42f4ae2937435d394d5ed64ac17b6e4820f",
+      "calibrationSha256": "bc49c24d7acd5d9184885d3d706b4f1e59a2768d116cb4ce87d7289fba1a62d7",
+      "heldOutSha256": "628156a0681b307ad7da67f96101a6435f7c340c398b62327d633e9b30878cd7",
+      "alphabetSize": 155,
+      "observedBigrams": 1692,
+      "threshold": 3.385416,
+      "positiveCalibrationThreshold": 3.385416,
+      "noiseCalibrationCeiling": 5.030856,
       "calibrationConflict": false,
-      "rawBytes": 3788,
-      "gzipBytes": 2515,
-      "sha256": "06fd8c33f3cff4363326a6ac832711e609bf2f53de288c1c730113c5b08094d7"
+      "rawBytes": 11410,
+      "gzipBytes": 8124,
+      "sha256": "b812d5f96ec7345f94dd125bb83cf60728d0b0f2afab2b1d8f5bc3340d95f29c",
+      "corpusPartitions": {
+        "train": 23991,
+        "calibration": 3044,
+        "test": 2964
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 8009,
+          "tatoeba": 7961,
+          "massive": 8021
+        },
+        "calibration": {
+          "aya-soda": 1022,
+          "tatoeba": 1015,
+          "massive": 1007
+        },
+        "test": {
+          "aya-soda": 969,
+          "tatoeba": 1024,
+          "massive": 971
+        }
+      },
+      "corpusExclusions": {
+        "repositoryFixtureOverlap": 1
+      },
+      "repositoryTestSamples": 14
     },
     {
       "language": "hi",
@@ -278,21 +575,48 @@
       "sources": [
         "app/src/main/res/values-hi/strings.xml"
       ],
-      "trainSamples": 151,
-      "calibrationSamples": 15,
-      "testSamples": 13,
-      "trainingSha256": "dc10592922411941a251ab02c6eba885364751425c6739ae56242af701e18a08",
-      "calibrationSha256": "20b526d342f8f29297c526367825cb4cabf787001991af4935393c1a71c80b43",
-      "heldOutSha256": "69dbdb42fb4930c351a8d096acf078ce3998544d8443db38f14e2701c7532022",
-      "alphabetSize": 161,
-      "observedBigrams": 675,
-      "threshold": 4.187896,
-      "positiveCalibrationThreshold": 4.187896,
-      "noiseCalibrationCeiling": 6.323642,
+      "trainSamples": 25244,
+      "calibrationSamples": 3133,
+      "testSamples": 3170,
+      "trainingSha256": "dd348c2b828212c0233a02af2c52f7c564fbfa8405af4ffb1d1910eb37aeca5b",
+      "calibrationSha256": "4e44e84dd2990a5f8464837b3d96f73d131345806562069ec5031a978868f955",
+      "heldOutSha256": "5600c0abfaa3b968bc5e6fc6c27ec475c9e461df4a33c71073774829db32b281",
+      "alphabetSize": 201,
+      "observedBigrams": 3441,
+      "threshold": 3.340143,
+      "positiveCalibrationThreshold": 3.340143,
+      "noiseCalibrationCeiling": 8.961,
       "calibrationConflict": false,
-      "rawBytes": 5356,
-      "gzipBytes": 3718,
-      "sha256": "151d79ec604cff14ebecf762986cb4b37b3d60f70021e0b33ed6576f78eee106"
+      "rawBytes": 22272,
+      "gzipBytes": 16954,
+      "sha256": "085167a5efb15d915df396d6e2391b2e23f5d5295329074487be8eb587eb14bf",
+      "corpusPartitions": {
+        "train": 25093,
+        "calibration": 3118,
+        "test": 3157
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 7945,
+          "aya": 1074,
+          "tatoeba": 8006,
+          "massive": 8068
+        },
+        "calibration": {
+          "aya-soda": 978,
+          "aya": 136,
+          "tatoeba": 1012,
+          "massive": 992
+        },
+        "test": {
+          "aya-soda": 1074,
+          "aya": 163,
+          "tatoeba": 982,
+          "massive": 938
+        }
+      },
+      "corpusExclusions": {},
+      "repositoryTestSamples": 13
     },
     {
       "language": "id",
@@ -300,21 +624,51 @@
       "sources": [
         "app/src/main/res/values-id/strings.xml"
       ],
-      "trainSamples": 167,
-      "calibrationSamples": 17,
-      "testSamples": 14,
-      "trainingSha256": "b12e7ccb5084ab880b7ae607c34a537902acf61b2fa22938cc779421dfd430f8",
-      "calibrationSha256": "c61f79bebfa03c9977b1a91e4d10ce647462a1e5ebd0dcfd8e86619c08ca90d0",
-      "heldOutSha256": "733e1aac75eae0add84c8b03eca9eb6c0b27c8b8f4695126cd5f6088d5c10523",
-      "alphabetSize": 104,
-      "observedBigrams": 358,
-      "threshold": 3.158923,
-      "positiveCalibrationThreshold": 3.158923,
-      "noiseCalibrationCeiling": 4.925772,
+      "trainSamples": 24678,
+      "calibrationSamples": 3051,
+      "testSamples": 2982,
+      "trainingSha256": "0813f6c7e1d788ecbc6237949d41a6de75236512280039786f5cf6b03bc3d5e6",
+      "calibrationSha256": "df14ab6ae82506580d9cd15cf468a1722896706e62f9d03b03eacd0f0e51e750",
+      "heldOutSha256": "9ba30e1b72a959ae1ee51d359bc7f990f5d2dcb3b124574be9716b1cb45767ec",
+      "alphabetSize": 115,
+      "observedBigrams": 1278,
+      "threshold": 3.089449,
+      "positiveCalibrationThreshold": 3.089449,
+      "noiseCalibrationCeiling": 6.321119,
       "calibrationConflict": false,
-      "rawBytes": 2998,
-      "gzipBytes": 2010,
-      "sha256": "39bab5e73b4969a8a4463faf558b4bb62b92c660ed27d7ef87f039827f8aef42"
+      "rawBytes": 8606,
+      "gzipBytes": 6334,
+      "sha256": "df8344a9e93ca088868cd3481936213453a4f701314baf4694bafa2242aa7c7a",
+      "corpusPartitions": {
+        "train": 24511,
+        "calibration": 3034,
+        "test": 2968
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 8023,
+          "aya": 422,
+          "tatoeba": 8027,
+          "massive": 8039
+        },
+        "calibration": {
+          "aya-soda": 997,
+          "aya": 48,
+          "tatoeba": 982,
+          "massive": 1007
+        },
+        "test": {
+          "aya-soda": 980,
+          "aya": 61,
+          "tatoeba": 981,
+          "massive": 946
+        }
+      },
+      "corpusExclusions": {
+        "crossPartitionDuplicate": 14,
+        "repositoryFixtureOverlap": 4
+      },
+      "repositoryTestSamples": 14
     },
     {
       "language": "it",
@@ -322,21 +676,53 @@
       "sources": [
         "app/src/main/res/values-it/strings.xml"
       ],
-      "trainSamples": 164,
-      "calibrationSamples": 17,
-      "testSamples": 14,
-      "trainingSha256": "c3691290d6921023c556897030a17ccdc44f22a84c49230e34f17dac936baa03",
-      "calibrationSha256": "a663409dd0203f9659cbc34fdb3287a3bec752a86fa7e1258c08441c4243b29d",
-      "heldOutSha256": "2d375aaed2415e1e96d72f0a2581ceab71db8da3c4a4b5ff049f5cf8e2348e03",
-      "alphabetSize": 107,
-      "observedBigrams": 342,
-      "threshold": 3.013961,
-      "positiveCalibrationThreshold": 3.013961,
-      "noiseCalibrationCeiling": 5.172414,
+      "trainSamples": 32412,
+      "calibrationSamples": 3992,
+      "testSamples": 4098,
+      "trainingSha256": "b76543c76b0e267aa018d486221cb5dd81a3cda1221359955644d48a2492351b",
+      "calibrationSha256": "cfe960df3334a2c785eaaed3a73eeeb33a7e5e0d14a57df772a40e5b845ebd50",
+      "heldOutSha256": "a4283c3af006f7bd553d90eb51fcb4df4c1ee854028d98ac3a15e5c9adaaa4a5",
+      "alphabetSize": 621,
+      "observedBigrams": 3626,
+      "threshold": 3.130097,
+      "positiveCalibrationThreshold": 3.130097,
+      "noiseCalibrationCeiling": 8.332165,
       "calibrationConflict": false,
-      "rawBytes": 2926,
-      "gzipBytes": 1937,
-      "sha256": "1ffbe3ef1dd0e6af1be832f6a4a82da7ca0915462bc1c5d301bf217cb368d0f8"
+      "rawBytes": 26742,
+      "gzipBytes": 17838,
+      "sha256": "4aafa7f069aa6c716a893397b3d0a8897cb374b702dea12d2635c1ee907264bc",
+      "corpusPartitions": {
+        "train": 32248,
+        "calibration": 3975,
+        "test": 4084
+      },
+      "corpusSources": {
+        "train": {
+          "soc": 7943,
+          "aya-soda": 8046,
+          "aya": 245,
+          "tatoeba": 7974,
+          "massive": 8040
+        },
+        "calibration": {
+          "soc": 907,
+          "aya-soda": 994,
+          "aya": 43,
+          "tatoeba": 1026,
+          "massive": 1005
+        },
+        "test": {
+          "soc": 1149,
+          "aya-soda": 960,
+          "aya": 23,
+          "tatoeba": 1000,
+          "massive": 952
+        }
+      },
+      "corpusExclusions": {
+        "repositoryFixtureOverlap": 4
+      },
+      "repositoryTestSamples": 14
     },
     {
       "language": "ja",
@@ -344,21 +730,51 @@
       "sources": [
         "app/src/main/res/values-ja/strings.xml"
       ],
-      "trainSamples": 165,
-      "calibrationSamples": 15,
-      "testSamples": 14,
-      "trainingSha256": "cb60495f7f9f85b880848f19df25c1b7b85f225de23d796d2ddb3783f158c6b0",
-      "calibrationSha256": "d1ced532d87fb3d4abec70ef3d34e3fca778eb97e23853b384e363c0f83c3719",
-      "heldOutSha256": "37c280f1322846baa895c3be88e4352e0bc1327574c71b830920e7653ca84758",
-      "alphabetSize": 501,
-      "observedBigrams": 1586,
-      "threshold": 6.576984,
-      "positiveCalibrationThreshold": 6.576984,
-      "noiseCalibrationCeiling": 7.150988,
+      "trainSamples": 32101,
+      "calibrationSamples": 4126,
+      "testSamples": 3963,
+      "trainingSha256": "6abe6e040bcba19747cdc20c624f624adccb26b816b31909ca7c0b3c05954fda",
+      "calibrationSha256": "8b54e7d987f6248492c8f25f30d8c557c8ab78d586822a0678fae11566a63a3d",
+      "heldOutSha256": "bade373cd83455d696a2d209aaed2fb7915fe82e59f69ab9fc830959433801d6",
+      "alphabetSize": 2876,
+      "observedBigrams": 74976,
+      "threshold": 5.356975,
+      "positiveCalibrationThreshold": 5.356975,
+      "noiseCalibrationCeiling": 12.331077,
       "calibrationConflict": false,
-      "rawBytes": 13542,
-      "gzipBytes": 8817,
-      "sha256": "81579efd584af7fbeb56f655ca5603e2037d34e7b809c54a7a675f7fbc0b557a"
+      "rawBytes": 472882,
+      "gzipBytes": 324692,
+      "sha256": "31f946311b9c07cb55c563b7214663b874a9d7d3b34c73e8cc16b9bee873cf24",
+      "corpusPartitions": {
+        "train": 31936,
+        "calibration": 4111,
+        "test": 3949
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 8025,
+          "aya": 7931,
+          "tatoeba": 7952,
+          "massive": 8028
+        },
+        "calibration": {
+          "aya-soda": 1009,
+          "aya": 1054,
+          "tatoeba": 1044,
+          "massive": 1004
+        },
+        "test": {
+          "aya-soda": 966,
+          "aya": 1015,
+          "tatoeba": 1004,
+          "massive": 964
+        }
+      },
+      "corpusExclusions": {
+        "repositoryFixtureOverlap": 1,
+        "crossPartitionDuplicate": 1
+      },
+      "repositoryTestSamples": 14
     },
     {
       "language": "ka",
@@ -366,21 +782,50 @@
       "sources": [
         "app/src/main/res/values-ka/strings.xml"
       ],
-      "trainSamples": 165,
-      "calibrationSamples": 17,
-      "testSamples": 13,
-      "trainingSha256": "ca9a36ccaa1064668429890949d412d7a8e82591b5fcd8af60802ba746252e84",
-      "calibrationSha256": "40199d0955abaa9d45e2c2e9e86d04585e81698267e5f9d9320db4c0ba09399f",
-      "heldOutSha256": "94b072c4645bb2fccda35dae9fae766cdec26e41c9ed6d089414c3d8f767d69d",
-      "alphabetSize": 135,
-      "observedBigrams": 540,
-      "threshold": 4.16698,
-      "positiveCalibrationThreshold": 4.16698,
-      "noiseCalibrationCeiling": 5.152689,
+      "trainSamples": 25702,
+      "calibrationSamples": 3265,
+      "testSamples": 3198,
+      "trainingSha256": "32cfa0797df454c55fa9d20bbe698dc607a847d1abefbeb5d460718b2a05ff1c",
+      "calibrationSha256": "43c64d91058c17153de2861b076dacb50f1de83089649e8e00d1c415e995e97a",
+      "heldOutSha256": "f69eb3a4c070c9c5ce1935f9ba29e529a6dd306085d8246ec0d08ea18bf5639a",
+      "alphabetSize": 157,
+      "observedBigrams": 2614,
+      "threshold": 3.394377,
+      "positiveCalibrationThreshold": 3.394377,
+      "noiseCalibrationCeiling": 5.931821,
       "calibrationConflict": false,
-      "rawBytes": 4338,
-      "gzipBytes": 2983,
-      "sha256": "ffa2795c61b4daa1c18bb3e4baaf75af10862fcee58729b7898dc069febaaf26"
+      "rawBytes": 16958,
+      "gzipBytes": 12760,
+      "sha256": "092c72ee6285fa8883974dfcff80fdddf8f12b66e1b79d8975ff96f10b606efb",
+      "corpusPartitions": {
+        "train": 25537,
+        "calibration": 3248,
+        "test": 3185
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 7935,
+          "tatoeba": 6119,
+          "massive": 8039,
+          "georgian-roleplay": 3444
+        },
+        "calibration": {
+          "aya-soda": 1042,
+          "tatoeba": 780,
+          "massive": 999,
+          "georgian-roleplay": 427
+        },
+        "test": {
+          "aya-soda": 1023,
+          "tatoeba": 798,
+          "massive": 960,
+          "georgian-roleplay": 404
+        }
+      },
+      "corpusExclusions": {
+        "repositoryFixtureOverlap": 2
+      },
+      "repositoryTestSamples": 13
     },
     {
       "language": "ko",
@@ -388,21 +833,50 @@
       "sources": [
         "app/src/main/res/values-ko/strings.xml"
       ],
-      "trainSamples": 165,
-      "calibrationSamples": 15,
-      "testSamples": 14,
-      "trainingSha256": "2d9747278797dc9d7cf9f5b63239aa4a8310ea47425f6086a56ccac6af6a0fab",
-      "calibrationSha256": "5d80fb11afd30e91db31e5a36b9368857e2f3f595b9466fcc1a1b68c460c28d7",
-      "heldOutSha256": "234a9e9412df897630a56b3822a487ce634cdb571991421df802761eee9088b1",
-      "alphabetSize": 454,
-      "observedBigrams": 1332,
-      "threshold": 4.782986,
-      "positiveCalibrationThreshold": 4.782986,
-      "noiseCalibrationCeiling": 7.18943,
+      "trainSamples": 24526,
+      "calibrationSamples": 3007,
+      "testSamples": 3012,
+      "trainingSha256": "36fecd744dba5af7313373c5fcf7c33541ede05b2dfcfc16656f23037a3193de",
+      "calibrationSha256": "712de4984df45ec6e742d46a5aff2ada27d3db6353328e0d4bbace07e4083f4f",
+      "heldOutSha256": "bab70e9b34c12cb0707aba152c15d0819d1f8ef982e7d347027fe599ae32bb0a",
+      "alphabetSize": 1511,
+      "observedBigrams": 30974,
+      "threshold": 4.134169,
+      "positiveCalibrationThreshold": 4.134169,
+      "noiseCalibrationCeiling": 11.90138,
       "calibrationConflict": false,
-      "rawBytes": 11642,
-      "gzipBytes": 7528,
-      "sha256": "75c48fb833e4433b7ea63a7ccf7bf609f78faef05be37f5b39b7fcffe66e24f1"
+      "rawBytes": 197950,
+      "gzipBytes": 149275,
+      "sha256": "d1f4c7509ee177a9cfe2f2d6b0c2c43abc43534f98f49acd36701d1140ad6be6",
+      "corpusPartitions": {
+        "train": 24361,
+        "calibration": 2992,
+        "test": 2998
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 8030,
+          "aya": 293,
+          "tatoeba": 7995,
+          "massive": 8043
+        },
+        "calibration": {
+          "aya-soda": 968,
+          "aya": 28,
+          "tatoeba": 982,
+          "massive": 1014
+        },
+        "test": {
+          "aya-soda": 1002,
+          "aya": 32,
+          "tatoeba": 1023,
+          "massive": 941
+        }
+      },
+      "corpusExclusions": {
+        "repositoryFixtureOverlap": 1
+      },
+      "repositoryTestSamples": 14
     },
     {
       "language": "mg",
@@ -410,21 +884,51 @@
       "sources": [
         "app/src/main/res/values-mg/strings.xml"
       ],
-      "trainSamples": 167,
-      "calibrationSamples": 17,
-      "testSamples": 14,
-      "trainingSha256": "cb222a27fd1bc691247e9c94b4cdcedf662a99cb430fa7411ac6626855a370f6",
-      "calibrationSha256": "cf454b15e1b8f08fef862cc796715ead580612b839e340b4cc0d33c27f5088fa",
-      "heldOutSha256": "498006ef5b3072bbe06c5308dabe9881e4c913b9dbe9bf804cd87cb010bd2839",
-      "alphabetSize": 104,
-      "observedBigrams": 313,
-      "threshold": 3.289811,
-      "positiveCalibrationThreshold": 3.289811,
-      "noiseCalibrationCeiling": 5.17936,
+      "trainSamples": 24252,
+      "calibrationSamples": 2994,
+      "testSamples": 3022,
+      "trainingSha256": "886e4f76a0bfe16c97072aaa4d6dce15d9d0e6d02793a2e330ab113f7dbcd06d",
+      "calibrationSha256": "cd202423dd709fb3e71988c95e16da6c849d02f6183c0ce5cc71f2bd9aa5e7ab",
+      "heldOutSha256": "91fb3b868830d2010fff6376b0e401182baa7028defd5a1218b4da53a732bc1a",
+      "alphabetSize": 707,
+      "observedBigrams": 6558,
+      "threshold": 3.111215,
+      "positiveCalibrationThreshold": 3.111215,
+      "noiseCalibrationCeiling": 9.258388,
       "calibrationConflict": false,
-      "rawBytes": 2728,
-      "gzipBytes": 1797,
-      "sha256": "f595ba61cdd63f911d2fcf4d5b065a76acf7ca7c37642391cfc2b8a7cbe5519a"
+      "rawBytes": 45022,
+      "gzipBytes": 31791,
+      "sha256": "7de0e2d4b449e5b244e4ea594d014b5a9c6cdb2664ec83997ec74e094e60d55f",
+      "corpusPartitions": {
+        "train": 24085,
+        "calibration": 2977,
+        "test": 3008
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 8010,
+          "aya": 8009,
+          "tatoeba": 58,
+          "kakugo-mg": 8008
+        },
+        "calibration": {
+          "aya-soda": 1016,
+          "aya": 979,
+          "tatoeba": 9,
+          "kakugo-mg": 973
+        },
+        "test": {
+          "aya-soda": 973,
+          "aya": 1011,
+          "tatoeba": 7,
+          "kakugo-mg": 1017
+        }
+      },
+      "corpusExclusions": {
+        "crossPartitionDuplicate": 1,
+        "repositoryFixtureOverlap": 2
+      },
+      "repositoryTestSamples": 14
     },
     {
       "language": "ms",
@@ -432,21 +936,51 @@
       "sources": [
         "app/src/main/res/values-ms/strings.xml"
       ],
-      "trainSamples": 171,
-      "calibrationSamples": 17,
-      "testSamples": 14,
-      "trainingSha256": "1aae35152ef10843597e8e17c09cbf9cd4714ab8289e6bae3bb3c4de30568294",
-      "calibrationSha256": "99023921406d1afd6efd8e90afd6d6abd5f282d455f394bf4fab75871914ee3f",
-      "heldOutSha256": "9aff2069eb1140300433ff7761a10532edd46e3da7a187c38d8d765a3ab7f55a",
-      "alphabetSize": 104,
-      "observedBigrams": 326,
-      "threshold": 2.827202,
-      "positiveCalibrationThreshold": 2.827202,
-      "noiseCalibrationCeiling": 5.14122,
+      "trainSamples": 30104,
+      "calibrationSamples": 3768,
+      "testSamples": 3767,
+      "trainingSha256": "912dd11f392fe66d59f561962aa77c1bc6d0f64e2cc1bd4ea7410fdac2de1426",
+      "calibrationSha256": "5fef71bc53fcb092ecdcb11ab5505ff80b8c973f103deb978949d7de61e6457a",
+      "heldOutSha256": "6fa8f218f5d3067de0779859c074e20fde5cd891a66885e4a0621c4e0932126b",
+      "alphabetSize": 294,
+      "observedBigrams": 2225,
+      "threshold": 3.078955,
+      "positiveCalibrationThreshold": 3.078955,
+      "noiseCalibrationCeiling": 7.718829,
       "calibrationConflict": false,
-      "rawBytes": 2806,
-      "gzipBytes": 1873,
-      "sha256": "893d760dafe7b00b70289cad813602882ace6da961c9c1f904c9d6565ac70a3f"
+      "rawBytes": 15720,
+      "gzipBytes": 11237,
+      "sha256": "0266472a7a31e4d75d683080a84d3db210883bd0eb3921eb4c34b37cb9457e85",
+      "corpusPartitions": {
+        "train": 29933,
+        "calibration": 3751,
+        "test": 3753
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 8038,
+          "aya": 7952,
+          "tatoeba": 5928,
+          "massive": 8015
+        },
+        "calibration": {
+          "aya-soda": 1001,
+          "aya": 980,
+          "tatoeba": 758,
+          "massive": 1012
+        },
+        "test": {
+          "aya-soda": 961,
+          "aya": 1065,
+          "tatoeba": 772,
+          "massive": 955
+        }
+      },
+      "corpusExclusions": {
+        "crossPartitionDuplicate": 20,
+        "repositoryFixtureOverlap": 5
+      },
+      "repositoryTestSamples": 14
     },
     {
       "language": "ne",
@@ -454,21 +988,47 @@
       "sources": [
         "app/src/main/res/values-ne/strings.xml"
       ],
-      "trainSamples": 151,
-      "calibrationSamples": 15,
-      "testSamples": 13,
-      "trainingSha256": "d498a6435da0926c582c68d84e9c59fd892fab787b2c6c93fb36cdc895df5114",
-      "calibrationSha256": "f5c01562cdee0182f4e22f4ba47736e44e898a22a83fb9b425f23416d111b176",
-      "heldOutSha256": "a4bbf0fe5224d7c1e70043cc7fc1a0c48212904a2b8a102d9c0a7ea851bab0cf",
-      "alphabetSize": 157,
-      "observedBigrams": 634,
-      "threshold": 4.189503,
-      "positiveCalibrationThreshold": 4.189503,
-      "noiseCalibrationCeiling": 6.091914,
+      "trainSamples": 16499,
+      "calibrationSamples": 2088,
+      "testSamples": 2071,
+      "trainingSha256": "86097bad84f8858d8a8a21d5ae28ae532cd02392d97334806805acef7699c9a0",
+      "calibrationSha256": "87d85d66ba05e76c9da0a2961b8fe3d0366a64b3468716ab8fde1e6dcf2470f4",
+      "heldOutSha256": "d35eedae808fc3a61bf4580511b30cdb0da810b6c2c2dac19b6248396b3ca1b1",
+      "alphabetSize": 211,
+      "observedBigrams": 4120,
+      "threshold": 3.432713,
+      "positiveCalibrationThreshold": 3.432713,
+      "noiseCalibrationCeiling": 8.695071,
       "calibrationConflict": false,
-      "rawBytes": 5078,
-      "gzipBytes": 3543,
-      "sha256": "8e9c3b7914b5e3f55eb9eb2dbcdeb235795f7d50705d0053ac611bc2da24bde5"
+      "rawBytes": 26426,
+      "gzipBytes": 20215,
+      "sha256": "b7e53728843735c4238e96e3e78beb77022207f0b89e502068c9490511513313",
+      "corpusPartitions": {
+        "train": 16348,
+        "calibration": 2073,
+        "test": 2058
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 7736,
+          "aya": 5004,
+          "tatoeba": 3608
+        },
+        "calibration": {
+          "aya-soda": 1010,
+          "aya": 615,
+          "tatoeba": 448
+        },
+        "test": {
+          "aya-soda": 967,
+          "aya": 648,
+          "tatoeba": 443
+        }
+      },
+      "corpusExclusions": {
+        "crossPartitionDuplicate": 3
+      },
+      "repositoryTestSamples": 13
     },
     {
       "language": "nl",
@@ -476,21 +1036,51 @@
       "sources": [
         "app/src/main/res/values-nl/strings.xml"
       ],
-      "trainSamples": 165,
-      "calibrationSamples": 17,
-      "testSamples": 14,
-      "trainingSha256": "7b3cf07e132a68152575bc2e9dcb12a3fa12e801a7364f34cb8214a5c1978922",
-      "calibrationSha256": "d1bf5631280b26a06d82b0f7df7347ed6f3eef54a7cb2ecc3768ca45977ce748",
-      "heldOutSha256": "a1d004171348ad0658e3ff0476e8f1677422dac823e5096a113ab212cc5c7acb",
-      "alphabetSize": 106,
-      "observedBigrams": 402,
-      "threshold": 3.217872,
-      "positiveCalibrationThreshold": 3.217872,
-      "noiseCalibrationCeiling": 4.846434,
+      "trainSamples": 25851,
+      "calibrationSamples": 3235,
+      "testSamples": 3266,
+      "trainingSha256": "af4a6922bcf752b477b40113d8cd947d2b2a5805e70c843158579a3f146d4c34",
+      "calibrationSha256": "bae88e66d44c7072962419e51c1ac597c397ca1a3f2aba88166cc6ee0f8fa216",
+      "heldOutSha256": "4d95e2c7ef58e8bd6e323595ad5f29b12d96e0b4608fc8b49e8c6bff7581e254",
+      "alphabetSize": 167,
+      "observedBigrams": 1935,
+      "threshold": 3.263856,
+      "positiveCalibrationThreshold": 3.263856,
+      "noiseCalibrationCeiling": 7.498762,
       "calibrationConflict": false,
-      "rawBytes": 3278,
-      "gzipBytes": 2204,
-      "sha256": "d3e1175287c3360b6853cf8f858cbd2153ded5eb3ad5809584e0c24a1862312c"
+      "rawBytes": 12964,
+      "gzipBytes": 9607,
+      "sha256": "9e0fb718091a6709b107e50f46b786b5d4b32c6e5659cd8acfa658b1dbec1091",
+      "corpusPartitions": {
+        "train": 25686,
+        "calibration": 3218,
+        "test": 3252
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 7928,
+          "aya": 1699,
+          "tatoeba": 8024,
+          "massive": 8035
+        },
+        "calibration": {
+          "aya-soda": 1027,
+          "aya": 210,
+          "tatoeba": 978,
+          "massive": 1003
+        },
+        "test": {
+          "aya-soda": 1045,
+          "aya": 250,
+          "tatoeba": 996,
+          "massive": 961
+        }
+      },
+      "corpusExclusions": {
+        "crossPartitionDuplicate": 3,
+        "repositoryFixtureOverlap": 1
+      },
+      "repositoryTestSamples": 14
     },
     {
       "language": "pa",
@@ -498,21 +1088,52 @@
       "sources": [
         "app/src/main/res/values-pa-rPK/strings.xml"
       ],
-      "trainSamples": 160,
-      "calibrationSamples": 15,
-      "testSamples": 13,
-      "trainingSha256": "e4df4fcb8e3c7022c4f151938cee83593bdc613ba0fb965e1849ba7ee1c81cce",
-      "calibrationSha256": "460acfedd65c5e0595934d8654acef00669b0ab1c4ceeff4d508e7de65312a22",
-      "heldOutSha256": "038d134066e90a161f6e39931b3adf5df26c07ca4c9d59254eb3a8033ce7cc6c",
-      "alphabetSize": 148,
-      "observedBigrams": 574,
-      "threshold": 4.191876,
-      "positiveCalibrationThreshold": 4.191876,
-      "noiseCalibrationCeiling": 5.455831,
+      "trainSamples": 1594,
+      "calibrationSamples": 164,
+      "testSamples": 179,
+      "trainingSha256": "5e497a3c413a96b9485186e13167abf911a47206c985a680844a1b440886e7eb",
+      "calibrationSha256": "06e9c2cf61d796ff60332c2437d140540557e072606c78ddb8e2765ed0a5d638",
+      "heldOutSha256": "514bb1f9ef62071b597919b502ea99fb237357bc95f6767053b3c58a7ac6add9",
+      "alphabetSize": 218,
+      "observedBigrams": 2548,
+      "threshold": 3.612376,
+      "positiveCalibrationThreshold": 3.612376,
+      "noiseCalibrationCeiling": 7.839243,
       "calibrationConflict": false,
-      "rawBytes": 4646,
-      "gzipBytes": 3187,
-      "sha256": "8350213e2e25c56e4f0aaed395153a4e81670cd6d3a690a4f308981866a3e4fa"
+      "rawBytes": 17050,
+      "gzipBytes": 12906,
+      "sha256": "f1e56201f36f00e379d18c21b2b942589384d1ff216ceeaef79cd2324c4cb4ee",
+      "corpusPartitions": {
+        "train": 1434,
+        "calibration": 149,
+        "test": 166
+      },
+      "corpusSources": {
+        "train": {
+          "aya": 8,
+          "tatoeba": 57,
+          "sacor-pa": 41,
+          "smol-pa": 702,
+          "fasal-pa": 626
+        },
+        "calibration": {
+          "tatoeba": 11,
+          "sacor-pa": 8,
+          "smol-pa": 74,
+          "fasal-pa": 56
+        },
+        "test": {
+          "aya": 1,
+          "tatoeba": 8,
+          "sacor-pa": 4,
+          "smol-pa": 87,
+          "fasal-pa": 66
+        }
+      },
+      "corpusExclusions": {
+        "crossPartitionDuplicate": 1
+      },
+      "repositoryTestSamples": 13
     },
     {
       "language": "pl",
@@ -520,21 +1141,50 @@
       "sources": [
         "app/src/main/res/values-pl/strings.xml"
       ],
-      "trainSamples": 170,
-      "calibrationSamples": 17,
-      "testSamples": 14,
-      "trainingSha256": "53f87dce3f6334e5fe2531123c36b179dd13a37eacd0641fdcdb7dca8a440388",
-      "calibrationSha256": "7d6f7767c5568bf2ef725edecc0d4265ff7d412655c961542bacd053914a188f",
-      "heldOutSha256": "0f3b61b3a45f1d638b467cf4ffd968917dcc050c4578de082d42bbad2488be47",
-      "alphabetSize": 111,
-      "observedBigrams": 466,
-      "threshold": 3.379466,
-      "positiveCalibrationThreshold": 3.379466,
-      "noiseCalibrationCeiling": 5.09533,
+      "trainSamples": 24979,
+      "calibrationSamples": 3007,
+      "testSamples": 3075,
+      "trainingSha256": "4d78674b92bed32dcf0ef2fcf864cbad3393131fa2dbd1a66dddfc4fcdce3eec",
+      "calibrationSha256": "e398f5b9ba64ff7f7d9f8d9db868b3387736a4b44ebc41d4b2f0f27b3249173c",
+      "heldOutSha256": "4813eced51e2345875e26b8528944c62c33461dbd57a4d7ba512b586ba7be2eb",
+      "alphabetSize": 139,
+      "observedBigrams": 1724,
+      "threshold": 3.364513,
+      "positiveCalibrationThreshold": 3.364513,
+      "noiseCalibrationCeiling": 6.934917,
       "calibrationConflict": false,
-      "rawBytes": 3702,
-      "gzipBytes": 2549,
-      "sha256": "25b190dd221737841495d40b754ab6cb9a78d1cb0f75b7406cfb40843c2ac2ae"
+      "rawBytes": 11474,
+      "gzipBytes": 8528,
+      "sha256": "a65600473ed21e7036fa38c2857b62f4eb2bf2d0e9e90a834d25734221f0c4f5",
+      "corpusPartitions": {
+        "train": 24809,
+        "calibration": 2990,
+        "test": 3061
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 7989,
+          "aya": 674,
+          "tatoeba": 8087,
+          "massive": 8059
+        },
+        "calibration": {
+          "aya-soda": 962,
+          "aya": 101,
+          "tatoeba": 923,
+          "massive": 1004
+        },
+        "test": {
+          "aya-soda": 1049,
+          "aya": 87,
+          "tatoeba": 990,
+          "massive": 935
+        }
+      },
+      "corpusExclusions": {
+        "repositoryFixtureOverlap": 3
+      },
+      "repositoryTestSamples": 14
     },
     {
       "language": "pt",
@@ -543,21 +1193,51 @@
         "app/src/main/res/values-pt/strings.xml",
         "app/src/main/res/values-pt-rBR/strings.xml"
       ],
-      "trainSamples": 229,
-      "calibrationSamples": 23,
-      "testSamples": 20,
-      "trainingSha256": "01d585231fdd0556c5b8d4ec9475d47d8dd7116b72652baa733afd08318aedb5",
-      "calibrationSha256": "75b81d38d5d5fb0cfb0e56adae7d03c76bd553663eaf25002df58d5e56b7f85b",
-      "heldOutSha256": "c81c95298899863680b759d059a9c400ec94f1dd1a746f6d9fe762d25843da88",
-      "alphabetSize": 115,
-      "observedBigrams": 405,
-      "threshold": 2.996059,
-      "positiveCalibrationThreshold": 2.996059,
-      "noiseCalibrationCeiling": 5.699584,
+      "trainSamples": 31654,
+      "calibrationSamples": 3988,
+      "testSamples": 3884,
+      "trainingSha256": "30bdf433e12f999cdb6962d1010f396d2a8db39d82423a78cd890e6cd64193c7",
+      "calibrationSha256": "6d8f08da4609a97e8c938886c80ec1c2d6883706d7ff3ceec90a4ac1a50d900b",
+      "heldOutSha256": "fa09cbcf2e0d86b0893306503556065522dbda93b012e8df2c27d400325ce55a",
+      "alphabetSize": 170,
+      "observedBigrams": 2210,
+      "threshold": 3.238276,
+      "positiveCalibrationThreshold": 3.238276,
+      "noiseCalibrationCeiling": 7.780013,
       "calibrationConflict": false,
-      "rawBytes": 3368,
-      "gzipBytes": 2280,
-      "sha256": "21ca3436636540340bf70b8a254976687e969ac4c7e828aff5a34ff9740069cd"
+      "rawBytes": 14638,
+      "gzipBytes": 10978,
+      "sha256": "fb0306eec94a684dd33433d7220f7a4e80a566c1af86e81a30a52bb6539a9fdf",
+      "corpusPartitions": {
+        "train": 31425,
+        "calibration": 3965,
+        "test": 3864
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 8019,
+          "aya": 7346,
+          "tatoeba": 8025,
+          "massive": 8035
+        },
+        "calibration": {
+          "aya-soda": 1013,
+          "aya": 945,
+          "tatoeba": 997,
+          "massive": 1010
+        },
+        "test": {
+          "aya-soda": 967,
+          "aya": 969,
+          "tatoeba": 977,
+          "massive": 951
+        }
+      },
+      "corpusExclusions": {
+        "crossPartitionDuplicate": 6,
+        "repositoryFixtureOverlap": 4
+      },
+      "repositoryTestSamples": 20
     },
     {
       "language": "ru",
@@ -565,21 +1245,51 @@
       "sources": [
         "app/src/main/res/values-ru/strings.xml"
       ],
-      "trainSamples": 158,
-      "calibrationSamples": 17,
-      "testSamples": 14,
-      "trainingSha256": "5b1d543b8cfa6e39e360ca64bf3398b15e44ed5917a1a28937c1008f44b6e271",
-      "calibrationSha256": "6c4b7c75e7128512b2661f2215ada7478c9e5597003d588a2ee29565be6b1ee7",
-      "heldOutSha256": "6f1ce6483617ca445bf656edb597eef8952f4f0f7dbedba769b4d5cf8835afad",
-      "alphabetSize": 138,
-      "observedBigrams": 482,
-      "threshold": 3.571677,
-      "positiveCalibrationThreshold": 3.571677,
-      "noiseCalibrationCeiling": 5.184886,
+      "trainSamples": 24412,
+      "calibrationSamples": 3073,
+      "testSamples": 2930,
+      "trainingSha256": "3c76f8d542f550a70a345996804ef4a5d0f44b02a85c49fd3f9d49febddbd81d",
+      "calibrationSha256": "6c93db119e487623898391e5100607bf414a3a2dc582756c00a0ed7c0713191d",
+      "heldOutSha256": "bd51975d9781410d101ff968b1894a49d9c4fce855eab3cdf509600768cd5fcb",
+      "alphabetSize": 152,
+      "observedBigrams": 2129,
+      "threshold": 3.411981,
+      "positiveCalibrationThreshold": 3.411981,
+      "noiseCalibrationCeiling": 6.31688,
       "calibrationConflict": false,
-      "rawBytes": 4014,
-      "gzipBytes": 2690,
-      "sha256": "68ca8cb20da5c17c5cac530d5073180a03ff0f647f70649fecfac24c4cfcab8f"
+      "rawBytes": 14008,
+      "gzipBytes": 10419,
+      "sha256": "9ed6e7f2ee0652aac26b26144bae787be6e466af3ac2f09c2375ba704f3e8efd",
+      "corpusPartitions": {
+        "train": 24254,
+        "calibration": 3056,
+        "test": 2916
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 8033,
+          "aya": 175,
+          "tatoeba": 8034,
+          "massive": 8012
+        },
+        "calibration": {
+          "aya-soda": 982,
+          "aya": 28,
+          "tatoeba": 1027,
+          "massive": 1019
+        },
+        "test": {
+          "aya-soda": 985,
+          "aya": 26,
+          "tatoeba": 938,
+          "massive": 967
+        }
+      },
+      "corpusExclusions": {
+        "crossPartitionDuplicate": 1,
+        "repositoryFixtureOverlap": 2
+      },
+      "repositoryTestSamples": 14
     },
     {
       "language": "sv",
@@ -587,21 +1297,50 @@
       "sources": [
         "app/src/main/res/values-sv/strings.xml"
       ],
-      "trainSamples": 159,
-      "calibrationSamples": 17,
-      "testSamples": 14,
-      "trainingSha256": "4789454d59317e04b6d1f6df0083b2e80894d85a90afa067e5ee3d06a3adf5d8",
-      "calibrationSha256": "90ae40ff94aad179ea38173bfe0bb60aed6f0f6d1affd5efa1ec073c889a38bd",
-      "heldOutSha256": "2a66f736eb7f2245282849e69750f89659c76b966695d91936236e4e1a9d5cff",
-      "alphabetSize": 106,
-      "observedBigrams": 418,
-      "threshold": 3.241247,
-      "positiveCalibrationThreshold": 3.241247,
-      "noiseCalibrationCeiling": 4.85063,
+      "trainSamples": 24335,
+      "calibrationSamples": 3119,
+      "testSamples": 2968,
+      "trainingSha256": "665fdadae1ef34881bae6415494e7045f7091adda34a912358e3185674bed111",
+      "calibrationSha256": "0339862265dd1d37be2f32dd711e7740ebccc5231f953770526c096849c004d1",
+      "heldOutSha256": "af9809f90bfd1651a1eb8b1063af74b94a17e36223f9b0d97288162b15cd64de",
+      "alphabetSize": 114,
+      "observedBigrams": 1402,
+      "threshold": 3.293605,
+      "positiveCalibrationThreshold": 3.293605,
+      "noiseCalibrationCeiling": 5.971319,
       "calibrationConflict": false,
-      "rawBytes": 3374,
-      "gzipBytes": 2274,
-      "sha256": "1352164a1a506277c762143d6505037d7c85062125151da185d00516331c55af"
+      "rawBytes": 9342,
+      "gzipBytes": 6919,
+      "sha256": "92b309e24390d09c6defde1396b6d68e161fef37983e08af21d7531a3006a4a6",
+      "corpusPartitions": {
+        "train": 24176,
+        "calibration": 3102,
+        "test": 2954
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 8007,
+          "aya": 192,
+          "tatoeba": 7941,
+          "massive": 8036
+        },
+        "calibration": {
+          "aya-soda": 1041,
+          "aya": 20,
+          "tatoeba": 1042,
+          "massive": 999
+        },
+        "test": {
+          "aya-soda": 951,
+          "aya": 22,
+          "tatoeba": 1017,
+          "massive": 964
+        }
+      },
+      "corpusExclusions": {
+        "repositoryFixtureOverlap": 1
+      },
+      "repositoryTestSamples": 14
     },
     {
       "language": "ta",
@@ -609,21 +1348,50 @@
       "sources": [
         "app/src/main/res/values-ta/strings.xml"
       ],
-      "trainSamples": 156,
-      "calibrationSamples": 16,
-      "testSamples": 13,
-      "trainingSha256": "60529f9d65f4ca7131b3db1958ec5096ab65ac26a03829a73eec898a34d5bf5e",
-      "calibrationSha256": "529a738df7092d698e1eee50cc304512d0f2d7e2df2b4cba5b8e2a9f92b6aec7",
-      "heldOutSha256": "da2d0f30b82b9ee89fb72c3e6687afaa3cf0a56df92ba32c57c3c1959c3aa765",
-      "alphabetSize": 142,
-      "observedBigrams": 490,
-      "threshold": 2.973225,
-      "positiveCalibrationThreshold": 2.973225,
-      "noiseCalibrationCeiling": 6.139071,
+      "trainSamples": 24764,
+      "calibrationSamples": 3013,
+      "testSamples": 2962,
+      "trainingSha256": "9f06f46869e293c9c3c5ef9ffe411b8e0886a1cdebd2507a19d6bf98825bb7c5",
+      "calibrationSha256": "5cfe3c141eaf8eb9be842fb528ce7dcb1927a63086e1498b977b6397a9d77541",
+      "heldOutSha256": "083076d23bb877f7be187bcc4aa11824d83ea56b9b3812111945861bd02ffd4d",
+      "alphabetSize": 186,
+      "observedBigrams": 3187,
+      "threshold": 3.147357,
+      "positiveCalibrationThreshold": 3.147357,
+      "noiseCalibrationCeiling": 8.415494,
       "calibrationConflict": false,
-      "rawBytes": 4094,
-      "gzipBytes": 2774,
-      "sha256": "abe957969567e6f52b709861ba5d321c0afb4734f3ffa11d964308922ee2edb3"
+      "rawBytes": 20628,
+      "gzipBytes": 15744,
+      "sha256": "5cdb21cc864c332d6918007a31eb3a43dacb47790e8e36d5e2ee78046563c580",
+      "corpusPartitions": {
+        "train": 24608,
+        "calibration": 2997,
+        "test": 2949
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 8014,
+          "aya": 8079,
+          "tatoeba": 474,
+          "massive": 8041
+        },
+        "calibration": {
+          "aya-soda": 1005,
+          "aya": 924,
+          "tatoeba": 63,
+          "massive": 1005
+        },
+        "test": {
+          "aya-soda": 946,
+          "aya": 997,
+          "tatoeba": 59,
+          "massive": 947
+        }
+      },
+      "corpusExclusions": {
+        "repositoryFixtureOverlap": 2
+      },
+      "repositoryTestSamples": 13
     },
     {
       "language": "th",
@@ -631,21 +1399,50 @@
       "sources": [
         "app/src/main/res/values-th/strings.xml"
       ],
-      "trainSamples": 151,
-      "calibrationSamples": 15,
-      "testSamples": 13,
-      "trainingSha256": "f193909cc6bbb60f631cfd444f4865351a1967bcc155aed88369178cab285052",
-      "calibrationSha256": "847b6f80ffbc1b57c30406e40603c1dbc30d43e2853ed6d180cb1b6b2c487caf",
-      "heldOutSha256": "871d6e83c2d8c4a76c70356542ab0953ee081387a0432a2c465ca6bc60955bad",
-      "alphabetSize": 156,
-      "observedBigrams": 817,
-      "threshold": 4.225605,
-      "positiveCalibrationThreshold": 4.225605,
-      "noiseCalibrationCeiling": 5.380266,
+      "trainSamples": 22025,
+      "calibrationSamples": 2731,
+      "testSamples": 2743,
+      "trainingSha256": "2f4b7959bd641d248ece176f447b0020c6eb6892c19f4c1d621a1a9e7720758c",
+      "calibrationSha256": "afb740332b243a2340a19cfd3a3a557690246cd3d8e810065701941e70ab04bd",
+      "heldOutSha256": "a475adba504822232514fb3d64874293b5383883faa6748ee4b79658e729cc45",
+      "alphabetSize": 189,
+      "observedBigrams": 3460,
+      "threshold": 3.736568,
+      "positiveCalibrationThreshold": 3.736568,
+      "noiseCalibrationCeiling": 7.454458,
       "calibrationConflict": false,
-      "rawBytes": 6168,
-      "gzipBytes": 4335,
-      "sha256": "e866cc5ff12805bc53339ecde0dc4803b4d51d36ca32db8862cb1ec14af7f5ca"
+      "rawBytes": 22290,
+      "gzipBytes": 16844,
+      "sha256": "e7cf28b94be031be21ff9171ee4298a68c1aac23e36e1d064a05c4762f447319",
+      "corpusPartitions": {
+        "train": 21874,
+        "calibration": 2716,
+        "test": 2730
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 8019,
+          "aya": 399,
+          "tatoeba": 5445,
+          "massive": 8011
+        },
+        "calibration": {
+          "aya-soda": 972,
+          "aya": 47,
+          "tatoeba": 686,
+          "massive": 1011
+        },
+        "test": {
+          "aya-soda": 1008,
+          "aya": 51,
+          "tatoeba": 710,
+          "massive": 961
+        }
+      },
+      "corpusExclusions": {
+        "repositoryFixtureOverlap": 2
+      },
+      "repositoryTestSamples": 13
     },
     {
       "language": "tr",
@@ -653,21 +1450,50 @@
       "sources": [
         "app/src/main/res/values-tr/strings.xml"
       ],
-      "trainSamples": 159,
-      "calibrationSamples": 17,
-      "testSamples": 14,
-      "trainingSha256": "31fb7e3204af710c8de92de9b1beaef9ba72da7f422e2fbdae9169f29d887d60",
-      "calibrationSha256": "5a57d5bbc968996e2f2b2b242f7558e4b5bfa5a0ec1e6c007077e2f5c4e3ff02",
-      "heldOutSha256": "933b81d7f6d339ced8cbaa398120dfa1f14364ed9fa903f0677216a42b7059fe",
-      "alphabetSize": 110,
-      "observedBigrams": 414,
-      "threshold": 3.784622,
-      "positiveCalibrationThreshold": 3.784622,
-      "noiseCalibrationCeiling": 5.065395,
+      "trainSamples": 29175,
+      "calibrationSamples": 3506,
+      "testSamples": 3552,
+      "trainingSha256": "b43f773b90041c30117396526553c5c8b048e7bf1487305b4f2b6fabdd66d0ab",
+      "calibrationSha256": "f481c6d2ed4c4006599baacb43304d1a4c073f5447dabd92e907f7319a03b545",
+      "heldOutSha256": "d1a82caa2609e7419028503221dd70fcbc203fb0ad08d151447986dc8dbed1dc",
+      "alphabetSize": 222,
+      "observedBigrams": 2529,
+      "threshold": 3.391072,
+      "positiveCalibrationThreshold": 3.391072,
+      "noiseCalibrationCeiling": 7.235888,
       "calibrationConflict": false,
-      "rawBytes": 3382,
-      "gzipBytes": 2280,
-      "sha256": "9bd17ac1798c17092d5a0e82db7bd8879ffea3f4a224c97711c4e9dd54e8f716"
+      "rawBytes": 16968,
+      "gzipBytes": 12559,
+      "sha256": "454151df78e03868bb52388fdcf661c7397ac28ce9e74cb52f95d9292054ce87",
+      "corpusPartitions": {
+        "train": 29016,
+        "calibration": 3489,
+        "test": 3538
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 8054,
+          "aya": 4870,
+          "tatoeba": 8042,
+          "massive": 8050
+        },
+        "calibration": {
+          "aya-soda": 992,
+          "aya": 532,
+          "tatoeba": 955,
+          "massive": 1010
+        },
+        "test": {
+          "aya-soda": 954,
+          "aya": 643,
+          "tatoeba": 1003,
+          "massive": 938
+        }
+      },
+      "corpusExclusions": {
+        "repositoryFixtureOverlap": 2
+      },
+      "repositoryTestSamples": 14
     },
     {
       "language": "uk",
@@ -675,21 +1501,47 @@
       "sources": [
         "app/src/main/res/values-uk/strings.xml"
       ],
-      "trainSamples": 169,
-      "calibrationSamples": 17,
-      "testSamples": 14,
-      "trainingSha256": "1d38d739d2fc1474515db2cdb6ee55db628913f3b691cd8176d4360cd27e8c69",
-      "calibrationSha256": "dfd5e568018ab20dec3162b100952ded090838e2e25340297d71690588340d33",
-      "heldOutSha256": "fdbc19e8148062d3556450bc4bcee3447198c4e2d606e567919ee2adc0c80a88",
-      "alphabetSize": 135,
-      "observedBigrams": 499,
-      "threshold": 3.184684,
-      "positiveCalibrationThreshold": 3.184684,
-      "noiseCalibrationCeiling": 5.063353,
+      "trainSamples": 16555,
+      "calibrationSamples": 2039,
+      "testSamples": 2040,
+      "trainingSha256": "f5b7d3a0e2b05a846b1709a8fa6e39e2f6db74c285651256c48a1a6f2dd93d68",
+      "calibrationSha256": "8a4e06371c6e330a89aa1465a98360292b9b0163f71268f9527e207b70b9c4d7",
+      "heldOutSha256": "e528138b96f054c0414180fb62f1d901ce1447e248c038da42ee4784f1eaf2d9",
+      "alphabetSize": 177,
+      "observedBigrams": 2306,
+      "threshold": 3.33888,
+      "positiveCalibrationThreshold": 3.33888,
+      "noiseCalibrationCeiling": 6.52028,
       "calibrationConflict": false,
-      "rawBytes": 4092,
-      "gzipBytes": 2780,
-      "sha256": "d0bd10465a66335dfdc4dbce4cc5f48beb6cd3fec399ec67caee16fa14d3fee8"
+      "rawBytes": 15270,
+      "gzipBytes": 11256,
+      "sha256": "6271dfc14c5870c1adfccb4faa5686f0b45686412557979a0b77238f55d20760",
+      "corpusPartitions": {
+        "train": 16386,
+        "calibration": 2022,
+        "test": 2026
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 8043,
+          "aya": 355,
+          "tatoeba": 7988
+        },
+        "calibration": {
+          "aya-soda": 952,
+          "aya": 42,
+          "tatoeba": 1028
+        },
+        "test": {
+          "aya-soda": 1002,
+          "aya": 42,
+          "tatoeba": 982
+        }
+      },
+      "corpusExclusions": {
+        "crossPartitionDuplicate": 3
+      },
+      "repositoryTestSamples": 14
     },
     {
       "language": "ur",
@@ -697,21 +1549,50 @@
       "sources": [
         "app/src/main/res/values-ur/strings.xml"
       ],
-      "trainSamples": 160,
-      "calibrationSamples": 16,
-      "testSamples": 13,
-      "trainingSha256": "38ca71737f740e55ba86432bff9abf9d592255e557cde0cf27d8aca590e8180e",
-      "calibrationSha256": "ddf60eceeff89a5cfdc78f5e5517db5145542ba53d4fec989a3fdd7ad68ddefd",
-      "heldOutSha256": "476baa59ca5868b305b3d9497c9150da678fdeaadef40c95d1cdf7bb8c09e2f2",
-      "alphabetSize": 144,
-      "observedBigrams": 563,
-      "threshold": 4.213253,
-      "positiveCalibrationThreshold": 4.213253,
-      "noiseCalibrationCeiling": 5.440531,
+      "trainSamples": 19044,
+      "calibrationSamples": 2395,
+      "testSamples": 2369,
+      "trainingSha256": "64da58426f2650e2c08f9aeebdfaa19ad9bc473267f395c4165df513785b455c",
+      "calibrationSha256": "4008eb1797cafb1e623043702a55cafec95d19db08363e2ed9f8d90fcb72c5c1",
+      "heldOutSha256": "fc8b8e6f39e9ba106a94035e26b7c63c74dcf24a5ab3e2b99deebadde7ee3d4b",
+      "alphabetSize": 269,
+      "observedBigrams": 3508,
+      "threshold": 3.300347,
+      "positiveCalibrationThreshold": 3.300347,
+      "noiseCalibrationCeiling": 9.02729,
       "calibrationConflict": false,
-      "rawBytes": 4548,
-      "gzipBytes": 3107,
-      "sha256": "11610608776aace09a1cb0172d8b9fa9cf137b17cadc43180e7089e40573ca67"
+      "rawBytes": 23218,
+      "gzipBytes": 17505,
+      "sha256": "1f962e356ff547ce1f8adf2c4680d5dca6b84df7ebc64ed4526d1ba551c08d00",
+      "corpusPartitions": {
+        "train": 18884,
+        "calibration": 2379,
+        "test": 2356
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 7907,
+          "aya": 632,
+          "tatoeba": 2290,
+          "massive": 8055
+        },
+        "calibration": {
+          "aya-soda": 1013,
+          "aya": 65,
+          "tatoeba": 297,
+          "massive": 1004
+        },
+        "test": {
+          "aya-soda": 1072,
+          "aya": 82,
+          "tatoeba": 263,
+          "massive": 939
+        }
+      },
+      "corpusExclusions": {
+        "repositoryFixtureOverlap": 1
+      },
+      "repositoryTestSamples": 13
     },
     {
       "language": "vi",
@@ -719,21 +1600,50 @@
       "sources": [
         "app/src/main/res/values-vi/strings.xml"
       ],
-      "trainSamples": 160,
-      "calibrationSamples": 17,
-      "testSamples": 13,
-      "trainingSha256": "75204e9d2056b89b9aab0cfc22a836d15c101696ce6eea4712b6a9c9719aec5d",
-      "calibrationSha256": "282350b33b9082505c62e164b2aa5939d71378c2f97e73599f55236588b7d679",
-      "heldOutSha256": "309b70c869acd7cabf323b5230048653a5fb348475e56b385f6bf49c9279fa73",
-      "alphabetSize": 157,
-      "observedBigrams": 565,
-      "threshold": 3.644417,
-      "positiveCalibrationThreshold": 3.644417,
-      "noiseCalibrationCeiling": 6.159577,
+      "trainSamples": 31480,
+      "calibrationSamples": 3905,
+      "testSamples": 3758,
+      "trainingSha256": "dbe6d702caf3f9ae33a7f119914a848b288777e4ae2979b457641acb1c967d99",
+      "calibrationSha256": "33100a0df58f928b29fea74fda4bbfb0d5579b2f6db5d2e35a54f833cb881860",
+      "heldOutSha256": "4a879ebe5afeffb276c2ff7d4773f535abc1a0957e139086667124720b4b63aa",
+      "alphabetSize": 240,
+      "observedBigrams": 4275,
+      "threshold": 3.173099,
+      "positiveCalibrationThreshold": 3.173099,
+      "noiseCalibrationCeiling": 9.533937,
       "calibrationConflict": false,
-      "rawBytes": 4664,
-      "gzipBytes": 3164,
-      "sha256": "e65e1902d3b50a00aa8fc2165d0033c00881ea2e44aba0c31425985f578e6a7a"
+      "rawBytes": 27588,
+      "gzipBytes": 21373,
+      "sha256": "9de780cbe0e82422f78f076300572c50fe85baf5672c64ab164f58d368427ff9",
+      "corpusPartitions": {
+        "train": 31320,
+        "calibration": 3888,
+        "test": 3745
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 8042,
+          "aya": 7219,
+          "tatoeba": 8036,
+          "massive": 8023
+        },
+        "calibration": {
+          "aya-soda": 956,
+          "aya": 907,
+          "tatoeba": 1011,
+          "massive": 1014
+        },
+        "test": {
+          "aya-soda": 1002,
+          "aya": 831,
+          "tatoeba": 951,
+          "massive": 961
+        }
+      },
+      "corpusExclusions": {
+        "repositoryFixtureOverlap": 3
+      },
+      "repositoryTestSamples": 13
     },
     {
       "language": "zh",
@@ -743,21 +1653,151 @@
         "app/src/main/res/values-zh-rCN/strings.xml",
         "app/src/main/res/values-zh-rTW/strings.xml"
       ],
-      "trainSamples": 355,
-      "calibrationSamples": 28,
-      "testSamples": 29,
-      "trainingSha256": "38ecdde01b00e9ccbadddc8badb70975f022ac8ab7ee48edea7c64ae0e4ce671",
-      "calibrationSha256": "086bd7c30eaadf77b20dc2670543ac1aa150108ee31475581d5cfa4f85ae51a8",
-      "heldOutSha256": "9129f7ae963b7d9e04957442ab5849c43c1dcf473ba555017c56bfcb049314c9",
-      "alphabetSize": 795,
-      "observedBigrams": 2727,
-      "threshold": 7.202364,
-      "positiveCalibrationThreshold": 7.202364,
-      "noiseCalibrationCeiling": 7.560565,
+      "trainSamples": 30212,
+      "calibrationSamples": 3765,
+      "testSamples": 3762,
+      "trainingSha256": "933ab239713c7121fea52d8d7e14d46dec89ce353260b150183f723dddf76c6d",
+      "calibrationSha256": "7f830d8280b3bfd42664423c8c7729aac9c562d2c880237f3cda78e2f7744b0e",
+      "heldOutSha256": "43e3b75f9f16e502cc5a9a7177d2b1cbf278575c4078cda800288b328a62a2b8",
+      "alphabetSize": 5002,
+      "observedBigrams": 159751,
+      "threshold": 6.671515,
+      "positiveCalibrationThreshold": 6.671515,
+      "noiseCalibrationCeiling": 12.04085,
       "calibrationConflict": false,
-      "rawBytes": 22740,
-      "gzipBytes": 15330,
-      "sha256": "a1bcbc9e1ae3291ee51fca702f896e4e26d813388bc095f763e74e233dc9e80e"
+      "rawBytes": 998540,
+      "gzipBytes": 694899,
+      "sha256": "45724d00e92a065465624ca260e825ff7d4419e3c3338e834bef69286a145ef5",
+      "corpusPartitions": {
+        "train": 29857,
+        "calibration": 3737,
+        "test": 3733
+      },
+      "corpusSources": {
+        "train": {
+          "aya-soda": 7950,
+          "aya": 5837,
+          "tatoeba": 7993,
+          "massive": 8077
+        },
+        "calibration": {
+          "aya-soda": 1015,
+          "aya": 713,
+          "tatoeba": 1035,
+          "massive": 974
+        },
+        "test": {
+          "aya-soda": 1035,
+          "aya": 778,
+          "tatoeba": 972,
+          "massive": 948
+        }
+      },
+      "corpusExclusions": {
+        "repositoryFixtureOverlap": 1,
+        "crossPartitionDuplicate": 2
+      },
+      "repositoryTestSamples": 29
     }
-  ]
+  ],
+  "corpusTraining": {
+    "catalogSha256": "b9eddf40be0599af0aca1b02d3f3d651b76d1bd671373d91f599f1c094dca69e",
+    "partitions": "80/10/10 by source conversation group; identical normalized text uses the most conservative partition across languages; repository fixtures excluded",
+    "sources": {
+      "soc": {
+        "kind": "synthetic-online-chat",
+        "homepage": "https://huggingface.co/datasets/marcodsn/SOC-2508-MULTI",
+        "license": "CC-BY-4.0",
+        "revision": "a94d7b817488c8e201623e43186893f38335af45"
+      },
+      "aya-soda": {
+        "kind": "machine-translated-synthetic-dialogue",
+        "homepage": "https://huggingface.co/datasets/CohereLabs/aya_collection",
+        "license": "Apache-2.0 AND CC-BY-4.0",
+        "revision": "09069079fad96ad9c7f8781be8c1d70471dfa768"
+      },
+      "aya": {
+        "kind": "human-authored-qa",
+        "homepage": "https://huggingface.co/datasets/CohereLabs/aya_dataset",
+        "license": "Apache-2.0",
+        "revision": "f9ea04583f02a8f86404ff6c58bf75fe637df8a2"
+      },
+      "tatoeba": {
+        "kind": "authored-short-sentences",
+        "homepage": "https://tatoeba.org/",
+        "license": "CC-BY-2.0-FR",
+        "revision": null
+      },
+      "massive": {
+        "kind": "authored-assistant-utterances",
+        "homepage": "https://huggingface.co/datasets/AmazonScience/massive",
+        "license": "CC-BY-4.0",
+        "revision": "1.1"
+      },
+      "kakugo-mg": {
+        "kind": "synthetic-assistant-qa",
+        "homepage": "https://huggingface.co/datasets/ptrdvn/kakugo-plt",
+        "license": "Apache-2.0",
+        "revision": "9b60010d8cb2db8808f1e92aff4e7a6abf34c544"
+      },
+      "georgian-roleplay": {
+        "kind": "machine-translated-roleplay",
+        "homepage": "https://huggingface.co/datasets/jojo-ai-mst/Roleplay-Georgian",
+        "license": "MIT",
+        "revision": "74aeec0457a27c61d17e14c4ca6cfbf0a4f9715f"
+      },
+      "sacor-pa": {
+        "kind": "human-translated-parallel-sentences",
+        "homepage": "https://github.com/hjy895/SACOR",
+        "license": "MIT",
+        "revision": "d0f5cb2c895feac5cb429853cfa0416c4cea7af5"
+      },
+      "smol-pa": {
+        "kind": "professionally-translated-sentences",
+        "homepage": "https://huggingface.co/datasets/google/smol",
+        "license": "CC-BY-4.0",
+        "revision": "fdaff3a1a019f89fa30a562a85d7c1d3e9150444"
+      },
+      "fasal-pa": {
+        "kind": "domain-specific-synthetic-qa",
+        "homepage": "https://huggingface.co/datasets/KhetLink/Fasal-1B-Pak-Agri",
+        "license": "Apache-2.0",
+        "revision": "d6e4f60dcf352d4afb54f1148ed66795d14802d1"
+      }
+    },
+    "preparedSha256": {
+      "ar": "df15f9f1b2b18f2800c237cd640d49f55234d4735df17619a4ba82f5c3a0357e",
+      "bn": "ff4ef3e5877a5f65ae460e56c5dccc9a7fa836107af8e94f9421dcac478a9102",
+      "de": "e1b65b21873234e8d7282b025cc25adac7c0eb5eeeb56e04e823d80d4e9929ce",
+      "en": "39d80505b3c2cb1b0e9baf558cdb734cd164c80c30b0f6c83e6b01febd1dc5db",
+      "es": "fa9088d6f51e997f29a434ceac6342a65c34c665360d8552538a7f3647a9e7e8",
+      "eu": "e2855726853c8fe44ddbd904f4ce15f62702434c25525bf227d57a49f89a5b79",
+      "fa": "edcdfbd5648100b2c6110c6fdf58d717c8a9b16a436c2fd739db04efb291865f",
+      "fil": "3db00e19d3cb3c426a28f34bbe6bc44962f29d78540826aafc2339c3e9b78d38",
+      "fr": "dee6b64812cf2c2ef083b65cdddc49d199e50c118e9de7261d6491adb6fc5694",
+      "he": "f0886d9f8f9fca8fe173eb8af9e6099ab445f9e53b3537db6d681603eaa6de58",
+      "hi": "3d811482631900fa9cd1dff069f39d34468960e72f3a4e99388901c031a85c9c",
+      "id": "287484db74ab9fc8dd1a699124aa63475cc2664ef5e2b0655155cf28f7b1259f",
+      "it": "1744228f0b46296e440653bbf520c25f54fb4d3dd505f1e0778c72581920cea9",
+      "ja": "52812762bfd70b6fb6dc4f4c00194e60449763821d1d0e66e3acf3939c825ebb",
+      "ka": "1f6376b89717eb4be1770eae9135a309ffcd17beceeec8931ef3a68b40ee9712",
+      "ko": "2b24229514b39d0eca9be910d546aede8bf31dd8779eb7f771aa902d3f451b12",
+      "mg": "1b8002368aabedc98b2a88e0acd9c23044dac540a1acc1978ec7cddbe9ab2226",
+      "ms": "a7cb745b94fe70333c43eb758515a39f5f40c2c6286b405a34d168ec07b0193f",
+      "ne": "b02a46e5cd4a6e811619d5a4c72710dde8ec85d63595f7113c55e2e134591160",
+      "nl": "2d74d0d934bed5e4ffb29a296fd72f3c086323e353d6066b2f65795af30343d6",
+      "pa": "df23911c920b5e719fe5d46d98780b333cf5793fb0272c7109fb421090747d0b",
+      "pl": "58e0b81e91e1ecdf108e34aa554e3774418414a8c7d7280a7d647eb3b897a55d",
+      "pt": "038796ee87b0e80a51a8195612e9c3cfa0f10406c74508936b5109626d072145",
+      "ru": "9e72a948ddd3aedbff777e690d35a8eb31180371a18ffeec258155e8c48a47fd",
+      "sv": "e362a9c2d2001172b13d409b12882477e99be32144ba0e4ef4dac8da6cbd9364",
+      "ta": "b13afae4b364d09e984056e5d7d54e4ad88deddd3d62338b9b61f0e2f701e8f6",
+      "th": "2fbf441966ee698d1bd77613b465ab0765be2a1fc045f231c67c583ffc1d1f02",
+      "tr": "d52d0d7b8c8ab7ccd3b17ce6c61d5d0c9354cde0affb40d200e502d35939e73b",
+      "uk": "d3b3d0a3749626b87a308b06340312a3b04345f309731b63a5a4cd5ca6a0b3f3",
+      "ur": "1a27378a9112abe688b99b5bc11d32adf2c74fc0ce621c8bd07e2aee615edb81",
+      "vi": "92082563e4692641e146e3036498fc92299091d2f68ecdad7f434f10400c469d",
+      "zh": "22e928c01b2c3eabb3a0c77f1c350d6abb82b38f58bd4ea17d087d0ee77f2f6b"
+    }
+  }
 }

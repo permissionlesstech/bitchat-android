@@ -28,11 +28,11 @@ class MultilingualGibberishDetectorTest {
     @Test
     fun `quantized score vectors are stable on phone and watch`() {
         val vectors = listOf(
-            Triple("en", "This is a small example.", 2.4131708559782608),
-            Triple("ar", "هذا مثال بسيط.", 3.444842998798077),
-            Triple("ko", "간단한 예시입니다.", 3.259060329861111),
-            Triple("ja", "これは例です。", 3.1487223307291665),
-            Triple("zh", "这是一个示例。", 3.3002115885416665)
+            Triple("en", "This is a small example.", 2.5361115828804346),
+            Triple("ar", "هذا مثال بسيط.", 2.883526141826923),
+            Triple("ko", "간단한 예시입니다.", 3.326171875),
+            Triple("ja", "これは例です。", 3.8279215494791665),
+            Triple("zh", "这是一个示例。", 5.074869791666667)
         )
         vectors.forEach { (language, text, expected) ->
             assertEquals(language, expected, LanguageModelPack.model(language).score(
@@ -85,6 +85,16 @@ class MultilingualGibberishDetectorTest {
     fun `adding a few foreign letters cannot exempt long random text`() {
         listOf(junk, junk.replace(" ", ""), "$junk 日本語", "$junk café", "$junk مرحبا", "$junk 👍")
             .forEach { assertTrue(it, EnglishGibberishDetector.isGibberish(it)) }
+    }
+
+    @Test
+    fun `ordinary invented French and Italian conversation survives accents apostrophes and punctuation`() {
+        listOf(
+            "Le petit robot a terminé son dessin. Qu'en penses-tu ?",
+            "J'ai retrouvé le livre bleu, merci pour ton aide !",
+            "Il piccolo robot ha finito il disegno. Che ne pensi?",
+            "Ho ritrovato il libro blu, grazie per il tuo aiuto!"
+        ).forEach { assertFalse(it, EnglishGibberishDetector.isGibberish(it)) }
     }
 
     @Test

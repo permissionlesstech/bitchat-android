@@ -40,6 +40,7 @@ internal class CharacterMarkovModel private constructor(
     companion object {
         private const val SCALE = 4096
         private const val MAX_COST = 65_495 // 15.99 nats, rounded to the nearest quantization step.
+        private const val MAX_ALPHABET_SIZE = 16_384
         private const val MAX_DECOMPRESSED_BYTES = 1_048_576
 
         /** Verify the fixed pack before exposing weights. Invalid bundled data must not admit text. */
@@ -64,7 +65,7 @@ internal class CharacterMarkovModel private constructor(
             return DataInputStream(ByteArrayInputStream(bytes)).use { input ->
                 require(input.readInt() == 0x42434d31) // BCM1
                 val size = input.readUnsignedShort()
-                require(size in 1..4096)
+                require(size in 1..MAX_ALPHABET_SIZE)
                 val threshold = input.readFloat().toDouble()
                 require(threshold.isFinite() && threshold > 0 && threshold <= 16)
                 val unknown = input.readUnsignedShort()
