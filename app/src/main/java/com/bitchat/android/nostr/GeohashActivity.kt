@@ -72,7 +72,9 @@ class GeohashActivityAggregator(
     private class Channel(val latitude: Double, val longitude: Double) {
         /** pubkey -> newest activity of any kind. */
         val lastSeen = HashMap<String, Long>()
-        /** event id -> message, for chat events only. */
+        /** pubkey -> newest chat message, kept apart from [messages] so the cap never drops a writer. */
+        val lastChat = HashMap<String, Long>()
+        /** event id -> message, for chat events only; capped, so it bounds the message count only. */
         val messages = LinkedHashMap<String, Message>()
         var lastActiveAt = 0L
     }
@@ -118,6 +120,7 @@ class GeohashActivityAggregator(
             changed = true
         }
         if (chatEventId != null && chatEventId !in channel.messages) {
+            if (at > (channel.lastChat[key] ?: Long.MIN_VALUE)) channel.lastChat[key] = at
             channel.messages[chatEventId] = Message(key, at)
             if (channel.messages.size > MAX_MESSAGES_PER_CHANNEL) {
                 channel.messages.remove(channel.messages.keys.first())
@@ -136,9 +139,9 @@ class GeohashActivityAggregator(
         while (iterator.hasNext()) {
             val channel = iterator.next()
             if (channel.messages.values.removeAll { it.createdAt < nowMillis - chatWindowMillis }) changed = true
-            val chatters = channel.messages.values.mapTo(HashSet()) { it.pubkey }
+            if (channel.lastChat.values.removeAll { it < nowMillis - chatWindowMillis }) changed = true
             if (channel.lastSeen.entries.removeAll { (pubkey, seen) ->
-                    seen < nowMillis - presenceWindowMillis && pubkey !in chatters
+                    seen < nowMillis - presenceWindowMillis && pubkey !in channel.lastChat
                 }
             ) changed = true
             if (channel.lastSeen.isEmpty() && channel.messages.isEmpty()) {
@@ -190,10 +193,13 @@ class GeohashActivityAggregator(
     /** The rule itself: online in the presence window, or wrote in the chat window. */
     private fun tally(channel: Channel, nowMillis: Long, exclude: (String) -> Boolean = { false }): Tally {
         val chatters = HashSet<String>()
+        for ((pubkey, wrote) in channel.lastChat) {
+            if (wrote < nowMillis - chatWindowMillis || exclude(pubkey)) continue
+            chatters.add(pubkey)
+        }
         var messages = 0
         for (message in channel.messages.values) {
             if (message.createdAt < nowMillis - chatWindowMillis || exclude(message.pubkey)) continue
-            chatters.add(message.pubkey)
             messages++
         }
         val people = HashSet<String>(chatters)

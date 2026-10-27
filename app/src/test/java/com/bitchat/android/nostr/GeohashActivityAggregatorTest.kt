@@ -93,6 +93,19 @@ class GeohashActivityAggregatorTest {
     }
 
     @Test
+    fun `a busy channel keeps earlier writers for the hour beyond the message cap`() {
+        chat("first", "alice", at = now - 600_000)
+        repeat(600) { chat("spam$it", "bob", at = now - 60_000) }
+        aggregator.prune(now)
+
+        val channel = aggregator.snapshot(now).channel("u0")!!
+
+        assertEquals(2, channel.people)
+        assertEquals(2, channel.chatters)
+        assertTrue("alice" in aggregator.activePeople("u0", now))
+    }
+
+    @Test
     fun `excluded identities drop out of every count`() {
         chat("e1", "alice")
         heartbeat("e2", "blocked")
