@@ -221,3 +221,15 @@ tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
         "https://repo.maven.apache.org/maven2"
     )
 }
+
+// The weekly updater validates a staged download without replacing the asset.
+val relayDirectoryCandidate = providers.gradleProperty("relayDirectoryCandidate")
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    inputs.file(layout.projectDirectory.file("src/main/assets/nostr_relays.csv"))
+        .withPropertyName("bundledRelayDirectory")
+    relayDirectoryCandidate.orNull?.let { candidate ->
+        val candidateFile = rootProject.file(candidate)
+        inputs.file(candidateFile)
+        systemProperty("relayDirectoryCandidate", candidateFile.absolutePath)
+    }
+}
