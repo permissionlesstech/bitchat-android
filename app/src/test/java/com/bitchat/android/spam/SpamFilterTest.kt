@@ -395,7 +395,7 @@ class SpamFilterTest {
     @Test
     fun `disguised copies from other users are still caught`() {
         disguises.forEach { (label, text) ->
-            val fresh = SpamFilter(clock = { now })
+            val fresh = SpamFilter(config = SpamFilterConfig(englishGibberishEnabled = false), clock = { now })
             repeat(3) { fresh.check("npub$it", "$label-$it", disguiseBase, now) }
             assertEquals(label, SpamVerdict.REPEATED_ACROSS_USERS, fresh.check("npub9", "$label-x", text, now))
         }
@@ -404,7 +404,7 @@ class SpamFilterTest {
     @Test
     fun `disguised copies from the same user are still caught`() {
         disguises.forEach { (label, text) ->
-            val fresh = SpamFilter(clock = { now })
+            val fresh = SpamFilter(config = SpamFilterConfig(englishGibberishEnabled = false), clock = { now })
             fresh.check("alice", "$label-1", disguiseBase, now)
             fresh.check("alice", "$label-2", disguiseBase, now)
             assertEquals(label, SpamVerdict.REPEATED_MESSAGE, fresh.check("alice", "$label-3", text, now))

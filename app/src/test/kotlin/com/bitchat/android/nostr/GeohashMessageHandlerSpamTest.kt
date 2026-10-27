@@ -68,6 +68,8 @@ class GeohashMessageHandlerSpamTest {
 
     @Test
     fun `flood from one pubkey is cut off after the burst`() {
+        // Isolate the pre-existing rate rule from the deliberately stricter short-text classifier.
+        SpamFilter.shared.config = SpamFilterConfig(englishGibberishEnabled = false)
         val flooder = NostrIdentity.generate()
         (1..8).forEach { handler.onEvent(event(flooder, "hi $it"), geohash) }
 

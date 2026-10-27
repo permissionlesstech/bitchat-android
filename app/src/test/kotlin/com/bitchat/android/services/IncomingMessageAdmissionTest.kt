@@ -286,6 +286,8 @@ class IncomingMessageAdmissionTest {
 
     @Test
     fun `public flood from one peer is hidden while private messages still arrive`() {
+        // The short numeric fixture isolates rate limiting; its model false positives are measured separately.
+        SpamFilter.shared.config = SpamFilterConfig(englishGibberishEnabled = false)
         val peer = "flood-${UUID.randomUUID()}"
         val admitted = (1..7).map { index ->
             IncomingMessageAdmission.admitToAppState(

@@ -565,7 +565,7 @@ def scenario_broadcast_gibberish(a: Device, b: Device) -> dict:
     id_a = whoami(a)["peer_id"]
     token = uuid.uuid4().hex
     messages = [
-        f"qxjvtpk zmxqvfb jkvxzpq vxjqzmt qzpvxjk {token}-a",
+        f"9!qxjv7#zmxq2%jkvxz8@vxjq4&qzpv6*jk {token}-a",
         f"vxqjzmpqzjxvktxjkvzpqzvxmjkpvxqjzt {token}-b",
         f"This ordinary synthetic example should remain visible after the unwanted messages. {token}-c",
     ]

@@ -23,8 +23,8 @@ class EnglishGibberishAdmissionTest {
         repeat(20) { index ->
             assertEquals(SpamVerdict.ENGLISH_GIBBERISH, filter.check("mesh:synthetic-a", "junk-$index", junk, timestampMs))
         }
-        repeat(6) { index ->
-            assertEquals(SpamVerdict.ALLOWED, filter.check("mesh:synthetic-a", "ok-$index", "ok $index", timestampMs))
+        listOf("ok", "thanks", "yes", "no", "fine", "hello").forEachIndexed { index, content ->
+            assertEquals(SpamVerdict.ALLOWED, filter.check("mesh:synthetic-a", "ok-$index", content, timestampMs))
         }
         assertEquals(SpamVerdict.MESSAGE_RATE, filter.check("mesh:synthetic-a", "over-limit", "thanks", timestampMs))
     }

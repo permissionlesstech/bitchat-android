@@ -299,7 +299,7 @@ python3 tools/release_gate/mesh_lab.py scenario all \
 | `favorite_verification` | favorite signal, orange-outline/filled mutual state, and peer fingerprint verification |
 | `broadcast` | public mesh message A→B |
 | `broadcast_spam` | spam filter on B: two near-copies from A shown, the third hidden, A's next ordinary message shown (B needs the filter on, default limits, debug bypass off) |
-| `broadcast_gibberish` | two synthetic English gibberish messages from A remain absent on B, while an ordinary English control arrives; requires default filtering and bypass off; rotating-identity detection rates are measured separately by the JVM tests |
+| `broadcast_gibberish` | mixed-symbol and unbroken synthetic gibberish from A remain absent on B, while an ordinary English control arrives; requires default filtering and bypass off; rotating-identity detection rates are measured separately by the JVM tests |
 | `ptt_dm` | Noise-encrypted 440 Hz PTT in both directions; asserts real-time capture, zero sequence gaps, decoded PCM duration/energy/continuity, and finalized-note absorption |
 | `ptt_broadcast` | signed public 440 Hz PTT with the same bidirectional packet and decoded-audio quality assertions |
 | `file` | 1 KB broadcast file, receiver SHA-256 matches fixture |

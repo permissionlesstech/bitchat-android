@@ -3,82 +3,54 @@ package com.bitchat.android.spam
 /**
  * A fixed English character-bigram model, trained offline on synthetic examples.
  *
- * Scores sufficiently long alphabetic text, including unbroken strings. Unknown scripts,
- * short replies and technical tokens are left to the other spam rules. A high score means
- * unusual English character transitions, not a calibrated probability of abuse.
+ * Scores every character in a bounded prefix, including short replies and technical content.
+ * Characters outside the trained alphabet receive the highest existing transition cost.
+ * A high score measures departure from the English training data, not a probability of abuse.
  */
 internal object EnglishGibberishDetector {
     internal const val THRESHOLD = 4.2
-    private const val MIN_LETTERS = 24
     private const val MAX_INPUT_LENGTH = 4_096
     private const val MAX_SCORED_LENGTH = 1_000
     private const val SPACE = 26
+    private const val UNKNOWN = -1
+    private const val NO_PREVIOUS = -2
 
     fun isGibberish(content: String): Boolean = score(content)?.let { it >= THRESHOLD } ?: false
 
-    /** Average negative log probability per transition, or null when there is too little evidence. */
+    /** Average transition cost, or null only for empty input. Whitespace runs are collapsed. */
     internal fun score(content: String): Double? {
-        if (content.length > MAX_INPUT_LENGTH) return null
-        // Do not project another script or accented language onto an English-only alphabet.
-        var offset = 0
-        while (offset < content.length) {
-            val point = content.codePointAt(offset)
-            if (point > 127 && (Character.isLetter(point) || isMark(point))) return null
-            offset += Character.charCount(point)
-        }
-
-        var previous = -1
+        var previous = NO_PREVIOUS
         var cost = 0.0
         var transitions = 0
-        var letters = 0
         var scoredLength = 0
-        var start = 0
-        while (start < content.length && scoredLength < MAX_SCORED_LENGTH) {
-            while (start < content.length && content[start].isWhitespace()) start++
-            var end = start
-            while (end < content.length && !content[end].isWhitespace()) end++
-            var first = start
-            var last = end
-            while (first < last && isPunctuation(content[first])) first++
-            while (last > first && isPunctuation(content[last - 1])) last--
-            val isWord = first < last && (first until last).all {
-                content[it] in 'a'..'z' || content[it] in 'A'..'Z' || content[it] == '\''
-            } && (first until last).any { content[it].isLetter() }
-            if (isWord) {
-                if (previous >= 0) {
-                    cost += EnglishMarkovModel.cost(previous, SPACE)
-                    previous = SPACE
-                    transitions++
-                    scoredLength++
-                }
-                for (index in first until last) {
-                    if (scoredLength >= MAX_SCORED_LENGTH) break
-                    if (content[index] == '\'') continue
-                    val current = content[index].lowercaseChar() - 'a'
-                    if (previous >= 0) {
-                        cost += EnglishMarkovModel.cost(previous, current)
-                        transitions++
-                    }
-                    previous = current
-                    letters++
-                    scoredLength++
-                }
+        var offset = 0
+        val limit = minOf(content.length, MAX_INPUT_LENGTH)
+        while (offset < limit && scoredLength < MAX_SCORED_LENGTH) {
+            val point = content.codePointAt(offset)
+            offset += Character.charCount(point)
+            val current = when {
+                point in 'a'.code..'z'.code -> point - 'a'.code
+                point in 'A'.code..'Z'.code -> point - 'A'.code
+                Character.isWhitespace(point) || Character.isSpaceChar(point) -> SPACE
+                else -> UNKNOWN
             }
-            start = end
+            if (current == SPACE && previous == SPACE) continue
+            if (previous != NO_PREVIOUS) {
+                cost += if (previous == UNKNOWN || current == UNKNOWN) {
+                    EnglishMarkovModel.unseenTransitionCost
+                } else {
+                    EnglishMarkovModel.cost(previous, current)
+                }
+                transitions++
+            }
+            previous = current
+            scoredLength++
         }
-        return if (letters >= MIN_LETTERS && transitions > 0) {
-            cost / transitions
-        } else {
-            null
+        return when {
+            transitions > 0 -> cost / transitions
+            previous == UNKNOWN -> EnglishMarkovModel.unseenTransitionCost.toDouble()
+            previous != NO_PREVIOUS -> EnglishMarkovModel.cost(SPACE, previous).toDouble()
+            else -> null
         }
-    }
-
-    private fun isPunctuation(char: Char): Boolean = char in ".,!?;:()[]{}\"'“”‘’"
-
-    private fun isMark(point: Int): Boolean = when (Character.getType(point)) {
-        Character.NON_SPACING_MARK.toInt(),
-        Character.COMBINING_SPACING_MARK.toInt(),
-        Character.ENCLOSING_MARK.toInt() -> true
-        else -> false
     }
 }

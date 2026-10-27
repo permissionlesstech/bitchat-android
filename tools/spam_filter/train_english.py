@@ -44,6 +44,9 @@ internal object EnglishMarkovModel {{
 {chr(10).join(rows)}
     )
 
+    // Untrained characters are scored using the strongest penalty already in the fixed table.
+    val unseenTransitionCost: Float = costs.max()
+
     fun cost(previous: Int, next: Int): Float = costs[previous * ALPHABET_SIZE + next]
 }}
 '''

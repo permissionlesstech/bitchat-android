@@ -37,5 +37,8 @@ internal object EnglishMarkovModel {
         2.511371f, 2.837902f, 2.601794f, 3.785984f, 3.165888f, 3.129587f, 4.844187f, 3.894787f, 2.864894f, 5.745736f, 4.844187f, 3.283440f, 3.165888f, 3.440714f, 3.242702f, 3.129587f, 5.064858f, 3.262863f, 2.243333f, 1.893514f, 3.820953f, 5.348434f, 2.921168f, 9.459308f, 5.348434f, 9.459308f, 9.459308f,
     )
 
+    // Untrained characters are scored using the strongest penalty already in the fixed table.
+    val unseenTransitionCost: Float = costs.max()
+
     fun cost(previous: Int, next: Int): Float = costs[previous * ALPHABET_SIZE + next]
 }

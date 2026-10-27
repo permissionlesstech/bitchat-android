@@ -102,19 +102,22 @@ class SpamFilterRandomIdentityVerificationTest {
     }
 
     @Test
-    fun `English model does not newly hide legitimate controls from fresh identities`() {
+    fun `record the impact on the original legitimate controls without masking new flags`() {
         val samples = EnglishGibberishSamples.english + EnglishGibberishSamples.multilingual + EnglishGibberishSamples.technical
         val unprotected = baseline()
         val filter = SpamFilter(clock = { timestampMs })
         var baselineHidden = 0
+        var newlyHidden = 0
         val changed = samples.mapIndexedNotNull { index, content ->
             val before = unprotected.check("mesh:synthetic-$index", "control-$index", content, timestampMs)
             val after = filter.check("mesh:synthetic-$index", "control-$index", content, timestampMs)
             if (before.isSpam) baselineHidden++
-            if (before != after) "$before -> $after" else null
+            if (!before.isSpam && after.isSpam) newlyHidden++
+            after.takeIf { before != after }
         }
-        println("Legitimate admission controls=${samples.size} baselineHidden=$baselineHidden changed=${changed.size}")
-        assertTrue(changed.toString(), changed.isEmpty())
+        println("Legitimate admission controls=${samples.size} baselineHidden=$baselineHidden changed=${changed.size} newlyHidden=$newlyHidden")
+        assertTrue(changed.toString(), changed.all { it == SpamVerdict.ENGLISH_GIBBERISH })
+        assertTrue(newlyHidden > 0)
     }
 
     @Test
@@ -128,5 +131,25 @@ class SpamFilterRandomIdentityVerificationTest {
         }.groupingBy { it }.eachCount()
         println("TEST_SEED=$seed unbroken-keyboard-messages=1000 verdicts=$counts")
         assertTrue("TEST_SEED=$seed $counts", counts.getOrDefault(SpamVerdict.ENGLISH_GIBBERISH, 0) >= 990)
+    }
+
+    @Test
+    fun `mixed letters digits and punctuation cannot bypass the model by rotating identities`() {
+        val alphabet = (33..126).map(Int::toChar)
+        listOf("mesh", "nostr").forEach { transport ->
+            val random = Random(seed)
+            val filter = SpamFilter(clock = { timestampMs })
+            val unprotected = baseline()
+            var baselineAllowed = 0
+            val counts = (0 until 10_000).map { index ->
+                val sender = identity(random, if (transport == "mesh") 16 else 64)
+                val content = buildString { repeat(random.nextInt(32, 161)) { append(alphabet[random.nextInt(alphabet.size)]) } }
+                val key = "$transport:$sender"
+                if (!unprotected.check(key, "mixed-$index", content, timestampMs).isSpam) baselineAllowed++
+                filter.check(key, "mixed-$index", content, timestampMs)
+            }.groupingBy { it }.eachCount()
+            println("TEST_SEED=$seed transport=$transport mixed-messages=10000 baselineAllowed=$baselineAllowed verdicts=$counts")
+            assertTrue("TEST_SEED=$seed $transport $counts", counts.getOrDefault(SpamVerdict.ENGLISH_GIBBERISH, 0) >= 9_900)
+        }
     }
 }

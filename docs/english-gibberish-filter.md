@@ -1,141 +1,104 @@
-# Experimental English gibberish filter
+# Experimental English character filter
 
-The public-chat spam filter includes a fixed English character-bigram model.
-It detects unlikely letter sequences even when every message has a different
-identity and different content. It does not classify intent, establish that
-two identities belong to the same person, or solve floods of plausible text.
-It changes local public-message admission only; no wire format changes.
-Private-message paths retain their existing bypass of public spam filtering.
+The public-chat spam filter scores incoming text using a fixed English
+character-bigram table. The current experiment removes content-based
+exemptions for technical tokens, digits, punctuation, unsupported scripts,
+and short messages. It changes local admission only, with no wire-format
+change. Private-message and non-text routing keep their existing behavior.
 
-## Model and training
+## Fixed model and current scoring policy
 
-`tools/spam_filter/english-training.txt` contains original synthetic examples.
-No private messages, accounts, device information, locations, or remote
-services are used in training. This intentionally small corpus is suitable
-for a prototype and regression tests, not a claim of general language coverage.
-
-Training counts adjacent characters independently within each example, using
-the alphabet `a-z` plus a space. Each pair starts with a pseudocount of `0.1`:
-
-```text
-P(next | previous) = (pair count + 0.1) / (outgoing count + 27 * 0.1)
-```
-
-The generated model stores rounded negative natural log probabilities in a
-row-major float table. The 729 float32 weights occupy 2,916 bytes, excluding
-class, runtime, and APK overhead. Its source includes the training corpus
-SHA-256, and both clients compile the same app-owned source.
-
-Regenerate or verify the model without third-party Python packages:
+`tools/spam_filter/english-training.txt` contains original synthetic English
+examples. The corpus, additive smoothing of `0.1`, all 729 learned float32
+weights, and threshold of `4.2` are unchanged. The weights occupy 2,916 bytes,
+excluding class and runtime overhead. Both clients use the app-owned source.
 
 ```sh
 python3 tools/spam_filter/train_english.py
 python3 tools/spam_filter/train_english.py --check
 ```
 
-The model is immutable at runtime. Incoming traffic never updates it.
+The trained alphabet remains `a-z` plus space. Known character pairs retain
+their existing negative-log-probability costs. Every transition involving an
+untrained character receives the maximum cost already in the table:
+`9.459308`. This is an explicit fallback penalty, not a learned probability
+for digits, symbols, or other languages. No broader training corpus is added.
+The model never learns from incoming traffic.
 
-## Admission policy
+Scoring now reads raw Unicode code points, lowercases ASCII letters, and
+collapses whitespace runs. Digits, punctuation, code delimiters, combining
+marks, emoji, and other scripts contribute to the score. They do not cause
+abstention, and their tokens are not discarded. There is no minimum length.
+For a single character, known characters use the preceding-space cost and
+unknown characters use the fallback penalty. Only empty input has no score.
 
-`EnglishGibberishDetector` averages the stored costs over eligible character
-transitions. A score of at least `4.2` produces `ENGLISH_GIBBERISH`. This is a
-language-pattern score, not a calibrated spam probability. The threshold is
-a conservative experimental cutoff, not a guarantee about unfamiliar text.
+The detector averages costs over transitions and flags a score of at least
+`4.2`. Work remains bounded to a prefix starting within the first 4,096 UTF-16
+units and at most 1,000 scored code points. Oversized content still faces the
+existing character budget; it does not bypass the model just because it is
+long. The master toggle, debug bypass, verdict caching, and code-level
+`englishGibberishEnabled=false` control remain available.
 
-The detector requires at least 24 letters and also scores a single long,
-unbroken alphabetic string. It ignores technical tokens containing digits or
-internal symbols, including explicitly backticked code. Case, ordinary edge
-punctuation, and whitespace differences do not change the model's interpretation. Straight
-apostrophes inside words are ignored when scoring.
+## Paired false-positive evaluation
 
-Long alphabetic tokens are not automatically treated as identifiers: that
-exemption previously let unspaced gibberish bypass scoring entirely. Bare
-alphabetic identifiers can resemble noise and remain a false-positive risk;
-the technical-token exemption requires actual formatting or symbols.
+The evaluation uses the same 220 synthetic legitimate examples on the
+previous implementation (`8319212c`) and the current implementation. Each
+sample is checked with fresh filter state to separate content decisions
+from sender budgets and cross-user repetition. Phone and watch produce
+identical case-by-case results.
 
-Non-ASCII letters or combining marks cause abstention, rather than treating an
-unsupported language as English gibberish. ASCII transliterations and languages
-using the same alphabet are not reliably distinguishable from English; their
-false-positive risk still needs evaluation. Emoji and technical tokens are not
-themselves evidence of gibberish.
-
-Work is bounded to 4,096 input UTF-16 units and 1,000 scored characters. Larger
-inputs are left to the existing character budget. Eligible input is scored
-with table lookups in linear time. High-scoring messages are rejected before
-allocating per-sender state or adding repetition history. Verdict caching and
-the existing debug bypass still apply. Disabling the master spam toggle
-disables this rule too. Code-level `englishGibberishEnabled=false` disables only
-the new rule, allowing an exact comparison with the original filter.
-
-## Synthetic evaluation
-
-With `TEST_SEED=999`, the same random identity/text streams are checked with
-the English rule disabled and enabled. The message generator and identity-key
-draw order are unchanged from the original PR #999 reproduction. Messages
-have 32-160 characters, with a space after every seven random lowercase
-letters, and all timestamps are identical. Each message has a unique identity,
-unique content, and unique message ID.
-
-| Scenario | Baseline admitted | English model admitted | Hidden by model |
+| Legitimate category | Samples | Blocked before | Blocked now |
 |---|---:|---:|---:|
-| 10,000 fresh mesh identities | 10,000 | 67 | 9,933 (99.33%) |
-| 10,000 fresh Nostr sender keys | 10,000 | 52 | 9,948 (99.48%) |
-| 500 validly signed geohash events through the handler | 500 | 1 | 499 (99.8%) |
-| 200 synthetic messages through mesh app-state admission | — | 1 | 199 (99.5%) |
+| English chat containing numbers | 20 | 0 | 2 |
+| English chat containing punctuation | 20 | 0 | 1 |
+| Numeric text and mathematics | 20 | 0 | 20 |
+| Code and structured text | 20 | 0 | 18 |
+| URLs, standalone and embedded | 20 | 0 | 11 |
+| Hashes and identifiers | 20 | 1 | 13 |
+| **Number/symbol subtotal** | **120** | **1** | **65 (54.17%)** |
+| Short replies | 20 | 0 | 15 |
+| Multilingual text and emoji | 20 | 0 | 8 |
+| Additional ordinary English controls | 60 | 0 | 0 |
+| **All legitimate controls** | **220** | **1** | **88 (40%)** |
 
-Three additional seeds (`1000`, `1001`, `1002`) hide 1,986, 1,991, and 1,988
-out of 2,000 messages respectively. The separate synthetic controls contain
-60 English examples, 16 multilingual examples, and 15 technical/short examples.
-The model flags none of those 91 controls. In the complete filter, one
-deliberately repetitive technical control is hidden by the pre-existing
-repeated-character rule with or without the English model; there are no new
-admission changes for the control set.
+Among the 93 number/symbol examples with at least 24 code points, 40 are
+blocked (43.01%). Among the 27 shorter examples, 25 are blocked (92.59%).
+Removing the minimum length therefore contributes to the increase, but it
+does not account for all of it.
 
-The English and control examples are not part of the training corpus, but
-these small synthetic sets were used during development. These results are
-regression measurements, not unbiased estimates of real-world accuracy.
-Normal English controls still arrive after the mesh and geohash floods.
-The previous token-bucket and repetition tests explicitly disable the English
-rule because their fixtures deliberately use random letters to isolate those
-older rules. Separate tests exercise default-enabled admission, non-text
-exemption, configuration changes, caching, budget preservation, and debug bypass.
-Literal score vectors and shared tests check phone/watch consistency.
+Examples of newly blocked synthetic chat include a sentence describing a
+16:9 image with a 1920x1080 preview, a fictional decimal-price calculation,
+and a sentence listing choices in square brackets. These are labelled
+legitimate by construction; their rejection is recorded as a false positive.
 
-### Unbroken-text regression
+The [aggregate result record](test-results/english-gibberish-all-characters.json)
+includes model checksums, sample counts, length groups, flood results, and
+validation. The [paired case list](test-results/english-gibberish-all-characters-cases.csv)
+contains every synthetic input, its score before and after, and its verdict.
+The cases are hand-picked format controls, not a representative sample of
+real conversations. Their percentages must not be treated as real-world
+false-positive estimates. No real messages, contacts, channel data,
+locations, device identifiers, or private logs are used as fixtures.
 
-The original English guard required three words and excluded tokens longer
-than 24 characters. As a result, unbroken alphabetic noise never reached the
-model. Display line wrapping does not add word boundaries. The corrected guard
-scores sufficiently long alphabetic strings without requiring whitespace.
-The weights, smoothing, and score threshold are unchanged.
+## Flood regression
 
-The same seed now exercises both spaced and unbroken messages with identical
-model-off/model-on inputs. The original spaced-flood counts above are unchanged.
+With `TEST_SEED=999`, each 10,000-message stream uses a fresh synthetic
+identity for every message. The mixed stream samples printable non-space
+ASCII, including letters, digits, and punctuation. All 10,000 mixed messages
+are hidden for both mesh and Nostr sender keys. With the English rule off,
+9,994 are admitted and six encounter existing non-model rules.
 
-| Additional synthetic scenario | Model off admitted | Corrected model admitted | Hidden |
-|---|---:|---:|---:|
-| 10,000 unbroken messages from fresh mesh identities | 10,000 | 2 | 9,998 (99.98%) |
-| 10,000 unbroken messages from fresh Nostr keys | 10,000 | 1 | 9,999 (99.99%) |
-| 500 signed unbroken geohash events through the handler | 500 | 0 | 500 (100%) |
-| 200 unbroken messages through mesh app-state admission | — | 0 | 200 (100%) |
+The spaced-letter streams hide 9,932/10,000 mesh messages and 9,945/10,000
+Nostr messages. Unbroken-letter streams hide 9,998/10,000 and 9,999/10,000.
+A separate keyboard-like stream hides all 1,000 examples. Plausible word
+sequences and ordinary sentences remain a limitation.
 
-A separate 1,000-message keyboard-like synthetic stream uses letters sampled
-from `bdfhijknrtuv`, with fresh identities and 100-character unbroken messages;
-all 1,000 are hidden. No text, identifiers, channel information, or other data
-from a live conversation is used as a fixture. Long English words and
-descriptive alphabetic identifiers also have regression controls.
+The original bucket and repetition tests explicitly disable the English
+rule when they need to isolate those contracts. The new evaluation reports
+false positives directly; tests do not assume that all legitimate examples
+must pass under the requested stricter policy.
 
-The [initial machine-readable results](test-results/english-gibberish-filter.json)
-record the initial implementation revision and benchmark counts. The
-[unbroken-text results](test-results/english-gibberish-unbroken.json) record the
-corrected detector checksum and expanded evaluation. The full unit suites
-passed 768 app tests and 299 watch tests, with three
-pre-existing app tests ignored. Both debug builds
-passed. Lint completed under the repository's nonblocking configuration with
-repository-wide findings; the new filter, tests, and hooks had no findings.
-Physical validation is recorded as unrun.
-
-Run the focused regression and comparison suite with JDK 21 and the project SDK:
+## Reproduction and validation
 
 ```sh
 TEST_SEED=999 ./gradlew :app:testDebugUnitTest \
@@ -143,38 +106,40 @@ TEST_SEED=999 ./gradlew :app:testDebugUnitTest \
   --tests '*GeohashMessageHandlerSpamTest' \
   --tests '*IncomingMessageAdmissionTest' \
   :wear:testDebugUnitTest --tests 'com.bitchat.android.spam.*'
+python3 -m unittest tools.release_gate.test_mesh_lab_gibberish
 ```
 
-## Physical validation
+`EnglishGibberishFalsePositiveEvaluationTest` prints per-category counts.
+When the optional test system property `spam.evaluation.dir` is supplied,
+it also writes synthetic case reports there. The recorded comparison uses
+an actual baseline build followed by the changed build with identical cases.
+To reproduce that baseline, add only `LegitimateCharacterSamples.kt` and
+`EnglishGibberishFalsePositiveEvaluationTest.kt` to an isolated checkout of
+`8319212c`, then run the evaluation test there. The current detector stays out
+of that baseline checkout.
 
-The `broadcast_gibberish` Mesh Lab scenario observes two high-confidence
-synthetic gibberish messages (one spaced and one unbroken) remaining absent
-on the receiver, followed by successful ordinary-English delivery. It supports phone-to-phone and
-phone-to-watch runs. It uses unique per-run content and the debug-only
-`msg_recv` lookback option to avoid a startup sleep. Negative checks must
-complete their observation window; an unrelated hook error cannot pass.
-This scenario checks the physical admission path with one sender. It does
-not measure fresh-identity flood rates or prove transport-level abuse prevention.
+Both debug builds pass. Full unit results are 771 app passes with three
+pre-existing ignored tests, and 302 watch passes. Host-side scenario checks
+pass. Lint completes under the repository's nonblocking configuration with
+repository-wide findings; the model and new evaluation files have no findings.
 
-Physical validation remains unrun. Follow the authorization and controlled-lab
-requirements in the release-gate runbook before device setup. After setup:
+## Physical validation and historical measurements
+
+Physical Mesh Lab validation remains unrun. The `broadcast_gibberish`
+scenario now tests mixed-symbol and unbroken noise plus an ordinary-English
+control. It does not measure fresh-identity flood rates. Other physical
+scenarios using short technical-looking positive controls can be affected
+by this aggressive policy; no physical pass is claimed.
+
+After authorized controlled-lab setup, with a private evidence directory:
 
 ```sh
 python3 tools/release_gate/mesh_lab.py scenario broadcast_gibberish \
   --serial-a "$MESH_SERIAL_A" --serial-b "$MESH_SERIAL_B" \
-  --out "$MESH_EVIDENCE_DIR"
+  --out "${MESH_EVIDENCE_DIR:?Set a private evidence directory}"
 ```
 
-Run `broadcast` and `broadcast_spam` as neighboring regressions. Evidence must
-stay in a private, uncommitted directory. Host-side fake-endpoint tests verify
-the scenario's failure handling; they are not physical-device evidence.
-
-## Limits
-
-Short nonsense, explicitly formatted technical tokens, unsupported scripts, and
-letter sequences chosen to resemble natural language can pass. An attacker
-can also pad text with excluded tokens or language characters to seek
-abstention, or simply send real sentences. The detector complements the
-existing rules; it does not guarantee useful conversation under an adaptive
-attack. Wider language coverage, independent corpora, false-positive review,
-and physical validation are needed before treating the model as mature.
+Raw logs, APKs, and physical evidence stay private and uncommitted.
+[Initial results](test-results/english-gibberish-filter.json) and
+[unbroken-text results](test-results/english-gibberish-unbroken.json)
+record earlier policies and must not be read as results for the current one.
