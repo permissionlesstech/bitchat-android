@@ -174,15 +174,21 @@ class GeohashActivityMonitor(private val context: Context) {
         while (isActive) {
             delay(PUBLISH_INTERVAL_MS)
             val nowMs = System.currentTimeMillis()
-            if (nowMs - lastPrune >= PRUNE_INTERVAL_MS) {
-                if (aggregator.prune(nowMs)) dirty = true
+            // Counts age even when no event arrives and nothing is pruned: a chatter stays listed
+            // for the hour while their five-minute online window lapses. Recompute on this tick;
+            // the StateFlow drops snapshots that did not change.
+            val refresh = nowMs - lastPrune >= PRUNE_INTERVAL_MS
+            if (refresh) {
+                aggregator.prune(nowMs)
                 lastPrune = nowMs
             }
-            if (!dirty) continue
+            if (!dirty && !refresh) continue
+            val received = dirty
             dirty = false
             val hidden = blocked
             _snapshot.value = aggregator.snapshot(nowMs) { it in hidden }
-            _status.value = Status.LIVE
+            // Only real traffic proves the sweep is live; a timed refresh must not.
+            if (received) _status.value = Status.LIVE
         }
     }
 

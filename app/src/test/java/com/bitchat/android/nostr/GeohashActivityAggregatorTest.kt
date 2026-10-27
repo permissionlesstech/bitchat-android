@@ -78,6 +78,21 @@ class GeohashActivityAggregatorTest {
     }
 
     @Test
+    fun `online count lapses with time even when prune keeps the chatter`() {
+        chat("e1", "alice", at = now)
+        val later = now + 6 * 60_000
+
+        // Nothing is removable: alice's message keeps her listed for the hour...
+        assertFalse(aggregator.prune(later))
+        val channel = aggregator.snapshot(later).channel("u0")!!
+
+        // ...but she is no longer online, so a snapshot must be recomputed on a timer.
+        assertEquals(1, channel.people)
+        assertEquals(0, channel.online)
+        assertEquals(0, aggregator.snapshot(later).totalOnline)
+    }
+
+    @Test
     fun `excluded identities drop out of every count`() {
         chat("e1", "alice")
         heartbeat("e2", "blocked")
