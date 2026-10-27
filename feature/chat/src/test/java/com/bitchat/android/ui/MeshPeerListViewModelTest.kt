@@ -331,6 +331,46 @@ class MeshPeerListViewModelTest {
     }
 
     @Test
+    fun queuedUndo_getsItsFullWindowFromWhenItIsOffered() = runTest(dispatcher) {
+        val viewModel = newViewModel()
+        collectState(viewModel)
+        commands.deleteResult = deletion(BOB_ID)
+        viewModel.onAction(MeshPeerListAction.DeleteConfirmed(BOB_ID, "bob"))
+        val carolDeletion = deletion(CAROL_ID)
+        commands.deleteResult = carolDeletion
+        viewModel.onAction(MeshPeerListAction.DeleteConfirmed(CAROL_ID, "carol"))
+        val (bob, carol) = viewModel.uiState.value.pendingUndos
+
+        // Bob's snackbar is answered late; carol's is offered only then.
+        advanceTimeBy(MeshPeerListViewModel.UNDO_WINDOW_MS - 1_000)
+        viewModel.onAction(MeshPeerListAction.UndoDismissed(bob.token))
+        advanceTimeBy(MeshPeerListViewModel.UNDO_WINDOW_MS - 1)
+
+        assertEquals(listOf(carol), viewModel.uiState.value.pendingUndos)
+        viewModel.onAction(MeshPeerListAction.UndoDelete(carol.token))
+        assertEquals(listOf(carolDeletion), commands.restored)
+    }
+
+    @Test
+    fun queuedUndo_expiresAFullWindowAfterItIsOffered() = runTest(dispatcher) {
+        val viewModel = newViewModel()
+        collectState(viewModel)
+        commands.deleteResult = deletion(BOB_ID)
+        viewModel.onAction(MeshPeerListAction.DeleteConfirmed(BOB_ID, "bob"))
+        commands.deleteResult = deletion(CAROL_ID)
+        viewModel.onAction(MeshPeerListAction.DeleteConfirmed(CAROL_ID, "carol"))
+        val (bob, carol) = viewModel.uiState.value.pendingUndos
+
+        advanceTimeBy(30_000)
+        viewModel.onAction(MeshPeerListAction.UndoDismissed(bob.token))
+        advanceTimeBy(MeshPeerListViewModel.UNDO_WINDOW_MS + 1)
+
+        assertTrue(viewModel.uiState.value.pendingUndos.isEmpty())
+        viewModel.onAction(MeshPeerListAction.UndoDelete(carol.token))
+        assertTrue(commands.restored.isEmpty())
+    }
+
+    @Test
     fun twoDeletes_areOfferedInOrder() = runTest(dispatcher) {
         val viewModel = newViewModel()
         collectState(viewModel)

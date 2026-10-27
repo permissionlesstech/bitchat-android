@@ -175,9 +175,9 @@ class MeshPeerListViewModel internal constructor(
     internal val events: Flow<MeshPeerListEvent> = _events.receiveAsFlow()
 
     /**
-     * F2: deletions Undo can still bring back, by token, with when they were made. Held here
-     * rather than in the Root's scope, so rotating or opening a chat within the Undo window no
-     * longer loses them; the Root offers them again. Each is dropped when the window ends.
+     * F2: deletions Undo can still bring back, by token. Held here rather than in the Root's
+     * scope, so rotating or opening a chat within the Undo window no longer loses them; the Root
+     * offers them again. Each is dropped when its window ends.
      */
     private val pendingDeletions = mutableMapOf<Long, PendingDeletion>()
     private val pendingUndos = MutableStateFlow<List<PendingUndoUi>>(emptyList())
@@ -263,9 +263,24 @@ class MeshPeerListViewModel internal constructor(
                 return@launch
             }
             val token = nextUndoToken++
-            pendingDeletions[token] = PendingDeletion(deletion, deletedAt = clock())
+            pendingDeletions[token] = PendingDeletion(deletion)
             pendingUndos.update { it + PendingUndoUi(token, displayName) }
-            // Undo is not offered again once its window has passed.
+            offerNextUndo()
+        }
+    }
+
+    /**
+     * Starts the Undo window of the deletion at the head of the queue, the one the Root shows,
+     * if it has not started yet. Snackbars show one at a time, so a queued Undo's window starts
+     * when its snackbar first appears, not when it was deleted. Undo is not offered again once
+     * its window has passed.
+     */
+    private fun offerNextUndo() {
+        val token = pendingUndos.value.firstOrNull()?.token ?: return
+        val pending = pendingDeletions[token] ?: return
+        if (pending.offeredAt != null) return
+        pending.offeredAt = clock()
+        viewModelScope.launch {
             delay(UNDO_WINDOW_MS)
             forgetDeletion(token)
         }
@@ -277,7 +292,8 @@ class MeshPeerListViewModel internal constructor(
      */
     private fun undoDelete(token: Long) {
         val pending = forgetDeletion(token) ?: return
-        if (clock() - pending.deletedAt >= UNDO_WINDOW_MS) return
+        val offeredAt = pending.offeredAt
+        if (offeredAt != null && clock() - offeredAt >= UNDO_WINDOW_MS) return
         val deletion = pending.deletion
         viewModelScope.launch {
             if (!commands.restoreConversation(deletion)) {
@@ -288,7 +304,7 @@ class MeshPeerListViewModel internal constructor(
 
     private fun forgetDeletion(token: Long): PendingDeletion? {
         pendingUndos.update { undos -> undos.filterNot { it.token == token } }
-        return pendingDeletions.remove(token)
+        return pendingDeletions.remove(token).also { offerNextUndo() }
     }
 
     private fun currentSnapshot(): PeerListSnapshot = with(sources) {
@@ -377,7 +393,10 @@ class MeshPeerListViewModel internal constructor(
         }
     }
 
-    private class PendingDeletion(val deletion: DeletedPrivateConversation, val deletedAt: Long)
+    /** A deletion Undo can still bring back; [offeredAt] is when its Undo was first shown. */
+    private class PendingDeletion(val deletion: DeletedPrivateConversation) {
+        var offeredAt: Long? = null
+    }
 
     private data class MeshPart(
         val connectedPeers: List<String>,
