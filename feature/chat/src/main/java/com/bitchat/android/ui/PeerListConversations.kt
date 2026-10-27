@@ -348,8 +348,10 @@ private fun ConversationSwipeItem(
         bottomEnd = if (isLast) 14.dp else 0.dp
     )
 
-    LaunchedEffect(dismissState.currentValue, row.conversationID) {
-        when (dismissState.currentValue) {
+    // Keyed on the settled value: currentValue flips mid-drag, and a reset() started then is
+    // interrupted by the drag and its fling, which leave the row swiped off.
+    LaunchedEffect(dismissState.settledValue, row.conversationID) {
+        when (dismissState.settledValue) {
             SwipeToDismissBoxValue.StartToEnd -> {
                 hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                 toggleRead()
