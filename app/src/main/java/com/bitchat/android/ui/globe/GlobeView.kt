@@ -191,6 +191,14 @@ fun GlobeView(
     }
 
     val markerLayout = remember { GlobeMarkerLayout() }
+    val markerAnimator = remember {
+        val scale = android.provider.Settings.Global.getFloat(
+            view.context.contentResolver,
+            android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+            1f
+        )
+        GlobeMarkerAnimator(durationScale = scale)
+    }
     val markerTextPaint = remember { Paint(Paint.ANTI_ALIAS_FLAG) }
     val markerPulse by rememberInfiniteTransition(label = "markers").animateFloat(
         initialValue = 0f,
@@ -520,36 +528,37 @@ fun GlobeView(
         // count stays readable; their pulse never redraws the globe geometry.
         if (activityColors != null) {
             Canvas(modifier = Modifier.matchParentSize()) {
-                val r = state.globeRadiusPx
-                if (state.baseRadiusPx <= 0f || activity.isEmpty()) {
-                    markerLayout.markers = emptyList()
-                    return@Canvas
+                val markers = if (state.baseRadiusPx <= 0f || activity.isEmpty()) {
+                    emptyList()
+                } else {
+                    layoutGlobeMarkers(
+                        channels = activity,
+                        projector = GlobeMath.PreparedProjector(
+                            state.centerLat.toDouble(),
+                            state.centerLon.toDouble()
+                        ),
+                        cx = size.width / 2f,
+                        cy = size.height / 2f,
+                        r = state.globeRadiusPx,
+                        width = size.width,
+                        height = size.height,
+                        density = density.density
+                    )
                 }
-                val markers = layoutGlobeMarkers(
-                    channels = activity,
-                    projector = GlobeMath.PreparedProjector(
-                        state.centerLat.toDouble(),
-                        state.centerLon.toDouble()
-                    ),
-                    cx = size.width / 2f,
-                    cy = size.height / 2f,
-                    r = r,
-                    width = size.width,
-                    height = size.height,
-                    density = density.density
-                )
                 markerLayout.markers = markers
+                val frames = markerAnimator.frame(markers, System.nanoTime())
                 val nowSeconds = System.currentTimeMillis() / 1000
-                // Only recently active markers pulse; reading the clock just for them keeps a
-                // quiet globe from redrawing every frame.
+                // Read the animation clock only while something moves: entering, leaving or
+                // pulsing markers. A settled, quiet globe then stops redrawing this layer.
                 val anyRecent = markers.any {
                     it.messages > 0 && nowSeconds - it.lastActiveAt < MARKER_RECENT_SECONDS
                 }
+                val pulsePhase = if (anyRecent || markerAnimator.isAnimating) markerPulse else 0f
                 drawGlobeMarkers(
-                    markers = markers,
+                    frames = frames,
                     colors = activityColors,
                     selectedGeohash = state.selectedGeohash,
-                    pulsePhase = if (anyRecent) markerPulse else 0f,
+                    pulsePhase = if (anyRecent) pulsePhase else 0f,
                     nowSeconds = nowSeconds,
                     textPaint = markerTextPaint,
                     typeface = labelTypefaceBold ?: labelTypeface,

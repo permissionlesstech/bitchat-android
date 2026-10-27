@@ -41,7 +41,9 @@ class GlobeMarker internal constructor(
     val people: Int,
     val messages: Int,
     /** Newest activity across [channels], epoch seconds. */
-    val lastActiveAt: Long
+    val lastActiveAt: Long,
+    /** How far the marker faces the viewer: 1 at the view center, 0 at the limb. */
+    val depth: Float = 1f
 ) {
     val isCluster: Boolean get() = channels.size > 1
     /** Nobody wrote this hour: only heartbeats. Drawn small and quiet. */
@@ -148,7 +150,7 @@ internal fun layoutGlobeMarkers(
     height: Float,
     density: Float
 ): List<GlobeMarker> {
-    class Group(val x: Float, val y: Float, first: GeohashChannelActivity, var radius: Float) {
+    class Group(val x: Float, val y: Float, val depth: Float, first: GeohashChannelActivity, var radius: Float) {
         val members = mutableListOf(first)
         var messages = first.messages
     }
@@ -178,7 +180,7 @@ internal fun layoutGlobeMarkers(
             dx * dx + dy * dy < reach * reach
         }
         if (host == null) {
-            groups.add(Group(x, y, channel, radius))
+            groups.add(Group(x, y, projection[2], channel, radius))
         } else {
             host.members.add(channel)
             host.messages += channel.messages
@@ -197,13 +199,14 @@ internal fun layoutGlobeMarkers(
             channels = group.members,
             people = estimateDistinctPeople(group.members),
             messages = group.messages,
-            lastActiveAt = group.members.maxOf { it.lastActiveAt }
+            lastActiveAt = group.members.maxOf { it.lastActiveAt },
+            depth = group.depth
         )
     }
 }
 
 internal fun DrawScope.drawGlobeMarkers(
-    markers: List<GlobeMarker>,
+    frames: List<MarkerFrame>,
     colors: GlobeActivityColors,
     selectedGeohash: String,
     pulsePhase: Float,
@@ -217,16 +220,19 @@ internal fun DrawScope.drawGlobeMarkers(
     textPaint.textAlign = Paint.Align.CENTER
 
     // Heartbeat-only markers first so conversations always sit on top.
-    for (marker in markers.sortedBy { it.messages * 1_000 + it.people }) {
-        val center = Offset(marker.x, marker.y)
+    for (frame in frames.sortedBy { it.marker.messages * 1_000 + it.marker.people }) {
+        val marker = frame.marker
+        val radius = frame.radius
+        if (radius < 0.5f || frame.alpha <= 0.01f) continue
+        val a = frame.alpha.coerceIn(0f, 1f)
+        val center = Offset(frame.x, frame.y)
         val color = markerColor(marker.messages, colors)
-        val radius = marker.radius
         val selected = marker.channels.any { it.geohash == selectedGeohash }
 
         if (marker.isAmbient) {
             drawCircle(
                 brush = Brush.radialGradient(
-                    0f to color.copy(alpha = 0.22f),
+                    0f to color.copy(alpha = 0.22f * a),
                     1f to Color.Transparent,
                     center = center,
                     radius = radius * AMBIENT_GLOW_SCALE
@@ -234,13 +240,13 @@ internal fun DrawScope.drawGlobeMarkers(
                 radius = radius * AMBIENT_GLOW_SCALE,
                 center = center
             )
-            drawCircle(color.copy(alpha = 0.30f), radius = radius, center = center)
-            drawCircle(color.copy(alpha = 0.85f), radius = radius, center = center, style = Stroke(1.2f * density))
+            drawCircle(color.copy(alpha = 0.30f * a), radius = radius, center = center)
+            drawCircle(color.copy(alpha = 0.85f * a), radius = radius, center = center, style = Stroke(1.2f * density))
         } else {
             drawCircle(
                 brush = Brush.radialGradient(
-                    0f to color.copy(alpha = 0.45f),
-                    0.45f to color.copy(alpha = 0.16f),
+                    0f to color.copy(alpha = 0.45f * a),
+                    0.45f to color.copy(alpha = 0.16f * a),
                     1f to Color.Transparent,
                     center = center,
                     radius = radius * GLOW_SCALE
@@ -250,18 +256,18 @@ internal fun DrawScope.drawGlobeMarkers(
             )
             if (nowSeconds - marker.lastActiveAt < MARKER_RECENT_SECONDS) {
                 drawCircle(
-                    color = color.copy(alpha = 0.6f * (1f - pulsePhase)),
+                    color = color.copy(alpha = 0.6f * (1f - pulsePhase) * a),
                     radius = radius * (1f + 1.1f * pulsePhase),
                     center = center,
                     style = Stroke(width = 1.6f * density)
                 )
             }
             if (marker.isCluster) {
-                drawCircle(color.copy(alpha = 0.28f), radius = radius + 3f * density, center = center)
+                drawCircle(color.copy(alpha = 0.28f * a), radius = radius + 3f * density, center = center)
             }
-            drawCircle(color, radius = radius, center = center)
+            drawCircle(color.copy(alpha = a), radius = radius, center = center)
             drawCircle(
-                color = Color.White.copy(alpha = 0.5f),
+                color = Color.White.copy(alpha = 0.5f * a),
                 radius = radius - 0.5f * density,
                 center = center,
                 style = Stroke(width = 1f * density)
@@ -270,20 +276,23 @@ internal fun DrawScope.drawGlobeMarkers(
 
         if (selected) {
             drawCircle(
-                color = colors.selection,
+                color = colors.selection.copy(alpha = a),
                 radius = radius + 4.5f * density,
                 center = center,
                 style = Stroke(width = 2f * density)
             )
         }
 
-        if (radius >= LABEL_MIN_RADIUS_DP * density) {
+        // Whether a count fits is decided at full size; the text then scales with the animation.
+        if (marker.radius >= LABEL_MIN_RADIUS_DP * density) {
             val label = compactCount(marker.people)
-            textPaint.color = if (marker.isAmbient) colors.quietText.toArgb() else colors.text.toArgb()
-            textPaint.textSize = (radius * 0.95f).coerceIn(9f * density, 12.5f * density) *
-                if (label.length >= 3) 0.84f else 1f
-            val baseline = marker.y - (textPaint.descent() + textPaint.ascent()) / 2f
-            canvas.drawText(label, marker.x, baseline, textPaint)
+            val textColor = if (marker.isAmbient) colors.quietText else colors.text
+            textPaint.color = textColor.copy(alpha = textColor.alpha * a).toArgb()
+            textPaint.textSize = (marker.radius * 0.95f).coerceIn(9f * density, 12.5f * density) *
+                (if (label.length >= 3) 0.84f else 1f) * (radius / marker.radius)
+            if (textPaint.textSize < 2f * density) continue
+            val baseline = frame.y - (textPaint.descent() + textPaint.ascent()) / 2f
+            canvas.drawText(label, frame.x, baseline, textPaint)
         }
     }
 }
@@ -300,7 +309,8 @@ private const val AMBIENT_RADIUS_PER_SQRT_PERSON_DP = 1.3f
 private const val AMBIENT_MAX_RADIUS_DP = 9.5f
 private const val LABEL_MIN_RADIUS_DP = 8.5f
 private const val HOT_MESSAGES_PER_HOUR = 60f
-private const val MIN_VISIBLE_COS = 0.06f
+/** Markers fade out toward the limb (see [limbFade]), so they can stay in layout until it. */
+private const val MIN_VISIBLE_COS = 0f
 private const val MERGE_OVERLAP = 0.85f
 private const val MERGE_GAP_DP = 1.5f
 private const val GLOW_SCALE = 2.3f
