@@ -453,14 +453,17 @@ merge first, expect a Back-handling conflict in `MainActivity`. Keep this branch
 - Two geohash counts carry the same "N people" label but count different sets.
   The chat top bar (`ChatHeader`) shows `geohashPeople.size`, which includes heartbeat-only
   identities with no nickname; the channel list's counts are similar. (`MeshPeerListScreen`
-  also computes `geohashPeople.size`, but never shows it in a geohash channel.) `GeohashPeopleList` titles its list with
+  computed `geohashPeople.size` but never showed it; Phase 10b removed that dead count.) `GeohashPeopleList` titles its list with
   `displayedPeople.size`, which drops bare `anon` identities, so only people who chatted count.
   Found in a phone check after the post-Phase 9 upstream merge; upstream behaves the same. A fix
   is a labelling decision for upstream (for example "N online · M active"), not a refactor
   change.
+- The location channels notes card returns to "Loading notes…" every time a jittering GPS fix crosses a building cell, because each cell change resubscribes the nearby notes. A follow-up candidate for the notes work (seen in Phase 10b's phone check; not a 10b change).
 - The iOS client files Nostr private messages in a separate thread.
 - `FragmentManagerTest > test reassembly` flakes. Root cause not established. Candidates: an
   unseeded `Random`, and a cleanup loop that nothing cancels.
+
+Found in the Phase 10b phone check and fixed there: a swiped conversation row never slid back, and the Undo snackbar was missing on most deletes as a result.
 
 The upstream bug "recreating the Activity in the first seconds of launch lands on the error
 screen" was fixed in Phase 9 (F2).
@@ -552,7 +555,7 @@ or 9.
 
 Phase 9 moved to section 3 when it finished. What it left open is in section 5.
 
-### Phase 10: MVI on every screen (10a done; 10b and 10c to come)
+### Phase 10: MVI on every screen (10a and 10b done; 10c to come)
 
 #### MVI shape
 
@@ -569,8 +572,8 @@ Every screen follows `ChatUserViewModel`'s shape.
 Planned scope: every screen exposes one UI state and takes actions, as the chat screen and
 private chat already do. Phase 10 is in three parts. **10a** (done, branch
 `phase10a/mvi-small-screens`): About, Debug, Location Notes, Hotspot, the APK share section,
-Onboarding's naming, and a slimmer `TransportDiagnostics`. **10b** (to come): the peer list and
-the location channels sheet. **10c** (to come, own spec): the project's singletons become Hilt
+Onboarding's naming, and a slimmer `TransportDiagnostics`. **10b** (done, branch
+`phase10b/mvi-peers-channels`): the peer list and the location channels screen. **10c** (to come, own spec): the project's singletons become Hilt
 classes.
 
 #### Phase 10a decisions
@@ -658,10 +661,100 @@ transport or foreground-service change.
   `MessageComponents.kt`, `media/AudioMessageItem.kt`, `MessageInteractionUtils.kt`,
   `GeohashPickerActivity.kt` (no ViewModel) and `MeshGraph.kt` (a rendering-only
   `DebugSettingsManager` read). 10c removes most of the `getInstance()` calls.
-- 10b: the peer list and the location channels sheet.
+- 10b: done; see "Phase 10b" below.
 - 10c: all project singletons become Hilt classes; Hilt in `:core:mesh`, `:core:nostr`,
   `:core:tor`; `:wear` adopts Hilt and KSP. Needs Mesh Lab on two phones and its own spec.
 - Owed: the spec's "End of 10a" phone checklist.
+
+### Phase 10b: the peer list and the location channels screen
+
+#### Phase 10b decisions
+
+| Decision | Why | Alternatives rejected | Cost / what to watch |
+|---|---|---|---|
+| Both screens follow the 10a shape (see "MVI shape"). `MeshPeerListRoot` and `LocationChannelsRoot` hold the ViewModel; `MeshPeerListScreen` and `LocationChannelsScreen` take `uiState` and `onAction`. `LocationChannelsSheet.kt` was renamed `LocationChannelsScreen.kt`. | One pattern for the maintainer; the screens are previewable and testable without Hilt. | Keeping the old file name. | Stale mentions of `LocationChannelsSheet` remain in `docs/GeohashPresenceSpec.md`, the visual-review playbook and a `ChatUserSheet.kt` comment. |
+| Rows are immutable row models built by pure functions (`ConversationRowUi`, `MeshPersonRowUi`, `ChannelRowUi`, `GeohashPersonRowUi`, `ChannelTitle`). Composables get rows and a lambda, never the ViewModel or a manager. | The 22 pass-through members and six helpers on the old ViewModel existed only so composables could reach singletons while composing. A row model makes every display rule a unit test. | Passing the ViewModel down to the rows. | Some row fields are redundant (`MeshPersonRowUi.key` equals the peer ID; `showHashSuffix` and `suffix`). Tests assert them, so they stayed. |
+| `PeerListLookups` is a public port (bound with `@Binds` in `PeerListLookupsModule`, installed in `ViewModelComponent`) for what the old composables read through `LocalContext`: identity, favourites, verification. `RealPeerListLookups` builds `SecureIdentityStateManager` eagerly, once. | The screen no longer reads data from `LocalContext`. The old lazy build swallowed a constructor failure behind a catch; eager keeps it loud. | A lazy lookup; Hilt-binding each manager. | An eager Keystore init when the ViewModel is created, also in geohash mode. |
+| The peer list ViewModel combines 21 source flows in groups of five, then `flowOn(Dispatchers.Default)` and `stateIn(WhileSubscribed(5_000))`, with a synchronous first value. The row building, sorting and lookups that ran on every recomposition now run off the main thread. | Those were the per-recomposition cost. The synchronous first value avoids a flash of "no conversations". | Building rows in `remember` blocks. | `FavoritesPersistenceService.favorites` is an unsynchronised map that is now also read on `Default` (pre-existing; 10c). `myPeerID` is read on `Default` too, in both ViewModels. |
+| The search query lives in `SavedStateHandle` (`peer_list_query`) and round-trips through the state flow. It is merged after `flowOn`, so typing never waits for the row rebuild. | It survives rotation and process death. | A `rememberSaveable` in the Root. | The round trip is plan-mandated. Checked on a physical phone with fast keyboard taps: no lost characters. |
+| The location sampling effect moved into `LocationChannelsViewModel` (an `init` collector; `onCleared` ends sampling). The other location effects stay in the Root with the same keys and call order: the `LifecycleResumeEffect` (refresh on resume, end on pause), the nearby-notes `DisposableEffect`, the per-bookmark `resolveNameIfNeeded` effect. | Only sampling is independent of composition. The other three are tied to the screen being shown, as in 10a. | Moving all four into the ViewModel. | Sampling starts at ViewModel creation and keeps running while Notes is on top; before, it was keyed off composition. Q-L13's trigger (the unused `appLocationEnabled` key that forces a reconcile) is kept. |
+| Channel titles are data (`ChannelTitle`: title and optional count), not a string with a `\u001F` separator. | L11: the old code packed and split a string to carry two values. | Keeping the pack and split. | None; rendered text is identical. |
+| Bookmark flags on nearby and teleported rows come from the combined `bookmarks` list snapshot, compared case-insensitively as the old store lookup did, not from `GeohashBookmarksStore.isBookmarked` read on `Default`. | It removes an off-main read of a set the main thread mutates. The visible result is the same except for a race. | Keeping the store lookup as a lambda. | Q-L5 no longer holds at screen level; its pinning test was renamed `bookmarkFlags_comeFromTheLookupPerGeohash`. |
+| 10a's ports gain members instead of a second port: `NotesLocationSource` (selected channel, services flags, `select*`, live refresh) and `NearbyNotesGate.revealed`. New ports `ChannelBookmarks` and `TorRouting`, bound in `LocationChannelsPortsModule`. The chat-session side is the internal `ChannelsSession`. | The ports exist and 10c will swap their adapters. | A parallel port over the same manager. | Action and event details deviate from the plan, because Q-L1 kept the custom geohash field Root-local: the typed text rides on `TeleportClicked`, `MapPickerClicked` and `CustomGeohashRejected`; `OpenMapPicker` is non-null; `teleportEnabled` is derived in the Root; the effect keys travel in the state. Expect API churn in 10c. |
+| Undo after deleting a conversation moved into the ViewModel (F2). Pending deletions are kept for 120 s (`UNDO_WINDOW_MS`, Android's longest "Time to take action" setting), then dropped. | F2 says Undo survives rotation and opening a chat, not that it is offered an hour later. A list-lifetime Undo is an unlisted visible change, keeps deleted messages in memory and lets a late restore overwrite a newer draft. 120 s means a visible Undo never silently does nothing. | Undo for the lifetime of the list entry; a 10 s window. | Coming back to the list within 2 minutes re-offers Undo once. |
+| No panic fence on `restoreDeletedConversation`. | Panic starts only from `ChatRoute`, and the list ViewModel is cleared when the list is popped; the window is also bounded. | A fence now. | Logged for 10c (the `MessageRouter` panic-clear design): a future panic entry point above the list could restore wiped content within the window. |
+| The three problems found in the phone check were fixed inside 10b, each its own commit (see "What Phase 10b changed"). | The developer chose to fix now. Two were upstream bugs, one a Codex finding on F2. | Listing them. | None. |
+
+Process rulings (how the phase was run, not product behaviour):
+- The gate ran as `SDD_WS=2026-10-24-phase10b-mvi-peers-channels-plan .superpowers/sdd/tools/gate.sh taskN`, so its logs land in this workspace's folder. Cost if wrong: logs in another folder.
+- The gate used whichever emulator was listed. A larger emulator image dropped offline mid-suite once and failed one settings test deterministically; the clean image passed. Cost if wrong: a flake from a dirtier image; re-run on the clean one.
+- Tasks 4 and 8 (a person checking each screen on a physical phone) are real stop points, because the spec requires that check before the next screen.
+- JVM tests live in `feature/*/src/test/java/...`, the modules' existing source directory, not `src/test/kotlin`.
+- Per task the implementer commits first, then the gate and Codex run on the commit; fixes are follow-up commits. A red gate costs an extra fix commit, not an amend.
+- The Task 2 review finding (six dead ViewModel helpers, one duplicating a rule) was left to Task 3, which rewrote the ViewModel anyway. One intermediate commit carried the duplicate.
+- The Undo clock and a strengthened `deleteThenNewCollector_undoStillRestores` (it now cancels mid-delete) were folded into F2 by fixup, so F2 stays one revertable commit. Only unpushed SHAs changed.
+- Task 5 (a pure extraction) ran while the Task 4 phone check was under way; Task 6, the MVI move that would copy any flaw, waited until it passed.
+- An "Undo did not restore" seen once on the phone is closed as a test artifact. That tap came in a separate tool call 10 to 20 s after the delete, past the Long snackbar timeout, and Material3 ignores `performAction` once `dismiss()` has resumed. Four same-command taps restored. A rare silent miss would be pre-existing Material3 behaviour.
+- The "Loading notes…" repetition was investigated as a possible Task 6 regression and ruled out (see the notes below).
+
+#### What Phase 10b changed
+
+| ID | Before | After |
+|---|---|---|
+| F1 | `PeopleSection` logged peer IDs and favourites on every redraw, in release builds too (Q-P11). | The line is gone. `NoPeerDataInLogsTest` fails if a peer-list `Log` call interpolates a peer ID, favourite or nickname. |
+| F2 | Undo after deleting a conversation lived in the Root's coroutine and was lost on rotation or when a chat was opened. | It lives in the ViewModel and survives both, for 120 s from when Undo is first offered. |
+| R2 | The channels screen's Tor row read the preference once and ignored changes made elsewhere (Q-L11). | It follows `TorPreferenceManager.modeFlow`, so a change made in About shows up. |
+| Restructure | Two composables of 1648 and 1202 lines held the logic, the lookups and the singleton calls. | Row models, state builders and ViewModels; the composables are split by card or section (table below). |
+
+Dead code removed: `convertRSSIToSignalStrength`, `PeerRowIconSize`, the unused `geohashPeople.size` count and its dead `Location` branch (Q-P1: it was never displayed), the `peerRSSI` collection, and the `\u001F` title pack and split (L11).
+
+Found in the phone check and fixed. The first two are upstream bugs, found during the phone check; they reproduce on `upstream/main` and on the commit before the MVI move, so they are not 10b regressions.
+- **A swiped conversation row never slid back.** After a swipe to mark read or delete, the row stayed off to the side and the gesture stayed disabled. The reset effect was keyed on `currentValue`, which moves to the next anchor once the drag passes halfway, so the effect fired mid-drag and the drag interrupted `reset()`. It is now keyed on `settledValue`. Haptic, read toggle and delete dialog still fire once per swipe, now when the row settles. Two device tests pin it.
+- **The Undo snackbar was missing on most deletes.** It was a symptom of the stuck row: after the fix it shows on every delete on the phone, and Undo restored four of four. The emulator never reproduced it, so only guard tests were added.
+- **Undo window start (a Codex finding on F2).** The window ran from the delete, so a queued Undo could expire while its snackbar was showing, under the two-minute accessibility timeout. It now starts when the Undo is first offered.
+
+Preserved and pinned quirks, in tests named `…_currentBehaviour_<QID>`: Q-P1 (the two geohash counts), Q-P2 and Q-L12 (two mesh counts), Q-P3 ("You" compares a peer ID with the nickname), Q-P6 (unread counts all incoming messages), Q-P9 (an `@name` channel tap does nothing without a match), Q-P10 (leaving a channel broadcasts `left <name>`), Q-L6 (a bookmarked teleported channel appears twice), Q-L9 (`formatDistance` without a `Locale`). Q-L5 is the exception (see the decisions). Still true and listed: Q-P13 (the delete dialog does not survive rotation), Q-P19 (QR verify is hidden in a location channel).
+
+Line counts, before (`18db3320`) and after:
+
+| Screen | Before | After |
+|---|---|---|
+| Peer list composables | `MeshPeerListScreen.kt` 1648 | 1608 in five files: `MeshPeerListScreen.kt` 420, `PeerListConversations.kt` 769, `PeerListMeshPeople.kt` 201, `PeerListChannels.kt` 132, `PeerListCommon.kt` 86 |
+| Geohash people section | `GeohashPeopleList.kt` 332 | 209 |
+| Peer list logic (new files) | inside the composables | `ConversationRowModel.kt` 325, `MeshPeopleRows.kt` 397, `GeohashPeopleRows.kt` 167, `MeshPeerListUiState.kt` 199, `PeerListLookups.kt` 129 |
+| Peer list ViewModel | 116 | 451 |
+| Channels composables | `LocationChannelsSheet.kt` 1202 | 1271 in four files: `LocationChannelsScreen.kt` 362, `LocationChannelSections.kt` 419, `ChannelOptionRow.kt` 296, `CustomGeohashRow.kt` 194 |
+| Channels logic (new files) | inside the composable | `LocationChannelRows.kt` 278, `GeohashChannelFormatting.kt` 142, `LocationChannelsUiState.kt` 189, `LocationChannelsPorts.kt` 61 |
+| Channels ViewModel | 65 | 335 |
+
+The composables did not shrink in total. The largest file went from 1648 to 769 lines and from 1202 to 419, and the rules moved out of the composables into code that has tests.
+
+Tests: JVM 1200 to 1336 (3 skipped). Device: app 65 (unchanged), chat 1 to 6, location 2 to 4, settings 5, share 3. New JVM test classes: `NoPeerDataInLogsTest`, `ConversationRowModelTest`, `MeshPeopleRowsTest`, `GeohashPeopleRowsTest`, `MeshPeerListViewModelTest`, `LocationChannelRowsTest`, `GeohashChannelFormattingTest`, `LocationChannelsViewModelTest`. New device tests: `MeshPeerListRootTest`, the swipe tests in `MeshPeerListScreenTest`, and `LocationChannelsScreenTest`. One pre-task fix scrolled a settings test's target clear of an overlaid top bar on a tall emulator. The Mesh Lab was not run: no protocol, transport or foreground-service change.
+
+Phone check, on a physical phone with synthetic data and a mocked location: rows, search with fast typing, swipe to mark read, delete and Undo, people, verify, channels, nearby channels, bookmarks, Tor off and on, teleport by typed geohash, location on and off, and the notes card all pass.
+
+Notes a reader should know:
+- **Notes card shows "Loading notes…" repeatedly.** While a jittering GPS fix crosses building cells, the card returns to "Loading notes…" every few seconds. This is pre-existing, not a 10b change: the Root's nearby-notes effect re-keys on each building-cell change, and each re-key stops and resubscribes (about 2 s of loading). The keys and calls are the same before and after the MVI move, and samples taken before and after were within noise. A follow-up candidate for the notes work.
+- **Sampling** now starts at ViewModel creation and keeps going under Notes.
+- **R2 timing.** The Tor row follows `modeFlow` a frame after the switch.
+
+#### Known follow-ups from Phase 10b
+
+Deferred from reviews, none blocking:
+- `NoPeerDataInLogsTest` is a text scanner. It is naive about character literals and raw strings, and only sees interpolation inside the `Log` call itself.
+- `MeshPersonRowUi.key` and `showHashSuffix` duplicate other fields (tests assert them).
+- The saveable swipe state may fire again within about 150 ms of a restore.
+- Comments on the Undo window say "snackbar appears", but the window starts at the head of the queue. There is no short-swipe-no-action test.
+- The clock guard in `undoDelete` is not tested apart from the timer. The timer uses uptime and the guard `elapsedRealtime`, which can skew after deep sleep; the guard covers it.
+- `FavoritesPersistenceService.favorites` is read on `Default` and is unsynchronised (pre-existing; 10c). `SwipeToggleRead` runs in `viewModelScope` from the restructure commit on, an invisible side effect.
+- `topBarAlpha` in the channels screen is dead (pre-existing).
+- After more than 5 s on Notes, the stale effect keys in `uiState` cause one redundant deactivate and activate; it self-heals.
+- The panic-clear fence for a restore, for 10c (see the decisions).
+- Stale `LocationChannelsSheet` names in a doc, a KDoc and the visual-review playbook.
+
+Resolved during the phase: the six dead ViewModel helpers, the O(n²) lookups in `meshPeopleRows` (now a `HashSet` and a first-wins map), `ChannelTitle.level` (dropped), the duplicate `channelCountText` (the composable is now `peopleCountLabel`), and the real-city geohashes in the old sheet test (replaced by synthetic ones in `GeohashChannelFormattingTest`).
+
+Owed: the Mesh Lab and the second-phone pass wait for 10c. Phase 10 is complete after 10c, which needs its own spec.
 
 ### Phase 11: Wear shares UI with the phone (not started)
 

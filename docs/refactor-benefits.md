@@ -33,10 +33,17 @@ These existed in upstream before the refactor.
 | Debug kept polling and sampling while the app was in the background. | It pauses when Debug is not on screen. The graph shows a gap. | 10a (B3) |
 | About's Tor status card did not follow the Tor switch. | It follows the switch and changes made elsewhere. | 10a (R1) |
 | A location note's draft was cleared even when sending failed, and lost on rotation. | The draft is kept until the send succeeds and survives rotation. | 10a (F3) |
+| Swiping a conversation to mark it read or delete it left the row stuck off to the side, and the Undo snackbar was missing on most deletes. | The row slides back and Undo shows on every delete. | 10b |
+| Undo after deleting a conversation was lost on rotation or when a chat was opened. | It survives both, for up to two minutes. | 10b (F2) |
+| The channels screen's Tor row ignored a change made in About. | It follows the switch. | 10b (R2) |
 | Back handling registered a new callback on every recomposition. | One `BackHandler`. | Groundwork (#912) |
 
 The Phase 9 rows link to their commits in "What Phase 9 fixed" in `refactor-decisions.md`.
 Each real fix is one commit and can be reverted alone.
+
+## Privacy
+
+- The peer list no longer logs peer IDs or favourites on every redraw, in release builds too. A unit test fails if a peer-list log call interpolates a peer ID, favourite or nickname. 10b (F1)
 
 ## State that now survives rotation and process death
 
@@ -83,8 +90,11 @@ kept out of the refactor so it changes no behaviour it did not have to. Details 
 | Navigation | Visibility flags in view models | Typed, serializable Navigation 3 routes on one back stack |
 | Device tests | None | 64 in `:app` and `:feature:chat`, plus one suite per feature (settings 5, location 2, share 3): Back behaviour, every sheet opener, saved state, onboarding, screens |
 | Screens (10a) | About, Debug, Location Notes and the APK section ran logic in composables and called singletons; Hotspot and the APK section had their own shapes | All on one shape: `uiState`, `onAction`, `events`; three ViewModels added (`AboutViewModel`, `DebugSettingsViewModel`, `LocationNotesViewModel`), three reshaped |
+| Screens (10b) | The peer list and the location channels sheet were composables of 1648 and 1202 lines that read singletons while composing | Both on the same shape, with row models and state builders as tested pure functions; the largest composable file is 769 and 419 lines; the row building runs off the main thread |
 | `TransportDiagnostics` | 23 members | 13 |
 | Unit tests (10a) | 891 | 1076 |
+| Unit tests (10b) | 1200 | 1336 |
+| Device tests (10b) | chat 1, location 2 | chat 6, location 4 |
 | Module rules | Unwritten | `FeatureDependencyRulesTest` fails when a feature depends on another feature, an `:api` module grows dependencies, or `:core:tor` gains one |
 | Watch crypto | Tink 1.8.0 | Tink 1.23.0, the phone's version |
 | Watch theme | Its own copy of the palette, peer-color hash and fonts | The shared `:core:designsystem` base |
