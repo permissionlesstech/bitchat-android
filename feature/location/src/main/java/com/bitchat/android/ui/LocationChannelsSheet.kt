@@ -55,7 +55,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.nostr.LocationNotesManager
 import com.bitchat.android.nostr.NearbyNotesController
-import com.bitchat.android.nostr.geohashesForSampling
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -65,7 +64,6 @@ import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
 import com.bitchat.android.core.ui.component.screen.BitchatScreenTopBar
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.GeohashBookmarksStore
-import com.bitchat.android.geohash.GeohashChannel
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.net.ArtiTorManager
@@ -139,7 +137,7 @@ fun LocationChannelsScreen(
             locationManager.selectManual(channel)
             onClose()
         } else {
-            customGeohash = value.trim().lowercase().replace("#", "")
+            customGeohash = rejectedTeleportFieldText(value)
             customError = context.getString(R.string.invalid_geohash)
         }
     }
@@ -173,24 +171,42 @@ fun LocationChannelsScreen(
     val standardBlue = colorScheme.secondary
 
     val nearbyChannels = remember(availableChannels) {
-        availableChannels.filter { it.level != GeohashChannelLevel.BUILDING }
+        nearbyChannelsOf(availableChannels)
     }
-    val selectedChannelOutsideNearby = remember(selectedChannel, nearbyChannels) {
-        selectedLocationChannelOutsideNearby(selectedChannel, nearbyChannels)
-    }
-    val showNearbyLoading = nearbyChannels.isEmpty() &&
-        permissionState == LocationChannelManager.PermissionState.AUTHORIZED &&
-        locationServicesEnabled
-    val locationNotesSubtitle = when {
-        !notesRevealed -> stringResource(R.string.nearby_notes_reveal)
-        nearbyNotesState == LocationNotesManager.State.NO_RELAYS ->
-            stringResource(R.string.location_notes_relays_unavailable)
-        nearbyNotesState == LocationNotesManager.State.LOADING ->
-            stringResource(R.string.loading_location_notes)
-        nearbyNotes.size == 1 -> stringResource(R.string.nearby_notes_one)
-        nearbyNotes.size > 1 ->
-            stringResource(R.string.nearby_notes_many, nearbyNotes.size)
-        else -> stringResource(R.string.location_notes_empty_title)
+    val meshRow = meshRow(meshPeopleCount, wifiAwareEnabled, selectedChannel)
+    // Not remembered: isBookmarked is a non-snapshot store read that refreshes only because
+    // bookmarks is collected in this scope (Q-L5).
+    val teleportedRow = teleportedRow(
+        selectedChannel = selectedChannel,
+        nearbyChannels = nearbyChannels,
+        bookmarkNames = bookmarkNames,
+        participantCounts = geohashParticipantCounts,
+        isBookmarked = bookmarksStore::isBookmarked,
+    )
+    val bookmarkRows = buildBookmarkRows(
+        bookmarks = bookmarks,
+        bookmarkNames = bookmarkNames,
+        participantCounts = geohashParticipantCounts,
+        selectedChannel = selectedChannel,
+    )
+    val nearby = buildNearbyRows(
+        nearbyChannels = nearbyChannels,
+        locationNames = locationNames,
+        participantCounts = geohashParticipantCounts,
+        selectedChannel = selectedChannel,
+        permissionState = permissionState,
+        effectiveLocationEnabled = locationServicesEnabled,
+        isBookmarked = bookmarksStore::isBookmarked,
+    )
+    val locationNotesSubtitle = when (
+        val subtitle = notesSubtitle(notesRevealed, nearbyNotesState, nearbyNotes.size)
+    ) {
+        NotesSubtitle.Reveal -> stringResource(R.string.nearby_notes_reveal)
+        NotesSubtitle.NoRelays -> stringResource(R.string.location_notes_relays_unavailable)
+        NotesSubtitle.Loading -> stringResource(R.string.loading_location_notes)
+        NotesSubtitle.One -> stringResource(R.string.nearby_notes_one)
+        is NotesSubtitle.Many -> stringResource(R.string.nearby_notes_many, subtitle.n)
+        NotesSubtitle.Empty -> stringResource(R.string.location_notes_empty_title)
     }
 
     Surface(
@@ -233,19 +249,20 @@ fun LocationChannelsScreen(
                             shape = AboutCardShape
                         ) {
                             ChannelOptionRow(
-                                title = meshTitleWithCount(meshPeopleCount),
+                                title = stringResource(R.string.mesh_title),
+                                countText = channelCountText(meshRow.title),
                                 subtitle = stringResource(
-                                    if (wifiAwareEnabled) {
+                                    if (meshRow.wifiAwareEnabled) {
                                         R.string.location_bluetooth_wifi_subtitle
                                     } else {
                                         R.string.location_bluetooth_subtitle
                                     },
                                     meshRangeString()
                                 ),
-                                isSelected = selectedChannel is ChannelID.Mesh,
-                                participantCount = meshPeopleCount,
+                                isSelected = meshRow.isSelected,
+                                participantCount = meshRow.peopleCount,
                                 titleColor = standardBlue,
-                                titleBold = meshPeopleCount > 0,
+                                titleBold = meshRow.titleBold,
                                 onClick = {
                                     locationManager.select(ChannelID.Mesh)
                                     onClose()
@@ -264,15 +281,9 @@ fun LocationChannelsScreen(
                     )
                 }
 
-                selectedChannelOutsideNearby?.let { channel ->
+                teleportedRow?.let { row ->
+                    val channel = row.channel
                     item(key = "teleported_card") {
-                        val coverage = coverageString(channel.geohash.length)
-                        val name = bookmarkNames[channel.geohash]
-                        val subtitle = "#${channel.geohash} • $coverage" +
-                            (name?.let { " • ${formattedNamePrefix(channel.level)}$it" } ?: "")
-                        val participantCount = geohashParticipantCounts[channel.geohash] ?: 0
-                        val isBookmarked = bookmarksStore.isBookmarked(channel.geohash)
-
                         Column {
                             AboutSectionLabel(text = stringResource(R.string.cd_teleported))
                             Surface(
@@ -283,18 +294,16 @@ fun LocationChannelsScreen(
                                 shape = AboutCardShape
                             ) {
                                 ChannelOptionRow(
-                                    title = geohashHashTitleWithCount(
-                                        channel.geohash,
-                                        participantCount
-                                    ),
-                                    subtitle = subtitle,
-                                    isSelected = true,
-                                    participantCount = participantCount,
+                                    title = "#${row.geohash}",
+                                    countText = channelCountText(row.title),
+                                    subtitle = row.subtitle,
+                                    isSelected = row.isSelected,
+                                    participantCount = row.participantCount,
                                     titleColor = standardGreen,
-                                    titleBold = participantCount > 0,
+                                    titleBold = row.titleBold,
                                     trailingContent = {
                                         ChannelBookmarkButton(
-                                            bookmarked = isBookmarked,
+                                            bookmarked = row.isBookmarked,
                                             onClick = {
                                                 bookmarksStore.toggle(channel.geohash)
                                             }
@@ -322,36 +331,32 @@ fun LocationChannelsScreen(
                                 shape = AboutCardShape
                             ) {
                                 Column {
-                                    bookmarks.forEachIndexed { index, gh ->
+                                    bookmarkRows.forEachIndexed { index, row ->
                                         if (index > 0) SheetCardDivider()
-                                        val level = levelForLength(gh.length)
-                                        val channel = GeohashChannel(level = level, geohash = gh)
-                                        val coverage = coverageString(gh.length)
-                                        val name = bookmarkNames[gh]
-                                        val subtitle = "#$gh • $coverage" +
-                                            (name?.let { " • ${formattedNamePrefix(level)}$it" } ?: "")
-                                        val participantCount = geohashParticipantCounts[gh] ?: 0
+                                        val gh = row.geohash
+                                        val channel = row.channel
 
                                         ChannelOptionRow(
-                                            title = geohashHashTitleWithCount(gh, participantCount),
-                                            subtitle = subtitle,
-                                            isSelected = isChannelSelected(channel, selectedChannel),
-                                            participantCount = participantCount,
-                                            titleBold = participantCount > 0,
+                                            title = "#$gh",
+                                            countText = channelCountText(row.title),
+                                            subtitle = row.subtitle,
+                                            isSelected = row.isSelected,
+                                            participantCount = row.participantCount,
+                                            titleBold = row.titleBold,
                                             trailingContent = {
                                                 ChannelBookmarkButton(
-                                                    bookmarked = true,
+                                                    bookmarked = row.isBookmarked,
                                                     onClick = { bookmarksStore.toggle(gh) }
                                                 )
                                             },
                                             onClick = {
-                                                val inRegional =
-                                                    availableChannels.any { it.geohash == gh }
                                                 locationManager.selectManual(
                                                     channel = channel,
-                                                    teleported = !appLocationEnabled ||
-                                                        availableChannels.isEmpty() ||
-                                                        !inRegional
+                                                    teleported = isBookmarkTeleported(
+                                                        geohash = gh,
+                                                        availableChannels = availableChannels,
+                                                        appLocationEnabled = appLocationEnabled,
+                                                    )
                                                 )
                                                 onClose()
                                             }
@@ -434,26 +439,22 @@ fun LocationChannelsScreen(
                         ) {
                             Column {
                                 if (locationServicesEnabled) {
-                                    if (nearbyChannels.isNotEmpty()) {
-                                        nearbyChannels.forEachIndexed { index, channel ->
+                                    if (nearby.rows.isNotEmpty()) {
+                                        nearby.rows.forEachIndexed { index, row ->
                                             if (index > 0) SheetCardDivider()
-                                            val coverage = coverageString(channel.geohash.length)
-                                            val nameBase = locationNames[channel.level]
-                                            val namePart = nameBase?.let { formattedNamePrefix(channel.level) + it }
-                                            val subtitlePrefix = "#${channel.geohash} • $coverage"
-                                            val participantCount = geohashParticipantCounts[channel.geohash] ?: 0
-                                            val isBookmarked = bookmarksStore.isBookmarked(channel.geohash)
+                                            val channel = row.channel
 
                                             ChannelOptionRow(
-                                                title = geohashTitleWithCount(channel, participantCount),
-                                                subtitle = subtitlePrefix + (namePart?.let { " • $it" } ?: ""),
-                                                isSelected = isChannelSelected(channel, selectedChannel),
-                                                participantCount = participantCount,
+                                                title = channelLevelName(channel.level),
+                                                countText = channelCountText(row.title),
+                                                subtitle = row.subtitle,
+                                                isSelected = row.isSelected,
+                                                participantCount = row.participantCount,
                                                 titleColor = standardGreen,
-                                                titleBold = participantCount > 0,
+                                                titleBold = row.titleBold,
                                                 trailingContent = {
                                                     ChannelBookmarkButton(
-                                                        bookmarked = isBookmarked,
+                                                        bookmarked = row.isBookmarked,
                                                         onClick = { bookmarksStore.toggle(channel.geohash) }
                                                     )
                                                 },
@@ -465,7 +466,7 @@ fun LocationChannelsScreen(
                                             )
                                         }
                                         SheetCardDivider()
-                                    } else if (showNearbyLoading) {
+                                    } else if (nearby.showLoading) {
                                         ChannelLoadingRow()
                                         SheetCardDivider()
                                     }
@@ -474,22 +475,11 @@ fun LocationChannelsScreen(
                                 CustomGeohashRow(
                                     customGeohash = customGeohash,
                                     onGeohashChange = { value ->
-                                        val allowed = "0123456789bcdefghjkmnpqrstuvwxyz".toSet()
-                                        customGeohash = value
-                                            .lowercase()
-                                            .replace("#", "")
-                                            .filter { it in allowed }
-                                            .take(12)
+                                        customGeohash = normalizeGeohashInput(value)
                                         customError = null
                                     },
                                     onOpenMap = {
-                                        val normalized = customGeohash.trim().lowercase().replace("#", "")
-                                        val initial = when {
-                                            normalized.isNotBlank() -> normalized
-                                            selectedChannel is ChannelID.Location ->
-                                                (selectedChannel as ChannelID.Location).channel.geohash
-                                            else -> ""
-                                        }
+                                        val initial = mapPickerInitialGeohash(customGeohash, selectedChannel)
                                         val intent = Intent(context, GeohashPickerActivity::class.java).apply {
                                             putExtra(GeohashPickerActivity.EXTRA_INITIAL_GEOHASH, initial)
                                         }
@@ -541,6 +531,7 @@ fun LocationChannelsScreen(
                     ) {
                         ChannelOptionRow(
                             title = stringResource(R.string.cd_location_notes),
+                            countText = null,
                             subtitle = locationNotesSubtitle,
                             isSelected = false,
                             participantCount = 0,
@@ -679,14 +670,14 @@ fun LocationChannelsScreen(
         appLocationEnabled,
         notesRevealed
     ) {
-        val liveLocationGeohashes = geohashesForSampling(
+        val sampling = samplingGeohashes(
             availableChannels = availableChannels,
-            bookmarks = emptyList(),
+            bookmarks = bookmarks,
             notesRevealed = notesRevealed,
         )
         viewModel.sampleGeohashes(
-            liveLocationGeohashes = liveLocationGeohashes,
-            userSelectedGeohashes = bookmarks
+            liveLocationGeohashes = sampling.live,
+            userSelectedGeohashes = sampling.userSelected
         )
     }
 }
@@ -698,6 +689,7 @@ fun LocationChannelsScreen(
 @Composable
 private fun ChannelOptionRow(
     title: String,
+    countText: String?,
     subtitle: String,
     isSelected: Boolean,
     participantCount: Int,
@@ -709,7 +701,6 @@ private fun ChannelOptionRow(
     onClick: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val (baseTitle, countSuffix) = splitTitleAndCount(title)
 
     Row(
         modifier = Modifier
@@ -760,13 +751,13 @@ private fun ChannelOptionRow(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = baseTitle,
+                    text = title,
                     fontSize = 14.sp,
                     fontFamily = BitchatFontFamily,
                     fontWeight = if (titleBold) FontWeight.SemiBold else FontWeight.Medium,
                     color = titleColor ?: colorScheme.onSurface
                 )
-                countSuffix?.let { count ->
+                countText?.let { count ->
                     AnimatedCountLabel(
                         count = participantCount,
                         text = count,
@@ -866,8 +857,7 @@ private fun CustomGeohashRow(
     val imeInsets = WindowInsets.ime
     val coroutineScope = rememberCoroutineScope()
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
-    val normalized = customGeohash.trim().lowercase().replace("#", "")
-    val isValid = validateGeohash(normalized)
+    val isValid = isTeleportEnabled(customGeohash)
     // Typing the last character of a valid geohash arms the button; cross-fading both the label
     // and its container makes that the moment the row confirms the input is usable.
     val teleportColor by animateColorAsState(
@@ -1062,141 +1052,25 @@ private fun ChannelSettingsToggleRow(
 
 // MARK: - Helper Functions
 
-/** Separates the channel name from the animated people-count label in composed titles. */
-private const val TITLE_COUNT_SEP = '\u001F'
-
-private fun splitTitleAndCount(title: String): Pair<String, String?> {
-    val sep = title.indexOf(TITLE_COUNT_SEP)
-    if (sep != -1) {
-        return Pair(title.substring(0, sep), title.substring(sep + 1).ifEmpty { null })
-    }
-    // Legacy "[n people]" form
-    val lastBracketIndex = title.lastIndexOf('[')
-    return if (lastBracketIndex != -1) {
-        val count = title.substring(lastBracketIndex + 1).removeSuffix("]")
-        Pair(title.substring(0, lastBracketIndex).trim(), count.ifEmpty { null })
-    } else {
-        Pair(title, null)
-    }
-}
-
+/** L10: the `people_count` label of [title]; "?" in place of 0 when the count is unknown. */
 @Composable
-private fun meshTitleWithCount(meshCount: Int): String {
+private fun channelCountText(title: ChannelTitle): String {
     val ctx = LocalContext.current
-    val peopleText = ctx.resources.getQuantityString(R.plurals.people_count, meshCount, meshCount)
-    val meshLabel = stringResource(R.string.mesh_title)
-    return "$meshLabel$TITLE_COUNT_SEP$peopleText"
-}
-
-@Composable
-private fun geohashTitleWithCount(channel: GeohashChannel, participantCount: Int): String {
-    val ctx = LocalContext.current
-    val isHighPrecision = channel.level.precision > 5
-    val peopleText = if (isHighPrecision && participantCount == 0) {
-        ctx.resources.getQuantityString(R.plurals.people_count, 0, 0).replace("0", "?")
-    } else {
-        ctx.resources.getQuantityString(R.plurals.people_count, participantCount, participantCount)
-    }
-    val levelName = when (channel.level) {
-        GeohashChannelLevel.BUILDING -> "Building"
-        GeohashChannelLevel.BLOCK -> stringResource(R.string.location_level_block)
-        GeohashChannelLevel.NEIGHBORHOOD -> stringResource(R.string.location_level_neighborhood)
-        GeohashChannelLevel.CITY -> stringResource(R.string.location_level_city)
-        GeohashChannelLevel.PROVINCE -> stringResource(R.string.location_level_province)
-        GeohashChannelLevel.REGION -> stringResource(R.string.location_level_region)
-    }
-    return "$levelName$TITLE_COUNT_SEP$peopleText"
-}
-
-@Composable
-private fun geohashHashTitleWithCount(geohash: String, participantCount: Int): String {
-    val ctx = LocalContext.current
-    val level = levelForLength(geohash.length)
-    val isHighPrecision = level.precision > 5
-    val peopleText = if (isHighPrecision && participantCount == 0) {
-        ctx.resources.getQuantityString(R.plurals.people_count, 0, 0).replace("0", "?")
-    } else {
-        ctx.resources.getQuantityString(R.plurals.people_count, participantCount, participantCount)
-    }
-    return "#$geohash$TITLE_COUNT_SEP$peopleText"
-}
-
-private fun isChannelSelected(channel: GeohashChannel, selectedChannel: ChannelID?): Boolean {
-    return when (selectedChannel) {
-        is ChannelID.Location -> selectedChannel.channel == channel
-        else -> false
+    return channelCountText(title) { n ->
+        ctx.resources.getQuantityString(R.plurals.people_count, n, n)
     }
 }
 
 /**
- * Returns the active location channel when it has no row in the nearby-channel list.
- *
- * This commonly happens after teleporting to a remote geohash. Keeping the selected channel in the
- * main channel card makes its selection and bookmark action available even before it is bookmarked.
+ * L10: a nearby row's title. "Building" is a hard-coded literal, unreachable because L1 drops
+ * BUILDING channels (Q-L14).
  */
-internal fun selectedLocationChannelOutsideNearby(
-    selectedChannel: ChannelID?,
-    nearbyChannels: List<GeohashChannel>
-): GeohashChannel? {
-    val selected = (selectedChannel as? ChannelID.Location)?.channel ?: return null
-    return selected.takeUnless { active ->
-        nearbyChannels.any { nearby ->
-            nearby.geohash.equals(active.geohash, ignoreCase = true)
-        }
-    }
+@Composable
+private fun channelLevelName(level: GeohashChannelLevel): String = when (level) {
+    GeohashChannelLevel.BUILDING -> "Building"
+    GeohashChannelLevel.BLOCK -> stringResource(R.string.location_level_block)
+    GeohashChannelLevel.NEIGHBORHOOD -> stringResource(R.string.location_level_neighborhood)
+    GeohashChannelLevel.CITY -> stringResource(R.string.location_level_city)
+    GeohashChannelLevel.PROVINCE -> stringResource(R.string.location_level_province)
+    GeohashChannelLevel.REGION -> stringResource(R.string.location_level_region)
 }
-
-private fun validateGeohash(geohash: String): Boolean {
-    if (geohash.isEmpty() || geohash.length > 12) return false
-    val allowed = "0123456789bcdefghjkmnpqrstuvwxyz".toSet()
-    return geohash.all { it in allowed }
-}
-
-internal fun channelForManualGeohash(value: String): GeohashChannel? {
-    val normalized = value.trim().lowercase().replace("#", "")
-    if (!validateGeohash(normalized)) return null
-    return GeohashChannel(
-        level = levelForLength(normalized.length),
-        geohash = normalized
-    )
-}
-
-private fun levelForLength(length: Int): GeohashChannelLevel {
-    return when (length) {
-        in 0..2 -> GeohashChannelLevel.REGION
-        in 3..4 -> GeohashChannelLevel.PROVINCE
-        5 -> GeohashChannelLevel.CITY
-        6 -> GeohashChannelLevel.NEIGHBORHOOD
-        7 -> GeohashChannelLevel.BLOCK
-        8 -> GeohashChannelLevel.BUILDING
-        else -> if (length > 8) GeohashChannelLevel.BUILDING else GeohashChannelLevel.BLOCK
-    }
-}
-
-private fun coverageString(precision: Int): String {
-    val maxMeters = when (precision) {
-        2 -> 1_250_000.0
-        3 -> 156_000.0
-        4 -> 39_100.0
-        5 -> 4_890.0
-        6 -> 1_220.0
-        7 -> 153.0
-        8 -> 38.2
-        9 -> 4.77
-        10 -> 1.19
-        else -> if (precision <= 1) 5_000_000.0 else 1.19 * Math.pow(0.25, (precision - 10).toDouble())
-    }
-    return "~${formatDistance(maxMeters / 1000.0)} km"
-}
-
-private fun formatDistance(value: Double): String {
-    return when {
-        value >= 100 -> String.format("%.0f", value)
-        value >= 10 -> String.format("%.1f", value)
-        else -> String.format("%.1f", value)
-    }
-}
-
-private fun meshRangeString(): String = "~10–50m"
-
-private fun formattedNamePrefix(level: GeohashChannelLevel): String = "~"

@@ -60,6 +60,6 @@ class LocationChannelsViewModel @Inject constructor(
 
     private fun countOthers(peers: List<String>): Int {
         val myPeerID = mesh.unified.myPeerID
-        return peers.count { it != myPeerID }
+        return meshPeopleCountOf(peers, myPeerID)
     }
 }

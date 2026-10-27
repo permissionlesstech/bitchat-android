@@ -58,6 +58,48 @@ class LocationChannelsSheetTest {
         assertNull(channelForManualGeohash("not-a-geohash"))
     }
 
+    @Test
+    fun noSelectionHasNoStandaloneLocationRow() {
+        assertNull(selectedLocationChannelOutsideNearby(null, listOf(channel("s0000"))))
+    }
+
+    @Test
+    fun selectedLocationWithNoNearbyChannelsGetsAStandaloneRow() {
+        val selected = channel("s0000")
+
+        assertEquals(
+            selected,
+            selectedLocationChannelOutsideNearby(ChannelID.Location(selected), emptyList())
+        )
+    }
+
+    @Test
+    fun manualGeohashLevelFollowsLength() {
+        assertEquals(
+            GeohashChannel(GeohashChannelLevel.NEIGHBORHOOD, "s00000"),
+            channelForManualGeohash("#s00000")
+        )
+        assertEquals(
+            GeohashChannel(GeohashChannelLevel.BLOCK, "bbbbbbb"),
+            channelForManualGeohash("bbbbbbb")
+        )
+        assertEquals(
+            GeohashChannel(GeohashChannelLevel.BUILDING, "s0000000"),
+            channelForManualGeohash("S0000000")
+        )
+        assertEquals(
+            GeohashChannel(GeohashChannelLevel.CITY, "zzzzz"),
+            channelForManualGeohash("zzzzz")
+        )
+    }
+
+    @Test
+    fun manualGeohashRejectsEmptyAndTooLong() {
+        assertNull(channelForManualGeohash(""))
+        assertNull(channelForManualGeohash(" # "))
+        assertNull(channelForManualGeohash("s000000000000"))
+    }
+
     private fun channel(geohash: String) = GeohashChannel(
         level = GeohashChannelLevel.CITY,
         geohash = geohash
