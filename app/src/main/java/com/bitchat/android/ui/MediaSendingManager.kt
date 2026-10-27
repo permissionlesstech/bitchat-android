@@ -212,6 +212,74 @@ class MediaSendingManager(
     }
 
     /**
+     * Send an MP4 video (already sized to [com.bitchat.android.features.video.LiveVideoLimits]).
+     */
+    fun sendVideoNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
+        scope.launch {
+            sendVideoNoteAsync(toPeerIDOrNull, channelOrNull, filePath)
+        }
+    }
+
+    private suspend fun sendVideoNoteAsync(
+        toPeerIDOrNull: String?,
+        channelOrNull: String?,
+        filePath: String
+    ) {
+        try {
+            val filePacket = withContext(mediaWorkDispatcher) {
+                val file = java.io.File(filePath)
+                if (!file.exists()) {
+                    Log.e(TAG, "Video file does not exist")
+                    return@withContext null
+                }
+                if (rejectIfOversized(file, toPeerIDOrNull, channelOrNull)) {
+                    return@withContext null
+                }
+                BitchatFilePacket(
+                    fileName = file.name,
+                    fileSize = file.length(),
+                    mimeType = "video/mp4",
+                    content = file.readBytes()
+                )
+            } ?: return
+
+            if (toPeerIDOrNull != null) {
+                sendPrivateFile(toPeerIDOrNull, filePacket, filePath, BitchatMessageType.Video)
+            } else {
+                sendPublicFile(channelOrNull, filePacket, filePath, BitchatMessageType.Video)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Video send failed: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Shows the sender's own recording of a live stream that is too large to resend reliably;
+     * viewers keep the copy they reconstructed from the live packets.
+     */
+    fun addLocalVideoMessage(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
+        val message = BitchatMessage(
+            id = UUID.randomUUID().toString().uppercase(),
+            sender = state.getNicknameValue() ?: meshService.myPeerID,
+            content = filePath,
+            type = BitchatMessageType.Video,
+            timestamp = Date(),
+            isRelay = false,
+            isPrivate = toPeerIDOrNull != null,
+            recipientNickname = toPeerIDOrNull?.let { peer ->
+                runCatching { meshService.getPeerNicknames()[peer] }.getOrNull()
+            },
+            senderPeerID = meshService.myPeerID,
+            channel = channelOrNull
+        )
+        when {
+            toPeerIDOrNull != null -> messageManager.addPrivateMessageNoUnread(toPeerIDOrNull, message)
+            !channelOrNull.isNullOrBlank() -> channelManager.addChannelMessage(channelOrNull, message, meshService.myPeerID)
+            else -> messageManager.addMessage(message)
+        }
+    }
+
+    /**
      * Send a generic file
      */
     fun sendFileNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
@@ -270,6 +338,7 @@ class MediaSendingManager(
             val messageType = when {
                 filePacket.mimeType.lowercase().startsWith("image/") -> BitchatMessageType.Image
                 filePacket.mimeType.lowercase().startsWith("audio/") -> BitchatMessageType.Audio
+                filePacket.mimeType.lowercase() == "video/mp4" -> BitchatMessageType.Video
                 else -> BitchatMessageType.File
             }
 

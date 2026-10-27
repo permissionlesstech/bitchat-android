@@ -64,15 +64,27 @@ class PacketRelayManager(private val myPeerID: String) {
         // Decrement TTL by 1
         val networkSize = delegate?.getNetworkSize() ?: 1
         val decrementedTtl = (packet.ttl - 1u).toUByte()
-        val voiceTtl = if (
-            MessageType.fromValue(packet.type) == MessageType.VOICE_FRAME && networkSize > 6
-        ) minOf(decrementedTtl, 5u.toUByte()) else decrementedTtl
-        val relayPacket = packet.copy(ttl = voiceTtl)
-        Log.d(TAG, "Decremented TTL from ${packet.ttl} to ${relayPacket.ttl}")
-        if (MessageType.fromValue(packet.type) == MessageType.VOICE_FRAME) {
-            delay(Random.nextLong(8L, 26L))
+        val isLiveMedia = MessageType.fromValue(packet.type).let {
+            it == MessageType.VOICE_FRAME || it == MessageType.VIDEO_FRAME
         }
-        
+        val liveTtl = if (isLiveMedia && networkSize > 6) minOf(decrementedTtl, 5u.toUByte()) else decrementedTtl
+        val relayPacket = packet.copy(ttl = liveTtl)
+        Log.d(TAG, "Decremented TTL from ${packet.ttl} to ${relayPacket.ttl}")
+        if (isLiveMedia) {
+            // Jitter desynchronizes neighbors relaying the same frame. It runs off the caller's
+            // per-peer worker: sleeping there would cap a live stream at ~50 packets/s per hop
+            // and queue every later packet from that peer behind the sleep.
+            relayScope.launch {
+                delay(Random.nextLong(8L, 26L))
+                forward(routed, relayPacket, peerID, networkSize)
+            }
+            return
+        }
+        forward(routed, relayPacket, peerID, networkSize)
+    }
+
+    private suspend fun forward(routed: RoutedPacket, relayPacket: BitchatPacket, peerID: String, networkSize: Int) {
+        val packet = routed.packet
         // Source-based routing: if route is set and includes us, try targeted next-hop forwarding
         val route = relayPacket.route
         if (!route.isNullOrEmpty()) {

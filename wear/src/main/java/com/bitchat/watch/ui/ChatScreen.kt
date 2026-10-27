@@ -271,7 +271,8 @@ fun MessageItem(
                 path = message.content.trim(),
                 messageID = message.id
             )
-            BitchatMessageType.File -> {
+            // The watch has no video player; a video reads as an attachment chip.
+            BitchatMessageType.File, BitchatMessageType.Video -> {
                 val path = message.content.trim()
                 val file = remember(path) { File(path) }
                 val sizeBytes = remember(path) { file.length() }

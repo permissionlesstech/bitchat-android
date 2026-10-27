@@ -40,7 +40,7 @@ produces for the type. Only media-carrying types keep the framed-file ceiling.
 | courier envelope, Nostr carrier | `0x04`, `0x28` | 64 KiB |
 | `REQUEST_SYNC` | `0x21` | 8 KiB |
 | `FRAGMENT` | `0x20` | 1,280 B |
-| `ANNOUNCE`, `LEAVE`, `NOISE_HANDSHAKE`, `VOICE_FRAME`, board post, prekey bundle, ping, pong | `0x01`, `0x03`, `0x10`, `0x29`, `0x23`, `0x24`, `0x26`, `0x27` | 4 KiB |
+| `ANNOUNCE`, `LEAVE`, `NOISE_HANDSHAKE`, `VOICE_FRAME`, `VIDEO_FRAME`, board post, prekey bundle, ping, pong | `0x01`, `0x03`, `0x10`, `0x29`, `0x2D`, `0x23`, `0x24`, `0x26`, `0x27` | 4 KiB |
 | Any other value | | 128 KiB (a v1 frame stays relayable) |
 
 Types marked by name only (group message, courier envelope, Nostr carrier,

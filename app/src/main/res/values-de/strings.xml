@@ -285,10 +285,12 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">Bild</string>
     <string name="media_type_file">Datei</string>
+    <string name="media_type_video">Video</string>
 
     <!-- Benachrichtigungs‑Text‑Helfer -->
     <string name="notification_sent_image">📷 hat ein Bild gesendet</string>
     <string name="notification_sent_voice">🎤 hat eine Sprachnachricht gesendet</string>
+    <string name="notification_sent_video">🎥 hat ein Video gesendet</string>
     <string name="notification_sent_file">📎 hat eine Datei gesendet</string>
 
     <!-- Sprachplayer Barrierefreiheit -->
@@ -403,4 +405,45 @@
     <string name="cd_show_whole_globe">Ganzen Globus anzeigen</string>
     <string name="cd_globe_activity">%1$d aktive Chats, %2$d Personen online</string>
     <string name="cd_channel_activity">%1$d Personen, %2$d Nachrichten in der letzten Stunde</string>
+
+    <!-- Live video and video messages -->
+    <string name="video_live_badge">LIVE</string>
+    <string name="video_joining_live">Verbinde mit Live-Video…</string>
+    <string name="video_weak_signal">Schwaches Signal</string>
+    <string name="video_weak_signal_reconnecting">Schwaches Signal · holt auf</string>
+    <string name="video_reconnecting">Verbindung wird wiederhergestellt…</string>
+    <string name="video_live_ended">Live-Video beendet</string>
+    <string name="video_live_ended_by">%1$s hat den Stream beendet</string>
+    <string name="video_watch_replay">Aufzeichnung ansehen</string>
+    <string name="video_live_rate">%1$.1f kbps über das Mesh</string>
+    <string name="video_unavailable">Video nicht verfügbar</string>
+    <string name="video_too_short">Video zu kurz</string>
+    <string name="video_prepare_failed">Dieses Video konnte nicht für das Mesh vorbereitet werden</string>
+    <string name="video_camera_failed">Kamera oder Video-Encoder nicht verfügbar</string>
+    <string name="video_trimmed">Langes Video auf die erste Minute gekürzt</string>
+    <string name="video_camera_permission">Für Aufnahmen oder Live-Übertragungen wird Kamerazugriff benötigt</string>
+    <string name="video_grant_camera">Kamera erlauben</string>
+    <string name="video_compressing">Wird für das Mesh komprimiert…</string>
+    <string name="video_finishing">Wird abgeschlossen…</string>
+    <string name="video_end_live_title">Live-Video beenden?</string>
+    <string name="video_end_live_message">Zuschauer behalten, was sie empfangen haben. Die Aufnahme wird im Chat geteilt.</string>
+    <string name="video_end_live_confirm">Beenden</string>
+    <string name="video_uplink">↑ %1$.1f kbps · %2$s</string>
+    <string name="video_mode_live">LIVE</string>
+    <string name="video_mode_clip">VIDEO</string>
+    <string name="video_live_unavailable">Live benötigt einen Mesh-Peer in der Nähe (oder eine verschlüsselte Sitzung in einer Direktnachricht)</string>
+    <string name="video_quality_low">Niedrig</string>
+    <string name="video_quality_medium">Mittel</string>
+    <string name="video_quality_high">Hoch</string>
+    <string name="video_quality_low_hint">Am besten für Bluetooth und viele Hops</string>
+    <string name="video_quality_medium_hint">Ein oder zwei Bluetooth-Hops</string>
+    <string name="video_quality_high_hint">Nur Wi-Fi Aware-Peers</string>
+    <string name="cd_live_video">Live-Video</string>
+    <string name="cd_video">Video</string>
+    <string name="cd_play_video">Video abspielen</string>
+    <string name="cd_pause_video">Video pausieren</string>
+    <string name="cd_mute">Stummschalten</string>
+    <string name="cd_unmute">Stummschaltung aufheben</string>
+    <string name="cd_switch_camera">Kamera wechseln</string>
+    <string name="cd_pick_video">Video auswählen</string>
 </resources>

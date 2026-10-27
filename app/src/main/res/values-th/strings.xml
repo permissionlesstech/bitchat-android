@@ -285,10 +285,12 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">รูปภาพ</string>
     <string name="media_type_file">ไฟล์</string>
+    <string name="media_type_video">วิดีโอ</string>
 
     <!-- ตัวช่วยข้อความการแจ้งเตือน -->
     <string name="notification_sent_image">📷 ส่งรูปภาพแล้ว</string>
     <string name="notification_sent_voice">🎤 ส่งบันทึกเสียงแล้ว</string>
+    <string name="notification_sent_video">🎥 ส่งวิดีโอแล้ว</string>
     <string name="notification_sent_file">📎 ส่งไฟล์แล้ว</string>
 
     <!-- การช่วยสำหรับการเข้าถึงของเครื่องเล่นเสียง -->
@@ -389,4 +391,45 @@
     <string name="cd_show_whole_globe">แสดงลูกโลกทั้งใบ</string>
     <string name="cd_globe_activity">แชทที่ใช้งานอยู่ %1$d รายการ ออนไลน์ %2$d คน</string>
     <string name="cd_channel_activity">%1$d คน ข้อความ %2$d รายการในชั่วโมงที่ผ่านมา</string>
+
+    <!-- Live video and video messages -->
+    <string name="video_live_badge">สด</string>
+    <string name="video_joining_live">กำลังเข้าร่วมไลฟ์…</string>
+    <string name="video_weak_signal">สัญญาณอ่อน</string>
+    <string name="video_weak_signal_reconnecting">สัญญาณอ่อน · กำลังตามให้ทัน</string>
+    <string name="video_reconnecting">กำลังเชื่อมต่อใหม่…</string>
+    <string name="video_live_ended">ไลฟ์วิดีโอสิ้นสุดแล้ว</string>
+    <string name="video_live_ended_by">%1$s สิ้นสุดการสตรีมแล้ว</string>
+    <string name="video_watch_replay">ดูย้อนหลัง</string>
+    <string name="video_live_rate">%1$.1f kbps ผ่าน mesh</string>
+    <string name="video_unavailable">วิดีโอไม่พร้อมใช้งาน</string>
+    <string name="video_too_short">วิดีโอสั้นเกินไป</string>
+    <string name="video_prepare_failed">ไม่สามารถเตรียมวิดีโอนี้สำหรับ mesh ได้</string>
+    <string name="video_camera_failed">กล้องหรือตัวเข้ารหัสวิดีโอไม่พร้อมใช้งาน</string>
+    <string name="video_trimmed">ตัดวิดีโอยาวให้เหลือนาทีแรก</string>
+    <string name="video_camera_permission">ต้องใช้สิทธิ์เข้าถึงกล้องเพื่อบันทึกหรือไลฟ์</string>
+    <string name="video_grant_camera">อนุญาตกล้อง</string>
+    <string name="video_compressing">กำลังบีบอัดสำหรับ mesh…</string>
+    <string name="video_finishing">กำลังเสร็จสิ้น…</string>
+    <string name="video_end_live_title">สิ้นสุดไลฟ์วิดีโอไหม?</string>
+    <string name="video_end_live_message">ผู้ชมจะเก็บสิ่งที่ได้รับไว้ การบันทึกจะถูกแชร์ในแชท</string>
+    <string name="video_end_live_confirm">สิ้นสุด</string>
+    <string name="video_uplink">↑ %1$.1f kbps · %2$s</string>
+    <string name="video_mode_live">สด</string>
+    <string name="video_mode_clip">วิดีโอ</string>
+    <string name="video_live_unavailable">ไลฟ์ต้องมีเพียร์ mesh อยู่ใกล้ๆ (หรือเซสชันที่เข้ารหัสในข้อความส่วนตัว)</string>
+    <string name="video_quality_low">ต่ำ</string>
+    <string name="video_quality_medium">กลาง</string>
+    <string name="video_quality_high">สูง</string>
+    <string name="video_quality_low_hint">ดีที่สุดสำหรับ Bluetooth และหลายฮอป</string>
+    <string name="video_quality_medium_hint">Bluetooth หนึ่งหรือสองฮอป</string>
+    <string name="video_quality_high_hint">เฉพาะเพียร์ Wi-Fi Aware</string>
+    <string name="cd_live_video">ไลฟ์วิดีโอ</string>
+    <string name="cd_video">วิดีโอ</string>
+    <string name="cd_play_video">เล่นวิดีโอ</string>
+    <string name="cd_pause_video">หยุดวิดีโอชั่วคราว</string>
+    <string name="cd_mute">ปิดเสียง</string>
+    <string name="cd_unmute">เปิดเสียง</string>
+    <string name="cd_switch_camera">สลับกล้อง</string>
+    <string name="cd_pick_video">เลือกวิดีโอ</string>
 </resources>

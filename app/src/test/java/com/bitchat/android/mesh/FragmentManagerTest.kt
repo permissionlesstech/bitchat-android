@@ -391,4 +391,37 @@ class FragmentManagerTest {
 
         assertCompletes(original, fragments.last())
     }
+
+    @Test
+    fun `large signed frame whose signature looks like padding survives reassembly`() {
+        // Frames beyond the largest padding block are sent unpadded. A signature ending in bytes
+        // that form valid PKCS#7 padding (here 0x02 0x02) must not be stripped before fragmenting.
+        val payload = ByteArray(36_000).also { Random(7).nextBytes(it) }
+        val signature = ByteArray(64) { 0x11 }.also {
+            it[62] = 0x02
+            it[63] = 0x02
+        }
+        val packet = BitchatPacket(
+            version = 1u,
+            type = MessageType.FILE_TRANSFER.value,
+            senderID = hexStringToByteArray(senderID),
+            recipientID = ByteArray(8) { 0xFF.toByte() },
+            timestamp = 1_700_000_000_000uL,
+            payload = payload,
+            signature = signature,
+            ttl = 7u
+        )
+
+        val fragments = fragmentManager.createFragments(packet, 256)
+        assertTrue(fragments.size > 1)
+        var reassembled: BitchatPacket? = null
+        fragments.forEach { fragment ->
+            val wire = BitchatPacket.fromBinaryData(fragment.toBinaryData()!!)!!
+            fragmentManager.handleFragment(wire)?.let { reassembled = it }
+        }
+
+        assertNotNull(reassembled)
+        assertTrue(reassembled!!.payload.contentEquals(payload))
+        assertTrue(reassembled!!.signature!!.contentEquals(signature))
+    }
 }
