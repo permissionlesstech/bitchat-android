@@ -276,8 +276,8 @@ internal fun previewLocationChannelsUiState(): LocationChannelsUiState {
             participantCounts = mapOf("s0000" to 4, "s000000" to 1),
             notesRevealed = true,
             noteCount = 2,
+            bookmarks = listOf("s0000"),
         ),
-        isBookmarked = { it == "s0000" },
         torAvailable = true,
     )
 }
@@ -290,7 +290,6 @@ internal fun previewLocationOffUiState(): LocationChannelsUiState = locationChan
         permissionState = PermissionState.DENIED,
         torMode = TorMode.OFF,
     ),
-    isBookmarked = { false },
     torAvailable = true,
 )
 
@@ -305,7 +304,6 @@ internal fun previewTeleportedUiState(): LocationChannelsUiState {
             bookmarkNames = mapOf("bbbbbbb" to "Synthetic Block"),
             participantCounts = mapOf("s00000" to 3),
         ),
-        isBookmarked = { it in bookmarks },
         torAvailable = true,
     )
 }

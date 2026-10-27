@@ -136,15 +136,16 @@ internal data class LocationChannelsSnapshot(
 )
 
 /**
- * B11 from [snapshot]. [isBookmarked] is the store's non-snapshot lookup (Q-L5); it is read each
- * time the state is rebuilt, which includes every bookmarks change, as recomposing read it.
+ * B11 from [snapshot]. Bookmark flags come from the snapshot's bookmarks list, not the store's
+ * separate membership lookup, so the state never reads the store off the main thread (Q-L5).
  */
 internal fun locationChannelsUiState(
     snapshot: LocationChannelsSnapshot,
-    isBookmarked: (String) -> Boolean,
     torAvailable: Boolean,
 ): LocationChannelsUiState = with(snapshot) {
     val nearbyChannels = nearbyChannelsOf(availableChannels)
+    val bookmarkSet = bookmarks.toSet()
+    val isBookmarked: (String) -> Boolean = { it in bookmarkSet }
     LocationChannelsUiState(
         mesh = meshRow(meshPeopleCount, wifiAwareEnabled, selectedChannel),
         teleported = teleportedRow(

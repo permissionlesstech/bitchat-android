@@ -420,7 +420,6 @@ class LocationChannelsViewModelTest {
         location.selectedChannel.value = ChannelID.Location(selected)
         location.permissionState.value = PermissionState.DENIED
         bookmarks.bookmarks.value = listOf("s00000")
-        bookmarks.stored += "s00000"
         bookmarks.bookmarkNames.value = mapOf("s00000" to "Synthetic Block")
         session.participantCounts.value = mapOf("s00000" to 2)
         session.connectedPeers.value = listOf(MY_PEER_ID, PEER_ID)
@@ -467,6 +466,28 @@ class LocationChannelsViewModelTest {
         assertEquals(NotesSubtitle.Reveal, state.notesSubtitle)
         gate.revealed.value = true
         assertEquals(NotesSubtitle.NoRelays, viewModel.uiState.value.notesSubtitle)
+    }
+
+    /**
+     * Q-L5, fixed: the bookmark icons on the nearby and teleported rows follow the bookmarks
+     * list itself, not the store's separate membership lookup (now no longer read at all).
+     */
+    @Test
+    fun bookmarkFlags_followTheBookmarksList() = runTest(dispatcher) {
+        val teleported = GeohashChannel(NEIGHBORHOOD, "s00000")
+        location.availableChannels.value = listOf(GeohashChannel(CITY, "s0000"))
+        location.selectedChannel.value = ChannelID.Location(teleported)
+        bookmarks.bookmarks.value = listOf("s0000")
+        val viewModel = newViewModel()
+        collectState(viewModel)
+
+        assertEquals(listOf(true), viewModel.uiState.value.nearby.rows.map { it.isBookmarked })
+        assertFalse(viewModel.uiState.value.teleported!!.isBookmarked)
+
+        bookmarks.bookmarks.value = listOf("s00000")
+
+        assertEquals(listOf(false), viewModel.uiState.value.nearby.rows.map { it.isBookmarked })
+        assertTrue(viewModel.uiState.value.teleported!!.isBookmarked)
     }
 
     private fun note(id: String) = LocationNotesManager.Note(
@@ -539,8 +560,6 @@ class LocationChannelsViewModelTest {
     private class FakeBookmarks(private val calls: MutableList<String>) : ChannelBookmarks {
         override val bookmarks = MutableStateFlow<List<String>>(emptyList())
         override val bookmarkNames = MutableStateFlow<Map<String, String>>(emptyMap())
-        val stored = mutableSetOf<String>()
-        override fun isBookmarked(geohash: String) = geohash in stored
         override fun toggle(geohash: String) { calls += "toggle($geohash)" }
         override fun resolveNameIfNeeded(geohash: String) { calls += "resolveNameIfNeeded($geohash)" }
     }

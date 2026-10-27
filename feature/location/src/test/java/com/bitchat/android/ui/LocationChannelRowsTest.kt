@@ -251,9 +251,8 @@ class LocationChannelRowsTest {
     }
 
     @Test
-    fun nearbyBookmarkFlag_comesFromTheStoreLookup_currentBehaviour_QL5() {
-        // There is no bookmarks snapshot input: the flag is whatever the store's lookup says, per
-        // geohash, when the rows are built.
+    fun bookmarkFlags_comeFromTheLookupPerGeohash() {
+        // The rows ask the lookup per geohash; the screen's lookup is the bookmarks snapshot (Q-L5).
         val stored = mutableSetOf("s0000")
         val asked = mutableListOf<String>()
         val lookup: (String) -> Boolean = { geohash -> asked += geohash; geohash in stored }

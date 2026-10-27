@@ -17,9 +17,6 @@ import kotlinx.coroutines.flow.StateFlow
 interface ChannelBookmarks {
     val bookmarks: StateFlow<List<String>>
     val bookmarkNames: StateFlow<Map<String, String>>
-
-    /** The store's own membership set: not a snapshot of [bookmarks] (Q-L5). */
-    fun isBookmarked(geohash: String): Boolean
     fun toggle(geohash: String)
 
     /** Starts a name lookup for [geohash] on the store's own scope, once (Q-L15). */
@@ -40,7 +37,6 @@ internal class StoreChannelBookmarks @Inject constructor(
     override val bookmarks: StateFlow<List<String>> get() = store.bookmarks
     override val bookmarkNames: StateFlow<Map<String, String>> get() = store.bookmarkNames
 
-    override fun isBookmarked(geohash: String): Boolean = store.isBookmarked(geohash)
     override fun toggle(geohash: String) = store.toggle(geohash)
     override fun resolveNameIfNeeded(geohash: String) = store.resolveNameIfNeeded(geohash)
 }

@@ -111,8 +111,8 @@ private fun hashRowSubtitle(geohash: String, level: GeohashChannelLevel, name: S
 
 /**
  * L6: the teleported card, shown when the selected location channel has no nearby row (L2).
- * Always selected. [isBookmarked] is the store's non-snapshot lookup (Q-L5). A bookmarked
- * teleported channel also gets a bookmark row (Q-L6).
+ * Always selected. [isBookmarked] answers per geohash; the screen passes the bookmarks
+ * snapshot (Q-L5). A bookmarked teleported channel also gets a bookmark row (Q-L6).
  */
 internal fun teleportedRow(
     selectedChannel: ChannelID?,
@@ -194,7 +194,8 @@ internal data class NearbyUi(
 
 /**
  * L3, L9: rows for [nearbyChannels] (L1) and the loading flag. The screen shows either only when
- * effective location is on. [isBookmarked] is the store's non-snapshot lookup (Q-L5).
+ * effective location is on. [isBookmarked] answers per geohash; the screen passes the bookmarks
+ * snapshot (Q-L5).
  */
 internal fun buildNearbyRows(
     nearbyChannels: List<GeohashChannel>,

@@ -127,7 +127,6 @@ class LocationChannelsScreenTest {
     private class InertBookmarks : ChannelBookmarks {
         override val bookmarks = MutableStateFlow(emptyList<String>())
         override val bookmarkNames = MutableStateFlow(emptyMap<String, String>())
-        override fun isBookmarked(geohash: String) = false
         override fun toggle(geohash: String) = Unit
         override fun resolveNameIfNeeded(geohash: String) = Unit
     }

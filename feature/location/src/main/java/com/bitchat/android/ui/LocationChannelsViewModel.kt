@@ -231,7 +231,7 @@ class LocationChannelsViewModel internal constructor(
     }
 
     private fun buildUiState(snapshot: LocationChannelsSnapshot): LocationChannelsUiState =
-        locationChannelsUiState(snapshot, bookmarks::isBookmarked, torAvailable)
+        locationChannelsUiState(snapshot, torAvailable)
 
     private fun meshPeopleCount(peers: List<String>): Int =
         meshPeopleCountOf(peers, session.myPeerID)
