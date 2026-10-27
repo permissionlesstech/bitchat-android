@@ -43,6 +43,22 @@ class GlobeFlightTest {
     }
 
     @Test
+    fun anyArc_landsOnTheTargetWithoutASnap() {
+        for (arc in listOf(0.05, 0.4, 1.3, 2.5)) {
+            val flight = GlobeFlight(arc, globeWidth, blockWidth)
+            var previous = 0.0
+            for (i in 1 until 1000) {
+                val (fraction, _) = flight.at(i / 1000.0)
+                assertTrue("arc $arc went backwards", fraction >= previous - 1e-9)
+                previous = fraction
+            }
+            // Just before the end the pan is complete, so the final frame has nothing to snap.
+            assertEquals("arc $arc", 1.0, flight.at(1 - 1e-9).first, 1e-6)
+            assertEquals("arc $arc", blockWidth, flight.at(1 - 1e-9).second, 1e-9)
+        }
+    }
+
+    @Test
     fun linearPanWithExponentialZoom_racedAtTheEnd() {
         // The old path: just before landing the target was still many screens away.
         val t = 0.99

@@ -57,9 +57,10 @@ internal class GlobeFlight(
         val s = t * length
         if (!panning) return t to startWidth * exp(rho * s)
         val coshR0 = cosh(r0)
-        val u = startWidth / (rho * rho * distance) * (coshR0 * tanh(rho * s + r0) - sinh(r0))
+        // The curve's position is w0 / rho² · (…); dividing by distance as well yields the fraction.
+        val fraction = startWidth / (rho * rho * distance) * (coshR0 * tanh(rho * s + r0) - sinh(r0))
         val w = startWidth * coshR0 / cosh(rho * s + r0)
-        return (u / distance).coerceIn(0.0, 1.0) to w
+        return fraction.coerceIn(0.0, 1.0) to w
     }
 
     companion object {
