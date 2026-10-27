@@ -5,7 +5,7 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -14,54 +14,22 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.ui.theme.colorForPeer
 import com.bitchat.android.feature.chat.R
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 
 /**
- * Geohash people list — card groups matching location / settings sheet rows.
+ * Geohash people list — card groups matching location / settings sheet rows (P26-P33).
  */
-
 @Composable
-internal fun GeohashPeopleList(
-    viewModel: MeshPeerListViewModel,
-    lookups: PeerListLookups,
+internal fun GeohashPeopleSection(
+    people: GeohashPeopleUi,
+    onAction: (MeshPeerListAction) -> Unit,
     modifier: Modifier = Modifier,
-    excludedIdentityAliases: Set<String> = emptySet()
 ) {
-    val geohashPeople by viewModel.geohashPeople.collectAsStateWithLifecycle()
-    val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
-    val isTeleported by viewModel.isTeleported.collectAsStateWithLifecycle()
-    val teleportedGeo by viewModel.teleportedGeo.collectAsStateWithLifecycle()
-    val nickname by viewModel.nickname.collectAsStateWithLifecycle()
-    val unreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsStateWithLifecycle()
-
     val palette = LocalBitchatPalette.current
     val colorScheme = MaterialTheme.colorScheme
-    val myHex = remember(selectedLocationChannel) {
-        myGeohashHex(selectedLocationChannel, lookups)
-    }
-    val people = remember(
-        geohashPeople,
-        myHex,
-        nickname,
-        isTeleported,
-        teleportedGeo,
-        unreadPrivateMessages,
-        excludedIdentityAliases
-    ) {
-        buildGeohashPeopleRows(
-            geohashPeople = geohashPeople,
-            myHex = myHex,
-            nickname = nickname,
-            isTeleported = isTeleported,
-            teleportedGeo = teleportedGeo,
-            unreadPrivateMessages = unreadPrivateMessages,
-            excludedIdentityAliases = excludedIdentityAliases
-        )
-    }
 
     Column(modifier = modifier) {
         SheetIconSectionHeader(
@@ -96,8 +64,7 @@ internal fun GeohashPeopleList(
                     row = row,
                     onTap = {
                         if (!row.isMe) {
-                            // Pushes the chat over the list; closing the list here would pop it again.
-                            viewModel.startGeohashDM(row.id)
+                            onAction(MeshPeerListAction.GeohashPersonClicked(row.id))
                         }
                     }
                 )

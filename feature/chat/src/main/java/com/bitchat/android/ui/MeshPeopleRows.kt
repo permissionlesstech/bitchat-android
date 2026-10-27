@@ -253,9 +253,18 @@ internal fun meshPeopleRows(
     }
     val rowKeys: List<String> = sortedPeers +
         offlineFavoriteRows.map { ContactIdentityResolver.noiseKeyHex(it.peerNoisePublicKey) }
+    // Looked up per row; the first favourite wins for a repeated key, as a scan would find it.
+    val connectedPeerSet = sortedPeers.toHashSet()
+    val offlineFavoriteByKey = HashMap<String, FavoriteRelationship>()
+    offlineFavoriteRows.forEach { favorite ->
+        offlineFavoriteByKey.putIfAbsent(
+            ContactIdentityResolver.noiseKeyHex(favorite.peerNoisePublicKey),
+            favorite
+        )
+    }
 
     return rowKeys.map { rowKey ->
-        val connectedPeerForRow = sortedPeers.firstOrNull { it == rowKey }
+        val connectedPeerForRow = rowKey.takeIf { it in connectedPeerSet }
         if (connectedPeerForRow != null) {
             // P21: connected peer.
             val peerID = connectedPeerForRow
@@ -298,9 +307,7 @@ internal fun meshPeopleRows(
             )
         } else {
             // P22: offline favourite, still worth showing, reachable over Nostr.
-            val fav = offlineFavoriteRows.first {
-                ContactIdentityResolver.noiseKeyHex(it.peerNoisePublicKey) == rowKey
-            }
+            val fav = offlineFavoriteByKey.getValue(rowKey)
             val favPeerID = rowKey
 
             val nostrConvKey: String? = try {

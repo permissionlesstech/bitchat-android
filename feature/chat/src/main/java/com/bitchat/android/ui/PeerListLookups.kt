@@ -8,6 +8,10 @@ import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.mesh.PeerInfo
 import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.services.ContactDirectory
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.android.components.ViewModelComponent
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
@@ -18,7 +22,7 @@ import javax.inject.Inject
  * Changes behind these calls do not recompose the list (inventory Q-P14). Tests fake them; the
  * app uses [RealPeerListLookups], which forwards to exactly the calls the list made before.
  */
-internal interface PeerListLookups {
+interface PeerListLookups {
     /** `ContactDirectory.aliasesForConversation`. */
     fun aliasesForConversation(peerOrConversationID: String): Set<String>
 
@@ -62,7 +66,8 @@ internal interface PeerListLookups {
 /**
  * Forwards to today's singletons and session objects. The singletons are read on every call,
  * not captured, so an uninitialised service throws where it threw before. The identity state
- * manager is built once, on first use, instead of once per peer-list composition.
+ * manager is built once, with the adapter, so a failure to build it is as loud as it was in
+ * composition and is not retried per row.
  */
 internal class RealPeerListLookups @Inject constructor(
     @ApplicationContext private val appContext: Context,
@@ -71,7 +76,7 @@ internal class RealPeerListLookups @Inject constructor(
     private val sessionMesh: ChatSessionMesh,
 ) : PeerListLookups {
 
-    private val identityStateManager by lazy { SecureIdentityStateManager(appContext) }
+    private val identityStateManager = SecureIdentityStateManager(appContext)
 
     override fun aliasesForConversation(peerOrConversationID: String): Set<String> =
         ContactDirectory.aliasesForConversation(peerOrConversationID)
@@ -114,4 +119,11 @@ internal class RealPeerListLookups @Inject constructor(
             Log.e("GeohashPeopleList", "Failed to derive identity: ${e.message}")
             null
         }
+}
+
+@Module
+@InstallIn(ViewModelComponent::class)
+internal abstract class PeerListLookupsModule {
+    @Binds
+    abstract fun bindPeerListLookups(impl: RealPeerListLookups): PeerListLookups
 }

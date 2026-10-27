@@ -14,10 +14,11 @@ import com.bitchat.android.navigation.ScreenTransitions
 import com.bitchat.android.navigation.SecurityVerificationRoute
 import com.bitchat.android.navigation.SheetSceneStrategy
 import com.bitchat.android.navigation.VerificationRoute
+import com.bitchat.android.navigation.openPrivateChat
 import com.bitchat.android.ui.ChatScreen
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.ChatUserSheet
-import com.bitchat.android.ui.MeshPeerListScreen
+import com.bitchat.android.ui.MeshPeerListRoot
 import com.bitchat.android.ui.PrivateChatScreen
 import com.bitchat.android.ui.SecurityVerificationSheet
 import com.bitchat.android.ui.VerificationScreen
@@ -56,7 +57,7 @@ object ChatEntriesModule {
             )
         }
         entry<MeshPeerListRoute> {
-            MeshPeerListScreen(
+            MeshPeerListRoot(
                 onBack = { navigator.popTo(MeshPeerListRoute, inclusive = true) },
                 // Pushed over the list, so Back from verification
                 // returns to it.
@@ -64,6 +65,10 @@ object ChatEntriesModule {
                     navigator.goTo(
                         VerificationRoute(chatState.selectedPrivateChatPeer.value)
                     )
+                },
+                // Likewise: Back from the chat returns to the list.
+                onOpenPrivateChat = { conversationID ->
+                    navigator.openPrivateChat(conversationID, over = MeshPeerListRoute)
                 },
             )
         }

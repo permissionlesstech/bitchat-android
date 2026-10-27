@@ -1,121 +1,372 @@
 package com.bitchat.android.ui
 
-import android.content.Context
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.bitchat.android.geohash.ChannelID
-import com.bitchat.android.mesh.PeerInfo
 import com.bitchat.android.model.BitchatMessage
-import com.bitchat.android.navigation.Navigator
-import com.bitchat.android.navigation.MeshPeerListRoute
-import com.bitchat.android.navigation.openPrivateChat
-import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ConversationStoreState
 import com.bitchat.android.services.DeletedPrivateConversation
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
-/**
- * The network view: conversations, channels, and the people nearby on the
- * mesh or in a geohash.
- *
- * Its members keep the names the sheet's composables called on ChatViewModel,
- * so moving the sheet onto it changed only the type they take.
- */
-@HiltViewModel
-class MeshPeerListViewModel @Inject constructor(
-    state: ChatState,
+/** The sources the peer list is built from (inventory A1.1, without the dead `peerRSSI`). */
+internal class PeerListSources(
+    val connectedPeers: StateFlow<List<String>>,
+    val peerNicknames: StateFlow<Map<String, String>>,
+    val peerDirect: StateFlow<Map<String, Boolean>>,
+    val wifiAwareConnected: StateFlow<Map<String, *>>,
+    val selectedPrivateChatPeer: StateFlow<String?>,
+    val nickname: StateFlow<String>,
+    val favoritePeers: StateFlow<Set<String>>,
+    val peerFavoritedUs: StateFlow<Set<String>>,
+    val peerFingerprints: StateFlow<Map<String, String>>,
+    val verifiedFingerprints: StateFlow<Set<String>>,
+    val unreadPrivateMessages: StateFlow<Set<String>>,
+    val privateChats: StateFlow<Map<String, List<BitchatMessage>>>,
+    val conversations: StateFlow<List<ConversationSummary>>,
+    val conversationStoreState: StateFlow<ConversationStoreState>,
+    val joinedChannels: StateFlow<Set<String>>,
+    val currentChannel: StateFlow<String?>,
+    val unreadChannelMessages: StateFlow<Map<String, Int>>,
+    val selectedLocationChannel: StateFlow<ChannelID?>,
+    val geohashPeople: StateFlow<List<GeoPerson>>,
+    val isTeleported: StateFlow<Boolean>,
+    val teleportedGeo: StateFlow<Set<String>>,
+)
+
+/** What the peer list's actions drive (inventory A7). */
+internal interface PeerListCommands {
+    val myPeerID: String
+
+    /** Maps the key to a `nostr_` conversation, then calls [onStartPrivateChat] with it. */
+    fun startGeohashDM(pubkeyHex: String, onStartPrivateChat: (String) -> Unit)
+    fun switchToChannel(channel: String)
+    fun leaveChannel(channel: String)
+
+    /** Sends [content] as a public mesh message. */
+    fun sendMeshMessage(content: String)
+    suspend fun deleteConversation(conversationID: String): DeletedPrivateConversation?
+    suspend fun restoreConversation(deletion: DeletedPrivateConversation): Boolean
+    suspend fun setConversationRead(conversationID: String, isRead: Boolean): Boolean
+    fun toggleConversationPinned(conversationID: String)
+    fun toggleConversationMuted(conversationID: String)
+}
+
+private class SessionPeerListCommands(
     private val sessionMesh: ChatSessionMesh,
     private val channelManager: ChannelManager,
     private val conversationDirectory: ConversationDirectory,
-    private val contactFavorites: ContactFavorites,
-    private val verificationHandler: VerificationHandler,
     private val geohashSession: GeohashSession,
-    private val navigator: Navigator,
-    wifiAwarePeers: WifiAwarePeers,
-) : ViewModel() {
+) : PeerListCommands {
+    override val myPeerID: String get() = sessionMesh.unified.myPeerID
 
-    val connectedPeers: StateFlow<List<String>> = state.connectedPeers
-    val joinedChannels: StateFlow<Set<String>> = state.joinedChannels
-    val currentChannel: StateFlow<String?> = state.currentChannel
-    val selectedPrivateChatPeer: StateFlow<String?> = state.selectedPrivateChatPeer
-    val nickname: StateFlow<String> = state.nickname
-    val unreadChannelMessages: StateFlow<Map<String, Int>> = state.unreadChannelMessages
-    val unreadPrivateMessages: StateFlow<Set<String>> = state.unreadPrivateMessages
-    val peerNicknames: StateFlow<Map<String, String>> = state.peerNicknames
-    val peerRSSI: StateFlow<Map<String, Int>> = state.peerRSSI
-    val peerDirect: StateFlow<Map<String, Boolean>> = state.peerDirect
-    val favoritePeers: StateFlow<Set<String>> = state.favoritePeers
-    val peerFavoritedUs: StateFlow<Set<String>> = state.peerFavoritedUs
-    val peerFingerprints: StateFlow<Map<String, String>> = state.peerFingerprints
-    val privateChats: StateFlow<Map<String, List<BitchatMessage>>> = state.privateChats
-    val selectedLocationChannel: StateFlow<ChannelID?> = state.selectedLocationChannel
-    val geohashPeople: StateFlow<List<GeoPerson>> = geohashSession.geohashPeople
-    val isTeleported: StateFlow<Boolean> = state.isTeleported
-    val teleportedGeo: StateFlow<Set<String>> = geohashSession.teleportedGeo
-    val verifiedFingerprints: StateFlow<Set<String>> = verificationHandler.verifiedFingerprints
-    val wifiAwareConnected: StateFlow<Map<String, *>> = wifiAwarePeers.connected
-    internal val conversations: StateFlow<List<ConversationSummary>> =
-        conversationDirectory.conversations
-    val conversationStoreState: StateFlow<ConversationStoreState> =
-        conversationDirectory.conversationStoreState
+    override fun startGeohashDM(pubkeyHex: String, onStartPrivateChat: (String) -> Unit) =
+        geohashSession.startGeohashDM(pubkeyHex, onStartPrivateChat)
 
-    val myPeerID: String
-        get() = sessionMesh.unified.myPeerID
-
-    fun getMeshPeerInfo(peerID: String): PeerInfo? = sessionMesh.unified.getPeerInfo(peerID)
-
-    fun peerIdentityForMeshPeer(peerID: String): PeerIdentity = PeerIdentity.mesh(peerID)
-
-    fun peerIdentityForNostrPubkey(pubkeyHex: String): PeerIdentity =
-        geohashSession.peerIdentityForNostrPubkey(pubkeyHex)
-
-    fun isFavorite(peerID: String): Boolean = contactFavorites.isFavorite(peerID)
-
-    fun isPeerVerified(peerID: String, verifiedFingerprints: Set<String>): Boolean {
-        if (peerID.startsWith("nostr_") || peerID.startsWith("nostr:")) return false
-        val fingerprint = verificationHandler.getPeerFingerprintForDisplay(peerID)
-        return fingerprint != null && verifiedFingerprints.contains(fingerprint)
+    override fun switchToChannel(channel: String) = channelManager.switchToChannel(channel)
+    override fun leaveChannel(channel: String) = channelManager.leaveChannel(channel)
+    override fun sendMeshMessage(content: String) {
+        sessionMesh.unified.sendMessage(content, emptyList(), null)
     }
 
-    fun isNoisePublicKeyVerified(noisePublicKey: ByteArray, verifiedFingerprints: Set<String>): Boolean =
-        verifiedFingerprints.contains(verificationHandler.fingerprintFromNoiseBytes(noisePublicKey))
+    override suspend fun deleteConversation(conversationID: String) =
+        conversationDirectory.delete(conversationID)
 
-    /** The list's non-snapshot reads, over this ViewModel's collaborators. */
-    internal fun peerListLookups(appContext: Context): PeerListLookups =
-        RealPeerListLookups(appContext, contactFavorites, verificationHandler, sessionMesh)
+    override suspend fun restoreConversation(deletion: DeletedPrivateConversation) =
+        conversationDirectory.restore(deletion)
+
+    override suspend fun setConversationRead(conversationID: String, isRead: Boolean) =
+        conversationDirectory.setRead(conversationID, isRead)
+
+    override fun toggleConversationPinned(conversationID: String) =
+        conversationDirectory.togglePinned(conversationID)
+
+    override fun toggleConversationMuted(conversationID: String) =
+        conversationDirectory.toggleMuted(conversationID)
+}
+
+/**
+ * The network view: conversations, channels, and the people nearby on the mesh or in a
+ * geohash. Entry-scoped.
+ *
+ * [uiState] is rebuilt off the main thread whenever any source or the search text changes;
+ * the rows' non-snapshot lookups (Q-P14) are read then, as recomposing the list read them.
+ */
+@HiltViewModel
+class MeshPeerListViewModel internal constructor(
+    private val sources: PeerListSources,
+    private val commands: PeerListCommands,
+    private val lookups: PeerListLookups,
+    /** Keeps the search text, as the field's saveable state did. */
+    private val savedState: SavedStateHandle,
+    /** Where the list is built; tests pass their own dispatcher. */
+    defaultDispatcher: CoroutineDispatcher,
+) : ViewModel() {
+
+    @Inject
+    constructor(
+        state: ChatState,
+        sessionMesh: ChatSessionMesh,
+        channelManager: ChannelManager,
+        conversationDirectory: ConversationDirectory,
+        verificationHandler: VerificationHandler,
+        geohashSession: GeohashSession,
+        wifiAwarePeers: WifiAwarePeers,
+        lookups: PeerListLookups,
+        savedState: SavedStateHandle,
+    ) : this(
+        sources = PeerListSources(
+            connectedPeers = state.connectedPeers,
+            peerNicknames = state.peerNicknames,
+            peerDirect = state.peerDirect,
+            wifiAwareConnected = wifiAwarePeers.connected,
+            selectedPrivateChatPeer = state.selectedPrivateChatPeer,
+            nickname = state.nickname,
+            favoritePeers = state.favoritePeers,
+            peerFavoritedUs = state.peerFavoritedUs,
+            peerFingerprints = state.peerFingerprints,
+            verifiedFingerprints = verificationHandler.verifiedFingerprints,
+            unreadPrivateMessages = state.unreadPrivateMessages,
+            privateChats = state.privateChats,
+            conversations = conversationDirectory.conversations,
+            conversationStoreState = conversationDirectory.conversationStoreState,
+            joinedChannels = state.joinedChannels,
+            currentChannel = state.currentChannel,
+            unreadChannelMessages = state.unreadChannelMessages,
+            selectedLocationChannel = state.selectedLocationChannel,
+            geohashPeople = geohashSession.geohashPeople,
+            isTeleported = state.isTeleported,
+            teleportedGeo = geohashSession.teleportedGeo,
+        ),
+        commands = SessionPeerListCommands(
+            sessionMesh,
+            channelManager,
+            conversationDirectory,
+            geohashSession,
+        ),
+        lookups = lookups,
+        savedState = savedState,
+        defaultDispatcher = Dispatchers.Default,
+    )
+
+    private val query: StateFlow<String> = savedState.getStateFlow(QUERY_KEY, "")
+
+    private val _events = Channel<MeshPeerListEvent>(Channel.BUFFERED)
+    internal val events: Flow<MeshPeerListEvent> = _events.receiveAsFlow()
+
+    internal val uiState: StateFlow<MeshPeerListUiState> = combine(
+        snapshots().map { meshPeerListUiState(it, { commands.myPeerID }, lookups) }
+            .flowOn(defaultDispatcher),
+        query,
+    ) { state, query ->
+        // The field shows the latest text at once; the rows follow when they are rebuilt.
+        state.copy(query = query)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = meshPeerListUiState(currentSnapshot(), { commands.myPeerID }, lookups),
+    )
+
+    internal fun onAction(action: MeshPeerListAction) {
+        when (action) {
+            is MeshPeerListAction.QueryChanged -> savedState[QUERY_KEY] = action.text
+            is MeshPeerListAction.ConversationClicked -> openPrivateChat(action.conversationID)
+            is MeshPeerListAction.SwipeToggleRead -> viewModelScope.launch {
+                // The result is ignored, as it always was.
+                commands.setConversationRead(action.conversationID, action.markRead)
+            }
+            is MeshPeerListAction.TogglePinned ->
+                commands.toggleConversationPinned(action.conversationID)
+            is MeshPeerListAction.ToggleMuted ->
+                commands.toggleConversationMuted(action.conversationID)
+            is MeshPeerListAction.ChannelClicked -> openChannel(action.name)
+            is MeshPeerListAction.LeaveChannel -> {
+                commands.leaveChannel(action.name)
+                // Q-P10: leaving announces itself on the public mesh.
+                commands.sendMeshMessage("left ${action.name}")
+            }
+            is MeshPeerListAction.PersonClicked -> openPrivateChat(action.peerID)
+            is MeshPeerListAction.GeohashPersonClicked ->
+                // Pushes the chat over the list; closing the list here would pop it again.
+                commands.startGeohashDM(action.pubkeyHex, ::openPrivateChat)
+            MeshPeerListAction.VerifyClicked -> _events.trySend(MeshPeerListEvent.ShowVerification)
+            MeshPeerListAction.BackClicked -> _events.trySend(MeshPeerListEvent.Close)
+        }
+    }
+
+    /**
+     * a11: an `@name` channel opens the private chat with the first peer of that nickname, and
+     * does nothing when there is none (Q-P9); either way the list stays. Any other channel
+     * becomes the current one and the list closes.
+     */
+    private fun openChannel(channel: String) {
+        if (channel.startsWith("@")) {
+            val peerName = channel.removePrefix("@")
+            val peerID = sources.peerNicknames.value.entries
+                .firstOrNull { it.value == peerName }
+                ?.key
+            if (peerID != null) openPrivateChat(peerID)
+        } else {
+            commands.switchToChannel(channel)
+            _events.trySend(MeshPeerListEvent.Close)
+        }
+    }
 
     /** Shows the private chat with [peerID] over the list; Back returns to it. */
-    fun openPrivateChat(peerID: String) {
-        navigator.openPrivateChat(
-            ContactDirectory.canonicalConversationId(peerID),
-            over = MeshPeerListRoute,
+    private fun openPrivateChat(peerID: String) {
+        _events.trySend(MeshPeerListEvent.OpenPrivateChat(lookups.canonicalConversationId(peerID)))
+    }
+
+    /**
+     * a9: deletes the conversation, returning what Undo needs, or null when it failed. Called
+     * from the Root's scope, so leaving the list cancels it, as it always has (Q-P12).
+     */
+    internal suspend fun deletePrivateConversation(conversationID: String): DeletedPrivateConversation? =
+        commands.deleteConversation(conversationID)
+
+    /** a9 Undo; false when the conversation could not be restored. */
+    internal suspend fun restoreDeletedConversation(deletion: DeletedPrivateConversation): Boolean =
+        commands.restoreConversation(deletion)
+
+    private fun currentSnapshot(): PeerListSnapshot = with(sources) {
+        PeerListSnapshot(
+            connectedPeers = connectedPeers.value,
+            peerNicknames = peerNicknames.value,
+            peerDirect = peerDirect.value,
+            wifiAwareConnected = wifiAwareConnected.value,
+            selectedPrivateChatPeer = selectedPrivateChatPeer.value,
+            nickname = nickname.value,
+            favoritePeers = favoritePeers.value,
+            peerFavoritedUs = peerFavoritedUs.value,
+            peerFingerprints = peerFingerprints.value,
+            verifiedFingerprints = verifiedFingerprints.value,
+            unreadPrivateMessages = unreadPrivateMessages.value,
+            privateChats = privateChats.value,
+            conversations = conversations.value,
+            conversationStoreState = conversationStoreState.value,
+            joinedChannels = joinedChannels.value,
+            currentChannel = currentChannel.value,
+            unreadChannelMessages = unreadChannelMessages.value,
+            selectedLocationChannel = selectedLocationChannel.value,
+            myGeohashHex = myGeohashHex(selectedLocationChannel.value, lookups),
+            geohashPeople = geohashPeople.value,
+            isTeleported = isTeleported.value,
+            teleportedGeo = teleportedGeo.value,
+            query = query.value,
         )
     }
 
-    fun startGeohashDM(pubkeyHex: String) {
-        geohashSession.startGeohashDM(pubkeyHex, ::openPrivateChat)
+    /** Every source, combined in groups of at most five. */
+    private fun snapshots(): Flow<PeerListSnapshot> = with(sources) {
+        val mesh = combine(
+            connectedPeers, peerNicknames, peerDirect, wifiAwareConnected, selectedPrivateChatPeer,
+        ) { connected, nicknames, direct, wifiAware, selected ->
+            MeshPart(connected, nicknames, direct, wifiAware, selected)
+        }
+        val identity = combine(
+            nickname, favoritePeers, peerFavoritedUs, peerFingerprints, verifiedFingerprints,
+        ) { nickname, favorites, favoritedUs, fingerprints, verified ->
+            IdentityPart(nickname, favorites, favoritedUs, fingerprints, verified)
+        }
+        val messages = combine(
+            unreadPrivateMessages, privateChats, conversations, conversationStoreState, query,
+        ) { unread, chats, conversations, storeState, query ->
+            MessagesPart(unread, chats, conversations, storeState, query)
+        }
+        val channels = combine(
+            joinedChannels, currentChannel, unreadChannelMessages,
+        ) { joined, current, unread -> ChannelsPart(joined, current, unread) }
+        // P26 is derived only when the selected channel changes, as its `remember` did.
+        val selection = selectedLocationChannel.map { channel ->
+            channel to myGeohashHex(channel, lookups)
+        }
+        val geohash = combine(
+            selection, geohashPeople, isTeleported, teleportedGeo,
+        ) { (channel, myHex), people, teleported, teleportedGeo ->
+            GeohashPart(channel, myHex, people, teleported, teleportedGeo)
+        }
+        combine(mesh, identity, messages, channels, geohash) { m, i, msg, c, g ->
+            PeerListSnapshot(
+                connectedPeers = m.connectedPeers,
+                peerNicknames = m.peerNicknames,
+                peerDirect = m.peerDirect,
+                wifiAwareConnected = m.wifiAwareConnected,
+                selectedPrivateChatPeer = m.selectedPrivateChatPeer,
+                nickname = i.nickname,
+                favoritePeers = i.favoritePeers,
+                peerFavoritedUs = i.peerFavoritedUs,
+                peerFingerprints = i.peerFingerprints,
+                verifiedFingerprints = i.verifiedFingerprints,
+                unreadPrivateMessages = msg.unreadPrivateMessages,
+                privateChats = msg.privateChats,
+                conversations = msg.conversations,
+                conversationStoreState = msg.conversationStoreState,
+                joinedChannels = c.joinedChannels,
+                currentChannel = c.currentChannel,
+                unreadChannelMessages = c.unreadChannelMessages,
+                selectedLocationChannel = g.selectedLocationChannel,
+                myGeohashHex = g.myGeohashHex,
+                geohashPeople = g.geohashPeople,
+                isTeleported = g.isTeleported,
+                teleportedGeo = g.teleportedGeo,
+                query = msg.query,
+            )
+        }
     }
 
-    fun switchToChannel(channel: String?) = channelManager.switchToChannel(channel)
+    private data class MeshPart(
+        val connectedPeers: List<String>,
+        val peerNicknames: Map<String, String>,
+        val peerDirect: Map<String, Boolean>,
+        val wifiAwareConnected: Map<String, *>,
+        val selectedPrivateChatPeer: String?,
+    )
 
-    fun leaveChannel(channel: String) {
-        channelManager.leaveChannel(channel)
-        sessionMesh.unified.sendMessage("left $channel", emptyList(), null)
+    private data class IdentityPart(
+        val nickname: String,
+        val favoritePeers: Set<String>,
+        val peerFavoritedUs: Set<String>,
+        val peerFingerprints: Map<String, String>,
+        val verifiedFingerprints: Set<String>,
+    )
+
+    private data class MessagesPart(
+        val unreadPrivateMessages: Set<String>,
+        val privateChats: Map<String, List<BitchatMessage>>,
+        val conversations: List<ConversationSummary>,
+        val conversationStoreState: ConversationStoreState,
+        val query: String,
+    )
+
+    private data class ChannelsPart(
+        val joinedChannels: Set<String>,
+        val currentChannel: String?,
+        val unreadChannelMessages: Map<String, Int>,
+    )
+
+    private data class GeohashPart(
+        val selectedLocationChannel: ChannelID?,
+        val myGeohashHex: String?,
+        val geohashPeople: List<GeoPerson>,
+        val isTeleported: Boolean,
+        val teleportedGeo: Set<String>,
+    )
+
+    internal companion object {
+        /** The search text's key in [SavedStateHandle]. */
+        const val QUERY_KEY = "peer_list_query"
     }
-
-    internal suspend fun deletePrivateConversation(conversationID: String): DeletedPrivateConversation? =
-        conversationDirectory.delete(conversationID)
-
-    internal suspend fun restoreDeletedConversation(deletion: DeletedPrivateConversation): Boolean =
-        conversationDirectory.restore(deletion)
-
-    internal suspend fun setConversationRead(conversationID: String, isRead: Boolean): Boolean =
-        conversationDirectory.setRead(conversationID, isRead)
-
-    internal fun toggleConversationPinned(conversationID: String) =
-        conversationDirectory.togglePinned(conversationID)
-
-    internal fun toggleConversationMuted(conversationID: String) =
-        conversationDirectory.toggleMuted(conversationID)
 }
