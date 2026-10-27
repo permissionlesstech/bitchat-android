@@ -309,8 +309,9 @@ class GeohashPickerActivity : OrientationAwareActivity() {
 
                     ZoomRail(
                         precision = globeState.precision,
+                        canZoomOut = globeState.canZoomOut,
                         onZoomIn = { globeState.animatePrecision(globeState.precision + 1) },
-                        onZoomOut = { globeState.animatePrecision(globeState.precision - 1) },
+                        onZoomOut = { globeState.zoomOut() },
                         onWholeGlobe = {
                             cluster = null
                             globeState.animateTo(
@@ -562,6 +563,7 @@ private fun StatValue(
 @Composable
 private fun ZoomRail(
     precision: Int,
+    canZoomOut: Boolean,
     onZoomIn: () -> Unit,
     onZoomOut: () -> Unit,
     onWholeGlobe: () -> Unit,
@@ -585,15 +587,16 @@ private fun ZoomRail(
         }
         ChromeSurface(shape = RoundedCornerShape(ControlSize / 2)) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                val canZoomIn = precision < GlobeMath.MAX_PRECISION
                 IconButton(
                     onClick = onZoomIn,
-                    enabled = precision < GlobeMath.MAX_PRECISION,
+                    enabled = canZoomIn,
                     modifier = Modifier.size(ControlSize)
                 ) {
                     Icon(
                         Icons.Filled.Add,
                         contentDescription = stringResource(R.string.cd_increase_precision),
-                        tint = colorScheme.onSurface
+                        tint = railIconTint(canZoomIn)
                     )
                 }
                 HorizontalDivider(
@@ -615,19 +618,24 @@ private fun ZoomRail(
                 )
                 IconButton(
                     onClick = onZoomOut,
-                    enabled = precision > 1,
+                    enabled = canZoomOut,
                     modifier = Modifier.size(ControlSize)
                 ) {
                     Icon(
                         Icons.Filled.Remove,
                         contentDescription = stringResource(R.string.cd_decrease_precision),
-                        tint = colorScheme.onSurface
+                        tint = railIconTint(canZoomOut)
                     )
                 }
             }
         }
     }
 }
+
+/** An explicit tint overrides IconButton's disabled colour, so dim it here. */
+@Composable
+private fun railIconTint(enabled: Boolean): Color =
+    MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else DISABLED_ICON_ALPHA)
 
 /** First-run gesture coaching; fades for good once the globe is touched. */
 @Composable
@@ -661,6 +669,8 @@ private fun GestureHints(visible: Boolean, showTapHint: Boolean) {
 }
 
 private const val GESTURE_HINT_TIMEOUT_MS = 12_000L
+/** Material's disabled content alpha. */
+private const val DISABLED_ICON_ALPHA = 0.38f
 
 @Composable
 private fun GestureHint(icon: ImageVector, label: String) {

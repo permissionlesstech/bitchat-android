@@ -3,6 +3,7 @@ package com.bitchat.android.ui.globe
 import kotlin.math.abs
 import kotlin.math.acos
 import kotlin.math.asin
+import kotlin.math.asinh
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.cosh
@@ -10,7 +11,6 @@ import kotlin.math.exp
 import kotlin.math.ln
 import kotlin.math.sin
 import kotlin.math.sinh
-import kotlin.math.sqrt
 import kotlin.math.tanh
 
 /**
@@ -42,8 +42,10 @@ internal class GlobeFlight(
             val d2 = distance * distance
             val b0 = (endWidth * endWidth - startWidth * startWidth + rho4 * d2) / (2 * startWidth * rho2 * distance)
             val b1 = (endWidth * endWidth - startWidth * startWidth - rho4 * d2) / (2 * endWidth * rho2 * distance)
-            r0 = ln(sqrt(b0 * b0 + 1) - b0)
-            val r1 = ln(sqrt(b1 * b1 + 1) - b1)
+            // ln(sqrt(b² + 1) - b), written as -asinh(b): the direct form cancels to ln(0) when b is
+            // large, which a zoom-out over a tiny arc produces.
+            r0 = -asinh(b0)
+            val r1 = -asinh(b1)
             length = (r1 - r0) / rho
         }
     }
@@ -66,7 +68,8 @@ internal class GlobeFlight(
     companion object {
         /** d3's default: how strongly the path zooms out to travel. */
         const val RHO = 1.414
-        private const val EPSILON = 1e-9
+        /** Arcs shorter than this (d3's threshold) are zoom-only; [arc] returns noise near zero. */
+        private const val EPSILON = 1e-6
 
         /** Great-circle angle between two points, radians. */
         fun arc(lat0: Double, lon0: Double, lat1: Double, lon1: Double): Double {

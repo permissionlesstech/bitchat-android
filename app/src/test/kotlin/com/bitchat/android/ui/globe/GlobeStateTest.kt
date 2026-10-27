@@ -1,6 +1,7 @@
 package com.bitchat.android.ui.globe
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -61,6 +62,25 @@ class GlobeStateTest {
 
         state.zoomBy(0.5f)
         assertEquals(start * 1.1f, state.zoom, 1e-4f)
+    }
+
+    @Test
+    fun zoomOut_isAvailableAfterTheOpeningZoomEvenAtLevelOne() {
+        val state = introState()
+        state.zoomBy(state.introEndZoom() / state.zoom)
+
+        assertEquals(1, state.precision)
+        assertTrue(state.canZoomOut)
+    }
+
+    @Test
+    fun zoomOut_isUnavailableOnceTheWholeGlobeIsInView() {
+        val wholeGlobe = GlobeState(57.0, 10.0, initialPrecision = 1, startZoomedOut = false)
+            .apply { setViewport(475f, 1080f) }
+        assertFalse(wholeGlobe.canZoomOut)
+
+        // The opening rotation starts smaller than the whole globe; − has nothing to widen there.
+        assertFalse(introState().canZoomOut)
     }
 
     @Test

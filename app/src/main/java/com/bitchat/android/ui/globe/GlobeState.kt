@@ -207,6 +207,23 @@ class GlobeState(
     }
 
     /**
+     * Whether − can widen the view. Level 1 spans a range of zooms (the opening rotation lands
+     * well inside it), so it can still pull back to the whole globe without changing precision.
+     */
+    val canZoomOut: Boolean
+        get() = precision > 1 || zoom > GlobeMath.MIN_ZOOM * (1f + WHOLE_GLOBE_ZOOM_TOLERANCE)
+
+    /** The − button: one level coarser, or the whole globe when already at level 1. */
+    fun zoomOut() {
+        if (!canZoomOut || baseRadiusPx <= 0f) return
+        if (precision > 1) {
+            animatePrecision(precision - 1)
+        } else {
+            animateTo(centerLat, centerLon, GlobeMath.MIN_ZOOM, 1, durationMs = 450)
+        }
+    }
+
+    /**
      * Cinematic intro: turn to the target while zooming from [INTRO_START_ZOOM] to [introEndZoom],
      * rotation and zoom together as one move, landing on [targetPrecision].
      */
@@ -275,6 +292,8 @@ class GlobeState(
         const val INTRO_START_ZOOM = 0.72f
         /** How far toward the precision-2 threshold the opening rotation zooms. */
         const val INTRO_END_THRESHOLD_FRACTION = 0.8f
+        /** Zoom within this fraction of the minimum already counts as the whole globe. */
+        const val WHOLE_GLOBE_ZOOM_TOLERANCE = 0.01f
         /** Zoom changes beyond this factor fly along [GlobeFlight]; smaller ones glide. */
         const val FLIGHT_ZOOM_RATIO = 1.5f
         const val FLIGHT_MS_PER_UNIT = 230.0

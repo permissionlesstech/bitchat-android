@@ -59,6 +59,22 @@ class GlobeFlightTest {
     }
 
     @Test
+    fun zoomingOutInPlace_staysFinite() {
+        // Pulling back to the whole globe without moving: arc() can return rounding noise rather
+        // than zero, and acos just below 1 is about 1.5e-8.
+        val noise = GlobeFlight.arc(57.0, 10.0, 57.0, 10.0)
+        for (arc in listOf(0.0, noise, 2e-9, 1.5e-8, 1e-7, 1e-6, 1e-5, 1e-3)) {
+            val flight = GlobeFlight(arc, 0.55, globeWidth)
+            assertTrue("arc $arc length ${flight.pathLength}", flight.pathLength.isFinite())
+            for (i in 0..100) {
+                val (fraction, width) = flight.at(i / 100.0)
+                assertTrue("arc $arc fraction $fraction", fraction.isFinite())
+                assertTrue("arc $arc width $width", width.isFinite() && width > 0)
+            }
+        }
+    }
+
+    @Test
     fun linearPanWithExponentialZoom_racedAtTheEnd() {
         // The old path: just before landing the target was still many screens away.
         val t = 0.99
