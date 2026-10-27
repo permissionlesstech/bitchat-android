@@ -114,12 +114,10 @@ class GeohashPickerActivity : OrientationAwareActivity() {
         super.onCreate(savedInstanceState)
 
         val initialGeohash = intent.getStringExtra(EXTRA_INITIAL_GEOHASH)?.trim()?.lowercase()
-        var geohashToFocus: String? = null
         var initLat = 20.0
         var initLon = 10.0
 
         if (!initialGeohash.isNullOrEmpty()) {
-            geohashToFocus = initialGeohash
             try {
                 val (lat, lon) = Geohash.decodeToCenter(initialGeohash)
                 initLat = lat
@@ -132,7 +130,6 @@ class GeohashPickerActivity : OrientationAwareActivity() {
             if (!channels.isNullOrEmpty()) {
                 val coarsestChannel = channels.minByOrNull { it.geohash.length }
                 if (coarsestChannel != null) {
-                    geohashToFocus = coarsestChannel.geohash
                     try {
                         val (lat, lon) = Geohash.decodeToCenter(coarsestChannel.geohash)
                         initLat = lat
@@ -142,8 +139,9 @@ class GeohashPickerActivity : OrientationAwareActivity() {
             }
         }
 
-        // With nothing to focus, settle on the whole globe so the world's activity is in view.
-        val initialPrecision = (geohashToFocus?.length ?: 1).coerceIn(1, 12)
+        // Always open on the whole globe, turning to face the selected location (if any) rather
+        // than diving into it, so the world's activity stays in view.
+        val initialPrecision = 1
         val targetLat = initLat
         val targetLon = initLon
 
@@ -185,7 +183,7 @@ class GeohashPickerActivity : OrientationAwareActivity() {
                         else globeState.centerLat to globeState.centerLon
                     }.collect { center ->
                         if (center != null) {
-                            activityMonitor.focusOn(center.first.toDouble(), center.second.toDouble())
+                            activityMonitor.focusOn(center.first, center.second)
                         }
                     }
                 }
@@ -316,8 +314,8 @@ class GeohashPickerActivity : OrientationAwareActivity() {
                         onWholeGlobe = {
                             cluster = null
                             globeState.animateTo(
-                                globeState.centerLat.toDouble(),
-                                globeState.centerLon.toDouble(),
+                                globeState.centerLat,
+                                globeState.centerLon,
                                 GlobeMath.MIN_ZOOM,
                                 1,
                                 durationMs = 700

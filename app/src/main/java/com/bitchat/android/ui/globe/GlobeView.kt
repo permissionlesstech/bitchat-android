@@ -298,6 +298,8 @@ fun GlobeView(
         snapshotFlow { state.selectedGeohash }
             .drop(1)
             .collect {
+                // Tick for cells the user drags across, not for every cell a fly-in passes.
+                if (state.isAnimating) return@collect
                 @Suppress("DEPRECATION")
                 view.performHapticFeedback(
                     HapticFeedbackConstants.KEYBOARD_TAP,
@@ -416,8 +418,8 @@ fun GlobeView(
                             val latLon = GlobeMath.unproject(
                                 ((downPos.x - cx) / r).toDouble(),
                                 ((downPos.y - cy) / r).toDouble(),
-                                state.centerLat.toDouble(),
-                                state.centerLon.toDouble()
+                                state.centerLat,
+                                state.centerLon
                             )
                             if (latLon != null) {
                                 val now = upTime
@@ -446,8 +448,8 @@ fun GlobeView(
         val baseR = state.baseRadiusPx
         if (baseR <= 0f) return@Canvas
         val r = state.globeRadiusPx
-        val cLat = state.centerLat.toDouble()
-        val cLon = state.centerLon.toDouble()
+        val cLat = state.centerLat
+        val cLon = state.centerLon
         val preparedProjector = GlobeMath.PreparedProjector(cLat, cLon)
 
         // Atmosphere glow
@@ -591,8 +593,8 @@ fun GlobeView(
                     layoutGlobeMarkers(
                         channels = activity,
                         projector = GlobeMath.PreparedProjector(
-                            state.centerLat.toDouble(),
-                            state.centerLon.toDouble()
+                            state.centerLat,
+                            state.centerLon
                         ),
                         cx = size.width / 2f,
                         cy = size.height / 2f,
