@@ -1,6 +1,7 @@
 package com.bitchat.android.ui
 
 import androidx.lifecycle.SavedStateHandle
+import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.GeohashChannel
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.GeohashChannelLevel.BLOCK
@@ -479,9 +480,22 @@ class LocationNotesViewModelTest {
             mapOf(BUILDING to "Synthetic Building", BLOCK to "Synthetic Block")
         )
 
+        override val selectedChannel = MutableStateFlow<ChannelID>(ChannelID.Mesh)
+        override val locationServicesEnabled = MutableStateFlow(true)
+        override val systemLocationEnabled = MutableStateFlow(true)
+
         override fun refreshChannels() { calls += "refreshChannels" }
         override fun enableLocationServices() { calls += "enableLocationServices" }
         override fun enableLocationChannels() { calls += "enableLocationChannels" }
+
+        // The channels screen's members; the notes screen never calls them.
+        override fun disableLocationServices() { calls += "disableLocationServices" }
+        override fun syncPermissionState(): PermissionState = permissionState.value
+        override fun beginLiveRefresh() { calls += "beginLiveRefresh" }
+        override fun endLiveRefresh() { calls += "endLiveRefresh" }
+        override fun select(channel: ChannelID) { calls += "select" }
+        override fun selectNearby(channel: GeohashChannel): Boolean = false
+        override fun selectManual(channel: GeohashChannel, teleported: Boolean) { calls += "selectManual" }
     }
 
     private class FakeStore(private val calls: MutableList<String>) : NotesStore {
@@ -506,6 +520,7 @@ class LocationNotesViewModelTest {
     }
 
     private class RecordingGate(private val calls: MutableList<String>) : NearbyNotesGate {
+        override val revealed = MutableStateFlow(false)
         override fun updateAvailability(enabled: Boolean, authorized: Boolean, geohash: String?) {
             calls += "updateAvailability($enabled, $authorized, $geohash)"
         }

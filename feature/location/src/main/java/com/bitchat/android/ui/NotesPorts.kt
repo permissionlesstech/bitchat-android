@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.GeohashChannel
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
@@ -14,7 +15,7 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Inject
 import kotlinx.coroutines.flow.StateFlow
 
-/** The part of [LocationChannelManager] the notes screen reads and drives. */
+/** The part of [LocationChannelManager] the notes and channels screens read and drive. */
 interface NotesLocationSource {
     val permissionState: StateFlow<PermissionState>
 
@@ -23,13 +24,33 @@ interface NotesLocationSource {
     val availableChannels: StateFlow<List<GeohashChannel>>
     val isLoadingLocation: StateFlow<Boolean>
     val locationNames: StateFlow<Map<GeohashChannelLevel, String>>
+    val selectedChannel: StateFlow<ChannelID>
+
+    /** The app's own location toggle. */
+    val locationServicesEnabled: StateFlow<Boolean>
+
+    /** The system's location setting. */
+    val systemLocationEnabled: StateFlow<Boolean>
 
     /** A one-shot location request when authorized and enabled. */
     fun refreshChannels()
 
     /** Turns the persistent app location toggle on (Q-N6). */
     fun enableLocationServices()
+    fun disableLocationServices()
     fun enableLocationChannels()
+
+    /** Re-reads the runtime permission, publishes it and returns it. */
+    fun syncPermissionState(): PermissionState
+
+    /** Continuous location updates, until [endLiveRefresh]. */
+    fun beginLiveRefresh()
+    fun endLiveRefresh()
+    fun select(channel: ChannelID)
+
+    /** Selects a live nearby channel; false when it cannot be used. */
+    fun selectNearby(channel: GeohashChannel): Boolean
+    fun selectManual(channel: GeohashChannel, teleported: Boolean)
 }
 
 /** The part of [LocationNotesManager] the notes screen reads and drives. */
@@ -43,8 +64,10 @@ interface NotesStore {
     fun clearError()
 }
 
-/** The part of [NearbyNotesController] the notes screen holds while it is shown. */
+/** The part of [NearbyNotesController] the notes and channels screens hold while shown. */
 interface NearbyNotesGate {
+    /** Whether the user has asked to see nearby notes. */
+    val revealed: StateFlow<Boolean>
     fun updateAvailability(enabled: Boolean, authorized: Boolean, geohash: String?)
     fun activate()
     fun deactivate()
@@ -64,10 +87,21 @@ internal class ManagerNotesLocationSource @Inject constructor(
     override val availableChannels: StateFlow<List<GeohashChannel>> get() = manager.availableChannels
     override val isLoadingLocation: StateFlow<Boolean> get() = manager.isLoadingLocation
     override val locationNames: StateFlow<Map<GeohashChannelLevel, String>> get() = manager.locationNames
+    override val selectedChannel: StateFlow<ChannelID> get() = manager.selectedChannel
+    override val locationServicesEnabled: StateFlow<Boolean> get() = manager.locationServicesEnabled
+    override val systemLocationEnabled: StateFlow<Boolean> get() = manager.systemLocationEnabled
 
     override fun refreshChannels() = manager.refreshChannels()
     override fun enableLocationServices() = manager.enableLocationServices()
+    override fun disableLocationServices() = manager.disableLocationServices()
     override fun enableLocationChannels() = manager.enableLocationChannels()
+    override fun syncPermissionState(): PermissionState = manager.syncPermissionState()
+    override fun beginLiveRefresh() = manager.beginLiveRefresh()
+    override fun endLiveRefresh() = manager.endLiveRefresh()
+    override fun select(channel: ChannelID) = manager.select(channel)
+    override fun selectNearby(channel: GeohashChannel): Boolean = manager.selectNearby(channel)
+    override fun selectManual(channel: GeohashChannel, teleported: Boolean) =
+        manager.selectManual(channel, teleported)
 }
 
 internal class ManagerNotesStore @Inject constructor() : NotesStore {
@@ -86,6 +120,8 @@ internal class ManagerNotesStore @Inject constructor() : NotesStore {
 
 internal class ControllerNearbyNotesGate @Inject constructor() : NearbyNotesGate {
     private val controller get() = NearbyNotesController.shared
+
+    override val revealed: StateFlow<Boolean> get() = controller.revealed
 
     override fun updateAvailability(enabled: Boolean, authorized: Boolean, geohash: String?) =
         controller.updateAvailability(

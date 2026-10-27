@@ -14,12 +14,11 @@ import com.bitchat.android.nostr.geohashesForSampling
  */
 
 /**
- * A row title as data (L10, L11): the UI shows [level]'s name, or the row's own label ("Mesh",
- * `#geohash`) when [level] is null, followed by the `people_count` plural of [count]. When
- * [countUnknown] the plural of 0 is shown with "0" replaced by "?".
+ * The count part of a row title as data (L10, L11): the UI shows the row's own label ("Mesh",
+ * `#geohash`, or the nearby channel's level name), followed by the `people_count` plural of
+ * [count]. When [countUnknown] the plural of 0 is shown with "0" replaced by "?".
  */
 internal data class ChannelTitle(
-    val level: GeohashChannelLevel?,
     val count: Int,
     val countUnknown: Boolean,
 )
@@ -37,13 +36,11 @@ internal fun channelCountText(title: ChannelTitle, peopleCount: (Int) -> String)
 
 /** L10: precision above 5 (NEIGHBORHOOD, BLOCK, BUILDING) with nobody seen shows "?". */
 private fun geohashChannelTitle(
-    level: GeohashChannelLevel?,
     precisionLevel: GeohashChannelLevel,
     participantCount: Int,
 ): ChannelTitle {
     val isHighPrecision = precisionLevel.precision > 5
     return ChannelTitle(
-        level = level,
         count = participantCount,
         countUnknown = isHighPrecision && participantCount == 0,
     )
@@ -55,7 +52,6 @@ private fun geohashChannelTitle(
  */
 internal fun hashChannelTitle(geohash: String, participantCount: Int): ChannelTitle =
     geohashChannelTitle(
-        level = null,
         precisionLevel = levelForLength(geohash.length),
         participantCount = participantCount,
     )
@@ -63,7 +59,6 @@ internal fun hashChannelTitle(geohash: String, participantCount: Int): ChannelTi
 /** The title of a nearby row, labelled with its level's name. */
 internal fun levelChannelTitle(channel: GeohashChannel, participantCount: Int): ChannelTitle =
     geohashChannelTitle(
-        level = channel.level,
         precisionLevel = channel.level,
         participantCount = participantCount,
     )
@@ -87,7 +82,7 @@ internal fun meshRow(
     wifiAwareEnabled: Boolean,
     selectedChannel: ChannelID?,
 ): MeshRowUi = MeshRowUi(
-    title = ChannelTitle(level = null, count = meshPeopleCount, countUnknown = false),
+    title = ChannelTitle(count = meshPeopleCount, countUnknown = false),
     peopleCount = meshPeopleCount,
     wifiAwareEnabled = wifiAwareEnabled,
     isSelected = selectedChannel is ChannelID.Mesh,

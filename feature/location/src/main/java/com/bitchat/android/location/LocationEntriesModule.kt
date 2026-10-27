@@ -4,7 +4,7 @@ import com.bitchat.android.navigation.EntryProviderInstaller
 import com.bitchat.android.navigation.LocationChannelsRoute
 import com.bitchat.android.navigation.LocationNotesRoute
 import com.bitchat.android.navigation.Navigator
-import com.bitchat.android.ui.LocationChannelsScreen
+import com.bitchat.android.ui.LocationChannelsRoot
 import com.bitchat.android.ui.LocationNotesRoot
 import dagger.Module
 import dagger.Provides
@@ -23,7 +23,7 @@ object LocationEntriesModule {
         navigator: Navigator,
     ): EntryProviderInstaller = {
         entry<LocationChannelsRoute> {
-            LocationChannelsScreen(
+            LocationChannelsRoot(
                 onClose = { navigator.popTo(LocationChannelsRoute, inclusive = true) },
                 // Pushed like any list → detail step: Back from notes
                 // returns to channels, not to chat.

@@ -94,14 +94,14 @@ class LocationChannelRowsTest {
     fun meshRow_countSelectionWifiAndBold() {
         val row = meshRow(meshPeopleCount = 2, wifiAwareEnabled = true, selectedChannel = ChannelID.Mesh)
 
-        assertEquals(ChannelTitle(level = null, count = 2, countUnknown = false), row.title)
+        assertEquals(ChannelTitle(count = 2, countUnknown = false), row.title)
         assertEquals(2, row.peopleCount)
         assertTrue(row.wifiAwareEnabled)
         assertTrue(row.isSelected)
         assertTrue(row.titleBold)
 
         val empty = meshRow(0, wifiAwareEnabled = false, selectedChannel = ChannelID.Location(city))
-        assertEquals(ChannelTitle(level = null, count = 0, countUnknown = false), empty.title)
+        assertEquals(ChannelTitle(count = 0, countUnknown = false), empty.title)
         assertFalse(empty.wifiAwareEnabled)
         assertFalse(empty.isSelected)
         assertFalse(empty.titleBold)
@@ -145,7 +145,7 @@ class LocationChannelRowsTest {
 
         assertEquals(neighborhood, row.channel)
         assertEquals("#s00000 • ~1.2 km • ~Synthetic Block", row.subtitle)
-        assertEquals(ChannelTitle(level = null, count = 3, countUnknown = false), row.title)
+        assertEquals(ChannelTitle(count = 3, countUnknown = false), row.title)
         assertEquals(3, row.participantCount)
         assertTrue(row.isSelected)
         assertTrue(row.titleBold)
@@ -157,7 +157,7 @@ class LocationChannelRowsTest {
         val oddLevel = GeohashChannel(GeohashChannelLevel.CITY, "s000000")
         val row = teleportedRow(ChannelID.Location(oddLevel), emptyList(), emptyMap(), emptyMap()) { false }!!
 
-        assertEquals(ChannelTitle(level = null, count = 0, countUnknown = true), row.title)
+        assertEquals(ChannelTitle(count = 0, countUnknown = true), row.title)
         assertEquals("#s000000 • ~0.2 km", row.subtitle)
         assertEquals(0, row.participantCount)
         assertFalse(row.titleBold)
@@ -177,11 +177,11 @@ class LocationChannelRowsTest {
         assertEquals(listOf("s0000000", "s0000"), rows.map { it.geohash })
         assertEquals(building, rows[0].channel)
         assertEquals("#s0000000 • ~0.0 km • ~Synthetic Building", rows[0].subtitle)
-        assertEquals(ChannelTitle(level = null, count = 0, countUnknown = true), rows[0].title)
+        assertEquals(ChannelTitle(count = 0, countUnknown = true), rows[0].title)
         assertFalse(rows[0].isSelected)
         assertEquals(city, rows[1].channel)
         assertEquals("#s0000 • ~4.9 km", rows[1].subtitle)
-        assertEquals(ChannelTitle(level = null, count = 1, countUnknown = false), rows[1].title)
+        assertEquals(ChannelTitle(count = 1, countUnknown = false), rows[1].title)
         assertTrue(rows[1].isSelected)
         assertTrue(rows.all { it.isBookmarked })
     }
@@ -252,16 +252,27 @@ class LocationChannelRowsTest {
 
     @Test
     fun nearbyBookmarkFlag_comesFromTheStoreLookup_currentBehaviour_QL5() {
-        // There is no bookmarks snapshot input: the flag is whatever the store's lookup says when
-        // the rows are built.
-        var stored = false
-        val lookup: (String) -> Boolean = { stored }
+        // There is no bookmarks snapshot input: the flag is whatever the store's lookup says, per
+        // geohash, when the rows are built.
+        val stored = mutableSetOf("s0000")
+        val asked = mutableListOf<String>()
+        val lookup: (String) -> Boolean = { geohash -> asked += geohash; geohash in stored }
 
-        assertFalse(nearby(channels = listOf(city), isBookmarked = lookup).rows.single().isBookmarked)
-        stored = true
-        assertTrue(nearby(channels = listOf(city), isBookmarked = lookup).rows.single().isBookmarked)
+        val rows = nearby(channels = listOf(city, block), isBookmarked = lookup).rows
+        assertEquals(listOf(true, false), rows.map { it.isBookmarked })
+        assertEquals(listOf("s0000", "s000000"), asked)
+
+        stored.clear()
+        stored += "s000000"
+        val rebuilt = nearby(channels = listOf(city, block), isBookmarked = lookup).rows
+        assertEquals(listOf(false, true), rebuilt.map { it.isBookmarked })
+
         assertTrue(
             teleportedRow(ChannelID.Location(block), emptyList(), emptyMap(), emptyMap(), lookup)!!
+                .isBookmarked
+        )
+        assertFalse(
+            teleportedRow(ChannelID.Location(city), emptyList(), emptyMap(), emptyMap(), lookup)!!
                 .isBookmarked
         )
     }
@@ -275,9 +286,9 @@ class LocationChannelRowsTest {
 
         assertEquals(
             listOf(
-                ChannelTitle(GeohashChannelLevel.CITY, count = 0, countUnknown = false),
-                ChannelTitle(GeohashChannelLevel.NEIGHBORHOOD, count = 0, countUnknown = true),
-                ChannelTitle(GeohashChannelLevel.BLOCK, count = 1, countUnknown = false),
+                ChannelTitle(count = 0, countUnknown = false),
+                ChannelTitle(count = 0, countUnknown = true),
+                ChannelTitle(count = 1, countUnknown = false),
             ),
             ui.rows.map { it.title }
         )
@@ -288,10 +299,10 @@ class LocationChannelRowsTest {
 
     @Test
     fun hashTitle_questionMarkFromSixCharactersWhenNobodySeen() {
-        assertEquals(ChannelTitle(null, 0, countUnknown = false), hashChannelTitle("s0000", 0))
-        assertEquals(ChannelTitle(null, 0, countUnknown = true), hashChannelTitle("s00000", 0))
-        assertEquals(ChannelTitle(null, 0, countUnknown = true), hashChannelTitle("s0000000", 0))
-        assertEquals(ChannelTitle(null, 5, countUnknown = false), hashChannelTitle("s0000000", 5))
+        assertEquals(ChannelTitle(0, countUnknown = false), hashChannelTitle("s0000", 0))
+        assertEquals(ChannelTitle(0, countUnknown = true), hashChannelTitle("s00000", 0))
+        assertEquals(ChannelTitle(0, countUnknown = true), hashChannelTitle("s0000000", 0))
+        assertEquals(ChannelTitle(5, countUnknown = false), hashChannelTitle("s0000000", 5))
     }
 
     // L17

@@ -7,6 +7,7 @@ import java.util.Locale
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -164,4 +165,85 @@ class GeohashChannelFormattingTest {
         assertFalse(isChannelSelected(channel, ChannelID.Mesh))
         assertFalse(isChannelSelected(channel, null))
     }
+
+    // L2, L13: moved from LocationChannelsSheetTest, with synthetic geohashes.
+
+    @Test
+    fun teleportedChannelGetsAStandaloneRow() {
+        val teleported = cityChannel("zzzzz")
+
+        assertEquals(
+            teleported,
+            selectedLocationChannelOutsideNearby(ChannelID.Location(teleported), listOf(cityChannel("s0000")))
+        )
+    }
+
+    @Test
+    fun nearbySelectedChannelIsNotDuplicated() {
+        assertNull(
+            selectedLocationChannelOutsideNearby(
+                ChannelID.Location(cityChannel("BBBBB")),
+                listOf(cityChannel("bbbbb"))
+            )
+        )
+    }
+
+    @Test
+    fun meshSelectionHasNoStandaloneLocationRow() {
+        assertNull(selectedLocationChannelOutsideNearby(ChannelID.Mesh, listOf(cityChannel("s0000"))))
+    }
+
+    @Test
+    fun noSelectionHasNoStandaloneLocationRow() {
+        assertNull(selectedLocationChannelOutsideNearby(null, listOf(cityChannel("s0000"))))
+    }
+
+    @Test
+    fun selectedLocationWithNoNearbyChannelsGetsAStandaloneRow() {
+        val selected = cityChannel("s0000")
+
+        assertEquals(
+            selected,
+            selectedLocationChannelOutsideNearby(ChannelID.Location(selected), emptyList())
+        )
+    }
+
+    @Test
+    fun globeResultResolvesToAManualTeleportChannel() {
+        assertEquals(cityChannel("bbbbb"), channelForManualGeohash(" #BBBBB "))
+    }
+
+    @Test
+    fun invalidGlobeResultCannotCreateATeleportChannel() {
+        assertNull(channelForManualGeohash("not-a-geohash"))
+    }
+
+    @Test
+    fun manualGeohashLevelFollowsLength() {
+        assertEquals(
+            GeohashChannel(GeohashChannelLevel.NEIGHBORHOOD, "s00000"),
+            channelForManualGeohash("#s00000")
+        )
+        assertEquals(
+            GeohashChannel(GeohashChannelLevel.BLOCK, "bbbbbbb"),
+            channelForManualGeohash("bbbbbbb")
+        )
+        assertEquals(
+            GeohashChannel(GeohashChannelLevel.BUILDING, "s0000000"),
+            channelForManualGeohash("S0000000")
+        )
+        assertEquals(
+            GeohashChannel(GeohashChannelLevel.CITY, "zzzzz"),
+            channelForManualGeohash("zzzzz")
+        )
+    }
+
+    @Test
+    fun manualGeohashRejectsEmptyAndTooLong() {
+        assertNull(channelForManualGeohash(""))
+        assertNull(channelForManualGeohash(" # "))
+        assertNull(channelForManualGeohash("s000000000000"))
+    }
+
+    private fun cityChannel(geohash: String) = GeohashChannel(GeohashChannelLevel.CITY, geohash)
 }
