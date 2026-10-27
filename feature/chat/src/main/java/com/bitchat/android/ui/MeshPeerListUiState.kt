@@ -17,7 +17,12 @@ internal data class MeshPeerListUiState(
     val hasEarlierSections: Boolean,
     /** The conversation search text, kept across rotation and process death. */
     val query: String,
+    /** F2: deletions that can still be undone, oldest first; the Root offers the first. */
+    val pendingUndos: List<PendingUndoUi> = emptyList(),
 )
+
+/** A deleted conversation the Root offers to bring back (a9). */
+internal data class PendingUndoUi(val token: Long, val displayName: String)
 
 /** The people card: mesh peers, or the people in the selected geohash. */
 internal sealed interface PeopleUi {
@@ -60,6 +65,16 @@ internal sealed interface MeshPeerListAction {
     /** a12 */
     data class LeaveChannel(val name: String) : MeshPeerListAction
 
+    /** a9: the confirmation dialog's Delete. */
+    data class DeleteConfirmed(val conversationID: String, val displayName: String) :
+        MeshPeerListAction
+
+    /** a9: the snackbar's Undo for the deletion [token] names. */
+    data class UndoDelete(val token: Long) : MeshPeerListAction
+
+    /** a9: the snackbar went away without Undo; the deletion stays. */
+    data class UndoDismissed(val token: Long) : MeshPeerListAction
+
     /** a13, a14: a mesh peer or an offline favourite. */
     data class PersonClicked(val peerID: String) : MeshPeerListAction
 
@@ -78,6 +93,10 @@ internal sealed interface MeshPeerListEvent {
     data class OpenPrivateChat(val conversationID: String) : MeshPeerListEvent
 
     data object ShowVerification : MeshPeerListEvent
+
+    data object DeleteFailed : MeshPeerListEvent
+
+    data object RestoreFailed : MeshPeerListEvent
 
     data object Close : MeshPeerListEvent
 }

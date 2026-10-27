@@ -9,12 +9,14 @@ import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.services.ConversationStoreState
 import com.bitchat.android.services.DeletedPrivateConversation
 import java.util.Date
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -48,7 +50,10 @@ class MeshPeerListViewModelTest {
     }
 
     private fun newViewModel(savedState: SavedStateHandle = SavedStateHandle()) =
-        MeshPeerListViewModel(sources.ports(), commands, lookups, savedState, dispatcher)
+        MeshPeerListViewModel(
+            sources.ports(), commands, lookups, savedState, dispatcher,
+            clock = { dispatcher.scheduler.currentTime },
+        )
 
     private fun TestScope.eventsOf(viewModel: MeshPeerListViewModel): List<MeshPeerListEvent> {
         val events = mutableListOf<MeshPeerListEvent>()
@@ -222,6 +227,122 @@ class MeshPeerListViewModelTest {
         assertEquals(listOf(MeshPeerListEvent.Close), events)
     }
 
+    // a9, F2
+
+    @Test
+    fun deleteThenNewCollector_undoStillRestores() = runTest(dispatcher) {
+        val deletion = deletion(BOB_ID)
+        commands.deleteResult = deletion
+        val deleteFinishes = CompletableDeferred<Unit>()
+        commands.deleteGate = deleteFinishes
+        val viewModel = newViewModel()
+        // The Root's collection; rotating or opening a chat cancels it.
+        val root = launch(dispatcher) { viewModel.uiState.collect {} }
+
+        viewModel.onAction(MeshPeerListAction.DeleteConfirmed(BOB_ID, "bob"))
+        // Leave mid-delete, and stay away past WhileSubscribed's 5 s, so nothing collects.
+        root.cancel()
+        advanceTimeBy(5_001)
+        deleteFinishes.complete(Unit)
+        collectState(viewModel)
+
+        assertEquals(listOf("delete $BOB_ID"), commands.calls)
+        val undo = viewModel.uiState.value.pendingUndos.single()
+        assertEquals("bob", undo.displayName)
+        viewModel.onAction(MeshPeerListAction.UndoDelete(undo.token))
+
+        assertEquals(listOf(deletion), commands.restored)
+        assertTrue(viewModel.uiState.value.pendingUndos.isEmpty())
+    }
+
+    @Test
+    fun undoAfterWindowExpires_doesNotRestore_andClearsPending() = runTest(dispatcher) {
+        commands.deleteResult = deletion(BOB_ID)
+        val viewModel = newViewModel()
+        collectState(viewModel)
+
+        viewModel.onAction(MeshPeerListAction.DeleteConfirmed(BOB_ID, "bob"))
+        val token = viewModel.uiState.value.pendingUndos.single().token
+        advanceTimeBy(MeshPeerListViewModel.UNDO_WINDOW_MS + 1)
+
+        assertTrue(viewModel.uiState.value.pendingUndos.isEmpty())
+        viewModel.onAction(MeshPeerListAction.UndoDelete(token))
+        assertEquals(listOf("delete $BOB_ID"), commands.calls)
+        assertTrue(commands.restored.isEmpty())
+    }
+
+    @Test
+    fun undoJustBeforeWindowEnds_stillRestores() = runTest(dispatcher) {
+        val deletion = deletion(BOB_ID)
+        commands.deleteResult = deletion
+        val viewModel = newViewModel()
+        collectState(viewModel)
+
+        viewModel.onAction(MeshPeerListAction.DeleteConfirmed(BOB_ID, "bob"))
+        advanceTimeBy(MeshPeerListViewModel.UNDO_WINDOW_MS - 1)
+        val undo = viewModel.uiState.value.pendingUndos.single()
+        viewModel.onAction(MeshPeerListAction.UndoDelete(undo.token))
+
+        assertEquals(listOf(deletion), commands.restored)
+    }
+
+    @Test
+    fun deleteFails_sendsDeleteFailed_andOffersNoUndo() = runTest(dispatcher) {
+        commands.deleteResult = null
+        val viewModel = newViewModel()
+        val events = eventsOf(viewModel)
+        collectState(viewModel)
+
+        viewModel.onAction(MeshPeerListAction.DeleteConfirmed(BOB_ID, "bob"))
+
+        assertEquals(listOf("delete $BOB_ID"), commands.calls)
+        assertEquals(listOf(MeshPeerListEvent.DeleteFailed), events)
+        assertTrue(viewModel.uiState.value.pendingUndos.isEmpty())
+    }
+
+    @Test
+    fun restoreFails_sendsRestoreFailed() = runTest(dispatcher) {
+        commands.deleteResult = deletion(BOB_ID)
+        commands.restoreResult = false
+        val viewModel = newViewModel()
+        val events = eventsOf(viewModel)
+        collectState(viewModel)
+
+        viewModel.onAction(MeshPeerListAction.DeleteConfirmed(BOB_ID, "bob"))
+        viewModel.onAction(MeshPeerListAction.UndoDelete(viewModel.uiState.value.pendingUndos.single().token))
+
+        assertEquals(listOf("delete $BOB_ID", "restore $BOB_ID"), commands.calls)
+        assertEquals(listOf(MeshPeerListEvent.RestoreFailed), events)
+    }
+
+    @Test
+    fun undoDismissed_forgetsTheDeletion_andUndoNoLongerRestores() = runTest(dispatcher) {
+        commands.deleteResult = deletion(BOB_ID)
+        val viewModel = newViewModel()
+        collectState(viewModel)
+
+        viewModel.onAction(MeshPeerListAction.DeleteConfirmed(BOB_ID, "bob"))
+        val token = viewModel.uiState.value.pendingUndos.single().token
+        viewModel.onAction(MeshPeerListAction.UndoDismissed(token))
+        viewModel.onAction(MeshPeerListAction.UndoDelete(token))
+
+        assertTrue(viewModel.uiState.value.pendingUndos.isEmpty())
+        assertEquals(listOf("delete $BOB_ID"), commands.calls)
+    }
+
+    @Test
+    fun twoDeletes_areOfferedInOrder() = runTest(dispatcher) {
+        val viewModel = newViewModel()
+        collectState(viewModel)
+
+        commands.deleteResult = deletion(BOB_ID)
+        viewModel.onAction(MeshPeerListAction.DeleteConfirmed(BOB_ID, "bob"))
+        commands.deleteResult = deletion(CAROL_ID)
+        viewModel.onAction(MeshPeerListAction.DeleteConfirmed(CAROL_ID, "carol"))
+
+        assertEquals(listOf("bob", "carol"), viewModel.uiState.value.pendingUndos.map { it.displayName })
+    }
+
     // State
 
     @Test
@@ -333,6 +454,8 @@ class MeshPeerListViewModelTest {
         val calls = mutableListOf<String>()
         override var myPeerID: String = ME_ID
         var deleteResult: DeletedPrivateConversation? = null
+        /** When set, the delete suspends until it completes. */
+        var deleteGate: CompletableDeferred<Unit>? = null
         var restoreResult: Boolean = true
         val restored = mutableListOf<DeletedPrivateConversation>()
 
@@ -355,6 +478,7 @@ class MeshPeerListViewModelTest {
 
         override suspend fun deleteConversation(conversationID: String): DeletedPrivateConversation? {
             calls += "delete $conversationID"
+            deleteGate?.await()
             return deleteResult
         }
 
@@ -383,6 +507,15 @@ class MeshPeerListViewModelTest {
         const val ME_ID = "fedcba9876543210"
         const val BOB_ID = "1111111111111111"
         const val CAROL_ID = "2222222222222222"
+
+        fun deletion(id: String) = DeletedPrivateConversation(
+            conversationID = id,
+            aliases = setOf(id),
+            displayName = null,
+            messages = emptyList(),
+            readMessageIDs = emptySet(),
+            unreadMessageCount = 0,
+        )
 
         fun conversation(id: String, displayName: String) = ConversationSummary(
             conversationID = id,

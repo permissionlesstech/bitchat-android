@@ -26,6 +26,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,8 +51,8 @@ import kotlinx.coroutines.launch
  *
  * A full screen. [onBack] returns to chat; [onOpenPrivateChat] pushes the private chat over
  * this screen, so Back from it lands here again. The Root owns the delete confirmation
- * (Q-P13) and the snackbars; delete and Undo run in its scope, so leaving the list cancels
- * them (Q-P12).
+ * (Q-P13) and the snackbars. Delete and Undo run in the ViewModel, which keeps each deletion
+ * until its snackbar is dismissed, so rotating or opening a chat offers Undo again (F2).
  */
 @Composable
 fun MeshPeerListRoot(
@@ -62,19 +63,49 @@ fun MeshPeerListRoot(
     viewModel: MeshPeerListViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val sheetScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val deleteFailedMessage = stringResource(R.string.conversation_delete_failed)
+    val restoreFailedMessage = stringResource(R.string.conversation_restore_failed)
     ObserveAsEvents(viewModel.events) { event ->
         when (event) {
             is MeshPeerListEvent.OpenPrivateChat -> onOpenPrivateChat(event.conversationID)
             MeshPeerListEvent.ShowVerification -> onShowVerification()
             MeshPeerListEvent.Close -> onBack()
+            MeshPeerListEvent.DeleteFailed -> sheetScope.launch {
+                snackbarHostState.showSnackbar(message = deleteFailedMessage)
+            }
+            MeshPeerListEvent.RestoreFailed -> sheetScope.launch {
+                snackbarHostState.showSnackbar(restoreFailedMessage)
+            }
+        }
+    }
+
+    // One Undo at a time, oldest first, as the snackbar queue showed them. Shown again if
+    // the list returns before it was answered or timed out.
+    uiState.pendingUndos.firstOrNull()?.let { undo ->
+        val deletedMessage = stringResource(R.string.conversation_deleted, undo.displayName)
+        val undoLabel = stringResource(R.string.undo)
+        LaunchedEffect(undo.token) {
+            val result = snackbarHostState.showSnackbar(
+                message = deletedMessage,
+                actionLabel = undoLabel,
+                withDismissAction = true,
+                duration = SnackbarDuration.Long
+            )
+            viewModel.onAction(
+                if (result == SnackbarResult.ActionPerformed) {
+                    MeshPeerListAction.UndoDelete(undo.token)
+                } else {
+                    MeshPeerListAction.UndoDismissed(undo.token)
+                }
+            )
         }
     }
 
     var pendingConversationDelete by remember {
         mutableStateOf<ConversationRowUi?>(null)
     }
-    val sheetScope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
 
     MeshPeerListScreen(
         uiState = uiState,
@@ -85,43 +116,17 @@ fun MeshPeerListRoot(
     )
 
     pendingConversationDelete?.let { conversation ->
-        val deleteFailedMessage = stringResource(R.string.conversation_delete_failed)
-        val deletedMessage = stringResource(
-            R.string.conversation_deleted,
-            conversation.displayName
-        )
-        val undoLabel = stringResource(R.string.undo)
-        val restoreFailedMessage =
-            stringResource(R.string.conversation_restore_failed)
         DeleteConversationDialog(
             displayName = conversation.displayName,
             onDismiss = { pendingConversationDelete = null },
             onConfirm = {
                 pendingConversationDelete = null
-                sheetScope.launch {
-                    val deletion = viewModel.deletePrivateConversation(
-                        conversation.conversationID
+                viewModel.onAction(
+                    MeshPeerListAction.DeleteConfirmed(
+                        conversation.conversationID,
+                        conversation.displayName
                     )
-                    if (deletion == null) {
-                        snackbarHostState.showSnackbar(
-                            message = deleteFailedMessage
-                        )
-                        return@launch
-                    }
-                    val result = snackbarHostState.showSnackbar(
-                        message = deletedMessage,
-                        actionLabel = undoLabel,
-                        withDismissAction = true,
-                        duration = SnackbarDuration.Long
-                    )
-                    if (result == SnackbarResult.ActionPerformed) {
-                        if (!viewModel.restoreDeletedConversation(deletion)) {
-                            snackbarHostState.showSnackbar(
-                                restoreFailedMessage
-                            )
-                        }
-                    }
-                }
+                )
             },
         )
     }

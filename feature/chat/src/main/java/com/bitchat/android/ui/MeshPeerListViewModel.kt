@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import android.os.SystemClock
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -11,8 +12,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -20,6 +23,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /** The sources the peer list is built from (inventory A1.1, without the dead `peerRSSI`). */
@@ -114,6 +118,8 @@ class MeshPeerListViewModel internal constructor(
     private val savedState: SavedStateHandle,
     /** Where the list is built; tests pass their own dispatcher. */
     defaultDispatcher: CoroutineDispatcher,
+    /** Monotonic milliseconds that bound the Undo window; tests pass virtual time. */
+    private val clock: () -> Long,
 ) : ViewModel() {
 
     @Inject
@@ -160,6 +166,7 @@ class MeshPeerListViewModel internal constructor(
         lookups = lookups,
         savedState = savedState,
         defaultDispatcher = Dispatchers.Default,
+        clock = SystemClock::elapsedRealtime,
     )
 
     private val query: StateFlow<String> = savedState.getStateFlow(QUERY_KEY, "")
@@ -167,13 +174,23 @@ class MeshPeerListViewModel internal constructor(
     private val _events = Channel<MeshPeerListEvent>(Channel.BUFFERED)
     internal val events: Flow<MeshPeerListEvent> = _events.receiveAsFlow()
 
+    /**
+     * F2: deletions Undo can still bring back, by token, with when they were made. Held here
+     * rather than in the Root's scope, so rotating or opening a chat within the Undo window no
+     * longer loses them; the Root offers them again. Each is dropped when the window ends.
+     */
+    private val pendingDeletions = mutableMapOf<Long, PendingDeletion>()
+    private val pendingUndos = MutableStateFlow<List<PendingUndoUi>>(emptyList())
+    private var nextUndoToken = 0L
+
     internal val uiState: StateFlow<MeshPeerListUiState> = combine(
         snapshots().map { meshPeerListUiState(it, { commands.myPeerID }, lookups) }
             .flowOn(defaultDispatcher),
         query,
-    ) { state, query ->
+        pendingUndos,
+    ) { state, query, pendingUndos ->
         // The field shows the latest text at once; the rows follow when they are rebuilt.
-        state.copy(query = query)
+        state.copy(query = query, pendingUndos = pendingUndos)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -198,6 +215,10 @@ class MeshPeerListViewModel internal constructor(
                 // Q-P10: leaving announces itself on the public mesh.
                 commands.sendMeshMessage("left ${action.name}")
             }
+            is MeshPeerListAction.DeleteConfirmed ->
+                deleteConversation(action.conversationID, action.displayName)
+            is MeshPeerListAction.UndoDelete -> undoDelete(action.token)
+            is MeshPeerListAction.UndoDismissed -> forgetDeletion(action.token)
             is MeshPeerListAction.PersonClicked -> openPrivateChat(action.peerID)
             is MeshPeerListAction.GeohashPersonClicked ->
                 // Pushes the chat over the list; closing the list here would pop it again.
@@ -231,15 +252,44 @@ class MeshPeerListViewModel internal constructor(
     }
 
     /**
-     * a9: deletes the conversation, returning what Undo needs, or null when it failed. Called
-     * from the Root's scope, so leaving the list cancels it, as it always has (Q-P12).
+     * a9: deletes the conversation, then offers Undo for it, or says the delete failed. Runs in
+     * [viewModelScope], so leaving the list mid-delete no longer abandons it (F2, Q-P12).
      */
-    internal suspend fun deletePrivateConversation(conversationID: String): DeletedPrivateConversation? =
-        commands.deleteConversation(conversationID)
+    private fun deleteConversation(conversationID: String, displayName: String) {
+        viewModelScope.launch {
+            val deletion = commands.deleteConversation(conversationID)
+            if (deletion == null) {
+                _events.send(MeshPeerListEvent.DeleteFailed)
+                return@launch
+            }
+            val token = nextUndoToken++
+            pendingDeletions[token] = PendingDeletion(deletion, deletedAt = clock())
+            pendingUndos.update { it + PendingUndoUi(token, displayName) }
+            // Undo is not offered again once its window has passed.
+            delay(UNDO_WINDOW_MS)
+            forgetDeletion(token)
+        }
+    }
 
-    /** a9 Undo; false when the conversation could not be restored. */
-    internal suspend fun restoreDeletedConversation(deletion: DeletedPrivateConversation): Boolean =
-        commands.restoreConversation(deletion)
+    /**
+     * a9 Undo: restores the deletion [token] names, once and only within its window; says so
+     * when that fails.
+     */
+    private fun undoDelete(token: Long) {
+        val pending = forgetDeletion(token) ?: return
+        if (clock() - pending.deletedAt >= UNDO_WINDOW_MS) return
+        val deletion = pending.deletion
+        viewModelScope.launch {
+            if (!commands.restoreConversation(deletion)) {
+                _events.send(MeshPeerListEvent.RestoreFailed)
+            }
+        }
+    }
+
+    private fun forgetDeletion(token: Long): PendingDeletion? {
+        pendingUndos.update { undos -> undos.filterNot { it.token == token } }
+        return pendingDeletions.remove(token)
+    }
 
     private fun currentSnapshot(): PeerListSnapshot = with(sources) {
         PeerListSnapshot(
@@ -327,6 +377,8 @@ class MeshPeerListViewModel internal constructor(
         }
     }
 
+    private class PendingDeletion(val deletion: DeletedPrivateConversation, val deletedAt: Long)
+
     private data class MeshPart(
         val connectedPeers: List<String>,
         val peerNicknames: Map<String, String>,
@@ -368,5 +420,13 @@ class MeshPeerListViewModel internal constructor(
     internal companion object {
         /** The search text's key in [SavedStateHandle]. */
         const val QUERY_KEY = "peer_list_query"
+
+        /**
+         * How long a deletion can be undone. The Root's snackbar is `SnackbarDuration.Long`
+         * (10 s), but Android's "Time to take action" accessibility setting can keep it up for
+         * as long as 2 minutes; this covers the longest setting, so an Undo that is showing
+         * always works, while Undo is still not offered again long after the delete.
+         */
+        const val UNDO_WINDOW_MS = 120_000L
     }
 }

@@ -106,7 +106,7 @@ internal fun peerVerifiedStates(
     isPeerVerified(peerID, verifiedFingerprints, lookups)
 }
 
-/** `MeshPeerListViewModel.isPeerVerified`: never true for Nostr aliases. */
+/** P14 for one peer: its display fingerprint is verified; never true for Nostr aliases. */
 internal fun isPeerVerified(
     peerID: String,
     verifiedFingerprints: Set<String>,
