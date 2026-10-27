@@ -1,137 +1,170 @@
-# Experimental English character filter
+# Pretrained multilingual character filter
 
-The public-chat spam filter scores incoming text using a fixed English
-character-bigram table. The current experiment removes content-based
-exemptions for technical tokens, digits, punctuation, unsupported scripts,
-and short messages. It changes local admission only, with no wire-format
-change. Private-message and non-text routing keep their existing behavior.
+The experimental public-chat filter now bundles 32 fixed character-bigram
+models covering the 34 declared locale variants and default English. Phone
+and watch run the same app-owned implementation. Devices only score text:
+there is no on-device training, message collection, model download, or new
+runtime dependency. Public-message admission changes locally; private
+messages, non-text routing, and packet formats retain their existing behavior.
 
-## Fixed model and current scoring policy
+## Model pack and training
 
-`tools/spam_filter/english-training.txt` contains original synthetic English
-examples. The corpus, additive smoothing of `0.1`, all 729 learned float32
-weights, and threshold of `4.2` are unchanged. The weights occupy 2,916 bytes,
-excluding class and runtime overhead. Both clients use the app-owned source.
+The pack contains 109,359 compressed bytes (about 107 KiB). Its decoded weight
+arrays occupy 222,452 bytes, excluding object and string overhead. Models load
+lazily and share immutable weights across scoring calls. Script selection
+limits work to at most 16 candidate models rather than all 32.
+
+Language families are `en`, `ar`, `bn`, `de`, `es`, `eu`, `fa`, `fil`, `fr`,
+`he`, `hi`, `id`, `it`, `ja`, `ka`, `ko`, `mg`, `ms`, `ne`, `nl`, `pa`, `pl`,
+`pt`, `ru`, `sv`, `ta`, `th`, `tr`, `uk`, `ur`, `vi`, and `zh`. Portuguese
+variants share a model; simplified and traditional Chinese share a model.
+Punjabi covers the declared `pa-PK` Arabic-script locale. These weights do
+not establish support for other scripts or romanizations of those languages.
+
+Training uses filtered static translations already in `app/src/main/res`,
+the original synthetic English corpus, and original invented examples in
+`tools/spam_filter/language-examples.json`. No live conversations, account
+information, device data, or external corpus service is used. The native-script
+corpus includes additional Japanese, Korean, and Chinese paragraphs to improve
+character coverage. The examples have not received independent linguistic review.
+
+Resource keys are deterministically split into training, calibration, and test
+partitions using SHA-256. Synthetic examples have explicit separate partitions.
+Normalized calibration text is excluded from every model's training corpus;
+test text is excluded from every training and calibration corpus. This also
+prevents regional variants or overlapping translations from leaking identical
+sentences between partitions.
 
 ```sh
-python3 tools/spam_filter/train_english.py
-python3 tools/spam_filter/train_english.py --check
+python3 tools/spam_filter/train_languages.py
+python3 tools/spam_filter/train_languages.py --check
 ```
 
-The trained alphabet remains `a-z` plus space. Known character pairs retain
-their existing negative-log-probability costs. Every transition involving an
-untrained character receives the maximum cost already in the table:
-`9.459308`. This is an explicit fallback penalty, not a learned probability
-for digits, symbols, or other languages. No broader training corpus is added.
-The model never learns from incoming traffic.
+The standard-library-only generator produces `LanguageModelPack.kt`, shared
+held-out JVM fixtures, and `tools/spam_filter/language-models.json`. The manifest
+records locale aliases, corpus hashes, per-language thresholds, sample counts,
+weight sizes, and SHA-256 checksums. Adding a declared locale without a model
+causes generation to fail.
 
-Scoring now reads raw Unicode code points, lowercases ASCII letters, and
-collapses whitespace runs. Digits, punctuation, code delimiters, combining
-marks, emoji, and other scripts contribute to the score. They do not cause
-abstention, and their tokens are not discarded. There is no minimum length.
-For a single character, known characters use the preceding-space cost and
-unknown characters use the fallback penalty. Only empty input has no score.
+Each model estimates `P(next | previous)` with unigram backoff for unseen pairs.
+The backoff strength is `5.0`, and unigram pseudocounts are `0.25`. Negative log
+costs use 16-bit quantization at a scale of 4,096. Only observed bigrams are stored;
+unseen pairs use the stored backoff and unigram costs. Untrained characters
+receive the model's strongest bounded fallback cost. The decoder checks the
+checksum, format, array ordering, bounds, finite threshold, and decompression
+limit before exposing weights.
 
-The detector averages costs over transitions and flags a score of at least
-`4.2`. Work remains bounded to a prefix starting within the first 4,096 UTF-16
-units and at most 1,000 scored code points. Oversized content still faces the
-existing character budget; it does not bypass the model just because it is
-long. The master toggle, debug bypass, verdict caching, and code-level
-`englishGibberishEnabled=false` control remain available.
+Thresholds use the 95th percentile of sentence-length positive calibration
+scores plus `0.35`. Separate seeded noise calibration generates 256 random
+96-character samples from each training alphabet. The final threshold is capped
+at `0.98` times that noise set's first percentile. Noise calibration uses seed
+`424242`; evaluation uses different seeds and samples. The manifest records
+both thresholds and whether the cap conflicts with positive calibration. None
+of the final models has that conflict, but held-out false positives still occur.
 
-## Paired false-positive evaluation
+## Runtime behavior
 
-The evaluation uses the same 220 synthetic legitimate examples on the
-previous implementation (`8319212c`) and the current implementation. Each
-sample is checked with fresh filter state to separate content decisions
-from sender budgets and cross-user repetition. Phone and watch produce
-identical case-by-case results.
+Text receives NFKC normalization, locale-independent lowercase conversion, and
+collapsed whitespace. Korean syllables remain intact: decomposing them into
+Jamo allowed random valid syllables to resemble ordinary Korean in an earlier
+development model.
 
-| Legitimate category | Samples | Blocked before | Blocked now |
+The dominant letter script selects candidates independently of the device's
+UI language. Latin considers 16 languages; Arabic considers four; Cyrillic and
+Devanagari consider two each. Han considers Chinese and Japanese; kana selects
+Japanese. Other supported scripts select their own model. Common-only text,
+including standalone numbers, uses English. Unsupported scripts also receive
+scores through the English fallback. Every normalized code point contributes;
+there are no technical-token, URL, number, punctuation, emoji, script, or short
+message exemptions.
+
+The best candidate's average cost is divided by its own threshold, then scaled
+to the existing `4.2` decision boundary. Scores are relative language-model
+costs, not probabilities of abuse. Only empty input has no score. Work is bounded
+to the first 4,096 UTF-16 units and 1,000 normalized code points. Mixed-language
+text is scored as a whole rather than splitting away unfamiliar characters;
+legitimate code switching can therefore be rejected.
+
+The historical `englishGibberishEnabled` configuration field and
+`ENGLISH_GIBBERISH` verdict remain compatible. Master filtering, debug bypass,
+verdict caching, sender budgets, and repetition filtering retain their behavior.
+The debug explanation now says "unlikely character sequence".
+
+## Paired evaluation
+
+The baseline is an actual build of `055360a4`, the previous English-only filter
+with all character exemptions removed. Identical test fixtures run against the
+baseline and multilingual builds. False positives are recorded rather than
+removed from the report. These are small constructed samples, not estimates of
+real-world accuracy.
+
+| Legitimate category | Samples | English-only blocked | Multilingual blocked |
 |---|---:|---:|---:|
-| English chat containing numbers | 20 | 0 | 2 |
-| English chat containing punctuation | 20 | 0 | 1 |
-| Numeric text and mathematics | 20 | 0 | 20 |
-| Code and structured text | 20 | 0 | 18 |
-| URLs, standalone and embedded | 20 | 0 | 11 |
-| Hashes and identifiers | 20 | 1 | 13 |
-| **Number/symbol subtotal** | **120** | **1** | **65 (54.17%)** |
-| Short replies | 20 | 0 | 15 |
-| Multilingual text and emoji | 20 | 0 | 8 |
-| Additional ordinary English controls | 60 | 0 | 0 |
-| **All legitimate controls** | **220** | **1** | **88 (40%)** |
+| English chat with numbers | 20 | 2 | 2 |
+| English chat with punctuation | 20 | 1 | 2 |
+| Numeric text and mathematics | 20 | 20 | 19 |
+| Code and structured text | 20 | 18 | 17 |
+| URLs | 20 | 11 | 10 |
+| Hashes and identifiers | 20 | 13 | 18 |
+| **Number/symbol subtotal** | **120** | **65** | **68** |
+| Short replies | 20 | 15 | 11 |
+| Multilingual text and emoji | 20 | 8 | 3 |
+| Ordinary English controls | 60 | 0 | 0 |
+| **Original legitimate cohort** | **220** | **88** | **82** |
+| Separate held-out translations and chat | 472 | 246 | 20 |
+| Synthetic chat subset of that cohort | 128 | 75 | 3 |
 
-Among the 93 number/symbol examples with at least 24 code points, 40 are
-blocked (43.01%). Among the 27 shorter examples, 25 are blocked (92.59%).
-Removing the minimum length therefore contributes to the increase, but it
-does not account for all of it.
+All 60,000 earlier random-identity messages are hidden: 10,000 spaced letters,
+10,000 unbroken letters, and 10,000 mixed printable-ASCII messages for each of
+the mesh and Nostr sender-key formats. Independent letter-flood seeds and the
+keyboard-like stream also pass their detection regressions. All 3,200 native
+random-character samples are flagged, 100 per language. The latter test scores
+content directly; mesh/Nostr admission, actual signed Nostr events, and fresh
+identities are covered separately by the existing JVM regressions.
 
-Examples of newly blocked synthetic chat include a sentence describing a
-16:9 image with a 1920x1080 preview, a fictional decimal-price calculation,
-and a sentence listing choices in square brackets. These are labelled
-legitimate by construction; their rejection is recorded as a false positive.
+The [aggregate record](test-results/multilingual-gibberish-filter.json),
+[language case comparison](test-results/multilingual-gibberish-languages.csv), and
+[original cohort comparison](test-results/multilingual-gibberish-characters.csv)
+retain the measured outcomes, including newly blocked legitimate inputs.
 
-The [aggregate result record](test-results/english-gibberish-all-characters.json)
-includes model checksums, sample counts, length groups, flood results, and
-validation. The [paired case list](test-results/english-gibberish-all-characters-cases.csv)
-contains every synthetic input, its score before and after, and its verdict.
-The cases are hand-picked format controls, not a representative sample of
-real conversations. Their percentages must not be treated as real-world
-false-positive estimates. No real messages, contacts, channel data,
-locations, device identifiers, or private logs are used as fixtures.
+The remaining synthetic chat rejections are one each in Tamil, Thai, and
+Chinese. More broadly, 68/120 legitimate number/symbol samples are still blocked,
+including many standalone formulas, hashes, and code fragments. Adding languages
+does not make this strict policy suitable for every conversation. Fluent nonsense,
+random real-word sequences, dialects, spelling variations, and unfamiliar vocabulary
+remain limitations of a small character model.
 
-## Flood regression
-
-With `TEST_SEED=999`, each 10,000-message stream uses a fresh synthetic
-identity for every message. The mixed stream samples printable non-space
-ASCII, including letters, digits, and punctuation. All 10,000 mixed messages
-are hidden for both mesh and Nostr sender keys. With the English rule off,
-9,994 are admitted and six encounter existing non-model rules.
-
-The spaced-letter streams hide 9,932/10,000 mesh messages and 9,945/10,000
-Nostr messages. Unbroken-letter streams hide 9,998/10,000 and 9,999/10,000.
-A separate keyboard-like stream hides all 1,000 examples. Plausible word
-sequences and ordinary sentences remain a limitation.
-
-The original bucket and repetition tests explicitly disable the English
-rule when they need to isolate those contracts. The new evaluation reports
-false positives directly; tests do not assume that all legitimate examples
-must pass under the requested stricter policy.
-
-## Reproduction and validation
+## Validation and local testing
 
 ```sh
-TEST_SEED=999 ./gradlew :app:testDebugUnitTest \
-  --tests 'com.bitchat.android.spam.*' \
-  --tests '*GeohashMessageHandlerSpamTest' \
-  --tests '*IncomingMessageAdmissionTest' \
-  :wear:testDebugUnitTest --tests 'com.bitchat.android.spam.*'
+python3 tools/spam_filter/train_languages.py --check
 python3 -m unittest tools.release_gate.test_mesh_lab_gibberish
+./gradlew :app:assembleDebug :wear:assembleDebug testDebugUnitTest lintDebug
 ```
 
-`EnglishGibberishFalsePositiveEvaluationTest` prints per-category counts.
-When the optional test system property `spam.evaluation.dir` is supplied,
-it also writes synthetic case reports there. The recorded comparison uses
-an actual baseline build followed by the changed build with identical cases.
-To reproduce that baseline, add only `LegitimateCharacterSamples.kt` and
-`EnglishGibberishFalsePositiveEvaluationTest.kt` to an isolated checkout of
-`8319212c`, then run the evaluation test there. The current detector stays out
-of that baseline checkout.
+Both clients must produce identical case reports and score vectors. Tests cover
+all locale aliases, normalization, bounded work, malformed packs, concurrent
+scoring, multilingual admission, and random-identity floods. Evaluation tests
+can write synthetic-only JSON under the optional `spam.evaluation.dir` JVM test
+property. To reproduce the baseline comparison, copy only the generated held-out
+fixture and generic evaluation test into an isolated baseline checkout; keep its
+original detector intact. The original 220-case evaluation is already present
+there. The language evaluation writes its measurements before enforcing current
+multilingual accuracy guards. The English-only baseline is expected to fail
+those guards; its saved measurements are the baseline comparison.
 
-Both debug builds pass. Full unit results are 771 app passes with three
-pre-existing ignored tests, and 302 watch passes. Host-side scenario checks
-pass. Lint completes under the repository's nonblocking configuration with
-repository-wide findings; the model and new evaluation files have no findings.
+Both debug builds pass. Full JVM results are 772 app passes with three
+pre-existing ignored tests, and 303 watch passes. All six host-side scenario
+tests pass. Lint completes under the repository's nonblocking configuration:
+the app has 311 errors, 335 warnings, and 19 hints; watch has 37 errors,
+51 warnings, and 10 hints. None is in the new model or evaluation files.
 
-## Physical validation and historical measurements
-
-Physical Mesh Lab validation remains unrun. The `broadcast_gibberish`
-scenario now tests mixed-symbol and unbroken noise plus an ordinary-English
-control. It does not measure fresh-identity flood rates. Other physical
-scenarios using short technical-looking positive controls can be affected
-by this aggressive policy; no physical pass is claimed.
-
-After authorized controlled-lab setup, with a private evidence directory:
+Physical Mesh Lab validation is **blocked (not run)** because no physical
+endpoints are available. The focused scenario observes two hidden noise samples
+and five delivered controls: English, Japanese, Arabic, Korean, and Chinese.
+Its per-run markers and ordinary controls are also checked through JVM public
+admission. Host fakes verify assertion behavior; they do not prove radio delivery.
+After authorized controlled-lab setup, run:
 
 ```sh
 python3 tools/release_gate/mesh_lab.py scenario broadcast_gibberish \
@@ -139,7 +172,8 @@ python3 tools/release_gate/mesh_lab.py scenario broadcast_gibberish \
   --out "${MESH_EVIDENCE_DIR:?Set a private evidence directory}"
 ```
 
-Raw logs, APKs, and physical evidence stay private and uncommitted.
-[Initial results](test-results/english-gibberish-filter.json) and
-[unbroken-text results](test-results/english-gibberish-unbroken.json)
-record earlier policies and must not be read as results for the current one.
+Raw logs, APKs, and lab evidence remain local and uncommitted.
+[Initial English results](test-results/english-gibberish-filter.json),
+[unbroken-text results](test-results/english-gibberish-unbroken.json), and
+[all-character English results](test-results/english-gibberish-all-characters.json)
+record historical models and policies.

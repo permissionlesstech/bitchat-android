@@ -16,7 +16,7 @@ enum class SpamVerdict {
     REPEATED_MESSAGE,
     REPEATED_ACROSS_USERS,
     REPEATED_CHARACTERS,
-    ENGLISH_GIBBERISH;
+    ENGLISH_GIBBERISH; // Historical verdict name; now covers the fixed multilingual model pack.
 
     val isSpam: Boolean get() = this != ALLOWED
 }
@@ -28,7 +28,7 @@ enum class SpamVerdict {
  * plus three repetition checks: a message that repeats itself internally, a near-copy of the
  * sender's own recent history, and a near-copy of what *other* senders posted recently. The last
  * one catches spam spread over many throwaway identities, which per-sender limits cannot see.
- * A fixed English character model additionally rejects long, unlikely letter sequences before
+ * Fixed multilingual character models additionally reject unlikely character sequences before
  * creating sender state. Other hidden messages never spend tokens, but do enter the repetition
  * history so a spammer cannot cycle the same text.
  *

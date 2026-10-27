@@ -1,0 +1,473 @@
+id,category_or_language,synthetic_chat,content,before_score,after_score,before_hidden,after_hidden
+ar-000,ar,False,  رسالة من   أشخاص,9.459307670593262,2.426904087402808,True,False
+ar-001,ar,False,  من الإشارات في محادثة الشبكة,9.459307670593262,2.189792056308243,True,False
+ar-002,ar,False,Mutual verification,2.5771477189328937,2.747261716409362,False,False
+ar-003,ar,False,إرسال صفعة ودّية,9.459307670593262,3.0044281608986747,True,False
+ar-004,ar,False,اختر إجراءً لهذا المستخدم,9.459307670593262,2.5932153352551333,True,False
+ar-005,ar,True,اكتملت المحاولة الثانية بنجاح دون أي خطأ.,9.459307670593262,3.3105281352769853,True,False
+ar-006,ar,False,الأجهزة التي تم فحصها مؤخرًا,9.459307670593262,3.880244663502394,True,False
+ar-007,ar,False,بلوتوث موصى به,9.459307670593262,3.0755990156994484,True,False
+ar-008,ar,False,جارٍ إعداد شبكة Bluetooth mesh…,6.274787823359172,8.763681411982157,True,True
+ar-009,ar,True,غيرت الإعداد فأصبح النص أسهل للقراءة.,9.459307670593262,3.4354654812380585,True,False
+ar-010,ar,True,كان ذلك مفيدا، شكرا على وقتك ومساعدتك.,9.459307670593262,3.615738197007809,True,False
+ar-011,ar,True,هل يمكننا تكبير الأزرار قليلا في هذه الشاشة؟,9.459307670593262,3.1782108068107684,True,False
+ar-012,ar,False,• بدون تتبع أو جمع للبيانات • دردشات Bluetooth mesh تعمل دون اتصال بالكامل • دردشات geohash تستخدم الإنترنت,8.065532850769332,2.6148045215440714,True,False
+bn-000,bn,False,  কে চড় দিন,9.459307670593262,2.693988681055502,True,False
+bn-001,bn,False,  জন থেকে   বার্তা,9.459307670593262,2.0710727304668874,True,False
+bn-002,bn,False,Mutual verification,2.5771477189328937,2.747261716409362,False,False
+bn-003,bn,True,"আপনার সাহায্যটি কাজে লেগেছে, সময় দেওয়ার জন্য ধন্যবাদ।",9.459307670593262,2.8220755114409033,True,False
+bn-004,bn,True,এই পর্দায় বোতামগুলো একটু বড় করা যাবে কি?,9.459307670593262,3.284465506797658,True,False
+bn-005,bn,False,এই ব্যবহারকারীর জন্য অ্যাকশন নির্বাচন করুন,9.459307670593262,2.1412679600972746,True,False
+bn-006,bn,False,একটি কৌতুকপূর্ণ চড় পাঠান,9.459307670593262,3.6206010965107756,True,False
+bn-007,bn,True,দ্বিতীয় চেষ্টাটি কোনো ত্রুটি ছাড়াই সফল হয়েছে।,9.459307670593262,2.6326152647593517,True,False
+bn-008,bn,False,ব্লুটুথ প্রস্তাবিত,9.459307670593262,2.3942394317273163,True,False
+bn-009,bn,False,ব্লুটুথ মেশ নেটওয়ার্ক সেটআপ করা হচ্ছে …,9.459307670593262,2.152095608568543,True,False
+bn-010,bn,False,মেশ চ্যাটে   উল্লেখ,9.459307670593262,2.2954692331625264,True,False
+bn-011,bn,False,সাম্প্রতিক স্ক্যান করা ডিভাইস,9.459307670593262,2.370695015375559,True,False
+bn-012,bn,True,সেটিং বদলানোর পরে লেখাটি পড়া সহজ হয়েছে।,9.459307670593262,2.9021310144781207,True,False
+bn-013,bn,False,• কোন ট্র্যাকিং বা ডেটা সংগ্রহ নেই • ব্লুটুথ মেশ চ্যাট সম্পূর্ণ অফলাইন • জিওহ্যাশ চ্যাট ইন্টারনেট ব্যবহার করে,9.459307670593262,2.4429742314821774,True,False
+de-000,de,False,  Erwähnungen im Mesh‑Chat,4.051262880365054,2.8695287634835003,False,False
+de-001,de,False,  Nachrichten von   Personen,2.779793838659922,2.552676766111374,False,False
+de-002,de,False,  ohrfeigen,3.9699571794933743,3.3198919598056125,False,False
+de-003,de,False,Aktion für diesen Benutzer wählen,3.773834316059947,2.7363045804853057,False,False
+de-004,de,False,Bluetooth empfohlen,3.3853586779700384,3.606971440818863,False,False
+de-005,de,False,Bluetooth‑Mesh‑Netzwerk wird eingerichtet …,3.5891852790401098,3.221312757644322,False,False
+de-006,de,True,"Das war hilfreich, vielen Dank für deine Zeit und Unterstützung.",3.623514525474064,3.130357062186722,False,False
+de-007,de,True,Der zweite Versuch wurde ohne Fehler erfolgreich abgeschlossen.,3.462632368649206,3.355758743725831,False,False
+de-008,de,False,Eine spielerische Ohrfeige senden,2.810914244502783,2.9396071681869316,False,False
+de-009,de,False,Gegenseitige Verifizierung,2.8240938448905943,2.7512582250186424,False,False
+de-010,de,True,Ich habe die Einstellung geändert und der Text ist leichter lesbar.,2.8588444382855385,3.481977282962189,False,False
+de-011,de,True,Könnten wir die Schaltflächen in dieser Ansicht etwas größer machen?,3.4753233443445235,3.321574874647237,False,False
+de-012,de,False,zuletzt gescannte Geräte,3.5545793979064277,3.2825730793704047,False,False
+de-013,de,False,• keine Verfolgung oder Datensammlung • Bluetooth‑Mesh‑Chats sind vollständig offline • Geohash‑Chats nutzen das Internet,3.5572576199968657,3.4326554222373753,False,False
+en-000,en,False,  cannot be sent encrypted to   because their client is older.  ,2.7130997393090848,3.347476820520714,False,False
+en-001,en,False,  mentions in Mesh Chat,2.1676164808727445,2.4617366418743023,False,False
+en-002,en,False,  messages from   people,2.705878180265427,3.2844046753312552,False,False
+en-003,en,False,Bluetooth Recommended,2.6463869988918303,3.294433681043452,False,False
+en-004,en,False,Choose an action for this user,2.272599154505236,2.964267382217919,False,False
+en-005,en,True,Could we make the buttons slightly larger in this view?,2.4228999112491256,3.410642795769377,False,False
+en-006,en,False,Download failed. Please try again.,3.388439121571454,3.2526568998191787,False,False
+en-007,en,False,Download universal APK for offline sharing,2.7590605485730055,3.0876237398188633,False,False
+en-008,en,True,I changed the setting and the text became easier to read.,2.239245727658272,2.8875302734631214,False,False
+en-009,en,False,Mutual verification,2.5771477189328937,2.747261716409362,False,False
+en-010,en,False,"Not enough storage:   MB needed,   MB free.",3.862168999094712,4.004616093942717,False,False
+en-011,en,False,Permission Required,2.5952631847725973,3.2642887378445002,False,False
+en-012,en,False,Recent scan results,2.5054366654819913,3.167920079904976,False,False
+en-013,en,False,Retrying…,3.438975974917412,3.3549833399828652,False,False
+en-014,en,False,Send a playful slap message,2.5396821659344893,3.346050129890653,False,False
+en-015,en,False,Setting up Bluetooth mesh networking...,3.21154711121007,3.3608168432357286,False,False
+en-016,en,False,Slap  ,3.2412242889404297,3.8332590264621818,False,False
+en-017,en,True,"That was useful, thank you for taking the time to help.",2.661516370596709,3.4488495271460895,False,False
+en-018,en,True,The second attempt finished successfully without any error.,2.422809149684577,3.238648007796877,False,False
+en-019,en,False,• No tracking or data collection • Bluetooth mesh chats are fully offline • Geohash chats use the internet,2.817145423378263,3.26900159618917,False,False
+es-000,es,False,  menciones en chat mesh,2.3280823772603814,2.630155275915991,False,False
+es-001,es,False,  mensajes de   personas,2.8103000700473784,2.814721981845368,False,False
+es-002,es,False,Abofetear a  ,2.5223587317900225,3.4480973251282148,False,False
+es-003,es,False,Bluetooth recomendado,2.702928829193115,3.0793016382596896,False,False
+es-004,es,True,Cambié la configuración y ahora el texto resulta más fácil de leer.,3.6735036928545344,3.656479185129111,False,False
+es-005,es,False,Configurando red mesh Bluetooth…,2.766363241980153,3.3576780707019314,False,False
+es-006,es,True,El segundo intento terminó correctamente sin ningún error.,3.0856000456893655,3.5713610739979322,False,False
+es-007,es,False,Elegir acción para este usuario,3.231917985280355,2.8099925629090987,False,False
+es-008,es,False,Enviar una bofetada juguetona,2.9563184678554535,3.566953925163185,False,False
+es-009,es,True,"Eso fue útil, gracias por dedicar tiempo a ayudar.",3.531558878567754,3.841955775467212,False,False
+es-010,es,False,Verificación mutua,3.5069359646123996,2.8301276442080874,False,False
+es-011,es,False,dispositivos escaneados recientemente,2.8607497182157307,2.9753115531853376,False,False
+es-012,es,True,¿Podemos hacer los botones un poco más grandes en esta vista?,3.085496697823207,2.997932065802376,False,False
+es-013,es,False,• sin rastreo o recolección de datos • chats mesh Bluetooth son completamente offline • chats geohash usan internet,3.050308278778143,3.3203046747339195,False,False
+eu-000,eu,False,  aipamen mesh txatean,2.7627045035362245,3.6107515508992623,False,False
+eu-001,eu,False,  mezu   pertsonarengandik,3.0210721546953376,3.2724028834033874,False,False
+eu-002,eu,False,Aukeratu ekintza bat erabiltzaile honetarako,3.4001987174499866,3.1651248074922655,False,False
+eu-003,eu,False,Azken eskaneatze-emaitzak,4.163321452836196,3.335541983309709,False,False
+eu-004,eu,False,Baimena behar da,2.8003445545832317,2.9692426546670614,False,False
+eu-005,eu,False,Berriro saiatzen…,3.4530874602496624,2.8959477555089523,False,False
+eu-006,eu,False,Bidali txantxetako zaplazteko-mezu bat,4.319362601718387,3.348680791204056,True,False
+eu-007,eu,True,Bigarren saiakera arrakastaz amaitu da akatsik gabe.,3.3350032100490496,3.2264783920312823,False,False
+eu-008,eu,False,Bluetooth gomendatzen da,3.0634253517441126,3.0902026552192408,False,False
+eu-009,eu,False,Bluetooth mesh sarea konfiguratzen...,3.471519958641794,3.38316374104883,False,False
+eu-010,eu,False,Deskargak huts egin du. Saiatu berriro.,3.7535025477409363,3.0922936775143954,False,False
+eu-011,eu,False,Deskargatu APK unibertsala lineaz kanpo partekatzeko,3.735391166864657,3.1311867166891996,False,False
+eu-012,eu,False,Elkarren arteko egiaztapena,3.775872432268583,3.017025463809739,False,False
+eu-013,eu,False,"Ez dago behar adina leku:   MB behar dira,   MB libre.",4.063947278626111,3.993766221036943,False,False
+eu-014,eu,True,Ezarpena aldatu dut eta testua errazago irakurtzen da orain.,3.269873656458774,3.2417333427175095,False,False
+eu-015,eu,False,"Ezin da   zifratuta bidali   erabiltzaileari, haren bezeroa zaharragoa delako.  ",3.762201390556387,3.271714721059701,False,False
+eu-016,eu,True,Ikuspegi honetan botoiak pixka bat handiagoak egin ditzakegu?,3.4325417657693227,3.953796467251675,False,False
+eu-017,eu,True,"Lagungarria izan da, eskerrik asko laguntzeko denbora hartzeagatik.",3.687602106368903,3.3672371749648224,False,False
+eu-018,eu,False,Zaplaztekoa   erabiltzaileari,3.6994608686520505,3.19015424718209,False,False
+eu-019,eu,False,• Ez da jarraipenik ez datu-bilketarik egiten • Bluetooth mesh txatak guztiz lineaz kanpokoak dira • Geohash txatek internet erabiltzen dute,3.657101190776276,3.5238589399510962,False,False
+fa-000,fa,False,  را سیلی بزن,9.459307670593262,2.911884956275391,True,False
+fa-001,fa,False,  مورد ذکر در گفت‌وگوی مِش,9.459307670593262,2.263731468770344,True,False
+fa-002,fa,False,  پیام از   نفر,9.459307670593262,2.7842693009185773,True,False
+fa-003,fa,False,Mutual verification,2.5771477189328937,2.747261716409362,False,False
+fa-004,fa,True,آیا می‌توانیم دکمه‌ها را در این نما کمی بزرگ‌تر کنیم؟,9.459307670593262,2.8865786598760677,True,False
+fa-005,fa,False,اقدامی برای این کاربر انتخاب کنید,9.459307670593262,2.2517833729879424,True,False
+fa-006,fa,True,این کمک مفید بود، از وقتی که گذاشتید سپاسگزارم.,9.459307670593262,2.9626102518481083,True,False
+fa-007,fa,False,بلوتوث توصیه می شود,9.459307670593262,2.5367546508363015,True,False
+fa-008,fa,True,تلاش دوم بدون هیچ خطایی با موفقیت تمام شد.,9.459307670593262,2.9833336514121704,True,False
+fa-009,fa,True,تنظیم را تغییر دادم و خواندن متن آسان‌تر شد.,9.459307670593262,2.8340102214564307,True,False
+fa-010,fa,False,در حال تنظیم شبکهٔ مِش بلوتوث …,9.459307670593262,2.3999959334398997,True,False
+fa-011,fa,False,دستگاه‌های اخیراً اسکن‌شده,9.459307670593262,2.5915787152177794,True,False
+fa-012,fa,False,یک سیلی شوخی ارسال کن,9.459307670593262,2.683102039820435,True,False
+fa-013,fa,False,• بدون پیگیری یا جمع‌آوری داده • گفت‌وگوی مِش بلوتوث کاملاً آفلاین است • گفت‌وگوی geohash از اینترنت استفاده می‌کند,9.063697576522827,2.609705536518723,True,False
+fil-000,fil,False,  banggit sa Mesh Chat,2.371317756175995,2.70418888344549,False,False
+fil-001,fil,False,  mensahe mula sa   tao,3.005746521447834,3.132762558970478,False,False
+fil-002,fil,True,Binago ko ang setting at mas madali nang basahin ang teksto.,2.844246781478494,2.919817388291398,False,False
+fil-003,fil,False,Bluetooth Recommended,2.6463869988918303,3.294433681043452,False,False
+fil-004,fil,False,Ise‑set up ang Bluetooth mesh…,3.2668866042433113,3.4804005201482813,False,False
+fil-005,fil,True,Maaari ba nating palakihin nang kaunti ang mga pindutan sa tanawing ito?,3.0042546282351856,3.350771859512273,False,False
+fil-006,fil,True,Matagumpay na natapos ang ikalawang pagsubok nang walang error.,2.8989901903175537,3.229630665028189,False,False
+fil-007,fil,False,Mutual verification,2.5771477189328937,2.747261716409362,False,False
+fil-008,fil,True,"Nakatulong iyon, salamat sa paglalaan ng oras upang tumulong.",3.070632435878118,3.4890298895874863,False,False
+fil-009,fil,False,magpadala ng birong sampal,2.6870813941955567,2.9432208504948196,False,False
+fil-010,fil,False,mga huling resulta ng scan,2.7453477001190185,3.266512194750791,False,False
+fil-011,fil,False,pumili ng aksyon para sa user na ito,2.6949186904089792,2.8129338845614322,False,False
+fil-012,fil,False,sapakin si  ,2.685397148132324,2.6307622137155717,False,False
+fil-013,fil,False,• walang tracking o koleksiyon • offline ang mesh chat sa Bluetooth • gumagamit ng internet ang geohash chat,3.0190828013642927,3.2416564727015986,False,False
+fr-000,fr,False,  mentions dans le chat Mesh,2.246116280555725,2.376285581537271,False,False
+fr-001,fr,False,  messages de   personnes,2.4464467820667086,2.470294018603664,False,False
+fr-002,fr,False,Bluetooth recommandé,3.029475601095902,3.271103941385285,False,False
+fr-003,fr,True,"Cela m'a aidé, merci d'avoir pris le temps de répondre.",4.003364141340609,3.953073222911781,False,False
+fr-004,fr,False,Configuration du mesh Bluetooth…,2.876366730659239,3.0885299270994446,False,False
+fr-005,fr,True,J'ai changé le réglage et le texte est devenu plus facile à lire.,3.4879068015143275,3.3608917738821056,False,False
+fr-006,fr,True,La deuxième tentative s'est terminée sans aucune erreur.,3.560384838147597,3.7438390371362935,False,False
+fr-007,fr,True,Pourrait-on agrandir un peu les boutons dans cette vue ?,3.0634683977473864,3.390833016379288,False,False
+fr-008,fr,False,Vérification mutuelle,3.2651387095451354,2.778366289605508,False,False
+fr-009,fr,False,choisis une action pour cet utilisateur,2.551350088495957,2.569594034734168,False,False
+fr-010,fr,False,envoyer une gifle amicale,2.7849928190310798,3.0729569849289917,False,False
+fr-011,fr,False,gifler  ,2.5551271637280784,2.693601321166157,False,False
+fr-012,fr,False,résultats de scan récents,3.742916449904442,3.410297253593029,False,False
+fr-013,fr,False,• pas de suivi ni collecte de données • chats mesh Bluetooth entièrement hors‑ligne • les chats geohash utilisent internet,3.277065441628133,3.1904879400822055,False,False
+he-000,he,False,  אזכורים בצ׳אט Mesh,7.871412250730726,2.74833805981303,True,False
+he-001,he,False,  הודעות מ-  אנשים,9.459307670593262,2.9691853332952536,True,False
+he-002,he,False,אימות הדדי,9.459307670593262,2.6943179117893554,True,False
+he-003,he,True,אפשר להגדיל מעט את הכפתורים בתצוגה הזאת?,9.459307670593262,3.8102938547127754,True,False
+he-004,he,False,בחר פעולה עבור משתמש זה,9.459307670593262,2.8636072216266277,True,False
+he-005,he,True,הניסיון השני הסתיים בהצלחה ללא שגיאה.,9.459307670593262,3.627661356042196,True,False
+he-006,he,True,"זה היה מועיל, תודה שהקדשת זמן לעזור.",9.459307670593262,3.837517553536405,True,False
+he-007,he,False,מגדיר רשת Mesh דרך Bluetooth...,6.274787823359172,8.315317200516196,True,True
+he-008,he,False,מומלץ Bluetooth,5.184415306363787,7.370293454236542,True,True
+he-009,he,False,סטור ל- ,9.459307670593262,3.9266630434308545,True,False
+he-010,he,True,שיניתי את ההגדרה ועכשיו קל יותר לקרוא את הטקסט.,9.459307670593262,3.6532065970312058,True,False
+he-011,he,False,שלח הודעת סטירה שובבה,9.459307670593262,3.364468606228036,True,False
+he-012,he,False,תוצאות סריקה אחרונות,9.459307670593262,3.2473658301356783,True,False
+he-013,he,False,• ללא מעקב או איסוף נתונים • צ׳אטים ברשת Mesh דרך Bluetooth הם לחלוטין לא מקוונים • צ׳אטים לפי מיקום (Geohash) משתמשים באינטרנט,8.379783660646469,3.081962536979774,True,False
+hi-000,hi,False,  को थप्पड़,9.459307670593262,4.1509330854507835,True,False
+hi-001,hi,False,  लोगों से   संदेश,9.459307670593262,2.3938444119511026,True,False
+hi-002,hi,False,Bluetooth मेष नेटवर्क सेट कर रहे हैं…,7.783416774537828,1.9973076068014592,True,False
+hi-003,hi,False,Mutual verification,2.5771477189328937,2.747261716409362,False,False
+hi-004,hi,False,इस उपयोगकर्ता के लिए क्रिया चुनें,9.459307670593262,1.9434212938366922,True,False
+hi-005,hi,True,क्या हम इस स्क्रीन पर बटन थोड़े बड़े कर सकते हैं?,9.459307670593262,2.759096009019597,True,False
+hi-006,hi,True,दूसरा प्रयास बिना किसी त्रुटि के सफलतापूर्वक पूरा हो गया।,9.459307670593262,3.0625508122273724,True,False
+hi-007,hi,False,ब्लूटूथ अनुशंसित,9.459307670593262,3.2271553450699533,True,False
+hi-008,hi,False,मज़ाकिया थप्पड़ भेजें,9.459307670593262,3.689380198741747,True,False
+hi-009,hi,True,मैंने सेटिंग बदली और अब पाठ पढ़ना आसान हो गया है।,9.459307670593262,3.145468510999067,True,False
+hi-010,hi,True,"यह मददगार था, सहायता के लिए समय देने का धन्यवाद।",9.459307670593262,3.302600987151807,True,False
+hi-011,hi,False,हाल में स्कैन किए डिवाइस,9.459307670593262,2.484018552735981,True,False
+hi-012,hi,False,• कोई ट्रैकिंग या डेटा संग्रह नहीं • Bluetooth मेष चैट पूरी तरह ऑफ़लाइन • geohash चैट इंटरनेट का उपयोग करती है,8.431298234047146,2.470687469754681,True,False
+id-000,id,False,  penyebutan di Mesh Chat,2.8111578744390737,2.6403355649883617,False,False
+id-001,id,False,  pesan dari   orang,2.613505721092224,2.376102131683176,False,False
+id-002,id,True,Bisakah kita membuat tombol sedikit lebih besar pada tampilan ini?,3.0954015878530647,3.3036611385877546,False,False
+id-003,id,False,Bluetooth Recommended,2.6463869988918303,3.294433681043452,False,False
+id-004,id,True,"Itu sangat membantu, terima kasih sudah meluangkan waktu.",3.589010728257043,3.0893469277254066,False,False
+id-005,id,False,Kirim tamparan main-main,3.033863124640092,3.212542277971578,False,False
+id-006,id,False,Menyiapkan jaringan Bluetooth mesh …,3.1169893877846855,2.996114277756286,False,False
+id-007,id,False,Mutual verification,2.5771477189328937,2.747261716409362,False,False
+id-008,id,True,Percobaan kedua selesai dengan baik tanpa kesalahan.,3.059971313850552,3.074464819850396,False,False
+id-009,id,False,Pilih aksi untuk pengguna ini,3.126290338379996,2.967169300115333,False,False
+id-010,id,True,Saya mengubah pengaturan dan teksnya menjadi lebih mudah dibaca.,3.6813985525615633,3.1373080645234737,False,False
+id-011,id,False,Tampar  ,2.4278456370035806,2.863681912192413,False,False
+id-012,id,False,perangkat yang baru dipindai,3.184850741315771,2.7221188999517105,False,False
+id-013,id,False,• tidak ada pelacakan atau pengumpulan data • Bluetooth mesh chat sepenuhnya offline • Geohash chat menggunakan Internet,3.2075670867407022,3.1598740711796296,False,False
+it-000,it,False,  menzioni nella chat mesh,2.7126933137575784,2.9189336777236887,False,False
+it-001,it,False,  messaggi da   persone,2.8046285792400965,2.662458115138026,False,False
+it-002,it,False,Bluetooth consigliato,2.8033680379390717,3.2006728311995074,False,False
+it-003,it,False,Configurazione rete mesh Bluetooth…,2.865196743432213,3.293867725682682,False,False
+it-004,it,True,Ho cambiato l'impostazione e adesso il testo è più facile da leggere.,3.480370218262953,3.887626101607244,False,False
+it-005,it,True,Il secondo tentativo si è concluso correttamente senza alcun errore.,2.9673876121862612,3.4686911801057776,False,False
+it-006,it,True,Possiamo rendere i pulsanti un po' più grandi in questa vista?,3.305414536448776,3.8810527047126997,False,False
+it-007,it,False,Verifica reciproca,2.7417335825807907,3.1006469450104346,False,False
+it-008,it,False,invia uno schiaffo giocoso,3.0269054269790647,3.482889361038658,False,False
+it-009,it,False,risultati scansione recenti,2.4950545934530406,3.105990345081946,False,False
+it-010,it,False,scegli un'azione per questo utente,3.2632672867991706,2.9574873558818786,False,False
+it-011,it,False,schiaffeggia  ,3.512417515118917,3.442990241086697,False,False
+it-012,it,True,"È stato utile, grazie per aver dedicato del tempo ad aiutare.",3.1591998557249705,3.522078568558765,False,False
+it-013,it,False,• nessun tracciamento o raccolta dati • le chat mesh Bluetooth sono completamente offline • le chat geohash usano internet,2.937189431229899,3.349307545724615,False,False
+ja-000,ja,False,  を平手打ち,9.459307670593262,7.3325041146064995,True,True
+ja-001,ja,False,  人からの   件のメッセージ,9.459307670593262,2.0856442229300725,True,False
+ja-002,ja,False,Bluetooth メッシュネットワークを設定中…,6.945471326510112,1.2048708080232045,True,False
+ja-003,ja,False,Bluetooth推奨,4.136598920822143,5.410674737799987,False,True
+ja-004,ja,False,• 追跡やデータ収集はありません • Bluetooth メッシュチャットは完全にオフライン • geohash チャットはインターネットを使用,7.881096000402746,2.212186201450746,True,False
+ja-005,ja,False,このユーザーの操作を選択,9.459307670593262,1.3909216091756067,True,False
+ja-006,ja,True,この画面のボタンを少し大きくできますか。,9.459307670593262,2.1993317654444486,True,False
+ja-007,ja,False,メッシュチャットで   件のメンション,9.459307670593262,1.30744639918915,True,False
+ja-008,ja,True,二回目の試みはエラーなく正常に完了しました。,9.459307670593262,3.59807811752901,True,False
+ja-009,ja,False,冗談の平手打ちを送る,9.459307670593262,6.368427043748605,True,True
+ja-010,ja,True,助かりました。時間をかけて教えてくれてありがとう。,9.459307670593262,2.3170475609433385,True,False
+ja-011,ja,False,最近スキャンしたデバイス,9.459307670593262,2.304756978844604,True,False
+ja-012,ja,False,相互検証,9.459307670593262,0.8677202930340787,True,False
+ja-013,ja,True,設定を変更したら文字が読みやすくなりました。,9.459307670593262,1.6701605568358004,True,False
+ka-000,ka,False,  ადამიანიდან   შეტყობინება,9.459307670593262,1.9398219542582182,True,False
+ka-001,ka,False, -ის ლ®აპით დარტყმა,9.459307670593262,4.069797672217778,True,False
+ka-002,ka,False,Bluetooth Recommended,2.6463869988918303,3.294433681043452,False,False
+ka-003,ka,False,Bluetooth mesh ქსელის მოწყობა…,6.148301650737894,8.739943369448614,True,True
+ka-004,ka,False,Mutual verification,2.5771477189328937,2.747261716409362,False,False
+ka-005,ka,False,აირჩიეთ ქმედება ამ მომხმარებლისთვის,9.459307670593262,2.3678446908419075,True,False
+ka-006,ka,False,ბოლო სკანირებული მოწყობილობები,9.459307670593262,2.245962817151637,True,False
+ka-007,ka,False,გაგზავნეთ ხუმრობით ლ®აპი,9.459307670593262,3.8348475127165407,True,False
+ka-008,ka,True,"ეს სასარგებლო იყო, გმადლობთ დახმარებისთვის დახარჯული დროისთვის.",9.459307670593262,2.5262363767863483,True,False
+ka-009,ka,True,მეორე მცდელობა წარმატებით დასრულდა შეცდომის გარეშე.,9.459307670593262,2.58581786448696,True,False
+ka-010,ka,True,პარამეტრი შევცვალე და ტექსტის წაკითხვა გამარტივდა.,9.459307670593262,2.627199888575617,True,False
+ka-011,ka,True,შეგვიძლია ამ ეკრანზე ღილაკები ოდნავ გავადიდოთ?,9.459307670593262,3.520347166293427,True,False
+ka-012,ka,False,• ტრეკინგი ან მონაცემთა შეგროვება არა • Bluetooth mesh-ჩათები სრულად ოფლაინ • geohash ჩათი იყენებს ინტერნეტს,8.144960510396512,2.5542059790073592,True,False
+ko-000,ko,False, 를 때리기,9.459307670593262,4.8697084306309595,True,True
+ko-001,ko,False, 명에게서  개의 메시지,9.459307670593262,3.1694763301774573,True,False
+ko-002,ko,False,Mutual verification,2.5771477189328937,2.747261716409362,False,False
+ko-003,ko,False,• 추적 또는 데이터 수집 없음 • 블루투스 메쉬 채팅은 완전 오프라인 • geohash 채팅은 인터넷 사용,8.694908505779201,2.8152004325333113,True,False
+ko-004,ko,True,도움이 되었어요. 시간을 내어 알려 주셔서 감사합니다.,9.459307670593262,2.5729722710794722,True,False
+ko-005,ko,True,두 번째 시도는 오류 없이 성공적으로 완료되었습니다.,9.459307670593262,3.0831252494230434,True,False
+ko-006,ko,False,메쉬 채팅에서  회 언급,9.459307670593262,2.151644609889695,True,False
+ko-007,ko,False,블루투스 권장,9.459307670593262,2.1011314422426706,True,False
+ko-008,ko,False,블루투스 메쉬 네트워크 설정 중 …,9.459307670593262,1.954561400762802,True,False
+ko-009,ko,True,설정을 바꾸었더니 글을 읽기가 더 쉬워졌어요.,9.459307670593262,3.1486958022357276,True,False
+ko-010,ko,False,이 사용자에 대한 동작 선택,9.459307670593262,2.1434465506668614,True,False
+ko-011,ko,True,이 화면의 버튼을 조금 더 크게 만들 수 있을까요?,9.459307670593262,2.591992938620201,True,False
+ko-012,ko,False,장난스러운 따귀 보내기,9.459307670593262,7.2260302779828285,True,True
+ko-013,ko,False,최근 스캔된 장치,9.459307670593262,6.036514367116226,True,True
+mg-000,mg,False,  fanaovana tsiahy ao amin'ny Mesh Chat,3.537076323419004,2.5689984068911818,False,False
+mg-001,mg,False,  hafatra avy amin'ny olona  ,3.3567520632193637,2.4001921417457797,False,False
+mg-002,mg,True,Afaka ampitomboina kely ve ny bokotra amin'ity efijery ity?,3.3497865271979363,2.9509108841708587,False,False
+mg-003,mg,False,Bluetooth Recommended,2.6463869988918303,3.294433681043452,False,False
+mg-004,mg,False,Mametraka ny tambazotry mesh Bluetooth...,3.493052990734577,2.818256445444266,False,False
+mg-005,mg,False,Mutual verification,2.5771477189328937,2.747261716409362,False,False
+mg-006,mg,True,Nanova ny fikirana aho ka mora vakina kokoa izao ny lahatsoratra.,3.5050549870356917,2.73085362308726,False,False
+mg-007,mg,True,"Tena nanampy izany, misaotra tamin'ny fotoana nomenao hanampiana.",3.5281835487112403,2.569701808179126,False,False
+mg-008,mg,True,Vita soa aman-tsara tsy nisy hadisoana ny fanandramana faharoa.,3.2127305735503473,2.405598708900054,False,False
+mg-009,mg,False,handefasa hafatra kapohana an-dalao,3.616662828361287,2.7512043646076134,False,False
+mg-010,mg,False,kapohina  ,4.013947024941444,2.9738816638109147,False,False
+mg-011,mg,False,safidio hetsika ho an'ity mpampiasa ity,3.2861089165273465,2.5333492847620795,False,False
+mg-012,mg,False,valim-panadihadiana vao haingana,3.691514753526257,3.071462254092336,False,False
+mg-013,mg,False,• tsy misy fanaraha-maso na fanangonana angona • tsy an-tserasera tanteraka ny resaka mesh Bluetooth • mampiasa Internet ny resaka Geohash,3.3008940148092534,2.6322291375202003,False,False
+ms-000,ms,False,  mesej daripada   orang,3.257408136129379,3.0538280650135414,False,False
+ms-001,ms,False,  sebutan dalam Sembang Mesh,2.7400720302875223,2.7276001312074416,False,False
+ms-002,ms,False,Bluetooth Disyorkan,3.0253684653176203,2.7031442918770097,False,False
+ms-003,ms,True,Bolehkah kita membesarkan sedikit butang pada paparan ini?,3.130785477788825,3.2481147820541523,False,False
+ms-004,ms,True,"Itu sangat membantu, terima kasih kerana meluangkan masa.",3.3257709060396468,2.866879077470419,False,False
+ms-005,ms,False,Menyediakan rangkaian mesh Bluetooth...,3.552788110155808,3.098114824953031,False,False
+ms-006,ms,False,Pengesahan bersama,2.532201605684617,2.6023248979052447,False,False
+ms-007,ms,True,Percubaan kedua selesai dengan jayanya tanpa sebarang ralat.,3.201640308913538,3.0773032746808924,False,False
+ms-008,ms,True,Saya mengubah tetapan dan teks kini lebih mudah dibaca.,3.5413005925990917,3.267984150358504,False,False
+ms-009,ms,False,hantar mesej tamparan bergurau,2.818141616623977,3.043685323754118,False,False
+ms-010,ms,False,keputusan imbasan terkini,2.605215827624003,3.0208077401963536,False,False
+ms-011,ms,False,pilih tindakan untuk pengguna ini,3.042529582977295,2.823057895919411,False,False
+ms-012,ms,False,tampar  ,2.4278456370035806,2.863681912192413,False,False
+ms-013,ms,False,• tiada penjejakan atau pengumpulan data • sembang mesh Bluetooth sepenuhnya luar talian • sembang Geohash menggunakan internet,3.3341468241479664,3.092652193800065,False,False
+ne-000,ne,False,  लाई चड्कन,9.459307670593262,3.3037755905922572,True,False
+ne-001,ne,False,  सन्देश   जनाबाट,9.459307670593262,2.635342362094699,True,False
+ne-002,ne,False,Mutual verification,2.5771477189328937,2.747261716409362,False,False
+ne-003,ne,True,के हामी यो पर्दामा बटनहरू अलि ठूला बनाउन सक्छौँ?,9.459307670593262,3.131043521423983,True,False
+ne-004,ne,True,दोस्रो प्रयास कुनै त्रुटिबिना सफलतापूर्वक पूरा भयो।,9.459307670593262,2.8882438044508185,True,False
+ne-005,ne,False,ब्लुटुथ मेष सेटअप गर्दै…,9.459307670593262,2.2848999660255918,True,False
+ne-006,ne,False,ब्लुटुथ सिफारिस गरिएको,9.459307670593262,2.688604232289346,True,False
+ne-007,ne,False,मनोरञ्जनका लागि चड्कन पठाउनुहोस्,9.459307670593262,2.8485143446736485,True,False
+ne-008,ne,True,मैले सेटिङ बदलेपछि पाठ पढ्न सजिलो भयो।,9.459307670593262,3.410623575507696,True,False
+ne-009,ne,False,यस प्रयोगकर्ताका लागि कार्य छान्नुहोस्,9.459307670593262,2.1456575930587554,True,False
+ne-010,ne,True,"यो उपयोगी भयो, सहयोगका लागि समय दिनुभएकोमा धन्यवाद।",9.459307670593262,3.217660846628595,True,False
+ne-011,ne,False,हालैका स्क्यान नतिजा,9.459307670593262,2.848775303004367,True,False
+ne-012,ne,False,• कुनै ट्र्याकिङ वा डेटा सङ्कलन छैन • ब्लुटुथ मेष च्याट पूर्णतया अफलाइन • Geohash च्याट इन्टरनेट प्रयोग गर्छ,9.037816542331303,2.5086792536160933,True,False
+nl-000,nl,False,  berichten van   personen,2.517756234515797,2.3510357951068603,False,False
+nl-001,nl,False,  een tik geven,2.684439847102532,2.968932143117096,False,False
+nl-002,nl,False,  vermeldingen in meshchat,2.4724917635321617,2.35054453548129,False,False
+nl-003,nl,False,Bluetooth aanbevolen,3.280847944711384,3.2872270972616313,False,False
+nl-004,nl,False,Bluetooth-meshnetwerk instellen…,3.4574689903566913,3.318182361747705,False,False
+nl-005,nl,True,"Dat was nuttig, bedankt dat je de tijd nam om te helpen.",3.208227225867185,3.7266689650006417,False,False
+nl-006,nl,True,De tweede poging is zonder fouten succesvol afgerond.,2.926429897546768,3.666314502810535,False,False
+nl-007,nl,True,Ik heb de instelling veranderd en de tekst is nu makkelijker te lezen.,2.8660068261450617,3.1095452751739834,False,False
+nl-008,nl,True,Kunnen we de knoppen in deze weergave iets groter maken?,2.8148492509668523,3.233547622362996,False,False
+nl-009,nl,False,Mutual verification,2.5771477189328937,2.747261716409362,False,False
+nl-010,nl,False,kies een actie voor deze gebruiker,2.889941621910442,2.9391375392979784,False,False
+nl-011,nl,False,recente scanresultaten,2.6222599347432456,3.0983733692918323,False,False
+nl-012,nl,False,stuur een speelse tik,3.038938671350479,3.31229014310352,False,False
+nl-013,nl,False,• geen tracking of gegevensverzameling • Bluetooth-meshchats zijn volledig offline • Geohash-chats gebruiken internet,3.5261178766858987,3.3695035301991356,False,False
+pa-000,pa,False,  لوکان کولوں   پیغام,9.459307670593262,2.4957512480827906,True,False
+pa-001,pa,False,  نوں چپیڑ مارو,9.459307670593262,2.6261359280053282,True,False
+pa-002,pa,False,Bluetooth Recommended,2.6463869988918303,3.294433681043452,False,False
+pa-003,pa,False,Mutual verification,2.5771477189328937,2.747261716409362,False,False
+pa-004,pa,False,اس یوزر لئی عمل چُنو,9.459307670593262,2.4546606766576295,True,False
+pa-005,pa,True,ایہہ فائدہ مند سی، مدد لئی ویلا کڈھن دا شکریہ۔,9.459307670593262,3.0632114150974767,True,False
+pa-006,pa,False,بلوٹوتھ میش نیٹ ورک سیٹ اپ ہورہا …,9.459307670593262,2.400499874815166,True,False
+pa-007,pa,False,حال ہی وچ سکین ہوۓ ڈیوائس,9.459307670593262,3.560516669262124,True,False
+pa-008,pa,True,دوجی کوشش بغیر کسے غلطی دے کامیاب ہو گئی اے۔,9.459307670593262,2.9070812014282796,True,False
+pa-009,pa,False,مزاحیہ چپیڑ پھجو,9.459307670593262,3.4336925772161786,True,False
+pa-010,pa,True,میں سیٹنگ بدلی تے ہُن لکھت پڑھنی سوکھی ہو گئی اے۔,9.459307670593262,2.666876274954354,True,False
+pa-011,pa,True,کی اسی ایس سکرین اُتے بٹن تھوڑے وڈے کر سکدے آں؟,9.459307670593262,2.801864750793107,True,False
+pa-012,pa,False,• کوئی ٹریکنگ یا ڈیٹا جمع نئیں • بلوٹوتھ میش چیٹ مکمل آف لائن • geohash چیٹ انٹرنیٹ استعمال کردی اے,8.999108173409287,2.527833828512329,True,False
+pl-000,pl,False,  wiadomości od   osób,4.569014386998282,3.1563388208371443,True,False
+pl-001,pl,False,  wzmianek w czacie Mesh,3.5009750832210886,2.8243382993033563,False,False
+pl-002,pl,False,Bluetooth zalecany,3.234184545629165,3.2326504155537945,False,False
+pl-003,pl,True,Czy możemy nieco powiększyć przyciski w tym widoku?,4.244641216993332,3.2360190685983596,True,False
+pl-004,pl,True,Druga próba zakończyła się pomyślnie bez żadnego błędu.,5.562593387232886,3.8082659753222714,True,False
+pl-005,pl,False,Konfigurowanie sieci mesh Bluetooth...,3.403637441428932,2.93097628579495,False,False
+pl-006,pl,True,"To było pomocne, dziękuję za poświęcony czas i pomoc.",5.113956450842894,3.369135286877194,True,False
+pl-007,pl,False,Weryfikacja wzajemna,4.308972044994957,2.696634915225796,True,False
+pl-008,pl,True,Zmieniłem ustawienie i tekst jest teraz łatwiejszy do odczytania.,3.930305666755885,3.2203879245755833,False,False
+pl-009,pl,False,ostatnie wyniki skanowania,3.7181719064712526,2.573275401728229,False,False
+pl-010,pl,False,spoliczkuj  ,4.4820068836212155,3.400799282768756,True,False
+pl-011,pl,False,wybierz działanie dla tego użytkownika,4.699498205571561,2.7124825679635203,True,False
+pl-012,pl,False,wyślij żartobliwą wiadomość o spoliczkowaniu,4.9996529152227005,3.28304560323659,True,False
+pl-013,pl,False,• brak śledzenia ani gromadzenia danych • czaty sieci mesh Bluetooth są całkowicie offline • czaty geohash korzystają z internetu,3.9133956474252045,3.1568597936520972,False,False
+pt-000,pt,False,  mensagens de   pessoas,2.5665739119052886,2.931788574955155,False,False
+pt-001,pt,False,  menções no chat mesh,3.3760683059692385,3.055302772110541,False,False
+pt-002,pt,False,A configurar rede mesh Bluetooth…,2.7286622375249863,3.179611886101169,False,False
+pt-003,pt,True,A segunda tentativa terminou com sucesso e sem nenhum erro.,2.988567064548361,3.569796003995093,False,False
+pt-004,pt,False,Bluetooth recomendado,2.702928829193115,3.0793016382596896,False,False
+pt-005,pt,False,Configurando rede mesh Bluetooth…,2.745284829288721,3.265558071673415,False,False
+pt-006,pt,False,Dar um tapa em  ,2.9709520680563792,3.050624111156364,False,False
+pt-007,pt,False,Dar uma palmada em  ,3.21840461757448,2.8734125642447914,False,False
+pt-008,pt,False,Enviar um tapa brincalhão,3.5479159305493035,3.4476484321422034,False,False
+pt-009,pt,False,Enviar uma palmada brincalhona,3.094210143747001,3.280243680705201,False,False
+pt-010,pt,False,Escolha uma ação para este usuário,3.842759558648774,2.913969495609939,False,False
+pt-011,pt,False,Escolher ação para este utilizador,3.4386084007494375,2.7352027511324914,False,False
+pt-012,pt,True,"Isso ajudou, obrigado por dedicar seu tempo para ajudar.",3.3800878156315197,3.810124789243926,False,False
+pt-013,pt,True,Mudei a configuração e agora o texto ficou mais fácil de ler.,3.350428799788157,3.7696966652772455,False,False
+pt-014,pt,True,Podemos deixar os botões um pouco maiores nesta tela?,3.0749355279482327,3.7201073442802204,False,False
+pt-015,pt,False,Verificação mútua,4.713195081800222,2.829800844825504,True,False
+pt-016,pt,False,dispositivos digitalizados recentemente,2.9481622419859232,2.965317765043497,False,False
+pt-017,pt,False,dispositivos escaneados recentemente,2.799293681553432,2.996148491050646,False,False
+pt-018,pt,False,• sem rastreamento ou coleta de dados • chats mesh Bluetooth são totalmente offline • chats geohash usam internet,3.154599608055183,3.369990011878022,False,False
+pt-019,pt,False,• sem rastreamento ou recolha de dados • chats mesh Bluetooth são completamente offline • chats geohash usam internet,3.1103198682439737,3.4582561060740176,False,False
+ru-000,ru,False,  сообщений от   людей,9.459307670593262,2.853333773010192,True,False
+ru-001,ru,False,  упоминаний в Mesh‑чате,8.160120508887552,2.3536372598805,True,False
+ru-002,ru,False,Взаимная проверка,9.459307670593262,2.766608847824791,True,False
+ru-003,ru,True,Вторая попытка успешно завершилась без ошибок.,9.459307670593262,3.592362515705487,True,False
+ru-004,ru,True,Можно сделать кнопки в этом окне немного больше?,9.459307670593262,3.5910853411261656,True,False
+ru-005,ru,False,Настройка Bluetooth mesh…,5.478657861550649,7.211651449215368,True,True
+ru-006,ru,False,Рекомендуется Bluetooth,6.738921620629051,2.551507109247706,True,False
+ru-007,ru,True,"Это помогло, спасибо за уделённое время и помощь.",9.459307670593262,3.952150537167859,True,False
+ru-008,ru,True,"Я изменил настройку, и теперь текст легче читать.",9.459307670593262,3.467226622736362,True,False
+ru-009,ru,False,выберите действие для пользователя,9.459307670593262,2.6955868432623022,True,False
+ru-010,ru,False,дать пощёчину  ,9.459307670593262,3.305503270472329,True,False
+ru-011,ru,False,отправить шутливую пощёчину,9.459307670593262,3.781696262329589,True,False
+ru-012,ru,False,последние результаты сканирования,9.459307670593262,3.059224726429655,True,False
+ru-013,ru,False,• без трекинга и сбора данных • Bluetooth‑mesh чаты полностью оффлайн • Geohash‑чаты используют интернет,8.223999497959914,3.118420889892796,True,False
+sv-000,sv,False,  meddelanden från   personer,3.0153208589553833,2.776448823610542,False,False
+sv-001,sv,False,  nämningar i Mesh‑chatt,4.0231775641441345,2.924848364035581,False,False
+sv-002,sv,False,Bluetooth rekommenderas,3.0965993079272183,2.9871195096362144,False,False
+sv-003,sv,True,Det andra försöket slutfördes utan några fel.,4.2141330513087185,3.216148300291172,True,False
+sv-004,sv,True,"Det var till hjälp, tack för att du tog dig tid att hjälpa.",3.965185067776976,3.687068011613742,False,False
+sv-005,sv,True,Jag ändrade inställningen och texten blev lättare att läsa.,3.6873122515349555,3.5331931376525936,False,False
+sv-006,sv,True,Kan vi göra knapparna lite större i den här vyn?,4.122977061474577,3.7423330905017207,False,False
+sv-007,sv,False,Mutual verification,2.5771477189328937,2.747261716409362,False,False
+sv-008,sv,False,Ställer in Bluetooth‑mesh…,3.7515981721878053,3.179175293449138,False,False
+sv-009,sv,False,ge   en örfil,3.747850477695465,3.0422599274089377,False,False
+sv-010,sv,False,senaste skanningsresultat,3.031098484992981,3.4791240313080847,False,False
+sv-011,sv,False,skicka en skämtsam örfil,4.535185782805733,3.485977235659512,True,False
+sv-012,sv,False,välj en åtgärd för den här användaren,5.191384572121832,2.9696591913682524,True,False
+sv-013,sv,False,• ingen spårning eller insamling • Bluetooth‑mesh‑chattar helt offline • geohash‑chattar använder internet,3.5754397335506622,3.0775584649249437,False,False
+ta-000,ta,False,  நபர்களிடமிருந்து   செய்திகள்,9.459307670593262,3.035880421123068,True,False
+ta-001,ta,False,Bluetooth Recommended,2.6463869988918303,3.294433681043452,False,False
+ta-002,ta,False,Bluetooth மெஷ் நெட்வொர்க்கிங்கை அமைக்கிறது…,8.022829759688605,2.6905648108924614,True,False
+ta-003,ta,True,அமைப்பை மாற்றிய பிறகு உரையைப் படிப்பது எளிதானது.,9.459307670593262,3.621266848230581,True,False
+ta-004,ta,True,"இது உதவியாக இருந்தது, நேரம் ஒதுக்கி உதவியதற்கு நன்றி.",9.459307670593262,3.8725070619887636,True,False
+ta-005,ta,False,இந்த பயனருக்கான செயலைத் தேர்ந்தெடு,9.459307670593262,3.1049398050150065,True,False
+ta-006,ta,True,இந்தத் திரையில் பொத்தான்களைச் சற்று பெரிதாக்க முடியுமா?,9.459307670593262,3.566050859670145,True,False
+ta-007,ta,True,இரண்டாவது முயற்சி பிழை இல்லாமல் வெற்றிகரமாக முடிந்தது.,9.459307670593262,4.247049429562183,True,True
+ta-008,ta,False,ஒரு விளையாட்டான அறை செய்தியை அனுப்பு,9.459307670593262,2.982743920305422,True,False
+ta-009,ta,False,சமீபத்திய ஸ்கேன் முடிவுகள்,9.459307670593262,3.4953757803347236,True,False
+ta-010,ta,False,பரஸ்பர சரிபார்ப்பு,9.459307670593262,3.173761706170607,True,False
+ta-011,ta,False,மெஷ் அரட்டையில்   குறிப்புகள்,9.459307670593262,2.91750875427536,True,False
+ta-012,ta,False,• கண்காணிப்பு அல்லது தரவு சேகரிப்பு இல்லை • Bluetooth மெஷ் அரட்டைகள் முழுவதுமாக ஆஃப்லைனில் உள்ளன • ஜியோஹாஷ் அரட்டைகள் இணையத்தைப் பயன்படுத்துகின்றன,8.997559547424316,3.278882364657161,True,False
+th-000,th,False,Bluetooth Recommended,2.6463869988918303,3.294433681043452,False,False
+th-001,th,False,Mutual verification,2.5771477189328937,2.747261716409362,False,False
+th-002,th,True,การลองครั้งที่สองเสร็จสมบูรณ์โดยไม่มีข้อผิดพลาด,9.459307670593262,2.8132985622485354,True,False
+th-003,th,False,กำลังตั้งค่าเครือข่ายเมช Bluetooth…,7.699057873557596,2.638724745995105,True,False
+th-004,th,False,ข้อความ   จาก   คน,9.459307670593262,2.532730207889116,True,False
+th-005,th,True,ฉันเปลี่ยนการตั้งค่าแล้วอ่านข้อความได้ง่ายขึ้น,9.459307670593262,2.8631493904429863,True,False
+th-006,th,False,ถูกกล่าวถึง   ครั้งในแชทเมช,9.459307670593262,2.4184126451070087,True,False
+th-007,th,True,มีประโยชน์มาก ขอบคุณที่สละเวลามาช่วยอธิบาย,9.459307670593262,2.9933272249667895,True,False
+th-008,th,False,ส่งตบแบบขำ ๆ,9.459307670593262,4.416131557067374,True,True
+th-009,th,False,อุปกรณ์ที่สแกนล่าสุด,9.459307670593262,3.144493974163931,True,False
+th-010,th,True,เราทำให้ปุ่มบนหน้าจอนี้ใหญ่ขึ้นอีกนิดได้ไหม,9.459307670593262,4.361565223054306,True,True
+th-011,th,False,เลือกการทำงานสำหรับผู้ใช้นี้,9.459307670593262,2.185382180740612,True,False
+th-012,th,False,• ไม่มีการติดตามหรือเก็บข้อมูล • แชทเมชบลูทูธทำงานแบบออฟไลน์ทั้งหมด • แชท geohash ใช้อินเทอร์เน็ต,8.98952068388462,2.807235511388805,True,False
+tr-000,tr,False,  kişiden   mesaj,4.132641663918128,2.688061025746182,False,False
+tr-001,tr,False,  kişisine şaplak,4.369163942337036,3.204360982256673,True,False
+tr-002,tr,True,Ayarı değiştirdim ve artık metni okumak daha kolay.,4.518364025354385,2.8821800556953563,True,False
+tr-003,tr,False,Bluetooth mesh ayarlanıyor…,3.5965667963027954,2.487860850436142,False,False
+tr-004,tr,False,Bluetooth Önerilir,3.51699636964237,2.656528234634876,False,False
+tr-005,tr,True,Bu görünümde düğmeleri biraz daha büyük yapabilir miyiz?,5.05384450825778,3.578459665107986,True,False
+tr-006,tr,True,"Bu yardımcı oldu, yardım etmek için zaman ayırdığın için teşekkürler.",5.629980392315808,3.20811025943937,True,False
+tr-007,tr,False,Mesh sohbette   bahsetme,3.8257422617503574,2.615307245782452,False,False
+tr-008,tr,False,Mutual verification,2.5771477189328937,2.747261716409362,False,False
+tr-009,tr,False,bu kullanıcı için bir işlem seç,4.696066534519195,2.5112432789640575,True,False
+tr-010,tr,False,son tarama sonuçları,3.5923407454239693,2.6573838222463424,False,False
+tr-011,tr,True,İkinci deneme hiçbir hata olmadan başarıyla tamamlandı.,4.079143415998529,3.097237783535482,False,False
+tr-012,tr,False,şakacı bir şaplak gönder,5.000601105068041,2.898238554775323,True,False
+tr-013,tr,False,• takip veya veri toplama yok • Bluetooth mesh sohbet çevrimdışı • geohash sohbet internete ihtiyaç duyar,4.254084018560556,2.7554485594272906,True,False
+uk-000,uk,False,  згадок у Mesh-чаті,7.871412250730726,2.8849015757625303,True,False
+uk-001,uk,False,  повідомлень від   людей,9.459307670593262,3.106620122143812,True,False
+uk-002,uk,False,Взаємне підтвердження,9.459307670593262,3.0067693488011598,True,False
+uk-003,uk,True,Друга спроба успішно завершилася без помилок.,9.459307670593262,3.847924576453038,True,False
+uk-004,uk,True,Можна зробити кнопки в цьому вікні трохи більшими?,9.459307670593262,3.79766303938224,True,False
+uk-005,uk,False,Налаштування Bluetooth mesh-мережі...,6.80554113123152,2.5267305272612837,True,False
+uk-006,uk,False,Рекомендується Bluetooth,6.85719927497532,2.796358279631426,True,False
+uk-007,uk,True,"Це допомогло, дякую за витрачений час і допомогу.",9.459307670593262,3.64147720990096,True,False
+uk-008,uk,True,"Я змінив налаштування, і тепер текст легше читати.",9.459307670593262,3.680181362830996,True,False
+uk-009,uk,False,виберіть дію для цього користувача,9.459307670593262,3.0842922974964426,True,False
+uk-010,uk,False,ляснути  ,9.459307670593262,3.354296036551061,True,False
+uk-011,uk,False,надіслати жартівливе повідомлення про ляпас,9.459307670593262,3.2974596731297616,True,False
+uk-012,uk,False,останні результати сканування,9.459307670593262,3.0210512674758134,True,False
+uk-013,uk,False,• без відстеження чи збору даних • Bluetooth mesh-чати повністю офлайн • Геочати використовують інтернет,8.531777618000808,3.1097906070163317,True,False
+ur-000,ur,False,  لوگوں سے   پیغامات,9.459307670593262,2.3683963207992185,True,False
+ur-001,ur,False,  کو تھپڑ,9.459307670593262,3.1098099522454836,True,False
+ur-002,ur,False,Bluetooth Recommended,2.6463869988918303,3.294433681043452,False,False
+ur-003,ur,False,Bluetooth میش نیٹ ورک سیٹ کر رہے ہیں…,7.783416774537828,1.9716644489821613,True,False
+ur-004,ur,False,Mutual verification,2.5771477189328937,2.747261716409362,False,False
+ur-005,ur,False,اس صارف کے لیے ایکشن منتخب کریں,9.459307670593262,2.158666882756485,True,False
+ur-006,ur,False,حال ہی میں اسکین شدہ آلات,9.459307670593262,2.457201992975874,True,False
+ur-007,ur,True,دوسری کوشش کسی غلطی کے بغیر کامیابی سے مکمل ہو گئی۔,9.459307670593262,2.9462305684399617,True,False
+ur-008,ur,False,مزاحیہ تھپڑ بھیجیں,9.459307670593262,2.891539290044819,True,False
+ur-009,ur,True,میں نے ترتیب بدلی اور اب متن پڑھنا آسان ہو گیا ہے۔,9.459307670593262,2.88943454011219,True,False
+ur-010,ur,True,کیا ہم اس اسکرین پر بٹن کچھ بڑے کر سکتے ہیں؟,9.459307670593262,2.674026050839039,True,False
+ur-011,ur,True,یہ مددگار تھا، مدد کے لیے وقت دینے کا شکریہ۔,9.459307670593262,3.1827428430582563,True,False
+ur-012,ur,False,• کوئی ٹریکنگ یا ڈیٹا اجماع نہیں • Bluetooth میش چیٹس مکمل آف لائن • geohash چیٹس انٹرنیٹ استعمال کرتے ہیں,8.39213596979777,2.447014818751647,True,False
+vi-000,vi,False,  lần nhắc đến trong Mesh Chat,4.368544506175177,2.2166791870071774,True,False
+vi-001,vi,False,  tin nhắn từ   người,5.520274106193991,2.1632557946030633,True,False
+vi-002,vi,True,Chúng ta có thể làm các nút trong màn hình này lớn hơn một chút không?,5.531610951475475,2.9789588575596904,True,False
+vi-003,vi,False,Chọn hành động cho người dùng này,5.70898625254631,2.1831283466942146,True,False
+vi-004,vi,False,Gửi một cái tát vui nhộn,6.3351839988128,3.6105615513016907,True,False
+vi-005,vi,False,Khuyên dùng Bluetooth,4.569148337841034,2.2801357574317542,True,False
+vi-006,vi,True,Lần thử thứ hai đã hoàn tất thành công mà không có lỗi.,5.935010002719031,2.769106956592526,True,False
+vi-007,vi,False,Mutual verification,2.5771477189328937,2.747261716409362,False,False
+vi-008,vi,True,Tôi đã đổi cài đặt và bây giờ văn bản dễ đọc hơn.,7.312899482126038,4.007089825172956,True,False
+vi-009,vi,False,thiết bị được quét gần đây,6.78477131485939,2.857226188003462,True,False
+vi-010,vi,False,Đang thiết lập mạng Bluetooth mesh …,3.9881496667861938,2.3797825750372925,False,False
+vi-011,vi,True,"Điều đó hữu ích, cảm ơn bạn đã dành thời gian giúp đỡ.",6.723346366072601,3.7424396632577173,True,False
+vi-012,vi,False,• không theo dõi hoặc thu thập dữ liệu • Bluetooth mesh chat hoàn toàn ngoại tuyến • Geohash chat sử dụng Internet,4.570420272582401,2.8540838279198266,True,False
+zh-000,zh,False,• 不跟踪不收集 • 蓝牙 mesh 聊天完全离线 • geohash 聊天使用互联网,7.535815931501842,2.4043856738397396,True,False
+zh-001,zh,False,• 不进行任何追踪或数据收集 • 蓝牙 Mesh 聊天完全离线 • Geohash 聊天使用互联网,7.77625239888827,2.4548206052096426,True,False
+zh-002,zh,False,• 不追蹤或收集資料 • 藍牙 mesh 聊天完全離線 • 地理雜湊聊天使用網際網路,8.588890540890578,2.556277201114402,True,False
+zh-003,zh,False,为此用户选择一个操作,9.459307670593262,1.0950994316112892,True,False
+zh-004,zh,False,为此用户选择操作,9.459307670593262,1.0372977715444427,True,False
+zh-005,zh,False,來自   位使用者的   則訊息,9.459307670593262,2.164339544634679,True,False
+zh-006,zh,False,傳送一則有趣的拍打訊息,9.459307670593262,4.470687905790956,True,True
+zh-007,zh,False,发送一个打趣的“扇巴掌”,9.459307670593262,5.930377844287836,True,True
+zh-008,zh,False,发送一条俏皮的拍打消息,9.459307670593262,4.976082272961641,True,True
+zh-009,zh,False,在 Mesh 聊天中有   則提及,6.910228933606829,1.1491486615999045,True,False
+zh-010,zh,False,在 Mesh 聊天中有   次提及,6.910228933606829,1.1930185351974372,True,False
+zh-011,zh,False,在 Mesh 聊天中被提及   次,6.910228933606829,1.0193084793807812,True,False
+zh-012,zh,False,建議開啟藍牙,9.459307670593262,4.525442877371519,True,True
+zh-013,zh,False,建议开启蓝牙,9.459307670593262,1.5885490714922992,True,False
+zh-014,zh,True,我修改了设置，现在文字更容易阅读了。,9.459307670593262,2.4635466152628376,True,False
+zh-015,zh,True,我們可以把這個畫面上的按鈕放大一點嗎？,9.459307670593262,2.475292026483318,True,False
+zh-016,zh,False,最近扫描结果,9.459307670593262,3.2063976051564134,True,False
+zh-017,zh,False,最近的扫描结果,9.459307670593262,3.0642947390610398,True,False
+zh-018,zh,False,最近的掃描結果,9.459307670593262,3.0818298075295947,True,False
+zh-019,zh,False,来自   人的   条消息,9.459307670593262,2.9171864295374634,True,False
+zh-020,zh,False,来自   位的   条消息,9.459307670593262,2.7764372517453797,True,False
+zh-021,zh,False,正在設定藍牙 mesh 網路…,6.910228933606829,1.4234904516893432,True,False
+zh-022,zh,False,正在设置 Bluetooth mesh…,4.431118438118382,5.240819750463892,True,True
+zh-023,zh,False,正在设置蓝牙 Mesh 网络…,6.910228933606829,1.3824615947668941,True,False
+zh-024,zh,False,為此使用者選擇一項操作,9.459307670593262,1.1818873428840717,True,False
+zh-025,zh,False,相互驗證,9.459307670593262,0.885532821713757,True,False
+zh-026,zh,False,相互验证,9.459307670593262,0.885532821713757,True,False
+zh-027,zh,True,第二次尝试成功完成，没有出现任何错误。,9.459307670593262,3.3596621711267645,True,False
+zh-028,zh,True,這很有幫助，謝謝你花時間回答問題。,9.459307670593262,4.558669933871153,True,True
