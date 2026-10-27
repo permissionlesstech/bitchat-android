@@ -53,6 +53,11 @@ class GeohashActivityMonitor(private val context: Context) {
     private var dirty = false
     /** Blocked identities, hidden from counts exactly as the channel sheet hides them. */
     private var blocked: Set<String> = emptySet()
+    /** Relays this monitor reads; written on the main thread, read by the status tick. */
+    @Volatile private var watchedRelays: Set<String> = emptySet()
+    /** Confined to the monitor's single-threaded scope. */
+    private var receivedTraffic = false
+    private var startedAtMs = 0L
 
     fun start() {
         if (scope != null) return
@@ -61,6 +66,8 @@ class GeohashActivityMonitor(private val context: Context) {
         val events = Channel<NostrEvent>(INBOX_CAPACITY, BufferOverflow.DROP_OLDEST)
         scope = newScope
         inbox = events
+        receivedTraffic = false
+        startedAtMs = System.currentTimeMillis()
         _status.value = Status.CONNECTING
 
         newScope.launch {
@@ -78,13 +85,6 @@ class GeohashActivityMonitor(private val context: Context) {
             }
         }
         newScope.launch { publishLoop() }
-        newScope.launch {
-            delay(OFFLINE_GRACE_MS)
-            if (_status.value == Status.CONNECTING) {
-                // Connected but nothing to report is still a live, quiet world.
-                _status.value = if (relayManager.isConnected.value) Status.LIVE else Status.OFFLINE
-            }
-        }
         subscribe(sweepRelays())
         lastFocusCell?.let { cell -> subscribe(focusRelays(cell)) }
     }
@@ -99,6 +99,7 @@ class GeohashActivityMonitor(private val context: Context) {
         subscriptionIds.forEach(relayManager::unsubscribe)
         subscriptionIds.clear()
         subscribedRelays.clear()
+        watchedRelays = emptySet()
         relayManager.releaseRelays(openedRelays)
         openedRelays.clear()
     }
@@ -143,6 +144,7 @@ class GeohashActivityMonitor(private val context: Context) {
         val alreadyKnown = relayManager.relays.value.mapTo(HashSet()) { it.url }
         openedRelays.addAll(fresh.filter { it !in alreadyKnown })
         subscribedRelays.addAll(fresh)
+        watchedRelays = subscribedRelays.toSet()
         relayManager.connectToRelays(fresh)
 
         val now = System.currentTimeMillis()
@@ -182,14 +184,30 @@ class GeohashActivityMonitor(private val context: Context) {
                 aggregator.prune(nowMs)
                 lastPrune = nowMs
             }
+            if (dirty) receivedTraffic = true
+            // Follow this monitor's own relays for its whole lifetime, so the chip shows a
+            // dropped connection and a late recovery, not just the first attempt.
+            _status.value = activityStatus(
+                connected = anyWatchedRelayConnected(),
+                receivedTraffic = receivedTraffic,
+                graceElapsed = nowMs - startedAtMs >= OFFLINE_GRACE_MS
+            )
             if (!dirty && !refresh) continue
-            val received = dirty
             dirty = false
             val hidden = blocked
             _snapshot.value = aggregator.snapshot(nowMs) { it in hidden }
-            // Only real traffic proves the sweep is live; a timed refresh must not.
-            if (received) _status.value = Status.LIVE
         }
+    }
+
+    /**
+     * Polled rather than observed: the relay manager mutates its relay objects in place, so its
+     * relay list flow can drop connection changes as equal values.
+     */
+    private fun anyWatchedRelayConnected(): Boolean {
+        val watched = watchedRelays
+        if (watched.isEmpty()) return false
+        return runCatching { relayManager.getRelayStatuses().any { it.isConnected && it.url in watched } }
+            .getOrDefault(false)
     }
 
     private fun ingest(event: NostrEvent, nowMillis: Long): Boolean {
@@ -233,4 +251,18 @@ class GeohashActivityMonitor(private val context: Context) {
         const val PRUNE_INTERVAL_MS = 15_000L
         const val OFFLINE_GRACE_MS = 8_000L
     }
+}
+
+/**
+ * The status chip's rule. Connected and either hearing traffic or past the grace period is a
+ * live (possibly quiet) world; no relay connected after the grace period is offline.
+ */
+internal fun activityStatus(
+    connected: Boolean,
+    receivedTraffic: Boolean,
+    graceElapsed: Boolean
+): GeohashActivityMonitor.Status = when {
+    connected && (receivedTraffic || graceElapsed) -> GeohashActivityMonitor.Status.LIVE
+    !connected && graceElapsed -> GeohashActivityMonitor.Status.OFFLINE
+    else -> GeohashActivityMonitor.Status.CONNECTING
 }
