@@ -19,8 +19,8 @@ android {
         targetSdk = libs.versions.targetSdk.get().toInt()
         // Wear releases use a separate high range because Play requires every artifact in
         // one application ID to have a unique version code across all form factors.
-        versionCode = 1_000_000_007
-        versionName = "0.1.6"
+        versionCode = 1_000_000_008
+        versionName = "0.1.7"
 
         vectorDrawables {
             useSupportLibrary = true
