@@ -117,16 +117,6 @@ class GeohashActivityAggregatorTest {
     }
 
     @Test
-    fun `wouldGrow is true only for new people or new messages`() {
-        assertTrue(aggregator.wouldGrow("u0", "carol", isChat = false, eventId = "e1"))
-        heartbeat("e1", "carol")
-
-        assertFalse(aggregator.wouldGrow("u0", "carol", isChat = false, eventId = "e2"))
-        assertTrue(aggregator.wouldGrow("u0", "carol", isChat = true, eventId = "e3"))
-        assertTrue(aggregator.wouldGrow("u1", "carol", isChat = false, eventId = "e4"))
-    }
-
-    @Test
     fun `channels are ordered busiest first`() {
         heartbeat("e1", "a", geohash = "9q")
         heartbeat("e2", "a", geohash = "u0")

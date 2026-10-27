@@ -81,15 +81,6 @@ class GeohashActivityAggregator(
 
     val geohashes: Set<String> get() = channels.keys
 
-    /**
-     * True when [record] would add a person or a message rather than refresh a timestamp.
-     * The globe verifies signatures only for these, so forged events cannot inflate counts.
-     */
-    fun wouldGrow(geohash: String, pubkey: String, isChat: Boolean, eventId: String): Boolean {
-        val channel = channels[normalize(geohash) ?: return false] ?: return true
-        return if (isChat) eventId !in channel.messages else pubkey.lowercase() !in channel.lastSeen
-    }
-
     /** Records one kind-20000/20001 event. Returns true when the aggregate changed. */
     fun record(
         kind: Int,

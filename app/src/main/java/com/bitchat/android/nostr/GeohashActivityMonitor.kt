@@ -1,6 +1,7 @@
 package com.bitchat.android.nostr
 
 import android.content.Context
+import android.util.Log
 import com.bitchat.android.geohash.Geohash
 import com.bitchat.android.ui.DataManager
 import kotlinx.coroutines.CoroutineScope
@@ -32,6 +33,8 @@ class GeohashActivityMonitor(private val context: Context) {
 
     private val relayManager = NostrRelayManager.getInstance(context.applicationContext)
     private val aggregator = GeohashActivityAggregator()
+    /** Confined to the monitor's single-threaded scope, like [aggregator]. */
+    private val eventFilter = VerifiedEventFilter()
 
     private val _snapshot = MutableStateFlow(GeohashActivitySnapshot.EMPTY)
     val snapshot: StateFlow<GeohashActivitySnapshot> = _snapshot.asStateFlow()
@@ -66,7 +69,12 @@ class GeohashActivityMonitor(private val context: Context) {
                 .geohashBlockedUsers
                 .mapTo(HashSet()) { it.lowercase() }
             for (event in events) {
-                if (ingest(event, System.currentTimeMillis())) dirty = true
+                // One malformed relay event must never stop the sweep.
+                try {
+                    if (ingest(event, System.currentTimeMillis())) dirty = true
+                } catch (e: Exception) {
+                    Log.w(TAG, "Dropped a malformed globe activity event")
+                }
             }
         }
         newScope.launch { publishLoop() }
@@ -180,17 +188,14 @@ class GeohashActivityMonitor(private val context: Context) {
 
     private fun ingest(event: NostrEvent, nowMillis: Long): Boolean {
         val geohash = event.tags.firstOrNull { it.size >= 2 && it[0] == "g" }?.get(1) ?: return false
-        val isChat = event.kind == NostrKind.EPHEMERAL_EVENT && event.content.isNotBlank()
+        // Authenticate before anything parses the event further; PoW reads the id as hex.
+        if (!eventFilter.admit(event)) return false
         // Same proof-of-work gate the chat applies, so the sheet and globe see the same events.
         if (event.kind == NostrKind.EPHEMERAL_EVENT) {
             val pow = PoWPreferenceManager.getCurrentSettings()
             if (pow.enabled && pow.difficulty > 0 && !NostrProofOfWork.validateDifficulty(event, pow.difficulty)) {
                 return false
             }
-        }
-        // Refreshing a known person's timestamp needs no proof; adding anyone or anything does.
-        if (aggregator.wouldGrow(geohash, event.pubkey, isChat, event.id) && !event.isValidSignature()) {
-            return false
         }
         return aggregator.record(
             kind = event.kind,
@@ -204,6 +209,7 @@ class GeohashActivityMonitor(private val context: Context) {
     }
 
     private companion object {
+        const val TAG = "GeohashActivityMonitor"
         /** Synthetic population hubs used only to spread relays around the world. */
         val SWEEP_ANCHORS = listOf(
             "9q", "dr", "dn", "9g", "d5", "6g", "69", "gc", "u0", "u3", "uc", "sr",
