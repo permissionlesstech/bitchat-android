@@ -13,7 +13,7 @@ class NoPeerDataInLogsTest {
     @Test
     fun peerListSources_logNoPeerIdsOrFavourites() {
         val files = uiSourceDirectory.listFiles { file ->
-            file.name.endsWith(".kt") && listOf("MeshPeerList", "PeerList", "GeohashPeople")
+            file.name.endsWith(".kt") && listOf("MeshPeerList", "PeerList", "GeohashPeople", "MeshPeople", "ConversationRow")
                 .any { file.name.startsWith(it) }
         }?.sortedBy { it.name }.orEmpty()
 

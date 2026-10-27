@@ -686,13 +686,13 @@ transport or foreground-service change.
 | The three problems found in the phone check were fixed inside 10b, each its own commit (see "What Phase 10b changed"). | The developer chose to fix now. Two were upstream bugs, one a Codex finding on F2. | Listing them. | None. |
 
 Process rulings (how the phase was run, not product behaviour):
-- The gate ran as `SDD_WS=2026-10-24-phase10b-mvi-peers-channels-plan .superpowers/sdd/tools/gate.sh taskN`, so its logs land in this workspace's folder. Cost if wrong: logs in another folder.
+- Each task ran the local test gate (JVM tests, lint, then each module's device suite on an emulator).
 - The gate used whichever emulator was listed. A larger emulator image dropped offline mid-suite once and failed one settings test deterministically; the clean image passed. Cost if wrong: a flake from a dirtier image; re-run on the clean one.
 - Tasks 4 and 8 (a person checking each screen on a physical phone) are real stop points, because the spec requires that check before the next screen.
 - JVM tests live in `feature/*/src/test/java/...`, the modules' existing source directory, not `src/test/kotlin`.
 - Per task the implementer commits first, then the gate and Codex run on the commit; fixes are follow-up commits. A red gate costs an extra fix commit, not an amend.
 - The Task 2 review finding (six dead ViewModel helpers, one duplicating a rule) was left to Task 3, which rewrote the ViewModel anyway. One intermediate commit carried the duplicate.
-- The Undo clock and a strengthened `deleteThenNewCollector_undoStillRestores` (it now cancels mid-delete) were folded into F2 by fixup, so F2 stays one revertable commit. Only unpushed SHAs changed.
+- The Undo clock and a strengthened `deleteThenNewCollector_undoStillRestores` (it now cancels mid-delete) were folded into F2 by fixup. Only unpushed SHAs changed. F2 is now two commits: `0100be67` and the later Undo-window fix `31750b0d`; revert them together.
 - Task 5 (a pure extraction) ran while the Task 4 phone check was under way; Task 6, the MVI move that would copy any flaw, waited until it passed.
 - An "Undo did not restore" seen once on the phone is closed as a test artifact. That tap came in a separate tool call 10 to 20 s after the delete, past the Long snackbar timeout, and Material3 ignores `performAction` once `dismiss()` has resumed. Four same-command taps restored. A rare silent miss would be pre-existing Material3 behaviour.
 - The "Loading notes…" repetition was investigated as a possible Task 6 regression and ruled out (see the notes below).
