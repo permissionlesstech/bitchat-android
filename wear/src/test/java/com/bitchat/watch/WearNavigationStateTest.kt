@@ -106,4 +106,38 @@ class WearNavigationStateTest {
 
         assertEquals(request, restored)
     }
+
+    @Test
+    fun `swipe reveals the screen that back lands on`() {
+        val navigation = WearNavigationState()
+        assertEquals(null, navigation.previousScreen)
+
+        navigation.navigate(WearScreen.People)
+        assertEquals(WearScreen.Chat, navigation.previousScreen)
+
+        navigation.navigate(WearScreen.Dm("peer-a"))
+        // A DM always goes back to the main chat, so that is what a swipe must reveal.
+        assertEquals(WearScreen.Chat, navigation.previousScreen)
+
+        navigation.navigate(WearScreen.UserDetail("peer-a"))
+        assertEquals(WearScreen.Dm("peer-a"), navigation.previousScreen)
+        navigation.goBack()
+        assertEquals(WearScreen.Dm("peer-a"), navigation.screen)
+    }
+
+    @Test
+    fun `screen keys are distinct per peer and stable`() {
+        assertEquals(
+            WearNavigationState.keyOf(WearScreen.Dm("peer-a")),
+            WearNavigationState.keyOf(WearScreen.Dm("peer-a"))
+        )
+        assertTrue(
+            WearNavigationState.keyOf(WearScreen.Dm("peer-a")) !=
+                WearNavigationState.keyOf(WearScreen.UserDetail("peer-a"))
+        )
+        assertTrue(
+            WearNavigationState.keyOf(WearScreen.TextInput(null)) !=
+                WearNavigationState.keyOf(WearScreen.TextInput("peer-a"))
+        )
+    }
 }

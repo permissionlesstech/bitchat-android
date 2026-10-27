@@ -5,6 +5,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -30,11 +31,14 @@ class GlobeState(
     initialPrecision: Int,
     startZoomedOut: Boolean
 ) {
-    var centerLat by mutableFloatStateOf(if (startZoomedOut) (targetLat * 0.4).toFloat() else targetLat.toFloat())
+    // Double, not Float: at deep zoom one Float step of latitude spans several pixels, which made
+    // panning and fly-ins visibly step.
+    var centerLat by mutableDoubleStateOf(if (startZoomedOut) targetLat * 0.4 else targetLat)
         private set
-    var centerLon by mutableFloatStateOf(if (startZoomedOut) GlobeMath.normalizeLon(targetLon - 70.0).toFloat() else targetLon.toFloat())
+    var centerLon by mutableDoubleStateOf(if (startZoomedOut) GlobeMath.normalizeLon(targetLon - 70.0) else targetLon)
         private set
-    var zoom by mutableFloatStateOf(if (startZoomedOut) GlobeMath.MIN_ZOOM else 1f)
+    // The opening rotation starts a little smaller than the whole-globe view and grows into it.
+    var zoom by mutableFloatStateOf(if (startZoomedOut) INTRO_START_ZOOM else 1f)
         private set
     var precision by mutableIntStateOf(initialPrecision.coerceIn(1, GlobeMath.MAX_PRECISION))
         private set
@@ -77,20 +81,29 @@ class GlobeState(
 
     val globeRadiusPx: Float get() = baseRadiusPx * zoom
 
+    /**
+     * Where the opening rotation lands: zoomed in toward the region, but kept a margin below the
+     * zoom at which two-letter cells take over, so the selection stays at level 1.
+     */
+    internal fun introEndZoom(): Float =
+        GlobeMath.thresholdZoomForPrecision(2, baseRadiusPx, screenMinPx) * INTRO_END_THRESHOLD_FRACTION
+
     /** Direct rotation from drag gestures. Deltas are in screen px. */
     fun rotateBy(dxPx: Float, dyPx: Float) {
         val r = globeRadiusPx
         if (r <= 0f) return
         val degPerPx = 180.0 / (Math.PI * r)
-        centerLon = GlobeMath.normalizeLon(centerLon - dxPx * degPerPx).toFloat()
-        centerLat = (centerLat + dyPx * degPerPx).toFloat().coerceIn(MIN_LAT, MAX_LAT)
+        centerLon = GlobeMath.normalizeLon(centerLon - dxPx * degPerPx)
+        centerLat = (centerLat + dyPx * degPerPx).coerceIn(MIN_LAT, MAX_LAT)
         syncSelection()
     }
 
     /** Continuous zoom from pinch gestures; precision follows automatically. */
     fun zoomBy(factor: Float) {
         if (factor == 1f) return
-        zoom = (zoom * factor).coerceIn(GlobeMath.MIN_ZOOM, GlobeMath.MAX_ZOOM)
+        // An interrupted intro can leave the globe below the minimum; continue from there rather
+        // than snapping up, while never pinching further out than the current size.
+        zoom = (zoom * factor).coerceIn(minOf(GlobeMath.MIN_ZOOM, zoom), GlobeMath.MAX_ZOOM)
         syncPrecisionFromZoom()
         syncSelection()
     }
@@ -100,39 +113,75 @@ class GlobeState(
         precision = GlobeMath.autoPrecision(globeRadiusPx, screenMinPx)
     }
 
-    /** Animate the view to a lat/lon, optionally to a zoom and precision. */
+    /**
+     * Animate the view to a lat/lon, optionally to a zoom and precision.
+     *
+     * A large zoom change flies along [GlobeFlight] so on-screen motion stays even, and takes
+     * longer the further it travels; [durationMs] is then a minimum. Precision follows the zoom
+     * on the way and lands on [targetPrecision] at the end, so fine cells are not re-selected on
+     * every frame while the globe is still far out.
+     */
     fun animateTo(
         lat: Double,
         lon: Double,
         targetZoom: Float? = null,
         targetPrecision: Int? = null,
-        durationMs: Int = 550
+        durationMs: Int = 550,
+        /** Rotate and zoom together over [durationMs] even for a large zoom change. */
+        glide: Boolean = false
     ) {
         val s = scope ?: return
         animJob?.cancel()
         val startLat = centerLat
         val startLon = centerLon
-        val dLon = GlobeMath.normalizeLon(lon - startLon)
+        val endLat = lat.coerceIn(MIN_LAT, MAX_LAT)
+        val endLon = GlobeMath.normalizeLon(lon)
         val startZoom = zoom
         val endZoom = (targetZoom ?: zoom).coerceIn(GlobeMath.MIN_ZOOM, GlobeMath.MAX_ZOOM)
+        val zoomRatio = endZoom / startZoom
+        val zoomFloor = minOf(GlobeMath.MIN_ZOOM, startZoom)
+        val flight = if (!glide && baseRadiusPx > 0f && (zoomRatio > FLIGHT_ZOOM_RATIO || zoomRatio < 1f / FLIGHT_ZOOM_RATIO)) {
+            GlobeFlight(
+                distance = GlobeFlight.arc(startLat, startLon, endLat, endLon),
+                startWidth = visibleWidth(startZoom),
+                endWidth = visibleWidth(endZoom)
+            )
+        } else null
+        val duration = if (flight == null) durationMs else
+            (flight.pathLength * FLIGHT_MS_PER_UNIT).toInt().coerceIn(durationMs, MAX_FLIGHT_MS)
+        val dLon = GlobeMath.normalizeLon(endLon - startLon)
         val generation = ++animationGeneration
         isAnimating = true
         animJob = s.launch {
             try {
                 val anim = Animatable(0f)
-                anim.animateTo(1f, tween(durationMs, easing = FastOutSlowInEasing)) {
-                    val t = value
-                    centerLat = (startLat + (lat.toFloat() - startLat) * t).coerceIn(MIN_LAT, MAX_LAT)
-                    centerLon = GlobeMath.normalizeLon(startLon + dLon * t).toFloat()
-                    // exponential interpolation feels natural for zoom
-                    zoom = startZoom * (endZoom / startZoom).pow(t)
-                    if (targetPrecision != null) {
-                        precision = targetPrecision.coerceIn(1, GlobeMath.MAX_PRECISION)
+                anim.animateTo(1f, tween(duration, easing = FastOutSlowInEasing)) {
+                    val t = value.toDouble()
+                    if (flight != null) {
+                        val (fraction, width) = flight.at(t)
+                        val (fLat, fLon) = GlobeFlight.slerp(startLat, startLon, endLat, endLon, fraction)
+                        centerLat = fLat.coerceIn(MIN_LAT, MAX_LAT)
+                        centerLon = fLon
+                        zoom = zoomForWidth(width, zoomFloor)
                     } else {
-                        syncPrecisionFromZoom()
+                        centerLat = (startLat + (endLat - startLat) * t).coerceIn(MIN_LAT, MAX_LAT)
+                        centerLon = GlobeMath.normalizeLon(startLon + dLon * t)
+                        // Exponential interpolation feels natural for small zoom changes.
+                        zoom = startZoom * zoomRatio.pow(value)
                     }
+                    syncPrecisionFromZoom()
                     syncSelection()
                 }
+                // Land exactly on the target once the motion completes.
+                centerLat = endLat
+                centerLon = endLon
+                zoom = endZoom
+                if (targetPrecision != null) {
+                    precision = targetPrecision.coerceIn(1, GlobeMath.MAX_PRECISION)
+                } else {
+                    syncPrecisionFromZoom()
+                }
+                syncSelection()
             } finally {
                 if (animationGeneration == generation) {
                     isAnimating = false
@@ -142,22 +191,48 @@ class GlobeState(
         }
     }
 
+    /** Angular span across the screen's short side at [zoom], radians. */
+    private fun visibleWidth(zoom: Float): Double = screenMinPx.toDouble() / (baseRadiusPx * zoom)
+
+    /** [floor] lets a flight that starts below the minimum (an interrupted intro) begin there. */
+    private fun zoomForWidth(width: Double, floor: Float): Float =
+        (screenMinPx / (width * baseRadiusPx)).toFloat().coerceIn(floor, GlobeMath.MAX_ZOOM)
+
     /** Button-driven precision change: adjusts precision and animates zoom to frame it. */
     fun animatePrecision(newPrecision: Int) {
         val p = newPrecision.coerceIn(1, GlobeMath.MAX_PRECISION)
         if (p == precision || baseRadiusPx <= 0f) return
         val targetZoom = GlobeMath.zoomForPrecision(p, baseRadiusPx, screenMinPx)
-        animateTo(centerLat.toDouble(), centerLon.toDouble(), targetZoom, p, durationMs = 450)
+        animateTo(centerLat, centerLon, targetZoom, p, durationMs = 450)
     }
 
-    /** Cinematic intro: spin and zoom from a far view into the target location. */
+    /**
+     * Whether − can widen the view. Level 1 spans a range of zooms (the opening rotation lands
+     * well inside it), so it can still pull back to the whole globe without changing precision.
+     */
+    val canZoomOut: Boolean
+        get() = precision > 1 || zoom > GlobeMath.MIN_ZOOM * (1f + WHOLE_GLOBE_ZOOM_TOLERANCE)
+
+    /** The − button: one level coarser, or the whole globe when already at level 1. */
+    fun zoomOut() {
+        if (!canZoomOut || baseRadiusPx <= 0f) return
+        if (precision > 1) {
+            animatePrecision(precision - 1)
+        } else {
+            animateTo(centerLat, centerLon, GlobeMath.MIN_ZOOM, 1, durationMs = 450)
+        }
+    }
+
+    /**
+     * Cinematic intro: turn to the target while zooming from [INTRO_START_ZOOM] to [introEndZoom],
+     * rotation and zoom together as one move, landing on [targetPrecision].
+     */
     private fun playIntro(targetLat: Double, targetLon: Double, targetPrecision: Int) {
         if (baseRadiusPx <= 0f) {
             // viewport not ready yet; retry once attached to layout via caller
             return
         }
-        val targetZoom = GlobeMath.zoomForPrecision(targetPrecision, baseRadiusPx, screenMinPx)
-        animateTo(targetLat, targetLon, targetZoom, targetPrecision, durationMs = 1400)
+        animateTo(targetLat, targetLon, introEndZoom(), targetPrecision, durationMs = 1400, glide = true)
     }
 
     /** Inertial spin after a fling. Velocities are in px/second. */
@@ -211,8 +286,18 @@ class GlobeState(
     private companion object {
         // Close to the projection limit so polar geohash cells remain selectable;
         // clamping tighter would make syncSelection() encode the wrong cell.
-        const val MIN_LAT = -89f
-        const val MAX_LAT = 89f
+        const val MIN_LAT = -89.0
+        const val MAX_LAT = 89.0
+        /** Where the opening rotation's zoom-in starts: a little smaller than the whole globe. */
+        const val INTRO_START_ZOOM = 0.72f
+        /** How far toward the precision-2 threshold the opening rotation zooms. */
+        const val INTRO_END_THRESHOLD_FRACTION = 0.8f
+        /** Zoom within this fraction of the minimum already counts as the whole globe. */
+        const val WHOLE_GLOBE_ZOOM_TOLERANCE = 0.01f
+        /** Zoom changes beyond this factor fly along [GlobeFlight]; smaller ones glide. */
+        const val FLIGHT_ZOOM_RATIO = 1.5f
+        const val FLIGHT_MS_PER_UNIT = 230.0
+        const val MAX_FLIGHT_MS = 2_200
         const val MIN_FLING_PX_PER_SECOND = 90f
         const val MAX_FLING_PX_PER_SECOND = 3_200f
         const val MAX_FRAME_DELTA_SECONDS = 1f / 30f
@@ -222,7 +307,7 @@ class GlobeState(
 
     private fun syncSelection() {
         if (baseRadiusPx <= 0f) return
-        val gh = Geohash.encode(centerLat.toDouble(), centerLon.toDouble(), precision)
+        val gh = Geohash.encode(centerLat, centerLon, precision)
         if (gh != selectedGeohash) selectedGeohash = gh
     }
 }

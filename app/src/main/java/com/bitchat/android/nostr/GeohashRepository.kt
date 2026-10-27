@@ -129,6 +129,20 @@ class GeohashRepository(
         return pubkeyHex.lowercase() in participantStore.snapshots.value.teleported
     }
 
+    /** Counts a geohash chat or heartbeat event under the shared activity rule. */
+    @Synchronized
+    fun recordActivity(geohash: String, event: NostrEvent) {
+        participantStore.recordEvent(
+            geohash = geohash,
+            pubkey = event.pubkey,
+            kind = event.kind,
+            eventId = event.id,
+            createdAtMillis = event.createdAt * 1000L,
+            content = event.content
+        )
+        schedulePresenceRefresh()
+    }
+
     @Synchronized
     fun updateParticipant(geohash: String, participantId: String, lastSeen: Date) {
         participantStore.updateParticipant(geohash, participantId, lastSeen.time)
@@ -190,12 +204,10 @@ class GeohashRepository(
 
     @Synchronized
     fun updateReactiveParticipantCounts() {
-        val cutoff = participantStore.cutoffMillis
+        participantStore.pruneExpired()
         val counts = mutableMapOf<String, Int>()
         for ((gh, participants) in geohashParticipants) {
-            val active = participants.filterKeys { !dataManager.isGeohashUserBlocked(it) }
-                .values.count { it >= cutoff }
-            counts[gh] = active
+            counts[gh] = participants.keys.count { !dataManager.isGeohashUserBlocked(it) }
         }
         state.setGeohashParticipantCounts(counts)
     }
@@ -241,12 +253,10 @@ class GeohashRepository(
         } catch (_: Exception) { geoNicknames[lower] ?: "anon" }
         if (current == null) return base
         return try {
-            val cutoff = participantStore.cutoffMillis
             val participants = geohashParticipants[current] ?: emptyMap()
             var count = 0
-            for ((k, t) in participants) {
+            for (k in participants.keys) {
                 if (dataManager.isGeohashUserBlocked(k)) continue
-                if (t < cutoff) continue
                 val name = if (k.equals(lower, true)) base else (geoNicknames[k.lowercase()] ?: "anon")
                 if (name.equals(base, true)) { count++; if (count > 1) break }
             }
@@ -264,12 +274,10 @@ class GeohashRepository(
         val suffix = pubkeyHex.takeLast(4)
         val base = geoNicknames[lower] ?: "anon"
         return try {
-            val cutoff = participantStore.cutoffMillis
             val participants = geohashParticipants[sourceGeohash] ?: emptyMap()
             var count = 0
-            for ((k, t) in participants) {
+            for (k in participants.keys) {
                 if (dataManager.isGeohashUserBlocked(k)) continue
-                if (t < cutoff) continue
                 val name = if (k.equals(lower, true)) base else (geoNicknames[k.lowercase()] ?: "anon")
                 if (name.equals(base, true)) { count++; if (count > 1) break }
             }
