@@ -212,6 +212,8 @@
     <string name="action_block_subtitle">заблокувати всі повідомлення від цього користувача</string>
     <string name="action_private_message_title">написати %1$s</string>
     <string name="action_private_message_subtitle">надіслати приватне повідомлення</string>
+  <string name="action_delete_note_title">видалити нотатку</string>
+  <string name="action_delete_note_subtitle">надсилає запит на видалення nostr до ретрансляторів</string>
     <string name="location_channels_title">#канали за геолокацією</string>
     <string name="location_channels_desc">спілкуйтеся з людьми поруч, використовуючи канали за геохешем. надається лише приблизний геохеш, ніколи точні gps-координати. не робіть скріншотів і не діліться цим екраном, щоб захистити свою приватність.</string>
     <string name="grant_location_permission">надати дозвіл на геолокацію</string>
