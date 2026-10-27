@@ -1,5 +1,6 @@
 package com.bitchat.android.ui.debug
 
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasAnySibling
 import androidx.compose.ui.test.hasScrollAction
@@ -11,6 +12,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.platform.app.InstrumentationRegistry
 import com.bitchat.android.feature.settings.R
 import com.bitchat.android.ui.theme.BitchatTheme
@@ -40,8 +42,11 @@ class DebugSettingsScreenTest {
         // Find the verbose logging switch by its label; the spam filter section above it has switches too.
         val verbose = context.getString(R.string.debug_verbose_logging)
         val list = compose.onNode(hasScrollAction())
-        list.performScrollToNode(hasText(verbose))
-        compose.onNode(isToggleable() and hasAnySibling(hasText(verbose))).performClick()
+        val verboseSwitch = isToggleable() and hasAnySibling(hasText(verbose))
+        list.performScrollToNode(verboseSwitch)
+        // Scrolling to an item parks it at the top of the list, under the overlaid top bar on tall screens.
+        list.performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, -TOP_BAR_CLEARANCE_PX) }
+        compose.onNode(verboseSwitch).assertIsDisplayed().performClick()
         compose.waitForIdle()
         assertEquals(listOf<DebugSettingsAction>(DebugSettingsAction.VerboseLoggingToggled(true)), actions)
 
@@ -55,3 +60,5 @@ class DebugSettingsScreenTest {
         assertEquals(DebugSettingsAction.ConnectClicked(address), actions.last())
     }
 }
+
+private const val TOP_BAR_CLEARANCE_PX = 400f
