@@ -66,8 +66,8 @@ frames.
 `core/nostr/` holds Nostr relays, gift-wrapped private messages, geohash
 channels and location. It never touches the chat session: private messages land
 in a `PrivateMessageInbox` the session implements, and HTTP clients come from a
-`NostrHttpClients` the app installs, which fails closed so relay traffic cannot
-bypass Tor.
+`NostrHttpClients` the app binds, which fails closed (there is no default binding)
+so relay traffic cannot bypass Tor.
 
 `core/chat/` holds the chat session behind the chat screens: `ChatState`, the
 managers, private conversations, notifications and QR verification, in the

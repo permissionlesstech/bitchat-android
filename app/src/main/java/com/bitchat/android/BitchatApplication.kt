@@ -1,11 +1,8 @@
 package com.bitchat.android
 
 import android.app.Application
-import com.bitchat.android.net.OkHttpProvider
 import com.bitchat.android.nostr.LocationNotesInitializer
 import com.bitchat.android.nostr.NostrBackgroundRuntime
-import com.bitchat.android.nostr.NostrHttpClients
-import com.bitchat.android.nostr.NostrNetwork
 import com.bitchat.android.nostr.NostrTransport
 import com.bitchat.android.nostr.PoWPreferenceManager
 import com.bitchat.android.nostr.RelayDirectory
@@ -24,8 +21,6 @@ class BitchatApplication : Application() {
 
     // Lazy, so each is first touched where onCreate touched it before Hilt injected them.
     @Inject lateinit var torManager: Lazy<ArtiTorManager>
-    @Inject lateinit var okHttpProvider: Lazy<OkHttpProvider>
-    @Inject lateinit var nostrNetwork: Lazy<NostrNetwork>
     @Inject lateinit var relayDirectory: Lazy<RelayDirectory>
     @Inject lateinit var locationNotesInitializer: Lazy<LocationNotesInitializer>
     @Inject lateinit var nostrBackgroundRuntime: Lazy<NostrBackgroundRuntime>
@@ -43,14 +38,6 @@ class BitchatApplication : Application() {
             val torProvider = torManager.get()
             torProvider.init(this)
         } catch (_: Exception){}
-
-        // Nostr and the geocoder take their clients from here, and refuse to run
-        // without them, so nothing of theirs can connect outside this policy.
-        nostrNetwork.get().install(object : NostrHttpClients {
-            override fun httpClient() = okHttpProvider.get().httpClient()
-            override fun webSocketClient() = okHttpProvider.get().webSocketClient()
-            override val routeChanges = torManager.get().routeChanges
-        })
 
         // Initialize relay directory (loads assets/nostr_relays.csv)
         relayDirectory.get().initialize(this)

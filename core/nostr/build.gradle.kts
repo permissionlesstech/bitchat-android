@@ -9,7 +9,7 @@ android {
 
 // Nostr relays, gift-wrapped private messages, geohash channels and location. It knows nothing
 // of the chat screens: private messages land in a PrivateMessageInbox the chat session
-// implements, and HTTP clients come from a NostrHttpClients the app installs, so relay traffic
+// implements, and HTTP clients come from a NostrHttpClients the app binds, so relay traffic
 // follows the app's Tor policy.
 dependencies {
     api(project(":core:mesh"))

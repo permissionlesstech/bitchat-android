@@ -15,7 +15,7 @@ import javax.inject.Provider
 import kotlin.coroutines.resume
 
 class OpenStreetMapGeocoderProvider(
-    // Asked for at each request, so it still refuses to run before the app installs clients.
+    // Asked for at each request rather than when the geocoder is built.
     private val clients: Provider<NostrHttpClients>,
     private val liveLocationGate: LiveLocationPrivacyGate
 ) : GeocoderProvider {
