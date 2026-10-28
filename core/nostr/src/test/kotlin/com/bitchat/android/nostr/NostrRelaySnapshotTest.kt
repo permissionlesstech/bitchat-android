@@ -17,9 +17,7 @@ import org.robolectric.RobolectricTestRunner
 class NostrRelaySnapshotTest {
     @Test
     fun `subscription tolerates last relay disconnecting between size and iteration`() {
-        val manager = NostrRelayManager::class.java.getDeclaredConstructor().apply {
-            isAccessible = true
-        }.newInstance()
+        val manager = newRelayManager()
         val errors = mutableListOf<Throwable>()
         val scope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob() +
             CoroutineExceptionHandler { _, error -> errors.add(error) })

@@ -1,7 +1,12 @@
 package com.bitchat.android.nostr
 
+import android.content.Context
 import android.util.Log
+import androidx.annotation.VisibleForTesting
+import com.bitchat.android.di.IoDispatcher
 import com.bitchat.android.geohash.LiveLocationPrivacyGate
+import com.bitchat.android.mesh.PowerManager
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,29 +19,30 @@ import okhttp3.*
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Manages WebSocket connections to Nostr relays
  * Compatible with iOS implementation with Android-specific optimizations
  */
-class NostrRelayManager private constructor() {
+@Singleton
+class NostrRelayManager @Inject constructor(
+    @ApplicationContext private val appContext: Context,
+    // The app's clients, which route through Tor when Tor is on.
+    @get:VisibleForTesting val httpClients: NostrHttpClients,
+    private val relayDirectory: RelayDirectory,
+    @get:VisibleForTesting val liveLocationGate: LiveLocationPrivacyGate,
+    // Event deduplication system
+    private val eventDeduplicator: NostrEventDeduplicator,
+    @IoDispatcher ioDispatcher: CoroutineDispatcher,
+) {
     
     companion object {
-        @JvmStatic
-        val shared = NostrRelayManager()
-        
         private const val TAG = "NostrRelayManager"
         private const val MAX_QUEUED_EVENTS = 500
         const val OWNER_LEGACY = "legacy"
         const val OWNER_BACKGROUND = "background"
-        
-        /**
-         * Get instance for Android compatibility (context-aware calls)
-         */
-        fun getInstance(context: android.content.Context): NostrRelayManager {
-            shared.appContext = context.applicationContext
-            return shared
-        }
 
         // Default relay list (same as iOS)
         private val DEFAULT_RELAYS = listOf(
@@ -47,13 +53,6 @@ class NostrRelayManager private constructor() {
         )
         
         // Reconnect backoff lives in RelayReconnectPolicy.
-
-        // Track gift-wraps we initiated for logging
-        private val pendingGiftWrapIDs = ConcurrentHashMap.newKeySet<String>()
-        
-        fun registerPendingGiftWrap(id: String) {
-            pendingGiftWrapIDs.add(id)
-        }
 
         fun defaultRelays(): List<String> = DEFAULT_RELAYS
     }
@@ -111,29 +110,31 @@ class NostrRelayManager private constructor() {
         val observeOnly: Boolean = false
     )
     
-    // Event deduplication system
-    private val eventDeduplicator = NostrEventDeduplicator.getInstance()
-    
+    // Track gift-wraps we initiated for logging
+    private val pendingGiftWrapIDs = ConcurrentHashMap.newKeySet<String>()
+
+    fun registerPendingGiftWrap(id: String) {
+        pendingGiftWrapIDs.add(id)
+    }
+
     // Bounded per-relay delivery queue for reconnect reliability.
     private val messageQueue = NostrPendingEventQueue(MAX_QUEUED_EVENTS)
     
     // Coroutine scope for background operations
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val scope = CoroutineScope(ioDispatcher + SupervisorJob())
     
     // Subscription validation timer
     private var subscriptionValidationJob: Job? = null
 
     // Closes relay sockets when the installed clients report a route change.
     private val routeChangeLock = Any()
-    private var routeChangeSource: NostrHttpClients? = null
     private var routeChangeJob: Job? = null
-    private val powerManager: com.bitchat.android.mesh.PowerManager?
-        get() = appContext?.let { com.bitchat.android.mesh.PowerManager.getInstance(it) }
-    @Volatile private var appContext: android.content.Context? = null
+    private val powerManager: PowerManager
+        get() = PowerManager.getInstance(appContext)
     
     // OkHttp client for WebSocket connections (via provider to honor Tor)
     private val httpClient: OkHttpClient
-        get() = NostrNetwork.clients().webSocketClient()
+        get() = httpClients.webSocketClient()
     
     private val gson by lazy { NostrRequest.createGson() }
     
@@ -157,7 +158,7 @@ class NostrRelayManager private constructor() {
     ) {
         if (!isNetworkActionAllowed(liveLocationToken)) return
         try {
-            val nearest = RelayDirectory.closestRelaysForGeohash(geohash, nRelays)
+            val nearest = relayDirectory.closestRelaysForGeohash(geohash, nRelays)
             val selected = if (includeDefaults) {
                 (nearest + Companion.defaultRelays()).toSet()
             } else nearest.toSet()
@@ -298,7 +299,7 @@ class NostrRelayManager private constructor() {
     // --- Internal helpers ---
 
     private fun isNetworkActionAllowed(liveLocationToken: Long?): Boolean =
-        liveLocationToken == null || LiveLocationPrivacyGate.accepts(liveLocationToken)
+        liveLocationToken == null || liveLocationGate.accepts(liveLocationToken)
 
     private fun runNetworkAction(
         liveLocationToken: Long?,
@@ -307,7 +308,7 @@ class NostrRelayManager private constructor() {
         action()
         true
     } else {
-        LiveLocationPrivacyGate.runIfAllowed(liveLocationToken, action)
+        liveLocationGate.runIfAllowed(liveLocationToken, action)
     }
 
     /**
@@ -429,7 +430,7 @@ class NostrRelayManager private constructor() {
             nonLiveRelayUrls.addAll(defaultRelayUrls)
             _relays.value = relaysList.toList()
             updateConnectionStatus()
-            LiveLocationPrivacyGate.addRevocationListener(::revokeLiveLocationAccess)
+            liveLocationGate.addRevocationListener(::revokeLiveLocationAccess)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize NostrRelayManager: ${e.message}", e)
             // Initialize with empty list as fallback
@@ -450,7 +451,7 @@ class NostrRelayManager private constructor() {
                 launch {
                     val liveToken = liveLocationRelayTokens[relay.url]
                         ?.takeIf { relay.url !in nonLiveRelayUrls }
-                    if (liveToken == null || LiveLocationPrivacyGate.accepts(liveToken)) {
+                    if (liveToken == null || liveLocationGate.accepts(liveToken)) {
                         connectToRelay(relay.url, liveToken)
                     }
                 }
@@ -678,20 +679,16 @@ class NostrRelayManager private constructor() {
     }
     
     /**
-     * Collect the installed clients' [NostrHttpClients.routeChanges] so a route change resets
-     * every relay socket. Called before anything that turns connectivity on, so the collector
-     * is subscribed (undispatched) before a socket can exist. Idempotent, and it never cancels
-     * itself: [resetAllConnections] calls back into [connect]. Without installed clients there
-     * is nothing to watch, and no socket can open either.
+     * Collect the clients' [NostrHttpClients.routeChanges] so a route change resets every relay
+     * socket. Called before anything that turns connectivity on, so the collector is subscribed
+     * (undispatched) before a socket can exist. Idempotent, and it never cancels itself:
+     * [resetAllConnections] calls back into [connect].
      */
     private fun watchRouteChanges() {
-        val clients = NostrNetwork.installedOrNull() ?: return
         synchronized(routeChangeLock) {
-            if (routeChangeSource === clients) return
-            routeChangeJob?.cancel()
-            routeChangeSource = clients
+            if (routeChangeJob != null) return
             routeChangeJob = scope.launch(start = CoroutineStart.UNDISPATCHED) {
-                clients.routeChanges.collect {
+                httpClients.routeChanges.collect {
                     // Contain a failed reset so the watcher survives for the next route change.
                     try {
                         resetAllConnections()
@@ -861,16 +858,7 @@ class NostrRelayManager private constructor() {
         stopSubscriptionValidation() // Stop any existing validation
         
         subscriptionValidationJob = scope.launch {
-            val manager = powerManager
-            if (manager == null) {
-                runSubscriptionValidationLoop(
-                    com.bitchat.android.util.AppConstants.Nostr
-                        .SUBSCRIPTION_VALIDATION_INTERVAL_MS
-                )
-                return@launch
-            }
-
-            manager.profile
+            powerManager.profile
                 .map { it.nostr.subscriptionValidationMs }
                 .distinctUntilChanged()
                 .collectLatest(::runSubscriptionValidationLoop)

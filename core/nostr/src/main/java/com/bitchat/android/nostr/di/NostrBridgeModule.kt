@@ -1,17 +1,14 @@
 package com.bitchat.android.nostr.di
 
-import android.content.Context
 import com.bitchat.android.geohash.LiveLocationPrivacyGate
 import com.bitchat.android.nostr.NostrEventDeduplicator
 import com.bitchat.android.nostr.NostrHttpClients
 import com.bitchat.android.nostr.NostrNetwork
-import com.bitchat.android.nostr.NostrRelayManager
 import com.bitchat.android.nostr.PoWPreferenceManager
 import com.bitchat.android.nostr.RelayDirectory
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 
 /**
@@ -48,10 +45,4 @@ object NostrBridgeModule {
     // 10c-1 bridge: deleted in Task 4/5
     @Provides
     fun nostrEventDeduplicator(): NostrEventDeduplicator = NostrEventDeduplicator.getInstance()
-
-    // 10c-1 bridge: deleted in Task 4/5
-    @Provides
-    fun nostrRelayManager(
-        @ApplicationContext context: Context
-    ): NostrRelayManager = NostrRelayManager.getInstance(context)
 }

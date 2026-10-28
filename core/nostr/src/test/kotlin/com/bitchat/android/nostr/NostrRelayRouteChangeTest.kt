@@ -6,7 +6,6 @@ import okhttp3.Request
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -24,42 +23,33 @@ class NostrRelayRouteChangeTest {
     private val routeChanges = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     private val opened = LinkedBlockingQueue<RecordingWebSocket>()
     private val failNextClose = AtomicBoolean(false)
+    private val anyCloseAttempted = CountDownLatch(1)
 
     // Records sockets instead of opening them, so the test never reaches a relay.
     private val webSocketClient = object : OkHttpClient() {
         override fun newWebSocket(request: Request, listener: WebSocketListener): WebSocket =
-            RecordingWebSocket(request, failNextClose).also(opened::add)
+            RecordingWebSocket(request, failNextClose, anyCloseAttempted).also(opened::add)
     }
 
-    private val manager = NostrRelayManager.shared
-
-    @After
-    fun tearDown() {
-        manager.disconnect()
-        NostrNetwork.uninstallForTesting()
-    }
-
-    private fun installClients() {
-        NostrNetwork.install(object : NostrHttpClients {
+    private val manager = newRelayManager(
+        clients = object : NostrHttpClients {
             override fun httpClient() = error("not called")
             override fun webSocketClient() = this@NostrRelayRouteChangeTest.webSocketClient
             override val routeChanges = this@NostrRelayRouteChangeTest.routeChanges
-        })
-    }
+        }
+    )
 
     @Test
     fun `a reset that throws does not stop the next route change from resetting`() {
-        installClients()
-        manager.disconnect()
         val relayCount = manager.getRelayStatuses().size
 
         manager.connect()
-        val firstSockets = takeSockets(relayCount)
+        takeSockets(relayCount)
         failNextClose.set(true)
         assertTrue(routeChanges.tryEmit(Unit))
         assertTrue(
             "the failing reset never reached a socket",
-            firstSockets.any { it.closeAttempted.await(5, TimeUnit.SECONDS) }
+            anyCloseAttempted.await(5, TimeUnit.SECONDS)
         )
         opened.clear()
 
@@ -77,8 +67,6 @@ class NostrRelayRouteChangeTest {
 
     @Test
     fun `a route change closes every relay socket opened on the old route and reconnects`() {
-        installClients()
-        manager.disconnect()
         val relayCount = manager.getRelayStatuses().size
         assertTrue(relayCount > 0)
 
@@ -108,9 +96,9 @@ class NostrRelayRouteChangeTest {
 
     private class RecordingWebSocket(
         private val request: Request,
-        private val failNextClose: AtomicBoolean
+        private val failNextClose: AtomicBoolean,
+        private val closeAttempted: CountDownLatch
     ) : WebSocket {
-        val closeAttempted = CountDownLatch(1)
         val closed = CountDownLatch(1)
         override fun request() = request
         override fun queueSize() = 0L

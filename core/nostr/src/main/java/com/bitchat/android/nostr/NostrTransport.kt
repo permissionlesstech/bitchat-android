@@ -107,7 +107,7 @@ class NostrTransport @Inject constructor(
                 )
                 
                 giftWraps.forEach { event ->
-                    NostrRelayManager.registerPendingGiftWrap(event.id)
+                    relayManager.get().registerPendingGiftWrap(event.id)
                     relayManager.get().sendEvent(event)
                 }
 
@@ -181,7 +181,7 @@ class NostrTransport @Inject constructor(
                 )
                 
                 giftWraps.forEach { event ->
-                    NostrRelayManager.registerPendingGiftWrap(event.id)
+                    relayManager.get().registerPendingGiftWrap(event.id)
                     relayManager.get().sendEvent(event)
                 }
 
@@ -244,7 +244,7 @@ class NostrTransport @Inject constructor(
                 )
                 
                 giftWraps.forEach { event ->
-                    NostrRelayManager.registerPendingGiftWrap(event.id)
+                    relayManager.get().registerPendingGiftWrap(event.id)
                     relayManager.get().sendEvent(event)
                 }
 
@@ -294,7 +294,7 @@ class NostrTransport @Inject constructor(
                 )
                 
                 giftWraps.forEach { event ->
-                    NostrRelayManager.registerPendingGiftWrap(event.id)
+                    relayManager.get().registerPendingGiftWrap(event.id)
                     relayManager.get().sendEvent(event)
                 }
 
@@ -328,7 +328,7 @@ class NostrTransport @Inject constructor(
                 
                 // Register pending gift wrap for deduplication and send all
                 giftWraps.forEach { event ->
-                    NostrRelayManager.registerPendingGiftWrap(event.id)
+                    relayManager.get().registerPendingGiftWrap(event.id)
                     relayManager.get().sendEvent(event)
                 }
                 
@@ -360,7 +360,7 @@ class NostrTransport @Inject constructor(
                 
                 // Register pending gift wrap for deduplication and send all
                 giftWraps.forEach { event ->
-                    NostrRelayManager.registerPendingGiftWrap(event.id)
+                    relayManager.get().registerPendingGiftWrap(event.id)
                     relayManager.get().sendEvent(event)
                 }
                 
@@ -417,7 +417,7 @@ class NostrTransport @Inject constructor(
                 )
 
                 giftWraps.forEach { event ->
-                    NostrRelayManager.registerPendingGiftWrap(event.id)
+                    relayManager.get().registerPendingGiftWrap(event.id)
                     relayManager.get().sendEvent(event)
                 }
             } catch (e: Exception) {

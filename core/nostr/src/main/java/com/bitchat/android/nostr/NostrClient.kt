@@ -117,7 +117,7 @@ class NostrClient @Inject constructor(
                 
                 // Track and send all gift wraps
                 giftWraps.forEach { wrap ->
-                    NostrRelayManager.registerPendingGiftWrap(wrap.id)
+                    relayManager.registerPendingGiftWrap(wrap.id)
                     relayManager.sendEvent(wrap)
                 }
                 
