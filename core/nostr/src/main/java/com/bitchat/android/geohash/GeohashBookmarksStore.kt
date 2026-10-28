@@ -5,36 +5,40 @@ import android.location.Geocoder
 import android.location.Location
 import android.location.LocationManager
 import android.util.Log
-import com.bitchat.android.nostr.NostrNetwork
+import com.bitchat.android.di.IoDispatcher
+import com.bitchat.android.nostr.NostrHttpClients
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.Locale
+import javax.inject.Inject
 import javax.inject.Provider
+import javax.inject.Singleton
 
 /**
  * Stores a user-maintained list of bookmarked geohash channels.
  * - Persistence: SharedPreferences (JSON string array)
  * - Semantics: geohashes are normalized to lowercase base32 and de-duplicated
  */
-class GeohashBookmarksStore private constructor(private val context: Context) {
+@Singleton
+class GeohashBookmarksStore @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val liveLocationGate: LiveLocationPrivacyGate,
+    // A provider: the geocoder asks for the clients on each lookup.
+    private val httpClients: Provider<NostrHttpClients>,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+) {
 
     companion object {
         private const val TAG = "GeohashBookmarksStore"
         private const val STORE_KEY = "locationChannel.bookmarks"
         private const val NAMES_STORE_KEY = "locationChannel.bookmarkNames"
-
-        @Volatile private var INSTANCE: GeohashBookmarksStore? = null
-        fun getInstance(context: Context): GeohashBookmarksStore {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: GeohashBookmarksStore(context.applicationContext).also { INSTANCE = it }
-            }
-        }
 
         private val allowedChars = "0123456789bcdefghjkmnpqrstuvwxyz".toSet()
         fun normalize(raw: String): String {
@@ -171,14 +175,9 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
         if (resolving.contains(gh)) return
 
         resolving.add(gh)
-        CoroutineScope(Dispatchers.IO).launch {
+        CoroutineScope(ioDispatcher).launch {
             try {
-                // Task 5 injects the gate and the clients; until then this class is still built statically.
-                val geocoderProvider = GeocoderFactory.get(
-                    context,
-                    LiveLocationPrivacyGate,
-                    Provider { NostrNetwork.clients() }
-                )
+                val geocoderProvider = GeocoderFactory.get(context, liveLocationGate, httpClients)
                 val name: String? = if (gh.length <= 2) {
                     // Composite admin name from multiple points
                     val b = Geohash.decodeToBounds(gh)

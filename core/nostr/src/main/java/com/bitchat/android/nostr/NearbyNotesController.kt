@@ -101,16 +101,6 @@ class NearbyNotesController internal constructor(
             subscribedGeohash = target
         }
     }
-
-    companion object {
-        val shared: NearbyNotesController by lazy {
-            val manager = LocationNotesManager.getInstance()
-            NearbyNotesController(
-                subscribe = manager::setGeohash,
-                unsubscribe = manager::stop,
-            )
-        }
-    }
 }
 
 /**

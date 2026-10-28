@@ -7,12 +7,17 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import androidx.core.app.ActivityCompat
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
+import com.bitchat.android.di.MainImmediateDispatcher
+import com.bitchat.android.nostr.NostrHttpClients
 import com.bitchat.android.nostr.NostrIdentityBridge
-import com.bitchat.android.nostr.NostrNetwork
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
 import javax.inject.Provider
+import javax.inject.Singleton
 import kotlinx.coroutines.*
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
@@ -26,19 +31,17 @@ import kotlinx.coroutines.flow.stateIn
  * Manages location permissions, one-shot location retrieval, and computing geohash channels.
  * Direct port from iOS LocationChannelManager for 100% compatibility
  */
-class LocationChannelManager private constructor(private val context: Context) {
+@Singleton
+class LocationChannelManager @Inject constructor(
+    @ApplicationContext private val context: Context,
+    @get:VisibleForTesting val liveLocationGate: LiveLocationPrivacyGate,
+    // A provider: the geocoder asks for the clients on each lookup.
+    httpClients: Provider<NostrHttpClients>,
+    @MainImmediateDispatcher mainImmediateDispatcher: CoroutineDispatcher,
+) {
     
     companion object {
         private const val TAG = "LocationChannelManager"
-        
-        @Volatile
-        private var INSTANCE: LocationChannelManager? = null
-        
-        fun getInstance(context: Context): LocationChannelManager {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: LocationChannelManager(context.applicationContext).also { INSTANCE = it }
-            }
-        }
     }
 
     // State enum matching iOS
@@ -54,12 +57,7 @@ class LocationChannelManager private constructor(private val context: Context) {
 
     private val locationManager: LocationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
     private val locationProvider: LocationProvider
-    // Task 5 injects the gate and the clients; until then this class is still built statically.
-    private val geocoderProvider: GeocoderProvider = GeocoderFactory.get(
-        context,
-        LiveLocationPrivacyGate,
-        Provider { NostrNetwork.clients() }
-    )
+    private val geocoderProvider: GeocoderProvider = GeocoderFactory.get(context, liveLocationGate, httpClients)
     private var geocodingJob: Job? = null
     private val gson = Gson()
     private var dataManager: com.bitchat.android.ui.DataManager? = null
@@ -89,7 +87,7 @@ class LocationChannelManager private constructor(private val context: Context) {
     }
 
     // Published state for UI bindings (matching iOS @Published properties)
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val scope = CoroutineScope(SupervisorJob() + mainImmediateDispatcher)
 
     private val _permissionState = MutableStateFlow(PermissionState.DENIED)
     val permissionState: StateFlow<PermissionState> = _permissionState
@@ -109,7 +107,7 @@ class LocationChannelManager private constructor(private val context: Context) {
     private val _isLoadingLocation = MutableStateFlow(false)
     val isLoadingLocation: StateFlow<Boolean> = _isLoadingLocation
     
-    val locationServicesEnabled: StateFlow<Boolean> = LiveLocationPrivacyGate.enabled
+    val locationServicesEnabled: StateFlow<Boolean> = liveLocationGate.enabled
 
     private val _systemLocationEnabled = MutableStateFlow(checkSystemLocationEnabled())
     val systemLocationEnabled: StateFlow<Boolean> = _systemLocationEnabled
@@ -131,12 +129,12 @@ class LocationChannelManager private constructor(private val context: Context) {
         val availability = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context)
         locationProvider = if (availability == ConnectionResult.SUCCESS) {
             Log.i(TAG, "Using FusedLocationProvider (Google Play Services)")
-            FusedLocationProvider(context, LiveLocationPrivacyGate)
+            FusedLocationProvider(context, liveLocationGate)
         } else {
             Log.i(TAG, "Using SystemLocationProvider (Native LocationManager)")
-            SystemLocationProvider(context, LiveLocationPrivacyGate)
+            SystemLocationProvider(context, liveLocationGate)
         }
-        LiveLocationPrivacyGate.addRevocationListener(::cancelLiveLocationWork)
+        liveLocationGate.addRevocationListener(::cancelLiveLocationWork)
 
         // Initialize DataManager and load persisted settings
         dataManager = com.bitchat.android.ui.DataManager(context)
@@ -156,7 +154,7 @@ class LocationChannelManager private constructor(private val context: Context) {
      * UNIFIED: Only requests location if location services are enabled by user
      */
     fun enableLocationChannels() {
-        if (!LiveLocationPrivacyGate.isEnabled || !_systemLocationEnabled.value) {
+        if (!liveLocationGate.isEnabled || !_systemLocationEnabled.value) {
             Log.w(TAG, "Location services disabled (app or system) - not requesting location")
             return
         }
@@ -191,8 +189,8 @@ class LocationChannelManager private constructor(private val context: Context) {
         }
 
         endLiveRefresh()
-        LiveLocationPrivacyGate.resumeAccess()
-        val token = LiveLocationPrivacyGate.captureToken() ?: return
+        liveLocationGate.resumeAccess()
+        val token = liveLocationGate.captureToken() ?: return
         val callback: (Location) -> Unit = { location ->
             if (canUseLiveLocation(token)) {
                 onLocationUpdated(location, token)
@@ -201,7 +199,7 @@ class LocationChannelManager private constructor(private val context: Context) {
         activeLocationUpdateCallback = callback
 
         // Register for continuous updates from available provider
-        val started = LiveLocationPrivacyGate.runIfAllowed(token) {
+        val started = liveLocationGate.runIfAllowed(token) {
             locationProvider.requestLocationUpdates(
                 intervalMs = interval,
                 minDistanceMeters = 5f,
@@ -256,7 +254,7 @@ class LocationChannelManager private constructor(private val context: Context) {
         selectInternal(
             ChannelID.Location(channel),
             source = LocationSelectionSource.MANUAL,
-            teleported = teleported || !LiveLocationPrivacyGate.isEnabled
+            teleported = teleported || !liveLocationGate.isEnabled
         )
     }
 
@@ -264,8 +262,8 @@ class LocationChannelManager private constructor(private val context: Context) {
      * Enable location services (user-controlled toggle)
      */
     fun enableLocationServices() {
-        if (!LiveLocationPrivacyGate.isEnabled) {
-            LiveLocationPrivacyGate.update(true)
+        if (!liveLocationGate.isEnabled) {
+            liveLocationGate.update(true)
             saveLocationServicesState(true)
         }
         
@@ -279,7 +277,7 @@ class LocationChannelManager private constructor(private val context: Context) {
      * Disable location services (user-controlled toggle)
      */
     fun disableLocationServices() {
-        LiveLocationPrivacyGate.update(false)
+        liveLocationGate.update(false)
         saveLocationServicesState(false)
         clearLiveLocationState(invalidateAccess = false)
     }
@@ -291,13 +289,13 @@ class LocationChannelManager private constructor(private val context: Context) {
      * Check if both the app toggle and system location are enabled
      */
     fun isLocationServicesEnabled(): Boolean {
-        return LiveLocationPrivacyGate.isEnabled && _systemLocationEnabled.value
+        return liveLocationGate.isEnabled && _systemLocationEnabled.value
     }
 
     fun canUseSelectedLocationChannel(channel: GeohashChannel): Boolean {
         if (_selectedChannel.value != ChannelID.Location(channel)) return false
         return selectedLocationSource == LocationSelectionSource.MANUAL ||
-            LiveLocationPrivacyGate.captureToken() != null
+            liveLocationGate.captureToken() != null
     }
 
     fun isSelectedChannelLiveDerived(channel: GeohashChannel): Boolean =
@@ -306,7 +304,7 @@ class LocationChannelManager private constructor(private val context: Context) {
 
     fun liveLocationTokenForSelectedChannel(channel: GeohashChannel): Long? {
         if (!isSelectedChannelLiveDerived(channel)) return null
-        return LiveLocationPrivacyGate.captureToken()
+        return liveLocationGate.captureToken()
     }
 
     private fun selectInternal(
@@ -329,7 +327,7 @@ class LocationChannelManager private constructor(private val context: Context) {
      * temporarily unavailable.
      */
     private fun clearLiveLocationState(invalidateAccess: Boolean = true) {
-        if (invalidateAccess) LiveLocationPrivacyGate.invalidate()
+        if (invalidateAccess) liveLocationGate.invalidate()
         cancelLiveLocationWork()
         _isLoadingLocation.value = false
         NostrIdentityBridge.clearGeohashIdentityCache(
@@ -370,18 +368,18 @@ class LocationChannelManager private constructor(private val context: Context) {
             return
         }
 
-        LiveLocationPrivacyGate.resumeAccess()
-        val token = LiveLocationPrivacyGate.captureToken() ?: return
+        liveLocationGate.resumeAccess()
+        val token = liveLocationGate.captureToken() ?: return
         _isLoadingLocation.value = true
 
-        val started = LiveLocationPrivacyGate.runIfAllowed(token) {
+        val started = liveLocationGate.runIfAllowed(token) {
             locationProvider.getLastKnownLocation { cached ->
                 if (!canUseLiveLocation(token)) return@getLastKnownLocation
 
                 if (cached != null) {
                     onLocationUpdated(cached, token)
                 } else {
-                    LiveLocationPrivacyGate.runIfAllowed(token) {
+                    liveLocationGate.runIfAllowed(token) {
                         locationProvider.requestFreshLocation { fresh ->
                             if (!canUseLiveLocation(token)) return@requestFreshLocation
 
@@ -400,7 +398,7 @@ class LocationChannelManager private constructor(private val context: Context) {
     }
 
     private fun onLocationUpdated(location: Location, token: Long) {
-        LiveLocationPrivacyGate.runIfAllowed(token) {
+        liveLocationGate.runIfAllowed(token) {
             if (!_systemLocationEnabled.value || !hasRuntimeLocationPermission()) return@runIfAllowed
             _isLoadingLocation.value = false
             computeChannels(location, token)
@@ -440,7 +438,7 @@ class LocationChannelManager private constructor(private val context: Context) {
     }
 
     private fun canUseLiveLocation(token: Long): Boolean {
-        return LiveLocationPrivacyGate.accepts(token) &&
+        return liveLocationGate.accepts(token) &&
             _systemLocationEnabled.value &&
             hasRuntimeLocationPermission()
     }
@@ -497,7 +495,7 @@ class LocationChannelManager private constructor(private val context: Context) {
                 if (addresses.isNotEmpty()) {
                     val address = addresses[0]
                     val names = namesByLevel(address)
-                    LiveLocationPrivacyGate.runIfAllowed(token) {
+                    liveLocationGate.runIfAllowed(token) {
                         if (_systemLocationEnabled.value && hasRuntimeLocationPermission()) {
                             _locationNames.value = names
                         }
@@ -595,7 +593,7 @@ class LocationChannelManager private constructor(private val context: Context) {
                 val source = persisted?.selectionSource()
                 val canRestore = channel !is ChannelID.Location ||
                     source == LocationSelectionSource.MANUAL ||
-                    (LiveLocationPrivacyGate.isEnabled &&
+                    (liveLocationGate.isEnabled &&
                         _systemLocationEnabled.value &&
                         _permissionState.value == PermissionState.AUTHORIZED)
 
@@ -678,10 +676,10 @@ class LocationChannelManager private constructor(private val context: Context) {
     private fun loadLocationServicesState() {
         try {
             val enabled = dataManager?.isLocationServicesEnabled() ?: false
-            LiveLocationPrivacyGate.update(enabled)
+            liveLocationGate.update(enabled)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load location services state")
-            LiveLocationPrivacyGate.update(false)
+            liveLocationGate.update(false)
         }
     }
 

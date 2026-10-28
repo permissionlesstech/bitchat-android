@@ -2,32 +2,32 @@ package com.bitchat.android.nostr
 
 import android.util.Log
 import androidx.annotation.MainThread
+import androidx.annotation.VisibleForTesting
+import com.bitchat.android.di.MainDispatcher
 import com.bitchat.android.geohash.LiveLocationPrivacyGate
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Manages location notes (kind=1 text notes with geohash tags)
  * iOS-compatible implementation with StateFlow for Android UI binding
  */
 @MainThread
-class LocationNotesManager private constructor() {
+@Singleton
+class LocationNotesManager @Inject constructor(
+    @get:VisibleForTesting val liveLocationGate: LiveLocationPrivacyGate,
+    private val relayDirectory: RelayDirectory,
+    @MainDispatcher mainDispatcher: CoroutineDispatcher,
+) {
 
     companion object {
         private const val TAG = "LocationNotesManager"
         private const val MAX_NOTES_IN_MEMORY = 500
-        
-        @Volatile
-        private var INSTANCE: LocationNotesManager? = null
-        
-        fun getInstance(): LocationNotesManager {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: LocationNotesManager().also { INSTANCE = it }
-            }
-        }
     }
 
     /**
@@ -95,13 +95,13 @@ class LocationNotesManager private constructor() {
     private var deriveIdentityFunc: ((String) -> NostrIdentity)? = null
     
     // Coroutine scope for background operations
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private val scope = CoroutineScope(mainDispatcher + SupervisorJob())
     private var liveLocationToken: Long? = null
     private var subscribeRetryJob: Job? = null
     private var initialLoadJob: Job? = null
 
     init {
-        LiveLocationPrivacyGate.addRevocationListener(::stop)
+        liveLocationGate.addRevocationListener(::stop)
     }
     
     /**
@@ -126,14 +126,14 @@ class LocationNotesManager private constructor() {
      * iOS: Validates building-level precision (8 characters)
      */
     fun setGeohash(newGeohash: String) {
-        val token = LiveLocationPrivacyGate.captureToken() ?: run {
+        val token = liveLocationGate.captureToken() ?: run {
             stop()
             return
         }
         val normalized = newGeohash.lowercase()
         
         if (_geohash.value == normalized &&
-            liveLocationToken?.let(LiveLocationPrivacyGate::accepts) == true
+            liveLocationToken?.let(liveLocationGate::accepts) == true
         ) {
             return
         }
@@ -146,7 +146,7 @@ class LocationNotesManager private constructor() {
 
         // Cancel existing subscription
         cancel()
-        if (!LiveLocationPrivacyGate.accepts(token)) return
+        if (!liveLocationGate.accepts(token)) return
         liveLocationToken = token
         
         // Set loading state before clearing to prevent empty state flicker (iOS pattern)
@@ -182,7 +182,7 @@ class LocationNotesManager private constructor() {
      * Refresh notes for current geohash
      */
     fun refresh() {
-        val token = LiveLocationPrivacyGate.captureToken() ?: run {
+        val token = liveLocationGate.captureToken() ?: run {
             stop()
             return
         }
@@ -194,7 +194,7 @@ class LocationNotesManager private constructor() {
         
         // Cancel and restart subscriptions for current ±1 set
         cancel()
-        if (!LiveLocationPrivacyGate.accepts(token)) return
+        if (!liveLocationGate.accepts(token)) return
         liveLocationToken = token
         _notes.value = emptyList()
         noteIDs.clear()
@@ -215,7 +215,7 @@ class LocationNotesManager private constructor() {
      * cancel a send in progress. The result says whether the note went out.
      */
     suspend fun send(content: String, nickname: String?): NoteSendResult {
-        val token = LiveLocationPrivacyGate.captureToken() ?: run {
+        val token = liveLocationGate.captureToken() ?: run {
             stop()
             return NoteSendResult.Failed(NoteSendResult.Reason.PRIVACY_GATE_CLOSED)
         }
@@ -235,13 +235,13 @@ class LocationNotesManager private constructor() {
         // iOS: let relays = dependencies.relayLookup(geohash, TransportConfig.nostrGeoRelayCount)
         var relays: List<String> = emptyList()
         try {
-            LiveLocationPrivacyGate.runIfAllowed(token) {
-                relays = RelayDirectory.closestRelaysForGeohash(currentGeohash, 5)
+            liveLocationGate.runIfAllowed(token) {
+                relays = relayDirectory.closestRelaysForGeohash(currentGeohash, 5)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to look up location-note relays")
         }
-        if (!LiveLocationPrivacyGate.accepts(token)) {
+        if (!liveLocationGate.accepts(token)) {
             stop()
             return NoteSendResult.Failed(NoteSendResult.Reason.PRIVACY_GATE_CLOSED)
         }
@@ -265,12 +265,12 @@ class LocationNotesManager private constructor() {
             try {
                 var identity: NostrIdentity? = null
                 val identityPrepared = withContext(Dispatchers.IO) {
-                    LiveLocationPrivacyGate.runIfAllowed(token) {
+                    liveLocationGate.runIfAllowed(token) {
                         identity = deriveIdentity(currentGeohash)
                     }
                 }
                 val preparedIdentity = identity
-                if (!identityPrepared || !LiveLocationPrivacyGate.accepts(token)) {
+                if (!identityPrepared || !liveLocationGate.accepts(token)) {
                     return@async NoteSendResult.Failed(NoteSendResult.Reason.PRIVACY_GATE_CLOSED)
                 }
                 if (preparedIdentity == null) {
@@ -285,7 +285,7 @@ class LocationNotesManager private constructor() {
                             nickname = nickname
                         )
                 }
-                if (!LiveLocationPrivacyGate.accepts(token)) {
+                if (!liveLocationGate.accepts(token)) {
                     return@async NoteSendResult.Failed(NoteSendResult.Reason.PRIVACY_GATE_CLOSED)
                 }
 
@@ -313,7 +313,7 @@ class LocationNotesManager private constructor() {
                 // iOS: dependencies.sendEvent(event, relays)
                 var handedOff = false
                 val sent = withContext(Dispatchers.IO) {
-                    LiveLocationPrivacyGate.runIfAllowed(token) {
+                    liveLocationGate.runIfAllowed(token) {
                         sendEventFunc?.invoke(preparedEvent, relays, token)?.also { handedOff = true }
                     }
                 }
@@ -346,7 +346,7 @@ class LocationNotesManager private constructor() {
         initialLoadJob?.cancel()
         initialLoadJob = null
 
-        if (!LiveLocationPrivacyGate.accepts(token)) {
+        if (!liveLocationGate.accepts(token)) {
             stop()
             return
         }
@@ -366,13 +366,13 @@ class LocationNotesManager private constructor() {
                 var attempts = 0
                 while (attempts < 10 &&
                     subscribeFunc == null &&
-                    LiveLocationPrivacyGate.accepts(token)
+                    liveLocationGate.accepts(token)
                 ) {
                     delay(300)
                     attempts++
                 }
                 val subNow = subscribeFunc
-                if (subNow != null && LiveLocationPrivacyGate.accepts(token)) {
+                if (subNow != null && liveLocationGate.accepts(token)) {
                     // Try again now that dependencies are ready
                     subscribeAll(token)
                 } else {
@@ -390,7 +390,7 @@ class LocationNotesManager private constructor() {
         
         // Subscribe for each geohash in the ±1 set
         subscribedGeohashes.forEach { gh ->
-            if (!LiveLocationPrivacyGate.accepts(token)) return
+            if (!liveLocationGate.accepts(token)) return
             val filter = NostrFilter.geohashNotes(
                 geohash = gh,
                 since = null,
@@ -399,7 +399,7 @@ class LocationNotesManager private constructor() {
             val subId = "location-notes-${UUID.randomUUID()}"
             try {
                 var id: String? = null
-                LiveLocationPrivacyGate.runIfAllowed(token) {
+                liveLocationGate.runIfAllowed(token) {
                     id = subscribe(filter, subId) { event -> handleEvent(event) }
                 }
                 id?.let { subscriptionIDs[gh] = it }
@@ -412,7 +412,7 @@ class LocationNotesManager private constructor() {
         initialLoadJob = scope.launch {
             delay(2000) // Wait 2 seconds for initial batch
             if (_geohash.value == currentGeohash &&
-                LiveLocationPrivacyGate.accepts(token) &&
+                liveLocationGate.accepts(token) &&
                 !_initialLoadComplete.value
             ) {
                 _initialLoadComplete.value = true
@@ -426,7 +426,7 @@ class LocationNotesManager private constructor() {
      */
     private fun handleEvent(event: NostrEvent) {
         val token = liveLocationToken
-        if (token == null || !LiveLocationPrivacyGate.accepts(token)) return
+        if (token == null || !liveLocationGate.accepts(token)) return
 
         // Validate event
         if (event.kind != NostrKind.TEXT_NOTE) {

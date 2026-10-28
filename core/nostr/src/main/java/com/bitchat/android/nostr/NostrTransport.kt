@@ -7,33 +7,36 @@ import com.bitchat.android.model.ReadReceipt
 import com.bitchat.android.model.NoisePayloadType
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
+import com.bitchat.android.di.IoDispatcher
+import com.bitchat.android.geohash.LocationChannelManager
+import dagger.Lazy
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Nostr transport for offline private messages and receipts.
  */
-class NostrTransport(
-    private val context: Context,
-    // BLE short peer ID embedded in favorites (recipient-addressed) envelopes.
-    // Geohash envelopes never carry it (see NostrEmbeddedBitChat).
-    var senderPeerID: String = ""
+@Singleton
+class NostrTransport @Inject constructor(
+    @ApplicationContext private val context: Context,
+    // Lazy: each is first touched by the send that needs it, as before.
+    private val relayManager: Lazy<NostrRelayManager>,
+    private val locationChannels: Lazy<LocationChannelManager>,
+    @IoDispatcher ioDispatcher: CoroutineDispatcher,
 ) {
     
     companion object {
         private const val TAG = "NostrTransport"
         private const val READ_ACK_INTERVAL = com.bitchat.android.util.AppConstants.Nostr.READ_ACK_INTERVAL_MS // ~3 per second (0.35s interval like iOS)
-        
-        @Volatile
-        private var INSTANCE: NostrTransport? = null
-        
-        fun getInstance(context: Context): NostrTransport {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: NostrTransport(context.applicationContext).also { INSTANCE = it }
-            }
-        }
     }
+
+    // BLE short peer ID embedded in favorites (recipient-addressed) envelopes.
+    // Geohash envelopes never carry it (see NostrEmbeddedBitChat).
+    var senderPeerID: String = ""
     
     // Throttle READ receipts to avoid relay rate limits (like iOS)
     private data class QueuedRead(
@@ -43,7 +46,7 @@ class NostrTransport(
     
     private val readQueue = ConcurrentLinkedQueue<QueuedRead>()
     private var isSendingReadAcks = false
-    private val transportScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val transportScope = CoroutineScope(ioDispatcher + SupervisorJob())
     
     // MARK: - Transport Interface Methods
     
@@ -105,7 +108,7 @@ class NostrTransport(
                 
                 giftWraps.forEach { event ->
                     NostrRelayManager.registerPendingGiftWrap(event.id)
-                    NostrRelayManager.getInstance(context).sendEvent(event)
+                    relayManager.get().sendEvent(event)
                 }
 
             } catch (e: Exception) {
@@ -179,7 +182,7 @@ class NostrTransport(
                 
                 giftWraps.forEach { event ->
                     NostrRelayManager.registerPendingGiftWrap(event.id)
-                    NostrRelayManager.getInstance(context).sendEvent(event)
+                    relayManager.get().sendEvent(event)
                 }
 
                 scheduleNextReadAck()
@@ -242,7 +245,7 @@ class NostrTransport(
                 
                 giftWraps.forEach { event ->
                     NostrRelayManager.registerPendingGiftWrap(event.id)
-                    NostrRelayManager.getInstance(context).sendEvent(event)
+                    relayManager.get().sendEvent(event)
                 }
 
             } catch (e: Exception) {
@@ -292,7 +295,7 @@ class NostrTransport(
                 
                 giftWraps.forEach { event ->
                     NostrRelayManager.registerPendingGiftWrap(event.id)
-                    NostrRelayManager.getInstance(context).sendEvent(event)
+                    relayManager.get().sendEvent(event)
                 }
 
             } catch (e: Exception) {
@@ -326,7 +329,7 @@ class NostrTransport(
                 // Register pending gift wrap for deduplication and send all
                 giftWraps.forEach { event ->
                     NostrRelayManager.registerPendingGiftWrap(event.id)
-                    NostrRelayManager.getInstance(context).sendEvent(event)
+                    relayManager.get().sendEvent(event)
                 }
                 
             } catch (e: Exception) {
@@ -358,7 +361,7 @@ class NostrTransport(
                 // Register pending gift wrap for deduplication and send all
                 giftWraps.forEach { event ->
                     NostrRelayManager.registerPendingGiftWrap(event.id)
-                    NostrRelayManager.getInstance(context).sendEvent(event)
+                    relayManager.get().sendEvent(event)
                 }
                 
             } catch (e: Exception) {
@@ -378,7 +381,7 @@ class NostrTransport(
         // Use provided geohash or derive from current location
         val geohash = sourceGeohash ?: run {
             val selected = try {
-                com.bitchat.android.geohash.LocationChannelManager.getInstance(context).selectedChannel.value
+                locationChannels.get().selectedChannel.value
             } catch (_: Exception) { null }
             if (selected !is com.bitchat.android.geohash.ChannelID.Location) {
                 Log.w(TAG, "NostrTransport: cannot send geohash PM - not in a location channel and no geohash provided")
@@ -415,7 +418,7 @@ class NostrTransport(
 
                 giftWraps.forEach { event ->
                     NostrRelayManager.registerPendingGiftWrap(event.id)
-                    NostrRelayManager.getInstance(context).sendEvent(event)
+                    relayManager.get().sendEvent(event)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send geohash private message: ${e.message}")

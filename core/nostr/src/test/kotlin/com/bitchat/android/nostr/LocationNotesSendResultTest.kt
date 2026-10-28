@@ -1,12 +1,9 @@
 package com.bitchat.android.nostr
 
 import com.bitchat.android.geohash.LiveLocationPrivacyGate
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -21,19 +18,20 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class LocationNotesSendResultTest {
 
-    private val manager = LocationNotesManager.getInstance()
+    private val manager = LocationNotesManager(
+        LiveLocationPrivacyGate,
+        RelayDirectory,
+        UnconfinedTestDispatcher(),
+    )
 
     @Before
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
         LiveLocationPrivacyGate.update(true)
     }
 
     @After
     fun tearDown() {
-        manager.stop()
         LiveLocationPrivacyGate.update(false)
-        Dispatchers.resetMain()
     }
 
     @Test

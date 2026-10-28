@@ -2,32 +2,32 @@ package com.bitchat.android.nostr
 
 import android.content.Context
 import android.util.Log
+import com.bitchat.android.di.MainDispatcher
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * High-level Nostr client that manages identity, connections, and messaging
  * Provides a simple API for the rest of the application
  */
-class NostrClient private constructor(private val context: Context) {
+@Singleton
+class NostrClient @Inject constructor(
+    @ApplicationContext private val context: Context,
+    // Core components
+    private val relayManager: NostrRelayManager,
+    private val powPreferences: PoWPreferenceManager,
+    @MainDispatcher mainDispatcher: CoroutineDispatcher,
+) {
     
     companion object {
         private const val TAG = "NostrClient"
-        
-        @Volatile
-        private var INSTANCE: NostrClient? = null
-        
-        fun getInstance(context: Context): NostrClient {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: NostrClient(context.applicationContext).also { INSTANCE = it }
-            }
-        }
     }
     
-    // Core components
-    private val relayManager = NostrRelayManager.shared
     private var currentIdentity: NostrIdentity? = null
     
     // Client state
@@ -38,7 +38,7 @@ class NostrClient private constructor(private val context: Context) {
     val currentNpub: StateFlow<String?> = _currentNpub.asStateFlow()
     
     // Message processing
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private val scope = CoroutineScope(mainDispatcher + SupervisorJob())
     
     init {
         Log.d(TAG, "Initializing Nostr client")
@@ -176,7 +176,7 @@ class NostrClient private constructor(private val context: Context) {
                     geohash = geohash,
                     senderIdentity = geohashIdentity,
                     nickname = nickname,
-                    pow = PoWPreferenceManager
+                    pow = powPreferences
                 )
                 
                 relayManager.sendEvent(event)
@@ -289,7 +289,7 @@ class NostrClient private constructor(private val context: Context) {
             }
 
             // Check Proof of Work validation for incoming geohash events
-            val powSettings = PoWPreferenceManager.getCurrentSettings()
+            val powSettings = powPreferences.getCurrentSettings()
             if (powSettings.enabled && powSettings.difficulty > 0) {
                 if (!NostrProofOfWork.validateDifficulty(event, powSettings.difficulty)) {
                     Log.w(TAG, "🚫 Rejecting geohash event ${event.id.take(8)}... due to insufficient PoW (required: ${powSettings.difficulty})")

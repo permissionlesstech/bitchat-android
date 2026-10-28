@@ -64,9 +64,7 @@ class NoStaticTorNostrAccessTest {
      */
     private val stillStaticInNostr = setOf(
         "NostrNetwork", "RelayDirectory", "LiveLocationPrivacyGate", "PoWPreferenceManager",
-        "NostrEventDeduplicator", "NostrRelayManager", "NostrClient", "NostrTransport",
-        "LocationChannelManager", "GeohashBookmarksStore", "LocationNotesManager",
-        "NearbyNotesController",
+        "NostrEventDeduplicator", "NostrRelayManager",
     )
 
     @Test
