@@ -81,7 +81,7 @@ class NoStaticTorNostrAccessTest {
                 holder.find(code)?.let { "$name: declares a static holder (${it.value})" },
                 Regex("""\bobject\s+$name\b""").find(code)?.let { "$name: is an object" },
                 if (name != "NearbyNotesController" &&
-                    !Regex("""@Inject\s+constructor""").containsMatchIn(code)
+                    !Regex("""@Inject\s+(?:internal\s+)?constructor""").containsMatchIn(code)
                 ) "$name: has no @Inject constructor" else null,
             )
         }

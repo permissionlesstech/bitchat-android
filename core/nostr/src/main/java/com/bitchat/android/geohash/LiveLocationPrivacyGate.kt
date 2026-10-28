@@ -86,7 +86,7 @@ internal const val DEFAULT_LIVE_LOCATION_ENABLED = false
  * access in one consumer and not another.
  */
 @Singleton
-class LiveLocationPrivacyGate @Inject constructor() {
+class LiveLocationPrivacyGate @Inject internal constructor() {
     private val policy = LiveLocationAccessPolicy()
     private val revocationListeners = CopyOnWriteArraySet<() -> Unit>()
 
