@@ -95,6 +95,7 @@ kept out of the refactor so it changes no behaviour it did not have to. Details 
 | Unit tests (10a) | 891 | 1076 |
 | Unit tests (10b) | 1200 | 1336 |
 | Device tests (10b) | chat 1, location 2 | chat 6, location 4 |
+| Tor and Nostr singletons (10c-1) | `getInstance()`, `.shared` and `object` holders; tests reset them by hand | Injected classes. Tests build fresh instances: the relay route-change and lifecycle smoke tests no longer call `NostrRelayManager.disconnect()` or `NostrNetwork.uninstallForTesting()` in teardown; the clients-binding, snapshot and location-notes send tests no longer reset global state; five PoW-dependent tests no longer share the process object |
 | Module rules | Unwritten | `FeatureDependencyRulesTest` fails when a feature depends on another feature, an `:api` module grows dependencies, or `:core:tor` gains one |
 | Watch crypto | Tink 1.8.0 | Tink 1.23.0, the phone's version |
 | Watch theme | Its own copy of the palette, peer-color hash and fonts | The shared `:core:designsystem` base |
@@ -102,6 +103,10 @@ kept out of the refactor so it changes no behaviour it did not have to. Details 
 Safety rails added on the way:
 - The Nostr HTTP port fails closed: with nothing installed it throws instead of sending relay
   traffic around Tor. A unit test pins this.
+- The Nostr HTTP clients are a Hilt binding in `:app`, so the fail-closed port is checked at compile time:
+  a build with no binding does not compile.
+- `NoStaticTorNostrAccessTest` fails the build when code reaches a Tor or Nostr singleton statically
+  instead of by injection.
 - A Tor route change reaches the relays through a required member of that port, so a missing
   wiring cannot fail open.
 - Onboarding's location and Bluetooth receivers register as not exported.

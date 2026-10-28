@@ -567,7 +567,7 @@ or 9.
 
 Phase 9 moved to section 3 when it finished. What it left open is in section 5.
 
-### Phase 10: MVI on every screen (10a and 10b done; 10c to come)
+### Phase 10: MVI on every screen (10a, 10b and 10c-1 done; the rest of 10c to come)
 
 #### MVI shape
 
@@ -585,8 +585,8 @@ Planned scope: every screen exposes one UI state and takes actions, as the chat 
 private chat already do. Phase 10 is in three parts. **10a** (done, branch
 `phase10a/mvi-small-screens`): About, Debug, Location Notes, Hotspot, the APK share section,
 Onboarding's naming, and a slimmer `TransportDiagnostics`. **10b** (done, branch
-`phase10b/mvi-peers-channels`): the peer list and the location channels screen. **10c** (to come, own spec): the project's singletons become Hilt
-classes.
+`phase10b/mvi-peers-channels`): the peer list and the location channels screen. **10c** (own spec, four runs): the project's singletons become Hilt
+classes. **10c-1** (done, branch `phase10c1/hilt-tor-nostr`): `:core:tor` and `:core:nostr`.
 
 #### Phase 10a decisions
 
@@ -767,6 +767,48 @@ Deferred from reviews, none blocking:
 Resolved during the phase: the six dead ViewModel helpers, the O(n²) lookups in `meshPeopleRows` (now a `HashSet` and a first-wins map), `ChannelTitle.level` (dropped), the duplicate `channelCountText` (the composable is now `peopleCountLabel`), and the real-city geohashes in the old sheet test (replaced by synthetic ones in `GeohashChannelFormattingTest`).
 
 Owed: the Mesh Lab and the second-phone pass wait for 10c. Phase 10 is complete after 10c, which needs its own spec.
+
+### Phase 10c-1: `:core:tor` and `:core:nostr` on Hilt
+
+#### Phase 10c-1 decisions
+
+| Decision | Why | Alternatives rejected | Cost / what to watch |
+|---|---|---|---|
+| Bridge first, then flip. Task 1 put a `@Provides` bridge module in each library that returned the existing static instance. Task 2 moved every outside caller to injection. Tasks 3 to 5 converted the classes and deleted each holder together with its bridge. | Every commit builds and passes; callers never wait on class conversion. A scan test (`NoStaticTorNostrAccessTest`) fails on any static reach, so a missed call site shows up as a red test. | Converting leaf classes first. It would need temporary setters on consumers that were still static. Task 5 ran roots first for that reason. | The bridge also covered `NostrNetwork`, `NostrBackgroundRuntime` and `LocationNotesInitializer`, which the plan's list had left out. |
+| `ArtiTorManager` takes `dagger.Lazy<OkHttpProvider>`. | The two reference each other (the manager resets the provider on a route change, the provider reads the manager). `Lazy` breaks the cycle at the same two reset sites as before. | `Provider`; moving the reset to a listener. | `ArtiTorManagerRouteResetTest` pins the path; `resetNetworkConnections` is `internal` for it. |
+| `ChatScreenDependencies` (an `@EntryPoint` in `:feature:chat`) gives the chat composables the Tor and Nostr singletons. It is transitional. `ConversationNotificationReceiver` reaches `NostrTransport` through a nested `@EntryPoint`. | Chat composables read these singletons directly and have no ViewModel yet. Kotlin cannot extend an `@AndroidEntryPoint` receiver cleanly (abstract `super.onReceive`), so the receiver uses the nested entry point, as `ApkDownloadWorker` does. | `@Provides` bridges kept for chat; a Hilt receiver base class. | The chat MVI work removes `ChatScreenDependencies`. |
+| `NostrNetwork` (the holder with `install`) is replaced by `NostrNetworkModule` in `:app`, which `@Provides` `NostrHttpClients` from `OkHttpProvider` and `ArtiTorManager`. | The port still fails closed, now at compile time: a build with no binding does not compile, instead of throwing at the first relay call. | A runtime holder with a check. | `:core:nostr` cannot see the binding; `NostrNetworkModuleTest` pins that a Tor route change reaches the relays. |
+| `NostrTestManager` is deleted. | It was dead: no reference anywhere outside its own file. | Converting it. | None. |
+| The two runtime objects `NostrBackgroundRuntime` and `LocationNotesInitializer` became `@Singleton` classes with `Lazy` dependencies. | They are the Application's start-up wiring and must not build the relay or channel managers earlier than before. | Eager injection. | `Lazy` holders stay where first use must stay where it was. |
+| Dispatchers come by qualifier from `:core:mesh`: `@IoDispatcher`, `@DefaultDispatcher`, `@MainDispatcher`, `@MainImmediateDispatcher`; their `@Provides` are in `:core:nostr`'s module (R2, R4). Each class keeps the dispatcher it had; `limitedParallelism(1)` is applied inside `GeohashActivityMonitor`. | `:core:mesh` is the lowest module that nostr and later the mesh both see; `:core:domain` holds models only. Tests can pass a test dispatcher. | Qualifiers in `:core:domain`; the call sites keep `Dispatchers.X`. | `:core:mesh` gained a `javax.inject` dependency. Qualifiers moved to `:core:mesh` early so Task 3 could use them. |
+| `PoWPreferenceManager` keeps an explicit `load()` (R7), called at the same two places as the old `init(context)`. | Loading in the constructor would run in `Application.onCreate` (the background-runtime events factory), earlier than the startup gate, and change which PoW setting background geohash events see. | Loading at construction, as the plan said. | Flipping is a two-line change if wanted. |
+| `TorNostrSingletonIdentityTest` is not `@HiltAndroidTest`. It reads the real graph through a debug-only `@EntryPoint` (`TorNostrTestAccess`), as `ChatSessionTestAccess` does (R8). | The repo has no Hilt test runner; adding one moves every device test onto `HiltTestApplication`. | A Hilt test runner. | It checks the production graph. It asserts the shared gate on 3 of about 7 holders. |
+| `AppStartupOrderTest` pins the start-up order: `DefaultAppInitializer` at runtime with fakes (PoW load, then location notes). `BitchatApplication.onCreate` by source order (R3). | `onCreate` cannot be run in a JVM test, so a source-order assertion stands in for it. | Leaving the order unpinned. | Its "no `NostrHttpClients` in `onCreate`" check is weak; the compile-time binding is the real guard. |
+| The scan test reads only `src/main` of every module, with a small lexer that drops comments and string text and keeps `${}` template code. | It must fail on any static reach, including multi-line chains and `::` references, and ignore text. | A regex over raw lines. | It does not read `src/debug`. Constants and nested types are allowed by a generic rule on capitalised members, not by a list. |
+
+#### What Phase 10c-1 changed
+
+- `:core:tor` and `:core:nostr` use Hilt. `ArtiTorManager`, `OkHttpProvider`, `NostrRelayManager`, `NostrClient`, `NostrTransport`, `LocationChannelManager`, `GeohashBookmarksStore`, `LocationNotesManager`, `NearbyNotesController`, `RelayDirectory`, `LiveLocationPrivacyGate`, `PoWPreferenceManager`, `NostrEventDeduplicator`, `NostrBackgroundRuntime` and `LocationNotesInitializer` are injected singletons. `GeohashActivityMonitor` is injected and unscoped. Their `getInstance()` / `.shared` accessors, `NostrNetwork`, `NostrTestManager` and both bridge modules are gone.
+- Outside callers in `:app`, `:core:chat` and the features inject them (`Lazy` where the first use must stay late).
+- Tests that needed global teardown now build fresh instances (see `docs/refactor-benefits.md`).
+- Behaviour is unchanged. No persisted key, log line, dispatcher or start-up order moved.
+- Every class is classified identity or process in the singleton inventory, for 10c-2a. `NostrRelayManager` is process-wide, but its identity-tied subscriptions must drop when an identity ends.
+- Tests: JVM 1404 to 1410 (3 skipped). Device: app 65 to 68 (the three identity tests); chat 6, settings 5, location 4, share 3 unchanged. The Mesh Lab was not run for this phase; it is owed with 10c.
+
+#### Follow-ups from Phase 10c-1
+
+For 10c-2:
+- Stateful singletons outside this run's list stay static: `GeohashConversationRegistry`, `NostrIdentityBridge`, `TorPreferenceManager`. `ArtiNative` is a JNI binding.
+- `MessageRouter` is still a static `getInstance`.
+- `PowerManager.getInstance` is static and now reached by the relay-manager JVM tests, shared across Robolectric tests. Inject it.
+- `PoWPreferenceManager` keeps its explicit `load()`.
+
+Deferred from reviews, none blocking:
+- The identity test covers 3 of about 7 gate holders. The scan reads only `src/main`.
+- `httpClients` and `liveLocationGate` are public `@VisibleForTesting` members on the singletons.
+- `MainActivity` injects `NearbyNotesController` eagerly (no side effects; `Lazy` would be exact).
+- `resetNetworkConnections` is `internal` for a test; `@VisibleForTesting` is not on it.
+- The `javax-inject` version entry in `libs.versions.toml` sits apart from the Hilt group.
 
 ### Phase 11: Wear shares UI with the phone (not started)
 
