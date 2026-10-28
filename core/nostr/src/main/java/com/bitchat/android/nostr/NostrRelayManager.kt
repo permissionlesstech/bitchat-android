@@ -126,7 +126,7 @@ class NostrRelayManager @Inject constructor(
     // Subscription validation timer
     private var subscriptionValidationJob: Job? = null
 
-    // Closes relay sockets when the installed clients report a route change.
+    // Closes relay sockets when the clients report a route change.
     private val routeChangeLock = Any()
     private var routeChangeJob: Job? = null
     private val powerManager: PowerManager
