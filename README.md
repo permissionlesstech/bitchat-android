@@ -89,6 +89,20 @@ pinned Linux container. Maintainers should follow the
 [Reproducible builds](docs/reproducible-builds.md) for the build trust model
 and public GitHub/Google Play verification procedures.
 
+## SHA-256 certificate fingerprints:
+
+**Package ID:** com.bitchat.droid
+
+**GitHub APK:**
+```
+3B:03:FA:66:A5:45:13:21:10:07:92:F5:B5:5A:7B:49:66:D5:C8:DC:10:C6:DA:A4:0A:A9:5E:A4:89:53:1B:CA
+```
+
+**Google Play:**
+```
+5E:65:1D:D0:C8:0D:1F:57:F2:61:79:64:95:50:85:E2:89:49:DD:04:AD:DA:C7:B5:3F:E9:D2:F1:1E:17:2A:A2
+```
+
 ## Testing
 
 ```bash
