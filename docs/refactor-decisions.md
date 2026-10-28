@@ -459,6 +459,18 @@ merge first, expect a Back-handling conflict in `MainActivity`. Keep this branch
   is a labelling decision for upstream (for example "N online · M active"), not a refactor
   change.
 - The location channels notes card returns to "Loading notes…" every time a jittering GPS fix crosses a building cell, because each cell change resubscribes the nearby notes. A follow-up candidate for the notes work (seen in Phase 10b's phone check; not a 10b change).
+- Turning live location off can leave a relay socket open (upstream 2.2.0, globe). The globe
+  opens its relays through `NostrRelayManager.connectToRelays`, which adds them to the one shared
+  `nonLiveRelayUrls` set. If a live-location channel later routes to the same relay, it is never
+  tagged as live; when the globe closes, `releaseRelays` keeps it because it is routed, so it
+  stays non-live. Revoking live location then closes the channel's subscriptions but not that
+  socket. Separately, `GeohashPickerActivity` opens the globe on the user's coarsest location
+  channel and `GeohashActivityMonitor.focusOn` then opens the relays nearest that region, outside
+  the live-location gate, so the relay left open can be one chosen from the user's region.
+  Confirmed on an emulator with fake sockets and synthetic relays; it needs the globe to touch the
+  relay before the live channel does. The fix for the second part is small (focus only after the
+  user moves the globe); the first needs per-owner relay tracking. Not fixed here, to keep the
+  refactor behaviour-preserving.
 - The iOS client files Nostr private messages in a separate thread.
 - `FragmentManagerTest > test reassembly` flakes. Root cause not established. Candidates: an
   unseeded `Random`, and a cleanup loop that nothing cancels.
