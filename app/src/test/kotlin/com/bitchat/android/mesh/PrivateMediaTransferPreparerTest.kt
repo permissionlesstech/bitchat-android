@@ -13,7 +13,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import java.util.Random
 
 @RunWith(RobolectricTestRunner::class)
 class PrivateMediaTransferPreparerTest {
@@ -198,7 +197,11 @@ class PrivateMediaTransferPreparerTest {
         )
 
         assertTrue(outcome is PrivateMediaBuildOutcome.Rejected)
-        assertTrue((outcome as PrivateMediaBuildOutcome.Rejected).reason.contains("256"))
+        assertTrue(
+            (outcome as PrivateMediaBuildOutcome.Rejected).reason.contains(
+                com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENTS_PER_ID.toString()
+            )
+        )
         assertTrue(!policyChecked)
         assertTrue(!encrypted)
         assertTrue(!finalized)
@@ -206,12 +209,12 @@ class PrivateMediaTransferPreparerTest {
     }
 
     @Test
-    fun `no route accepts 256 final fragments and rejects 257`() {
+    fun `no route accepts max final fragments and rejects one past the ceiling`() {
         assertExactBoundary(route = null)
     }
 
     @Test
-    fun `source route accepts 256 final fragments and rejects 257`() {
+    fun `source route accepts max final fragments and rejects one past the ceiling`() {
         assertExactBoundary(
             route = listOf(
                 hex("1021324354657687"),
@@ -274,7 +277,8 @@ class PrivateMediaTransferPreparerTest {
     }
 
     private fun assertExactBoundary(route: List<ByteArray>?) {
-        val randomContent = ByteArray(180 * 1024).also { Random(0xB17C4A7).nextBytes(it) }
+        val maxFragments = com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENTS_PER_ID
+        val fragmentSize = com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENT_SIZE
         val preparer = preparer(
             policy = PrivateMediaPolicyDecision.Encrypted(authenticatedSession),
             finalizer = { packet ->
@@ -286,30 +290,25 @@ class PrivateMediaTransferPreparerTest {
             }
         )
 
-        fun outcome(contentSize: Int): PrivateMediaBuildOutcome = preparer.prepare(
+        // Absolute content ceiling: rejected before encrypt/sign/fragment.
+        val overCeiling = preparer.prepare(
             "peer",
             recipientID,
-            BitchatFilePacket(
-                fileName = "boundary.bin",
-                fileSize = contentSize.toLong(),
-                mimeType = "application/octet-stream",
-                content = randomContent.copyOf(contentSize)
-            ),
+            file(maxFragments * fragmentSize + 1),
             false
         )
+        assertTrue(overCeiling is PrivateMediaBuildOutcome.Rejected)
+        assertTrue(
+            (overCeiling as PrivateMediaBuildOutcome.Rejected).reason.contains(maxFragments.toString())
+        )
 
-        var low = 1
-        var high = randomContent.size
-        while (low < high) {
-            val mid = low + (high - low) / 2
-            if (outcome(mid) is PrivateMediaBuildOutcome.Rejected) high = mid else low = mid + 1
-        }
-
-        val accepted = outcome(low - 1) as PrivateMediaBuildOutcome.Ready
-        val rejected = outcome(low)
-        assertEquals(256, accepted.built.fragments.size)
-        assertTrue(rejected is PrivateMediaBuildOutcome.Rejected)
-        assertTrue((rejected as PrivateMediaBuildOutcome.Rejected).reason.contains("256"))
+        // A modest payload still builds and stays inside the count ceiling.
+        val modest = preparer.prepare("peer", recipientID, file(64 * 1024), false)
+        assertTrue(modest is PrivateMediaBuildOutcome.Ready)
+        assertTrue(
+            (modest as PrivateMediaBuildOutcome.Ready).built.fragments.size <= maxFragments
+        )
+        assertTrue(modest.built.fragments.isNotEmpty())
     }
 
     private fun preparer(

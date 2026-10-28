@@ -39,7 +39,11 @@ object AppConstants {
         const val MAX_FRAGMENT_SIZE: Int = 469
         const val FRAGMENT_TIMEOUT_MS: Long = 30_000L
         const val CLEANUP_INTERVAL_MS: Long = 10_000L
-        const val MAX_FRAGMENTS_PER_ID: Int = 256
+        // Match bitchat-ios BLEFragmentHeader (total <= 10_000). The real
+        // memory bound is MAX_FRAGMENT_TOTAL_BYTES / MAX_GLOBAL_FRAGMENT_TOTAL_BYTES;
+        // a 256 count capped files at ~117 KiB and rejected anything iOS sends
+        // above that (see permissionlesstech/bitchat-android#940).
+        const val MAX_FRAGMENTS_PER_ID: Int = 10_000
         const val MAX_FRAGMENT_TOTAL_BYTES: Int = 1_048_576
         const val MAX_ACTIVE_FRAGMENT_SETS: Int = 64
         const val MAX_GLOBAL_FRAGMENT_TOTAL_BYTES: Long = 4L * 1_048_576L
