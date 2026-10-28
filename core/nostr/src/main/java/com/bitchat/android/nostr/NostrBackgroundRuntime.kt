@@ -2,14 +2,16 @@ package com.bitchat.android.nostr
 
 import android.app.Application
 import android.util.Log
+import com.bitchat.android.di.IoDispatcher
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.GeohashNostrPrivacyPolicy
 import com.bitchat.android.geohash.LiveLocationPrivacyGate
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.mesh.PowerManager
+import dagger.Lazy
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -18,6 +20,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.security.SecureRandom
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlin.random.asKotlinRandom
 
 /**
@@ -26,10 +30,19 @@ import kotlin.random.asKotlinRandom
  * Stable subscriptions dispatch directly to a process-owned event processor. The UI hydrates from
  * the process state store, so relay events remain useful without retaining a cleared ViewModel.
  */
-object NostrBackgroundRuntime {
-    private const val TAG = "NostrBackground"
+@Singleton
+class NostrBackgroundRuntime @Inject constructor(
+    @IoDispatcher ioDispatcher: CoroutineDispatcher,
+    // Lazy: each is first touched in initialize, where the runtime asked for it before.
+    private val locationChannelsSource: Lazy<LocationChannelManager>,
+    private val relayManager: Lazy<NostrRelayManager>,
+    private val liveLocationGate: LiveLocationPrivacyGate,
+) {
+    private companion object {
+        const val TAG = "NostrBackground"
+    }
 
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val scope = CoroutineScope(ioDispatcher + SupervisorJob())
     private val random = SecureRandom().asKotlinRandom()
     private val lock = Any()
 
@@ -56,10 +69,11 @@ object NostrBackgroundRuntime {
         synchronized(lock) {
             if (initialized) return
             application = app
-            locationChannels = LocationChannelManager.getInstance(app)
+            locationChannels = locationChannelsSource.get()
             eventProcessor = events(app, scope)
             subscriptions = NostrSubscriptionManager(
-                app,
+                relayManager,
+                liveLocationGate,
                 owner = NostrRelayManager.OWNER_BACKGROUND
             )
             // Publish readiness only after every process-owned dependency is available.
@@ -91,7 +105,7 @@ object NostrBackgroundRuntime {
         val selectedChannelSubscriptionIsUsable =
             geohash == activeGeohash &&
                 (selectedLiveToken == null ||
-                    LiveLocationPrivacyGate.accepts(selectedLiveToken))
+                    liveLocationGate.accepts(selectedLiveToken))
         if (selectedChannelSubscriptionIsUsable) return
         conversationGeohash?.let { subscriptions.unsubscribe("geo-dm-conversation-$it") }
         conversationGeohash = geohash
@@ -189,7 +203,7 @@ object NostrBackgroundRuntime {
             if (liveLocationToken == null) {
                 subscribe()
             } else {
-                LiveLocationPrivacyGate.runIfAllowed(liveLocationToken, subscribe)
+                liveLocationGate.runIfAllowed(liveLocationToken, subscribe)
             }
         }
     }
@@ -202,7 +216,7 @@ object NostrBackgroundRuntime {
                 .distinctUntilChanged()
             combine(
                 locationChannels.availableChannels,
-                LiveLocationPrivacyGate.enabled,
+                liveLocationGate.enabled,
                 nostrSchedule
             ) { channels, liveLocationEnabled, schedule ->
                 val targets = GeohashNostrPrivacyPolicy.livePresenceTargets(
@@ -226,7 +240,7 @@ object NostrBackgroundRuntime {
                     // Send every target in one wake window; do not spread the batch over seconds.
                     targets.forEach { geohash ->
                         try {
-                            val token = LiveLocationPrivacyGate.captureToken()
+                            val token = liveLocationGate.captureToken()
                                 ?: return@forEach
                             if (geohash !in GeohashNostrPrivacyPolicy.livePresenceTargets(
                                     availableChannels = locationChannels.availableChannels.value,
@@ -235,17 +249,17 @@ object NostrBackgroundRuntime {
                             ) return@forEach
 
                             var identity: NostrIdentity? = null
-                            LiveLocationPrivacyGate.runIfAllowed(token) {
+                            liveLocationGate.runIfAllowed(token) {
                                 identity = NostrIdentityBridge.deriveIdentity(geohash, application)
                             }
                             val preparedIdentity = identity ?: return@forEach
-                            if (!LiveLocationPrivacyGate.accepts(token)) return@forEach
+                            if (!liveLocationGate.accepts(token)) return@forEach
                             val event = NostrProtocol.createGeohashPresenceEvent(
                                 geohash,
                                 preparedIdentity
                             )
-                            LiveLocationPrivacyGate.runIfAllowed(token) {
-                                NostrRelayManager.getInstance(application).sendEventToGeohash(
+                            liveLocationGate.runIfAllowed(token) {
+                                relayManager.get().sendEventToGeohash(
                                     event = event,
                                     geohash = geohash,
                                     includeDefaults = false,

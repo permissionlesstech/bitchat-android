@@ -1,8 +1,8 @@
 package com.bitchat.android.nostr
 
-import android.app.Application
 import android.util.Log
 import com.bitchat.android.geohash.LiveLocationPrivacyGate
+import dagger.Lazy
 
 /**
  * NostrSubscriptionManager
@@ -13,12 +13,13 @@ import com.bitchat.android.geohash.LiveLocationPrivacyGate
  * and guarantees that a channel switch closes the old subscription before opening the new one.
  */
 class NostrSubscriptionManager(
-    private val application: Application,
+    private val relayManagerSource: Lazy<NostrRelayManager>,
+    private val liveLocationGate: LiveLocationPrivacyGate,
     private val owner: String = NostrRelayManager.OWNER_LEGACY
 ) {
     companion object { private const val TAG = "NostrSubscriptionManager" }
 
-    private val relayManager get() = NostrRelayManager.getInstance(application)
+    private val relayManager get() = relayManagerSource.get()
 
     fun connect() {
         runCatching { relayManager.connect() }
@@ -103,5 +104,5 @@ class NostrSubscriptionManager(
     }
 
     private fun isAllowed(liveLocationToken: Long?): Boolean =
-        liveLocationToken == null || LiveLocationPrivacyGate.accepts(liveLocationToken)
+        liveLocationToken == null || liveLocationGate.accepts(liveLocationToken)
 }

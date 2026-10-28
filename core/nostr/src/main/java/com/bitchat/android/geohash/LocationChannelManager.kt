@@ -11,6 +11,8 @@ import androidx.core.app.ActivityCompat
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.bitchat.android.nostr.NostrIdentityBridge
+import com.bitchat.android.nostr.NostrNetwork
+import javax.inject.Provider
 import kotlinx.coroutines.*
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
@@ -52,7 +54,12 @@ class LocationChannelManager private constructor(private val context: Context) {
 
     private val locationManager: LocationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
     private val locationProvider: LocationProvider
-    private val geocoderProvider: GeocoderProvider = GeocoderFactory.get(context)
+    // Task 5 injects the gate and the clients; until then this class is still built statically.
+    private val geocoderProvider: GeocoderProvider = GeocoderFactory.get(
+        context,
+        LiveLocationPrivacyGate,
+        Provider { NostrNetwork.clients() }
+    )
     private var geocodingJob: Job? = null
     private val gson = Gson()
     private var dataManager: com.bitchat.android.ui.DataManager? = null
@@ -124,10 +131,10 @@ class LocationChannelManager private constructor(private val context: Context) {
         val availability = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context)
         locationProvider = if (availability == ConnectionResult.SUCCESS) {
             Log.i(TAG, "Using FusedLocationProvider (Google Play Services)")
-            FusedLocationProvider(context)
+            FusedLocationProvider(context, LiveLocationPrivacyGate)
         } else {
             Log.i(TAG, "Using SystemLocationProvider (Native LocationManager)")
-            SystemLocationProvider(context)
+            SystemLocationProvider(context, LiveLocationPrivacyGate)
         }
         LiveLocationPrivacyGate.addRevocationListener(::cancelLiveLocationWork)
 

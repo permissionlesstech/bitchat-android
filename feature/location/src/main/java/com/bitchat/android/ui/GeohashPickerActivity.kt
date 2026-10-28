@@ -70,6 +70,7 @@ import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import javax.inject.Provider
 import com.bitchat.android.nostr.GeohashActivityMonitor
 import com.bitchat.android.nostr.GeohashActivitySnapshot
 import com.bitchat.android.nostr.GeohashChannelActivity
@@ -99,13 +100,17 @@ class GeohashPickerActivity : OrientationAwareActivity() {
     @Inject
     lateinit var locationChannelManager: LocationChannelManager
 
+    // One monitor per picker, built on first use as before.
+    @Inject
+    lateinit var activityMonitorProvider: Provider<GeohashActivityMonitor>
+
 
     companion object {
         const val EXTRA_INITIAL_GEOHASH = "initial_geohash"
         const val EXTRA_RESULT_GEOHASH = "result_geohash"
     }
 
-    private val activityMonitor by lazy { GeohashActivityMonitor(applicationContext) }
+    private val activityMonitor by lazy { activityMonitorProvider.get() }
 
     override fun onStart() {
         super.onStart()

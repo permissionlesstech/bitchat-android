@@ -50,6 +50,7 @@ class GeohashMessageHandlerSignatureTest {
             scope = testScope,
             dataManager = dataManager,
             addChannelMessage = messageManager::addChannelMessage,
+            powPreferences = PoWPreferenceManager,
             signatureVerificationDispatcher = testDispatcher
         )
     }

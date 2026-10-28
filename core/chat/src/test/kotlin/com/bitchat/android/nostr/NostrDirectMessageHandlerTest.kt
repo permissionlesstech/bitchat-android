@@ -95,6 +95,7 @@ class NostrDirectMessageHandlerTest {
             scope = scope,
             repo = GeohashRepository(application, dataManager, scope) { state.getNicknameValue() },
             dataManager = dataManager,
+            nostrTransportProvider = { mock<NostrTransport>() },
             seenStoreProvider = { seenStore }
         )
         val sender = NostrIdentity.generate()
@@ -166,6 +167,7 @@ class NostrDirectMessageHandlerTest {
             scope = scope,
             repo = GeohashRepository(application, dataManager, scope) { "recipient" },
             dataManager = dataManager,
+            nostrTransportProvider = { mock<NostrTransport>() },
             seenStoreProvider = { seenStore }
         )
         val sender = NostrIdentity.generate()
@@ -215,6 +217,7 @@ class NostrDirectMessageHandlerTest {
             scope = scope,
             repo = GeohashRepository(application, dataManager, scope) { state.getNicknameValue() },
             dataManager = dataManager,
+            nostrTransportProvider = { mock<NostrTransport>() },
             seenStoreProvider = { seenStore }
         )
         val sender = NostrIdentity.generate()

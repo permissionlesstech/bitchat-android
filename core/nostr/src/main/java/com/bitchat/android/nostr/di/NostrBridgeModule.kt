@@ -4,10 +4,8 @@ import android.content.Context
 import com.bitchat.android.geohash.GeohashBookmarksStore
 import com.bitchat.android.geohash.LiveLocationPrivacyGate
 import com.bitchat.android.geohash.LocationChannelManager
-import com.bitchat.android.nostr.LocationNotesInitializer
 import com.bitchat.android.nostr.LocationNotesManager
 import com.bitchat.android.nostr.NearbyNotesController
-import com.bitchat.android.nostr.NostrBackgroundRuntime
 import com.bitchat.android.nostr.NostrClient
 import com.bitchat.android.nostr.NostrEventDeduplicator
 import com.bitchat.android.nostr.NostrHttpClients
@@ -39,17 +37,9 @@ object NostrBridgeModule {
     @Provides
     fun nostrHttpClients(): NostrHttpClients = NostrNetwork.clients()
 
-    // 10c-1 bridge: deleted in Task 3
+    // 10c-1 bridge: deleted in Task 5
     @Provides
     fun nostrNetwork(): NostrNetwork = NostrNetwork
-
-    // 10c-1 bridge: deleted in Task 3
-    @Provides
-    fun nostrBackgroundRuntime(): NostrBackgroundRuntime = NostrBackgroundRuntime
-
-    // 10c-1 bridge: deleted in Task 4/5
-    @Provides
-    fun locationNotesInitializer(): LocationNotesInitializer = LocationNotesInitializer
 
     // 10c-1 bridge: deleted in Task 4/5
     @Provides

@@ -11,7 +11,10 @@ import androidx.core.app.ActivityCompat
 import com.google.android.gms.location.*
 import com.google.android.gms.tasks.CancellationTokenSource
 
-internal class FusedLocationProvider(private val context: Context) : LocationProvider {
+internal class FusedLocationProvider(
+    private val context: Context,
+    private val liveLocationGate: LiveLocationPrivacyGate
+) : LocationProvider {
 
     companion object {
         private const val TAG = "FusedLocationProvider"
@@ -24,7 +27,7 @@ internal class FusedLocationProvider(private val context: Context) : LocationPro
     private val activeCurrentLocationRequests = mutableSetOf<CancellationTokenSource>()
 
     private fun hasLocationPermission(): Boolean {
-        return LiveLocationPrivacyGate.isEnabled &&
+        return liveLocationGate.isEnabled &&
             (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
                 ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
             )
@@ -40,7 +43,7 @@ internal class FusedLocationProvider(private val context: Context) : LocationPro
         try {
             fusedLocationClient.lastLocation
                 .addOnSuccessListener { location ->
-                    callback(location.takeIf { LiveLocationPrivacyGate.isEnabled })
+                    callback(location.takeIf { liveLocationGate.isEnabled })
                 }
                 .addOnFailureListener { e ->
                     Log.e(TAG, "Error getting last-known fused location")
@@ -72,7 +75,7 @@ internal class FusedLocationProvider(private val context: Context) : LocationPro
 
             fusedLocationClient.getCurrentLocation(request, cancellation.token)
                 .addOnSuccessListener { location ->
-                    callback(location.takeIf { LiveLocationPrivacyGate.isEnabled })
+                    callback(location.takeIf { liveLocationGate.isEnabled })
                 }
                 .addOnFailureListener { e ->
                     Log.e(TAG, "Error getting fresh fused location")
@@ -105,7 +108,7 @@ internal class FusedLocationProvider(private val context: Context) : LocationPro
 
             val locationCallback = object : LocationCallback() {
                 override fun onLocationResult(result: LocationResult) {
-                    if (LiveLocationPrivacyGate.isEnabled) {
+                    if (liveLocationGate.isEnabled) {
                         result.lastLocation?.let { callback(it) }
                     }
                 }

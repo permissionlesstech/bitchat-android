@@ -26,6 +26,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.kotlin.mock
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
@@ -49,7 +50,13 @@ class GeohashParticipantTrackingTest {
         repo = GeohashRepository(application, dataManager, scope, store) { "self" }
         repo.setCurrentGeohash(geohash)
         repo.observeParticipants()
-        processor = NostrBackgroundEventProcessor(application, scope, store)
+        processor = NostrBackgroundEventProcessor(
+            application,
+            scope,
+            store,
+            PoWPreferenceManager,
+            nostrTransport = { mock<NostrTransport>() }
+        )
     }
 
     @After

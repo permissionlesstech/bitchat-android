@@ -159,7 +159,8 @@ object NostrProtocol {
         geohash: String,
         senderIdentity: NostrIdentity,
         nickname: String? = null,
-        teleported: Boolean = false
+        teleported: Boolean = false,
+        pow: PoWPreferenceManager
     ): NostrEvent = withContext(Dispatchers.Default) {
         val tags = mutableListOf<List<String>>()
         tags.add(listOf("g", geohash))
@@ -182,13 +183,13 @@ object NostrProtocol {
         )
         
         // Check if Proof of Work is enabled
-        val powSettings = PoWPreferenceManager.getCurrentSettings()
+        val powSettings = pow.getCurrentSettings()
         if (powSettings.enabled && powSettings.difficulty > 0) {
             Log.d(TAG, "PoW enabled for geohash event: difficulty=${powSettings.difficulty}")
             
             try {
                 // Start mining state for animated indicators
-                PoWPreferenceManager.startMining()
+                pow.startMining()
                 
                 // Mine the event before signing
                 val minedEvent = NostrProofOfWork.mineEvent(
@@ -206,7 +207,7 @@ object NostrProtocol {
                 }
             } finally {
                 // Always stop mining state when done (success or failure)
-                PoWPreferenceManager.stopMining()
+                pow.stopMining()
             }
         }
         

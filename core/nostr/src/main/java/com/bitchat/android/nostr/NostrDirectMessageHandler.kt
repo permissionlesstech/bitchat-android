@@ -27,6 +27,8 @@ class NostrDirectMessageHandler(
     private val scope: CoroutineScope,
     private val repo: GeohashRepository,
     private val dataManager: com.bitchat.android.ui.DataManager,
+    // Asked for at each ack, where the handler used to reach for the transport.
+    private val nostrTransportProvider: () -> NostrTransport,
     private val seenStoreProvider: () -> SeenMessageStore = {
         SeenMessageStore.getInstance(application)
     }
@@ -136,7 +138,7 @@ class NostrDirectMessageHandler(
                     )
                     if (!admitted) return
                     if (!seenStore.hasDelivered(pm.messageID)) {
-                        val nostrTransport = NostrTransport.getInstance(application)
+                        val nostrTransport = nostrTransportProvider()
                         nostrTransport.sendDeliveryAckGeohash(pm.messageID, senderPubkey, recipientIdentity)
                         seenStore.markDelivered(pm.messageID)
                     }
@@ -165,13 +167,13 @@ class NostrDirectMessageHandler(
                 if (!admitted) return
 
                 if (!seenStore.hasDelivered(pm.messageID)) {
-                    val nostrTransport = NostrTransport.getInstance(application)
+                    val nostrTransport = nostrTransportProvider()
                     nostrTransport.sendDeliveryAckGeohash(pm.messageID, senderPubkey, recipientIdentity)
                     seenStore.markDelivered(pm.messageID)
                 }
 
                 if (isViewing && !suppressUnread) {
-                    val nostrTransport = NostrTransport.getInstance(application)
+                    val nostrTransport = nostrTransportProvider()
                     nostrTransport.sendReadReceiptGeohash(pm.messageID, senderPubkey, recipientIdentity)
                     seenStore.markReadLocally(pm.messageID)
                     seenStore.markReadReceiptSent(pm.messageID)

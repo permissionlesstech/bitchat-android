@@ -2,8 +2,11 @@ package com.bitchat.android.nostr
 
 import android.content.Context
 import android.util.Log
+import com.bitchat.android.di.DefaultDispatcher
 import com.bitchat.android.geohash.Geohash
 import com.bitchat.android.ui.DataManager
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -18,6 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.UUID
+import javax.inject.Inject
 
 /**
  * Watches worldwide geohash chat traffic while the globe picker is open.
@@ -27,11 +31,16 @@ import java.util.UUID
  * the few nearest to wherever the user parks the globe, mirroring bitmap.lat's relay plan.
  * Everything is torn down in [stop]; relays this monitor opened are released again.
  */
-class GeohashActivityMonitor(private val context: Context) {
+class GeohashActivityMonitor @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val relayManager: NostrRelayManager,
+    private val relayDirectory: RelayDirectory,
+    private val pow: PoWPreferenceManager,
+    @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
+) {
 
     enum class Status { CONNECTING, LIVE, OFFLINE }
 
-    private val relayManager = NostrRelayManager.getInstance(context.applicationContext)
     private val aggregator = GeohashActivityAggregator()
     /** Confined to the monitor's single-threaded scope, like [aggregator]. */
     private val eventFilter = VerifiedEventFilter()
@@ -62,7 +71,7 @@ class GeohashActivityMonitor(private val context: Context) {
     fun start() {
         if (scope != null) return
         // One thread owns the aggregator, so ingest and the publish tick never race.
-        val newScope = CoroutineScope(SupervisorJob() + Dispatchers.Default.limitedParallelism(1))
+        val newScope = CoroutineScope(SupervisorJob() + defaultDispatcher.limitedParallelism(1))
         val events = Channel<NostrEvent>(INBOX_CAPACITY, BufferOverflow.DROP_OLDEST)
         scope = newScope
         inbox = events
@@ -121,7 +130,7 @@ class GeohashActivityMonitor(private val context: Context) {
     }
 
     private fun sweepRelays(): List<String> {
-        val nearestPerAnchor = SWEEP_ANCHORS.map { RelayDirectory.closestRelaysForGeohash(it, RELAYS_PER_ANCHOR) }
+        val nearestPerAnchor = SWEEP_ANCHORS.map { relayDirectory.closestRelaysForGeohash(it, RELAYS_PER_ANCHOR) }
         val ordered = LinkedHashSet(NostrRelayManager.defaultRelays())
         for (rank in 0 until RELAYS_PER_ANCHOR) {
             nearestPerAnchor.forEach { relays -> relays.getOrNull(rank)?.let(ordered::add) }
@@ -132,7 +141,7 @@ class GeohashActivityMonitor(private val context: Context) {
     private fun focusRelays(cell: String): List<String> {
         val room = MAX_TOTAL_RELAYS - subscribedRelays.size
         if (room <= 0) return emptyList()
-        return RelayDirectory.closestRelaysForGeohash(cell, RELAYS_PER_FOCUS)
+        return relayDirectory.closestRelaysForGeohash(cell, RELAYS_PER_FOCUS)
             .filter { it !in subscribedRelays }
             .take(room)
     }
@@ -216,8 +225,8 @@ class GeohashActivityMonitor(private val context: Context) {
         if (!eventFilter.admit(event)) return false
         // Same proof-of-work gate the chat applies, so the sheet and globe see the same events.
         if (event.kind == NostrKind.EPHEMERAL_EVENT) {
-            val pow = PoWPreferenceManager.getCurrentSettings()
-            if (pow.enabled && pow.difficulty > 0 && !NostrProofOfWork.validateDifficulty(event, pow.difficulty)) {
+            val settings = pow.getCurrentSettings()
+            if (settings.enabled && settings.difficulty > 0 && !NostrProofOfWork.validateDifficulty(event, settings.difficulty)) {
                 return false
             }
         }

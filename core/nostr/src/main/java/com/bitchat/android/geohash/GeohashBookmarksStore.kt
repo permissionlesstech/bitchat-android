@@ -5,6 +5,7 @@ import android.location.Geocoder
 import android.location.Location
 import android.location.LocationManager
 import android.util.Log
+import com.bitchat.android.nostr.NostrNetwork
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.CoroutineScope
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.Locale
+import javax.inject.Provider
 
 /**
  * Stores a user-maintained list of bookmarked geohash channels.
@@ -171,7 +173,12 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
         resolving.add(gh)
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val geocoderProvider = GeocoderFactory.get(context)
+                // Task 5 injects the gate and the clients; until then this class is still built statically.
+                val geocoderProvider = GeocoderFactory.get(
+                    context,
+                    LiveLocationPrivacyGate,
+                    Provider { NostrNetwork.clients() }
+                )
                 val name: String? = if (gh.length <= 2) {
                     // Composite admin name from multiple points
                     val b = Geohash.decodeToBounds(gh)

@@ -10,7 +10,10 @@ import java.util.Locale
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-class AndroidGeocoderProvider(context: Context) : GeocoderProvider {
+class AndroidGeocoderProvider(
+    context: Context,
+    private val liveLocationGate: LiveLocationPrivacyGate
+) : GeocoderProvider {
     private val geocoder = Geocoder(context, Locale.getDefault())
     private val TAG = "AndroidGeocoderProvider"
 
@@ -32,7 +35,7 @@ class AndroidGeocoderProvider(context: Context) : GeocoderProvider {
                                 override fun onGeocode(addresses: MutableList<Address>) {
                                     if (cont.isActive) {
                                         val result = if (liveLocationToken == null ||
-                                            LiveLocationPrivacyGate.accepts(liveLocationToken)
+                                            liveLocationGate.accepts(liveLocationToken)
                                         ) {
                                             addresses
                                         } else {
@@ -55,7 +58,7 @@ class AndroidGeocoderProvider(context: Context) : GeocoderProvider {
                         startRequest()
                         true
                     } else {
-                        LiveLocationPrivacyGate.runIfAllowed(
+                        liveLocationGate.runIfAllowed(
                             liveLocationToken,
                             startRequest
                         )
@@ -69,7 +72,7 @@ class AndroidGeocoderProvider(context: Context) : GeocoderProvider {
             @Suppress("DEPRECATION")
             try {
                 if (liveLocationToken != null &&
-                    !LiveLocationPrivacyGate.accepts(liveLocationToken)
+                    !liveLocationGate.accepts(liveLocationToken)
                 ) return emptyList()
 
                 // This legacy API blocks and cannot be cancelled. Never hold the privacy
@@ -81,7 +84,7 @@ class AndroidGeocoderProvider(context: Context) : GeocoderProvider {
                 ) ?: emptyList()
 
                 if (liveLocationToken == null ||
-                    LiveLocationPrivacyGate.accepts(liveLocationToken)
+                    liveLocationGate.accepts(liveLocationToken)
                 ) {
                     addresses
                 } else {

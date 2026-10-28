@@ -13,7 +13,10 @@ import android.os.CancellationSignal
 import android.util.Log
 import androidx.core.app.ActivityCompat
 
-internal class SystemLocationProvider(private val context: Context) : LocationProvider {
+internal class SystemLocationProvider(
+    private val context: Context,
+    private val liveLocationGate: LiveLocationPrivacyGate
+) : LocationProvider {
 
     companion object {
         private const val TAG = "SystemLocationProvider"
@@ -29,7 +32,7 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
     private val activeOneShotCancellationSignals = mutableMapOf<(Location?) -> Unit, CancellationSignal>()
 
     private fun hasLocationPermission(): Boolean {
-        return LiveLocationPrivacyGate.isEnabled &&
+        return liveLocationGate.isEnabled &&
             (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
                 ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
             )
@@ -53,7 +56,7 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
                     }
                 }
             }
-            callback(bestLocation.takeIf { LiveLocationPrivacyGate.isEnabled })
+            callback(bestLocation.takeIf { liveLocationGate.isEnabled })
         } catch (e: Exception) {
             Log.e(TAG, "Error getting last-known location")
             callback(null)
@@ -93,7 +96,7 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
                                 synchronized(activeOneShotCancellationSignals) {
                                     activeOneShotCancellationSignals.remove(callback)
                                 }
-                                callback(location.takeIf { LiveLocationPrivacyGate.isEnabled })
+                                callback(location.takeIf { liveLocationGate.isEnabled })
                             }
                         } catch (e: Exception) {
                             synchronized(activeOneShotCancellationSignals) {
@@ -134,7 +137,7 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
                                 } catch (e: Exception) {
                                     Log.e(TAG, "Error removing updates in callback")
                                 }
-                                callback(location.takeIf { LiveLocationPrivacyGate.isEnabled })
+                                callback(location.takeIf { liveLocationGate.isEnabled })
                             }
                             override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
                             override fun onProviderEnabled(provider: String) {}
@@ -175,7 +178,7 @@ internal class SystemLocationProvider(private val context: Context) : LocationPr
         try {
             val listener = object : LocationListener {
                 override fun onLocationChanged(location: Location) {
-                    if (LiveLocationPrivacyGate.isEnabled) callback(location)
+                    if (liveLocationGate.isEnabled) callback(location)
                 }
                 override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
                 override fun onProviderEnabled(provider: String) {}

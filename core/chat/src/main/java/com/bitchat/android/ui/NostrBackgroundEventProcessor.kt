@@ -7,10 +7,11 @@ import com.bitchat.android.nostr.GeohashMessageHandler
 import com.bitchat.android.nostr.GeohashParticipantStore
 import com.bitchat.android.nostr.GeohashRepository
 import com.bitchat.android.nostr.NostrBackgroundEvents
-import com.bitchat.android.nostr.NostrBackgroundRuntime
 import com.bitchat.android.nostr.NostrDirectMessageHandler
 import com.bitchat.android.nostr.NostrEvent
 import com.bitchat.android.nostr.NostrIdentity
+import com.bitchat.android.nostr.NostrTransport
+import com.bitchat.android.nostr.PoWPreferenceManager
 import com.bitchat.android.services.AppStateStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,7 +27,9 @@ import kotlinx.coroutines.launch
 class NostrBackgroundEventProcessor(
     application: Application,
     parentScope: CoroutineScope,
-    participantStore: GeohashParticipantStore = NostrBackgroundRuntime.participants
+    participantStore: GeohashParticipantStore,
+    powPreferences: PoWPreferenceManager,
+    nostrTransport: () -> NostrTransport,
 ) : NostrBackgroundEvents {
     private val scope = CoroutineScope(
         parentScope.coroutineContext + Dispatchers.IO.limitedParallelism(1)
@@ -57,7 +60,8 @@ class NostrBackgroundEventProcessor(
         repo = geohashRepository,
         scope = scope,
         dataManager = dataManager,
-        addChannelMessage = AppStateStore::addChannelMessage
+        addChannelMessage = AppStateStore::addChannelMessage,
+        powPreferences = powPreferences
     )
     private val directMessageHandler = NostrDirectMessageHandler(
         application = application,
@@ -65,7 +69,8 @@ class NostrBackgroundEventProcessor(
         updateDeliveryStatus = ::updateDeliveryStatus,
         scope = scope,
         repo = geohashRepository,
-        dataManager = dataManager
+        dataManager = dataManager,
+        nostrTransportProvider = nostrTransport
     )
 
     init {

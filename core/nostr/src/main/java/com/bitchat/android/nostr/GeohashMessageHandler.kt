@@ -23,6 +23,7 @@ class GeohashMessageHandler(
     private val scope: CoroutineScope,
     private val dataManager: com.bitchat.android.ui.DataManager,
     private val addChannelMessage: (String, BitchatMessage) -> Unit,
+    private val powPreferences: PoWPreferenceManager,
     private val signatureVerificationDispatcher: CoroutineDispatcher = Dispatchers.Default,
     // The foreground handler runs on the main thread; the spam checks are CPU work.
     private val spamFilterDispatcher: CoroutineDispatcher = signatureVerificationDispatcher
@@ -62,7 +63,7 @@ class GeohashMessageHandler(
 
                 // PoW validation (if enabled) - apply to chat messages primarily
                 if (event.kind == NostrKind.EPHEMERAL_EVENT) {
-                    val pow = PoWPreferenceManager.getCurrentSettings()
+                    val pow = powPreferences.getCurrentSettings()
                     if (pow.enabled && pow.difficulty > 0) {
                         if (!NostrProofOfWork.validateDifficulty(event, pow.difficulty)) return@launch
                     }

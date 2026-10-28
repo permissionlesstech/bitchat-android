@@ -2,7 +2,7 @@ package com.bitchat.android.geohash
 
 import android.location.Address
 import android.util.Log
-import com.bitchat.android.nostr.NostrNetwork
+import com.bitchat.android.nostr.NostrHttpClients
 import com.google.gson.Gson
 import java.io.IOException
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -11,9 +11,14 @@ import okhttp3.Callback
 import okhttp3.Request
 import okhttp3.Response
 import java.util.Locale
+import javax.inject.Provider
 import kotlin.coroutines.resume
 
-class OpenStreetMapGeocoderProvider : GeocoderProvider {
+class OpenStreetMapGeocoderProvider(
+    // Asked for at each request, so it still refuses to run before the app installs clients.
+    private val clients: Provider<NostrHttpClients>,
+    private val liveLocationGate: LiveLocationPrivacyGate
+) : GeocoderProvider {
     private val TAG = "OSMGeocoderProvider"
     private val gson = Gson()
     private val userAgent = "Bitchat-Android/1.0"
@@ -31,7 +36,7 @@ class OpenStreetMapGeocoderProvider : GeocoderProvider {
                 .url(url)
                 .header("User-Agent", userAgent)
                 .build()
-            val call = NostrNetwork.clients().httpClient().newCall(request)
+            val call = clients.get().httpClient().newCall(request)
 
             continuation.invokeOnCancellation { call.cancel() }
             val enqueueRequest = {
@@ -70,7 +75,7 @@ class OpenStreetMapGeocoderProvider : GeocoderProvider {
                 enqueueRequest()
                 true
             } else {
-                LiveLocationPrivacyGate.runIfAllowed(
+                liveLocationGate.runIfAllowed(
                     liveLocationToken,
                     enqueueRequest
                 )

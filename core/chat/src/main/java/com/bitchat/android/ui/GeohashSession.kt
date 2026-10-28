@@ -66,7 +66,8 @@ class GeohashSession(
     ) { state.getNicknameValue() }
     private val uiSubscriptionOwner = "geohash-ui-${UUID.randomUUID()}"
     private val subscriptionManager = NostrSubscriptionManager(
-        application,
+        relayManagerSource,
+        liveLocationPrivacyGate,
         owner = uiSubscriptionOwner
     )
     private val geohashMessageHandler = GeohashMessageHandler(
@@ -74,7 +75,8 @@ class GeohashSession(
         repo = repo,
         scope = scope,
         dataManager = dataManager,
-        addChannelMessage = messageManager::addChannelMessage
+        addChannelMessage = messageManager::addChannelMessage,
+        powPreferences = powPreferences
     )
 
     // Presence heartbeat firehose (kind 20001). High-volume; paused while backgrounded.
@@ -194,7 +196,8 @@ class GeohashSession(
                     channel.geohash,
                     identity,
                     nickname,
-                    teleported
+                    teleported,
+                    pow = powPreferences
                 )
                 val relayManager = relayManagerSource.get()
                 relayManager.sendEventToGeohash(

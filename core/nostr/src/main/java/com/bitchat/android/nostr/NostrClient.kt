@@ -175,7 +175,8 @@ class NostrClient private constructor(private val context: Context) {
                     content = content,
                     geohash = geohash,
                     senderIdentity = geohashIdentity,
-                    nickname = nickname
+                    nickname = nickname,
+                    pow = PoWPreferenceManager
                 )
                 
                 relayManager.sendEvent(event)

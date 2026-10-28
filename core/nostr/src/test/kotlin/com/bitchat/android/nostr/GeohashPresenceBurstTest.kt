@@ -28,7 +28,7 @@ class GeohashPresenceBurstTest {
     private val dataManager = DataManager(application)
     private val repo = GeohashRepository(application, dataManager, scope) { "test-self" }
     private val handler = GeohashMessageHandler(
-        application, repo, scope, dataManager, { _, _ -> }, dispatcher
+        application, repo, scope, dataManager, { _, _ -> }, PoWPreferenceManager, dispatcher
     )
     // A synthetic fixture channel; no device location or relay traffic is used.
     private val geohash = "s000"

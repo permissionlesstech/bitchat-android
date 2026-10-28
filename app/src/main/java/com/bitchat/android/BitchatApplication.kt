@@ -6,6 +6,8 @@ import com.bitchat.android.nostr.LocationNotesInitializer
 import com.bitchat.android.nostr.NostrBackgroundRuntime
 import com.bitchat.android.nostr.NostrHttpClients
 import com.bitchat.android.nostr.NostrNetwork
+import com.bitchat.android.nostr.NostrTransport
+import com.bitchat.android.nostr.PoWPreferenceManager
 import com.bitchat.android.nostr.RelayDirectory
 import com.bitchat.android.ui.NostrBackgroundEventProcessor
 import com.bitchat.android.ui.theme.ThemePreferenceManager
@@ -27,6 +29,8 @@ class BitchatApplication : Application() {
     @Inject lateinit var relayDirectory: Lazy<RelayDirectory>
     @Inject lateinit var locationNotesInitializer: Lazy<LocationNotesInitializer>
     @Inject lateinit var nostrBackgroundRuntime: Lazy<NostrBackgroundRuntime>
+    @Inject lateinit var powPreferences: Lazy<PoWPreferenceManager>
+    @Inject lateinit var nostrTransport: Lazy<NostrTransport>
 
     override fun onCreate() {
         super.onCreate()
@@ -102,10 +106,15 @@ class BitchatApplication : Application() {
         // Own relay connectivity, selected-channel subscriptions, and presence scheduling at the
         // process level so closing the Activity does not disconnect Nostr.
         try {
-            nostrBackgroundRuntime.get().initialize(
-                this,
-                ::NostrBackgroundEventProcessor
-            )
+            nostrBackgroundRuntime.get().initialize(this) { app, scope ->
+                NostrBackgroundEventProcessor(
+                    app,
+                    scope,
+                    nostrBackgroundRuntime.get().participants,
+                    powPreferences.get(),
+                    nostrTransport = { nostrTransport.get() }
+                )
+            }
         } catch (_: Exception) { }
 
         // Initialize mesh service preferences
