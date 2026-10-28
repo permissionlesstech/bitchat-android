@@ -39,8 +39,6 @@ import com.bitchat.android.feature.chat.R
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
-import com.bitchat.android.nostr.LocationNotesManager
-import com.bitchat.android.nostr.NearbyNotesController
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.ui.media.FullScreenImageViewer
 import com.bitchat.android.ui.theme.BitchatMotion
@@ -117,8 +115,9 @@ fun ChatScreen(
         }
     }
     val context = LocalContext.current
-    val locationManager = remember { LocationChannelManager.getInstance(context) }
-    val nearbyNotesController = remember { NearbyNotesController.shared }
+    val dependencies = remember(context) { context.chatScreenDependencies() }
+    val locationManager = remember(dependencies) { dependencies.locationChannelManager() }
+    val nearbyNotesController = remember(dependencies) { dependencies.nearbyNotesController() }
     val liveVoiceManager = remember(context) {
         com.bitchat.android.features.voice.LiveVoiceManager.getInstance(context)
     }
@@ -126,7 +125,7 @@ fun ChatScreen(
     val locationPermissionState by locationManager.permissionState.collectAsStateWithLifecycle()
     val locationEnabled by locationManager.effectiveLocationEnabled.collectAsStateWithLifecycle(false)
     val availableLocationChannels by locationManager.availableChannels.collectAsStateWithLifecycle()
-    val nearbyNotes by remember { LocationNotesManager.getInstance() }
+    val nearbyNotes by remember(dependencies) { dependencies.locationNotesManager() }
         .notes
         .collectAsStateWithLifecycle()
     val buildingGeohash = availableLocationChannels
@@ -702,7 +701,7 @@ private fun ChatFloatingHeader(
     onLocationNotesClick: () -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val locationManager = remember { com.bitchat.android.geohash.LocationChannelManager.getInstance(context) }
+    val locationManager = remember(context) { context.chatScreenDependencies().locationChannelManager() }
 
     Box(
         modifier = Modifier

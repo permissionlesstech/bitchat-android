@@ -22,9 +22,8 @@ import com.bitchat.android.nostr.NearbyNotesController
  * full-screen destination, private chat included.
  */
 @Composable
-fun AppForegroundEffect() {
+fun AppForegroundEffect(nearbyNotesController: NearbyNotesController) {
     val context = LocalContext.current
-    val nearbyNotesController = remember { NearbyNotesController.shared }
     val liveVoiceManager = remember(context) { LiveVoiceManager.getInstance(context) }
     val processLifecycleOwner = remember { ProcessLifecycleOwner.get() }
 

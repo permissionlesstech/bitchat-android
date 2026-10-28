@@ -53,11 +53,15 @@ class MessageRouter private constructor(
         @Volatile private var INSTANCE: MessageRouter? = null
         internal var disableSchedulerForTesting = false
         fun tryGetInstance(): MessageRouter? = INSTANCE
-        fun getInstance(context: Context, mesh: MeshService): MessageRouter {
+
+        /**
+         * [nostr] is asked for only when the router does not exist yet, so a caller can pass an
+         * injected `dagger.Lazy` and leave the transport unbuilt until then.
+         */
+        fun getInstance(context: Context, mesh: MeshService, nostr: () -> NostrTransport): MessageRouter {
             val instance = INSTANCE ?: synchronized(this) {
                 INSTANCE ?: run {
-                    val nostr = NostrTransport.getInstance(context)
-                    MessageRouter(context.applicationContext, mesh, nostr).also { instance ->
+                    MessageRouter(context.applicationContext, mesh, nostr()).also { instance ->
                         // Register for favorites changes to flush outbox
                         try {
                             com.bitchat.android.favorites.FavoritesPersistenceService.shared.addListener(instance.favoriteListener)

@@ -83,6 +83,12 @@ class MainActivity : OrientationAwareActivity() {
     @Inject
     lateinit var locationChannelManager: LocationChannelManager
 
+    @Inject
+    lateinit var shutdownCoordinator: com.bitchat.android.service.AppShutdownCoordinator
+
+    @Inject
+    lateinit var nearbyNotesController: com.bitchat.android.nostr.NearbyNotesController
+
     // The chat session's, shared with ChatViewModel; the verify deep link
     // starts a QR verification through it.
     @Inject
@@ -160,7 +166,7 @@ class MainActivity : OrientationAwareActivity() {
             return
         }
 
-        com.bitchat.android.service.AppShutdownCoordinator.cancelPendingShutdown()
+        shutdownCoordinator.cancelPendingShutdown()
         
         // Enable edge-to-edge display for modern Android look
         enableEdgeToEdge()
@@ -174,7 +180,7 @@ class MainActivity : OrientationAwareActivity() {
 
         setContent {
             BitchatTheme {
-                AppForegroundEffect()
+                AppForegroundEffect(nearbyNotesController)
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     containerColor = MaterialTheme.colorScheme.background
@@ -370,7 +376,7 @@ class MainActivity : OrientationAwareActivity() {
             return
         }
 
-        com.bitchat.android.service.AppShutdownCoordinator.cancelPendingShutdown()
+        shutdownCoordinator.cancelPendingShutdown()
         
         // Handle notification intents when app is already running
         if (startupGate.phase.value == AppPhase.READY) {

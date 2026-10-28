@@ -15,6 +15,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.share.AppBuildInfo
 import com.bitchat.android.ui.ObserveAsEvents
 import com.bitchat.android.ui.theme.BitchatTheme
+import com.bitchat.android.net.ArtiTorManager
+import com.bitchat.android.net.OkHttpProvider
 import com.bitchat.android.util.UniversalApkManager
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
@@ -37,6 +39,12 @@ class HotspotActivity : ComponentActivity() {
     @Inject
     lateinit var appBuildInfo: AppBuildInfo
 
+    @Inject
+    lateinit var torManager: ArtiTorManager
+
+    @Inject
+    lateinit var okHttpProvider: OkHttpProvider
+
     private val viewModel: HotspotViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,7 +56,7 @@ class HotspotActivity : ComponentActivity() {
             File(apkPath)
         } else {
             // Fallback: Try to get cached APK
-            UniversalApkManager(this, appBuildInfo).getCachedApk()
+            UniversalApkManager(this, appBuildInfo, torManager, okHttpProvider).getCachedApk()
         }
 
         if (apkFile == null || !apkFile.exists()) {

@@ -18,6 +18,8 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import com.bitchat.android.MainActivity
 import com.bitchat.android.R
 import com.bitchat.android.mesh.BluetoothMeshService
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -25,7 +27,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
+@AndroidEntryPoint
 class MeshForegroundService : Service() {
+
+    @Inject
+    lateinit var shutdownCoordinator: AppShutdownCoordinator
 
     companion object {
         private const val CHANNEL_ID = "bitchat_mesh_service"
@@ -144,7 +150,7 @@ class MeshForegroundService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (isShuttingDown && intent?.action == ACTION_START) {
-            AppShutdownCoordinator.cancelPendingShutdown()
+            shutdownCoordinator.cancelPendingShutdown()
             isShuttingDown = false
         }
         if (isShuttingDown && intent?.action != ACTION_QUIT) {
@@ -172,7 +178,7 @@ class MeshForegroundService : Service() {
                 clearMeshNotifications()
                 isInForeground = false
                 // Fully stop all background activity, stop Tor (without changing setting), then kill the app
-                AppShutdownCoordinator.requestFullShutdownAndKill(
+                shutdownCoordinator.requestFullShutdownAndKill(
                     app = application,
                     mesh = unifiedMeshService,
                     notificationManager = notificationManager,

@@ -1,17 +1,32 @@
 package com.bitchat.android
 
 import android.app.Application
+import com.bitchat.android.net.OkHttpProvider
+import com.bitchat.android.nostr.LocationNotesInitializer
+import com.bitchat.android.nostr.NostrBackgroundRuntime
+import com.bitchat.android.nostr.NostrHttpClients
+import com.bitchat.android.nostr.NostrNetwork
 import com.bitchat.android.nostr.RelayDirectory
 import com.bitchat.android.ui.NostrBackgroundEventProcessor
 import com.bitchat.android.ui.theme.ThemePreferenceManager
 import com.bitchat.android.net.ArtiTorManager
+import dagger.Lazy
 import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
 
 /**
  * Main application class for bitchat Android
  */
 @HiltAndroidApp
 class BitchatApplication : Application() {
+
+    // Lazy, so each is first touched where onCreate touched it before Hilt injected them.
+    @Inject lateinit var torManager: Lazy<ArtiTorManager>
+    @Inject lateinit var okHttpProvider: Lazy<OkHttpProvider>
+    @Inject lateinit var nostrNetwork: Lazy<NostrNetwork>
+    @Inject lateinit var relayDirectory: Lazy<RelayDirectory>
+    @Inject lateinit var locationNotesInitializer: Lazy<LocationNotesInitializer>
+    @Inject lateinit var nostrBackgroundRuntime: Lazy<NostrBackgroundRuntime>
 
     override fun onCreate() {
         super.onCreate()
@@ -21,23 +36,23 @@ class BitchatApplication : Application() {
 
         // Initialize Tor first so any early network goes over Tor
         try {
-            val torProvider = ArtiTorManager.getInstance()
+            val torProvider = torManager.get()
             torProvider.init(this)
         } catch (_: Exception){}
 
         // Nostr and the geocoder take their clients from here, and refuse to run
         // without them, so nothing of theirs can connect outside this policy.
-        com.bitchat.android.nostr.NostrNetwork.install(object : com.bitchat.android.nostr.NostrHttpClients {
-            override fun httpClient() = com.bitchat.android.net.OkHttpProvider.httpClient()
-            override fun webSocketClient() = com.bitchat.android.net.OkHttpProvider.webSocketClient()
-            override val routeChanges = com.bitchat.android.net.ArtiTorManager.getInstance().routeChanges
+        nostrNetwork.get().install(object : NostrHttpClients {
+            override fun httpClient() = okHttpProvider.get().httpClient()
+            override fun webSocketClient() = okHttpProvider.get().webSocketClient()
+            override val routeChanges = torManager.get().routeChanges
         })
 
         // Initialize relay directory (loads assets/nostr_relays.csv)
-        RelayDirectory.initialize(this)
+        relayDirectory.get().initialize(this)
 
         // Initialize LocationNotesManager dependencies early so sheet subscriptions can start immediately
-        try { com.bitchat.android.nostr.LocationNotesInitializer.initialize(this) } catch (_: Exception) { }
+        try { locationNotesInitializer.get().initialize(this) } catch (_: Exception) { }
 
         // Initialize favorites persistence early so MessageRouter/NostrTransport can use it on startup
         try {
@@ -87,7 +102,7 @@ class BitchatApplication : Application() {
         // Own relay connectivity, selected-channel subscriptions, and presence scheduling at the
         // process level so closing the Activity does not disconnect Nostr.
         try {
-            com.bitchat.android.nostr.NostrBackgroundRuntime.initialize(
+            nostrBackgroundRuntime.get().initialize(
                 this,
                 ::NostrBackgroundEventProcessor
             )

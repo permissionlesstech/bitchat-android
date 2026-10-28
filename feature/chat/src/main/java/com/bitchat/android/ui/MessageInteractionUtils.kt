@@ -5,7 +5,6 @@ import android.content.Intent
 import androidx.core.net.toUri
 import com.bitchat.android.geohash.GeohashChannel
 import com.bitchat.android.geohash.GeohashChannelLevel
-import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.model.BitchatMessage
 
 internal fun BitchatMessage.isFromSelf(
@@ -46,6 +45,6 @@ internal fun channelForGeohash(geohash: String): GeohashChannel {
 
 internal fun navigateToGeohash(context: Context, geohash: String): Boolean =
     runCatching {
-        val locationManager = LocationChannelManager.getInstance(context)
+        val locationManager = context.chatScreenDependencies().locationChannelManager()
         locationManager.selectManual(channelForGeohash(geohash))
     }.isSuccess

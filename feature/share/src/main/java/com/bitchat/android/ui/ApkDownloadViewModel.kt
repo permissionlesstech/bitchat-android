@@ -10,6 +10,8 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bitchat.android.feature.share.R
+import com.bitchat.android.net.ArtiTorManager
+import com.bitchat.android.net.OkHttpProvider
 import com.bitchat.android.share.AppBuildInfo
 import com.bitchat.android.util.ApkDownloader
 import com.bitchat.android.util.AppVersion
@@ -200,11 +202,20 @@ class ApkDownloadViewModel internal constructor(
     // Kotlin types through Dagger's generated Java buys nothing here. Tests
     // keep using the primary constructor to substitute fakes.
     @Inject
-    constructor(application: Application, buildInfo: AppBuildInfo) : this(
+    constructor(
+        application: Application,
+        buildInfo: AppBuildInfo,
+        torManager: ArtiTorManager,
+        okHttpProvider: OkHttpProvider,
+    ) : this(
         application = application,
-        apkManager = UniversalApkManager(application, buildInfo),
-        downloader = WorkManagerApkDownloader(application, buildInfo),
-        latestReleaseProvider = GitHubReleaseClient(application)
+        apkManager = UniversalApkManager(application, buildInfo, torManager, okHttpProvider),
+        downloader = WorkManagerApkDownloader(application, buildInfo, torManager, okHttpProvider),
+        latestReleaseProvider = GitHubReleaseClient(
+            context = application,
+            routedClient = okHttpProvider::routedHttpClient,
+            awaitRoute = { torManager.awaitSelectedRoute(GitHubReleaseClient.ROUTE_READY_TIMEOUT_MILLIS) },
+        )
     )
 
     companion object {

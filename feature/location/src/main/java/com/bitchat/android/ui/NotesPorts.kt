@@ -104,8 +104,9 @@ internal class ManagerNotesLocationSource @Inject constructor(
         manager.selectManual(channel, teleported)
 }
 
-internal class ManagerNotesStore @Inject constructor() : NotesStore {
-    private val manager = LocationNotesManager.getInstance()
+internal class ManagerNotesStore @Inject constructor(
+    private val manager: LocationNotesManager,
+) : NotesStore {
 
     override val notes: StateFlow<List<LocationNotesManager.Note>> get() = manager.notes
     override val state: StateFlow<LocationNotesManager.State> get() = manager.state
@@ -118,8 +119,9 @@ internal class ManagerNotesStore @Inject constructor() : NotesStore {
     override fun clearError() = manager.clearError()
 }
 
-internal class ControllerNearbyNotesGate @Inject constructor() : NearbyNotesGate {
-    private val controller get() = NearbyNotesController.shared
+internal class ControllerNearbyNotesGate @Inject constructor(
+    private val controller: NearbyNotesController,
+) : NearbyNotesGate {
 
     override val revealed: StateFlow<Boolean> get() = controller.revealed
 

@@ -6,6 +6,7 @@ import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.net.TorMode
 import com.bitchat.android.net.TorPreferenceManager
 import dagger.Binds
+import dagger.Lazy
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -43,10 +44,12 @@ internal class StoreChannelBookmarks @Inject constructor(
 
 internal class PreferenceTorRouting @Inject constructor(
     @ApplicationContext private val context: Context,
+    // Lazy: nothing builds the Tor manager until availability is asked.
+    private val torManager: Lazy<ArtiTorManager>,
 ) : TorRouting {
     override val mode: StateFlow<TorMode> get() = TorPreferenceManager.modeFlow
 
-    override fun isTorAvailable(): Boolean = ArtiTorManager.getInstance().isTorAvailable()
+    override fun isTorAvailable(): Boolean = torManager.get().isTorAvailable()
     override fun setMode(mode: TorMode) = TorPreferenceManager.set(context, mode)
 }
 

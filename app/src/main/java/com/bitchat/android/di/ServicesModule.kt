@@ -3,9 +3,11 @@ package com.bitchat.android.di
 import android.content.Context
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.services.ConversationListPreferences
+import com.bitchat.android.nostr.NostrTransport
 import com.bitchat.android.services.MessageRouter
 import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.ui.debug.DebugSettingsManager
+import dagger.Lazy
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -72,6 +74,7 @@ object ServicesModule {
     @Provides
     fun provideMessageRouter(
         @ApplicationContext context: Context,
-        mesh: MeshService
-    ): MessageRouter = MessageRouter.getInstance(context, mesh)
+        mesh: MeshService,
+        nostrTransport: Lazy<NostrTransport>,
+    ): MessageRouter = MessageRouter.getInstance(context, mesh) { nostrTransport.get() }
 }

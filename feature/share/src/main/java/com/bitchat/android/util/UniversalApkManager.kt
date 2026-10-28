@@ -31,6 +31,8 @@ import java.security.MessageDigest
 class UniversalApkManager(
     private val context: Context,
     private val buildInfo: AppBuildInfo,
+    private val torManager: ArtiTorManager,
+    private val okHttpProvider: OkHttpProvider,
     private val downloadSources: List<ApkDownloadSource> = DefaultApkDownloadSources.all
 ) {
     init {
@@ -62,7 +64,7 @@ class UniversalApkManager(
     // Download client: inherits the current client's actual route but has no call timeout for
     // large files that can take minutes. Keep the route attached for route-specific cooldowns.
     private fun downloadClient(): OkHttpProvider.RoutedClient {
-        val routed = OkHttpProvider.routedHttpClient()
+        val routed = okHttpProvider.routedHttpClient()
         return routed.copy(
             client = routed.client.newBuilder()
                 .callTimeout(0, java.util.concurrent.TimeUnit.SECONDS)
@@ -200,7 +202,7 @@ class UniversalApkManager(
 
         try {
             phaseCallback?.invoke(ApkDownloader.DownloadPhase.AwaitingNetworkRoute)
-            if (!ArtiTorManager.getInstance().awaitSelectedRoute(ROUTE_READY_TIMEOUT_MILLIS)) {
+            if (!torManager.awaitSelectedRoute(ROUTE_READY_TIMEOUT_MILLIS)) {
                 return@withContext Result.failure(
                     ApkDownloadException(
                         message = "Tor is still connecting.",

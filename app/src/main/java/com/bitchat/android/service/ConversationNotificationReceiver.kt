@@ -6,10 +6,15 @@ import android.content.Intent
 import androidx.core.app.RemoteInput
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
+import com.bitchat.android.nostr.NostrTransport
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.MessageRouter
 import com.bitchat.android.ui.NotificationManager
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -19,6 +24,14 @@ import java.util.UUID
 
 /** Handles privacy-scoped direct reply and mark-read actions from DM notifications. */
 class ConversationNotificationReceiver : BroadcastReceiver() {
+
+    /** The receiver is built by the system, so it reaches the transport through an entry point. */
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface Dependencies {
+        fun nostrTransport(): NostrTransport
+    }
+
     override fun onReceive(context: Context, intent: Intent) {
         val conversationID = intent.getStringExtra(NotificationManager.EXTRA_PEER_ID)
             ?.let(ContactDirectory::canonicalConversationId)
@@ -65,7 +78,11 @@ class ConversationNotificationReceiver : BroadcastReceiver() {
                             forceRead = true
                         )
                         if (persisted) {
-                            MessageRouter.getInstance(context.applicationContext, mesh)
+                            MessageRouter.getInstance(context.applicationContext, mesh) {
+                                EntryPointAccessors
+                                    .fromApplication(context.applicationContext, Dependencies::class.java)
+                                    .nostrTransport()
+                            }
                                 .sendPrivate(
                                     content = reply,
                                     toPeerID = conversationID,

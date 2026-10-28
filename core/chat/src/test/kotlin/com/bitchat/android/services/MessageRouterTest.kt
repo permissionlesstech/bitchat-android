@@ -5,6 +5,7 @@ import android.os.Build
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.PeerInfo
+import com.bitchat.android.nostr.NostrTransport
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -37,6 +38,7 @@ class MessageRouterTest {
 
     private lateinit var mesh: MeshService
     private lateinit var router: MessageRouter
+    private val nostr: NostrTransport = mock()
     private var fakeTime = 1_000_000L
     private val expired = mutableListOf<String>()
 
@@ -61,7 +63,7 @@ class MessageRouterTest {
         fakeTime = 1_000_000L
         expired.clear()
 
-        router = MessageRouter.getInstance(context, mesh)
+        router = MessageRouter.getInstance(context, mesh) { nostr }
         router.clock = { fakeTime }
         router.onMessageExpired = { expired.add(it) }
     }
@@ -180,13 +182,13 @@ class MessageRouterTest {
         MessageRouter.disableSchedulerForTesting = false
         MessageRouter.resetForTesting()
         val context = RuntimeEnvironment.getApplication()
-        val running = MessageRouter.getInstance(context, mesh)
+        val running = MessageRouter.getInstance(context, mesh) { nostr }
         assertTrue(running.isSchedulerRunning)
 
         running.stopOutboxScheduler()
         assertFalse(running.isSchedulerRunning)
 
-        val rebound = MessageRouter.getInstance(context, mesh)
+        val rebound = MessageRouter.getInstance(context, mesh) { nostr }
         assertTrue(rebound.isSchedulerRunning)
     }
 
@@ -201,7 +203,7 @@ class MessageRouterTest {
         peerReady()
 
         // What Provider<MessageRouter> does after recreateMeshServiceAfterPanic().
-        val rebound = MessageRouter.getInstance(context, replacementMesh)
+        val rebound = MessageRouter.getInstance(context, replacementMesh) { nostr }
         assertSame(router, rebound)
 
         val result = rebound.sendPrivate("after-panic", peerID, "peer", "msg-after-panic")

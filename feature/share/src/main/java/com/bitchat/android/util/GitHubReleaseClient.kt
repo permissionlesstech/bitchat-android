@@ -3,7 +3,6 @@ package com.bitchat.android.util
 import android.content.Context
 import android.util.Log
 import androidx.core.content.edit
-import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.net.OkHttpProvider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -28,17 +27,15 @@ internal class GitHubReleaseClient(
     context: Context,
     private val apiUrl: String = GITHUB_API_URL,
     private val nowMillis: () -> Long = System::currentTimeMillis,
-    private val routedClient: () -> OkHttpProvider.RoutedClient = OkHttpProvider::routedHttpClient,
-    private val awaitRoute: suspend () -> Boolean = {
-        ArtiTorManager.getInstance().awaitSelectedRoute(ROUTE_READY_TIMEOUT_MILLIS)
-    },
+    private val routedClient: () -> OkHttpProvider.RoutedClient,
+    private val awaitRoute: suspend () -> Boolean,
     private val rateLimits: ApkRateLimitStore = ApkRateLimitStore(context)
 ) : LatestReleaseProvider {
     companion object {
         private const val TAG = "GitHubRelease"
         private const val GITHUB_API_URL =
             "https://api.github.com/repos/permissionlesstech/bitchat-android/releases/latest"
-        private const val ROUTE_READY_TIMEOUT_MILLIS = 60_000L
+        internal const val ROUTE_READY_TIMEOUT_MILLIS = 60_000L
         private const val CACHE_TTL_MILLIS = 30 * 60_000L
         private const val PREFS_NAME = "apk_release_metadata"
         private const val RATE_LIMIT_SCOPE = "github_release_metadata"

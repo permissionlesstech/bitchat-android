@@ -1,6 +1,7 @@
 package com.bitchat.android.ui
 
 import android.app.Application
+import dagger.Lazy
 import android.util.Log
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
@@ -46,7 +47,14 @@ class GeohashSession(
     private val state: ChatState,
     private val messageManager: MessageManager,
     private val dataManager: DataManager,
-    private val notificationManager: NotificationManager
+    private val notificationManager: NotificationManager,
+    private val nostrBackgroundRuntime: NostrBackgroundRuntime,
+    private val liveLocationPrivacyGate: LiveLocationPrivacyGate,
+    private val powPreferences: PoWPreferenceManager,
+    // Lazy: each is touched only where the session used to ask for it, not when it is built.
+    private val locationChannelManagerSource: Lazy<com.bitchat.android.geohash.LocationChannelManager>,
+    private val relayManagerSource: Lazy<NostrRelayManager>,
+    private val locationNotesManagerSource: Lazy<com.bitchat.android.nostr.LocationNotesManager>,
 ) : DefaultLifecycleObserver {
 
     companion object { private const val TAG = "GeohashSession" }
@@ -54,7 +62,7 @@ class GeohashSession(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private val repo = GeohashRepository(
-        application, dataManager, scope, NostrBackgroundRuntime.participants
+        application, dataManager, scope, nostrBackgroundRuntime.participants
     ) { state.getNicknameValue() }
     private val uiSubscriptionOwner = "geohash-ui-${UUID.randomUUID()}"
     private val subscriptionManager = NostrSubscriptionManager(
@@ -99,7 +107,7 @@ class GeohashSession(
     val selectedLocationChannel: StateFlow<com.bitchat.android.geohash.ChannelID?> = state.selectedLocationChannel
 
     init {
-        LiveLocationPrivacyGate.addRevocationListener(liveLocationRevocationListener)
+        liveLocationPrivacyGate.addRevocationListener(liveLocationRevocationListener)
     }
 
     fun initialize() {
@@ -108,7 +116,7 @@ class GeohashSession(
             ProcessLifecycleOwner.get().lifecycle.addObserver(this)
         }
         try {
-            locationChannelManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(application)
+            locationChannelManager = locationChannelManagerSource.get()
             scope.launch {
                 locationChannelManager?.selectedChannel?.collect { channel ->
                     state.setSelectedLocationChannel(channel)
@@ -142,9 +150,9 @@ class GeohashSession(
         } catch (_: Exception) {
             false
         }
-        NostrBackgroundRuntime.resetSubscriptions()
-        try { com.bitchat.android.nostr.NostrRelayManager.getInstance(application).clearAllOnPanic() } catch (_: Exception) {}
-        try { com.bitchat.android.nostr.LocationNotesManager.getInstance().stop() } catch (_: Exception) {}
+        nostrBackgroundRuntime.resetSubscriptions()
+        try { relayManagerSource.get().clearAllOnPanic() } catch (_: Exception) {}
+        try { locationNotesManagerSource.get().stop() } catch (_: Exception) {}
         return identityCleared
     }
 
@@ -163,7 +171,7 @@ class GeohashSession(
                     ?.liveLocationTokenForSelectedChannel(channel)
                 if (isLiveDerived && liveLocationToken == null) return@launch
                 val tempId = "temp_${System.currentTimeMillis()}_${kotlin.random.Random.nextInt(1000)}"
-                val pow = PoWPreferenceManager.getCurrentSettings()
+                val pow = powPreferences.getCurrentSettings()
                 val localMsg = com.bitchat.android.model.BitchatMessage(
                     id = tempId,
                     sender = nickname ?: myPeerID,
@@ -188,7 +196,7 @@ class GeohashSession(
                     nickname,
                     teleported
                 )
-                val relayManager = NostrRelayManager.getInstance(application)
+                val relayManager = relayManagerSource.get()
                 relayManager.sendEventToGeohash(
                     event,
                     channel.geohash,
@@ -216,7 +224,7 @@ class GeohashSession(
         val newSet = GeohashNostrPrivacyPolicy.samplingTargets(
             liveLocationGeohashes = requestedLiveSamplingGeohashes,
             userSelectedGeohashes = requestedUserSamplingGeohashes,
-            liveLocationEnabled = LiveLocationPrivacyGate.isEnabled
+            liveLocationEnabled = liveLocationPrivacyGate.isEnabled
         )
 
         val toRemove = currentSet - newSet
@@ -333,28 +341,28 @@ class GeohashSession(
 
     fun ensureGeohashDMSubscriptionForConversation(conversationKey: String) {
         val geohash = repo.getConversationGeohash(conversationKey)
-            ?: NostrBackgroundRuntime.conversationGeohash(conversationKey)
+            ?: nostrBackgroundRuntime.conversationGeohash(conversationKey)
             ?: return
-        NostrBackgroundRuntime.ensureConversationDm(geohash)
+        nostrBackgroundRuntime.ensureConversationDm(geohash)
     }
 
     fun displayNameForNostrPubkeyUI(pubkeyHex: String): String {
         val foregroundName = repo.displayNameForNostrPubkeyUI(pubkeyHex)
         return foregroundName.takeUnless { it == "anon" }
-            ?: NostrBackgroundRuntime.displayNameForNostrPubkey(pubkeyHex)
+            ?: nostrBackgroundRuntime.displayNameForNostrPubkey(pubkeyHex)
             ?: foregroundName
     }
 
     fun displayNameForGeohashConversation(pubkeyHex: String, sourceGeohash: String): String {
         val foregroundName = repo.displayNameForGeohashConversation(pubkeyHex, sourceGeohash)
         return foregroundName.takeUnless { it == "anon" }
-            ?: NostrBackgroundRuntime.displayNameForGeohashConversation(pubkeyHex, sourceGeohash)
+            ?: nostrBackgroundRuntime.displayNameForGeohashConversation(pubkeyHex, sourceGeohash)
             ?: foregroundName
     }
 
     fun conversationGeohash(conversationKey: String): String? =
         repo.getConversationGeohash(conversationKey)
-            ?: NostrBackgroundRuntime.conversationGeohash(conversationKey)
+            ?: nostrBackgroundRuntime.conversationGeohash(conversationKey)
 
     fun peerIdentityForNostrPubkey(pubkeyHex: String): PeerIdentity =
         PeerIdentity.nostr(pubkeyHex)
@@ -451,7 +459,7 @@ class GeohashSession(
         kotlin.runCatching {
             ProcessLifecycleOwner.get().lifecycle.removeObserver(this)
         }
-        LiveLocationPrivacyGate.removeRevocationListener(liveLocationRevocationListener)
+        liveLocationPrivacyGate.removeRevocationListener(liveLocationRevocationListener)
     }
 
     override fun onStart(owner: LifecycleOwner) {
@@ -519,8 +527,8 @@ class GeohashSession(
                 ?.value
                 ?.any { it.geohash == geohash } == true
             if (!isCurrentLiveTarget) return
-            val token = LiveLocationPrivacyGate.captureToken() ?: return
-            LiveLocationPrivacyGate.runIfAllowed(token) {
+            val token = liveLocationPrivacyGate.captureToken() ?: return
+            liveLocationPrivacyGate.runIfAllowed(token) {
                 liveSamplingSubscriptionGeohashes.add(geohash)
                 subscriptionManager.subscribeGeohashPresence(
                     geohash = geohash,

@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import com.bitchat.android.feature.chat.R
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.LocationChannelManager
-import com.bitchat.android.nostr.LocationNotesManager
 
 /**
  * Location Notes button for MainHeader.
@@ -36,14 +35,15 @@ fun LocationNotesButton(
     val colorScheme = MaterialTheme.colorScheme
     val context = LocalContext.current
 
-    val locationManager = remember { LocationChannelManager.getInstance(context) }
+    val dependencies = remember(context) { context.chatScreenDependencies() }
+    val locationManager = remember(dependencies) { dependencies.locationChannelManager() }
     val permissionState by locationManager.permissionState.collectAsStateWithLifecycle()
     val locationServicesEnabled by locationManager.effectiveLocationEnabled.collectAsStateWithLifecycle(false)
 
     val locationPermissionGranted = permissionState == LocationChannelManager.PermissionState.AUTHORIZED
     val locationEnabled = locationPermissionGranted && locationServicesEnabled
 
-    val notesManager = remember { LocationNotesManager.getInstance() }
+    val notesManager = remember(dependencies) { dependencies.locationNotesManager() }
     val notes by notesManager.notes.collectAsStateWithLifecycle()
     val notesCount = notes.size
 

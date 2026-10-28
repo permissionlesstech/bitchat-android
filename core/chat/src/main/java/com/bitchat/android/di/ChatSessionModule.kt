@@ -6,6 +6,12 @@ import androidx.core.app.NotificationManagerCompat
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.identity.SecureIdentityStateManager
+import com.bitchat.android.geohash.LiveLocationPrivacyGate
+import com.bitchat.android.nostr.LocationNotesManager
+import com.bitchat.android.nostr.NostrBackgroundRuntime
+import com.bitchat.android.nostr.NostrRelayManager
+import com.bitchat.android.nostr.NostrTransport
+import com.bitchat.android.nostr.PoWPreferenceManager
 import com.bitchat.android.services.MessageRouter
 import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.ui.ChannelManager
@@ -145,6 +151,7 @@ object ChatSessionModule {
         privateChatManager: PrivateChatManager,
         @ChatSessionScope scope: CoroutineScope,
         geohashSession: Lazy<GeohashSession>,
+        nostrTransport: Lazy<NostrTransport>,
     ): CommandProcessor = CommandProcessor(
         state,
         messageManager,
@@ -152,7 +159,7 @@ object ChatSessionModule {
         privateChatManager,
         scope,
         routePrivateMessage = { mesh, content, peerID, recipientNickname, messageId ->
-            MessageRouter.getInstance(context, mesh)
+            MessageRouter.getInstance(context, mesh) { nostrTransport.get() }
                 .sendPrivate(content, peerID, recipientNickname, messageId)
         },
         geohashPeople = { geohashSession.get().geohashPeople.value },
@@ -201,12 +208,24 @@ object ChatSessionModule {
         messageManager: MessageManager,
         dataManager: DataManager,
         notificationManager: NotificationManager,
+        nostrBackgroundRuntime: NostrBackgroundRuntime,
+        liveLocationPrivacyGate: LiveLocationPrivacyGate,
+        powPreferences: PoWPreferenceManager,
+        locationChannelManager: Lazy<LocationChannelManager>,
+        relayManager: Lazy<NostrRelayManager>,
+        locationNotesManager: Lazy<LocationNotesManager>,
     ): GeohashSession = GeohashSession(
         application = application,
         state = state,
         messageManager = messageManager,
         dataManager = dataManager,
-        notificationManager = notificationManager
+        notificationManager = notificationManager,
+        nostrBackgroundRuntime = nostrBackgroundRuntime,
+        liveLocationPrivacyGate = liveLocationPrivacyGate,
+        powPreferences = powPreferences,
+        locationChannelManagerSource = locationChannelManager,
+        relayManagerSource = relayManager,
+        locationNotesManagerSource = locationNotesManager,
     )
 
     @Provides

@@ -51,7 +51,6 @@ import com.bitchat.android.feature.chat.R
 import com.bitchat.android.core.ui.component.button.BackButton
 import com.bitchat.android.core.ui.component.button.BitChatBrandButton
 import com.bitchat.android.core.ui.component.button.CloseButton
-import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.net.TorMode
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
@@ -158,7 +157,8 @@ internal data class TorConnectionVisual(
 internal fun rememberTorConnectionVisual(normal: Color): TorConnectionVisual {
     val palette = LocalBitchatPalette.current
     val colorScheme = MaterialTheme.colorScheme
-    val torStatus by remember { ArtiTorManager.getInstance() }.statusFlow.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val torStatus by remember(context) { context.chatScreenDependencies().torManager() }.statusFlow.collectAsState()
 
     // ~28% of the loud accent mixed into the base tint keeps the hue without intensity.
     val mutedConnecting = lerp(normal, palette.accentOrange, 0.28f)

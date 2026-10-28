@@ -6,6 +6,8 @@ import androidx.core.app.NotificationManagerCompat
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.net.TorMode
+import com.bitchat.android.nostr.NostrRelayManager
+import dagger.Lazy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -16,6 +18,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicLong
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Coordinates a full application shutdown:
@@ -25,7 +29,12 @@ import java.util.concurrent.atomic.AtomicLong
  * - Stop foreground service/notification
  * - Kill the process after completion or after a 5s timeout
  */
-object AppShutdownCoordinator {
+@Singleton
+class AppShutdownCoordinator @Inject constructor(
+    // Lazy: shutdown is the only place either is touched, so building the coordinator constructs neither.
+    private val relayManager: Lazy<NostrRelayManager>,
+    private val torManager: Lazy<ArtiTorManager>,
+) {
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private val shutdownToken = AtomicLong(0L)
     @Volatile
@@ -56,11 +65,11 @@ object AppShutdownCoordinator {
 
             // Stop mesh (best-effort)
             try { mesh?.stopServices() } catch (_: Exception) { }
-            try { com.bitchat.android.nostr.NostrRelayManager.shared.disconnect() } catch (_: Exception) { }
+            try { relayManager.get().disconnect() } catch (_: Exception) { }
             try { com.bitchat.android.mesh.PowerManager.getInstance(app).shutdown() } catch (_: Exception) { }
 
             // Stop Tor temporarily (do not change user setting)
-            val torProvider = ArtiTorManager.getInstance()
+            val torProvider = torManager.get()
             val torStop = async {
                 try { torProvider.applyMode(app, TorMode.OFF) } catch (_: Exception) { }
             }

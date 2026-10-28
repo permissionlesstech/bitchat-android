@@ -68,16 +68,17 @@ interface TorStatusSource {
 
 internal class ObjectBackedAboutSettingsStore @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val pow: PoWPreferenceManager,
 ) : AboutSettingsStore {
 
     override val theme: StateFlow<ThemePreference> = ThemePreferenceManager.themeFlow
     override val chatUiMode: StateFlow<ChatUiMode> = ChatUiModeManager.modeFlow
-    override val powEnabled: StateFlow<Boolean> = PoWPreferenceManager.powEnabled
-    override val powDifficulty: StateFlow<Int> = PoWPreferenceManager.powDifficulty
+    override val powEnabled: StateFlow<Boolean> = pow.powEnabled
+    override val powDifficulty: StateFlow<Int> = pow.powDifficulty
     override val spamFilterEnabled: StateFlow<Boolean> = SpamFilterPreferences.enabled
     override val torMode: StateFlow<TorMode> = TorPreferenceManager.modeFlow
 
-    override fun loadPow() = PoWPreferenceManager.init(context)
+    override fun loadPow() = pow.init(context)
     override fun currentLanguageTag(): String = LanguagePreferenceManager.currentLanguageTag()
     override fun supportedLanguages(): List<AppLanguage> = LanguagePreferenceManager.supportedLanguages(context)
     override fun isLiveVoiceEnabled(): Boolean = LiveVoicePreferences.isEnabled(context)
@@ -87,15 +88,16 @@ internal class ObjectBackedAboutSettingsStore @Inject constructor(
     override fun setTheme(theme: ThemePreference) = ThemePreferenceManager.set(context, theme)
     override fun setChatUiMode(mode: ChatUiMode) = ChatUiModeManager.set(context, mode)
     override fun setLanguage(tag: String) = LanguagePreferenceManager.setLanguage(tag)
-    override fun setPowEnabled(enabled: Boolean) = PoWPreferenceManager.setPowEnabled(enabled)
-    override fun setPowDifficulty(difficulty: Int) = PoWPreferenceManager.setPowDifficulty(difficulty)
+    override fun setPowEnabled(enabled: Boolean) = pow.setPowEnabled(enabled)
+    override fun setPowDifficulty(difficulty: Int) = pow.setPowDifficulty(difficulty)
     override fun setSpamFilterEnabled(enabled: Boolean) = SpamFilterPreferences.setEnabled(enabled)
     override fun setTorMode(mode: TorMode) = TorPreferenceManager.set(context, mode)
     override fun setLiveVoiceEnabled(enabled: Boolean) = LiveVoicePreferences.setEnabled(context, enabled)
 }
 
-internal class ArtiTorStatusSource @Inject constructor() : TorStatusSource {
-    private val tor = ArtiTorManager.getInstance()
+internal class ArtiTorStatusSource @Inject constructor(
+    private val tor: ArtiTorManager,
+) : TorStatusSource {
     override val status: StateFlow<ArtiTorManager.TorStatus> = tor.statusFlow
     override fun isTorAvailable(): Boolean = tor.isTorAvailable()
 }

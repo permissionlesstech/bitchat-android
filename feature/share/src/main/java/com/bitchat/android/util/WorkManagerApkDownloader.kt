@@ -1,6 +1,8 @@
 package com.bitchat.android.util
 
 import android.content.Context
+import com.bitchat.android.net.ArtiTorManager
+import com.bitchat.android.net.OkHttpProvider
 import com.bitchat.android.share.AppBuildInfo
 import androidx.work.Constraints
 import androidx.work.BackoffPolicy
@@ -19,12 +21,14 @@ import java.util.concurrent.TimeUnit
  */
 class WorkManagerApkDownloader(
     context: Context,
-    buildInfo: AppBuildInfo
+    buildInfo: AppBuildInfo,
+    torManager: ArtiTorManager,
+    okHttpProvider: OkHttpProvider,
 ) : ApkDownloader {
 
     private val appContext = context.applicationContext
     private val workManager = WorkManager.getInstance(appContext)
-    private val apkManager = UniversalApkManager(appContext, buildInfo)
+    private val apkManager = UniversalApkManager(appContext, buildInfo, torManager, okHttpProvider)
 
     override val downloadState: Flow<ApkDownloader.DownloadState> =
         workManager.getWorkInfosForUniqueWorkFlow(ApkDownloadWorker.WORK_NAME)
