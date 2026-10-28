@@ -101,8 +101,6 @@ kept out of the refactor so it changes no behaviour it did not have to. Details 
 | Watch theme | Its own copy of the palette, peer-color hash and fonts | The shared `:core:designsystem` base |
 
 Safety rails added on the way:
-- The Nostr HTTP port fails closed: with nothing installed it throws instead of sending relay
-  traffic around Tor. A unit test pins this.
 - The Nostr HTTP clients are a Hilt binding in `:app`, so the fail-closed port is checked at compile time:
   a build with no binding does not compile.
 - `NoStaticTorNostrAccessTest` fails the build when code reaches a Tor or Nostr singleton statically
