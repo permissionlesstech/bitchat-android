@@ -20,8 +20,8 @@ internal fun newRelayManager(
 ) = NostrRelayManager(
     appContext = ApplicationProvider.getApplicationContext(),
     httpClients = clients,
-    relayDirectory = RelayDirectory,
-    liveLocationGate = LiveLocationPrivacyGate,
+    relayDirectory = RelayDirectory(NoHttpClients, dispatcher),
+    liveLocationGate = LiveLocationPrivacyGate(),
     eventDeduplicator = NostrEventDeduplicator(),
     ioDispatcher = dispatcher,
 )

@@ -44,7 +44,7 @@ class AppStartupOrderTest {
         initializer.initializeLibraries()
 
         inOrder(pow, notes) {
-            verify(pow).init(context)
+            verify(pow).load()
             verify(notes).initialize(context)
             verifyNoMoreInteractions()
         }

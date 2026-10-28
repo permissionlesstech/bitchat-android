@@ -54,7 +54,7 @@ class GeohashParticipantTrackingTest {
             application,
             scope,
             store,
-            PoWPreferenceManager,
+            PoWPreferenceManager(application),
             nostrTransport = { mock<NostrTransport>() }
         )
     }

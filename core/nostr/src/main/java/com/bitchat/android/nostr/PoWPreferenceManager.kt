@@ -2,22 +2,30 @@ package com.bitchat.android.nostr
 
 import android.content.Context
 import android.content.SharedPreferences
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Manages Proof of Work preferences for Nostr events
  */
-object PoWPreferenceManager {
-    
-    private const val PREFS_NAME = "pow_preferences"
-    private const val KEY_POW_ENABLED = "pow_enabled"
-    private const val KEY_POW_DIFFICULTY = "pow_difficulty"
-    
-    // Default values
-    private const val DEFAULT_POW_ENABLED = false
-    private const val DEFAULT_POW_DIFFICULTY = 12 // Reasonable default for geohash spam prevention
+@Singleton
+class PoWPreferenceManager @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
+
+    private companion object {
+        const val PREFS_NAME = "pow_preferences"
+        const val KEY_POW_ENABLED = "pow_enabled"
+        const val KEY_POW_DIFFICULTY = "pow_difficulty"
+
+        // Default values
+        const val DEFAULT_POW_ENABLED = false
+        const val DEFAULT_POW_DIFFICULTY = 12 // Reasonable default for geohash spam prevention
+    }
     
     // State flows for reactive UI
     private val _powEnabled = MutableStateFlow(DEFAULT_POW_ENABLED)
@@ -34,10 +42,10 @@ object PoWPreferenceManager {
     private var isInitialized = false
     
     /**
-     * Initialize the preference manager with application context
-     * Should be called once during app startup
+     * Loads the stored settings. Should be called once during app startup; a no-op after the
+     * first call. Until then the defaults apply and changes are not persisted, as before.
      */
-    fun init(context: Context) {
+    fun load() {
         if (isInitialized) return
         
         sharedPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

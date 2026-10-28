@@ -78,7 +78,7 @@ internal class ObjectBackedAboutSettingsStore @Inject constructor(
     override val spamFilterEnabled: StateFlow<Boolean> = SpamFilterPreferences.enabled
     override val torMode: StateFlow<TorMode> = TorPreferenceManager.modeFlow
 
-    override fun loadPow() = pow.init(context)
+    override fun loadPow() = pow.load()
     override fun currentLanguageTag(): String = LanguagePreferenceManager.currentLanguageTag()
     override fun supportedLanguages(): List<AppLanguage> = LanguagePreferenceManager.supportedLanguages(context)
     override fun isLiveVoiceEnabled(): Boolean = LiveVoicePreferences.isEnabled(context)

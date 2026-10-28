@@ -63,8 +63,7 @@ class NoStaticTorNostrAccessTest {
      * dependencies by constructor yet. Task 5 converts them and empties this list.
      */
     private val stillStaticInNostr = setOf(
-        "NostrNetwork", "RelayDirectory", "LiveLocationPrivacyGate", "PoWPreferenceManager",
-        "NostrEventDeduplicator",
+        "NostrNetwork",
     )
 
     @Test

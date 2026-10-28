@@ -42,7 +42,7 @@ class GeohashMessageHandlerSpamTest {
             addChannelMessage = { channel, message ->
                 channelMessages.getOrPut(channel) { mutableListOf() } += message
             },
-            powPreferences = PoWPreferenceManager,
+            powPreferences = PoWPreferenceManager(application),
             signatureVerificationDispatcher = testDispatcher,
             spamFilterDispatcher = testDispatcher
         )

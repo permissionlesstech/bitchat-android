@@ -3,6 +3,7 @@ package com.bitchat.android.nostr
 import android.app.Application
 import android.content.SharedPreferences
 import android.util.Log
+import com.bitchat.android.di.IoDispatcher
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileInputStream
@@ -11,9 +12,11 @@ import java.io.InputStream
 import java.io.InputStreamReader
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlin.math.*
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -23,19 +26,25 @@ import okhttp3.Request
 /**
  * Loads relay coordinates from assets and provides nearest-relay lookup by geohash.
  */
-object RelayDirectory {
+@Singleton
+class RelayDirectory @Inject constructor(
+    private val httpClients: NostrHttpClients,
+    @IoDispatcher ioDispatcher: CoroutineDispatcher,
+) {
 
-    private const val TAG = "RelayDirectory"
-    private const val ASSET_FILE_URL = "https://raw.githubusercontent.com/permissionlesstech/georelays/refs/heads/main/nostr_relays.csv"
-    private const val ASSET_FILE = "nostr_relays.csv"
-    private const val DOWNLOADED_FILE = "nostr_relays_latest.csv"
-    private const val PREFS_NAME = "relay_directory_prefs"
-    private const val KEY_LAST_UPDATE_MS = "last_update_ms"
-    private val ONE_DAY_MS = TimeUnit.DAYS.toMillis(1)
+    private companion object {
+        const val TAG = "RelayDirectory"
+        const val ASSET_FILE_URL = "https://raw.githubusercontent.com/permissionlesstech/georelays/refs/heads/main/nostr_relays.csv"
+        const val ASSET_FILE = "nostr_relays.csv"
+        const val DOWNLOADED_FILE = "nostr_relays_latest.csv"
+        const val PREFS_NAME = "relay_directory_prefs"
+        const val KEY_LAST_UPDATE_MS = "last_update_ms"
+        val ONE_DAY_MS = TimeUnit.DAYS.toMillis(1)
+    }
 
-    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val ioScope = CoroutineScope(SupervisorJob() + ioDispatcher)
     private val httpClient: OkHttpClient
-        get() = NostrNetwork.clients().httpClient()
+        get() = httpClients.httpClient()
 
     data class RelayInfo(
         val url: String,

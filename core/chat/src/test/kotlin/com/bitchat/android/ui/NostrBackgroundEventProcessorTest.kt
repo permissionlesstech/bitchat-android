@@ -52,7 +52,7 @@ class NostrBackgroundEventProcessorTest {
             application,
             scope,
             GeohashParticipantStore(),
-            PoWPreferenceManager,
+            PoWPreferenceManager(application),
             nostrTransport = { mock<NostrTransport>() }
         )
         val identity = NostrIdentity.generate()

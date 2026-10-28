@@ -4,40 +4,31 @@ import com.bitchat.android.geohash.LiveLocationPrivacyGate
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Before
 import org.junit.Test
 
 /**
  * F3: [LocationNotesManager.send] reports why a note was not sent, with the same side
- * effects as before. Real manager, never initialized: no relay directory, no subscribe or
- * send functions, so nothing here can reach the network. Synthetic geohash only.
+ * effects as before. Real manager, never initialized: an empty relay directory, no subscribe or
+ * send functions, so nothing here can reach the network. Synthetic geohash only. Each test has
+ * its own manager and gate, so nothing is reset afterwards.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class LocationNotesSendResultTest {
 
+    private val dispatcher = UnconfinedTestDispatcher()
+    private val gate = LiveLocationPrivacyGate().apply { update(true) }
     private val manager = LocationNotesManager(
-        LiveLocationPrivacyGate,
-        RelayDirectory,
-        UnconfinedTestDispatcher(),
+        gate,
+        RelayDirectory(NoHttpClients, dispatcher),
+        dispatcher,
     )
-
-    @Before
-    fun setUp() {
-        LiveLocationPrivacyGate.update(true)
-    }
-
-    @After
-    fun tearDown() {
-        LiveLocationPrivacyGate.update(false)
-    }
 
     @Test
     fun gateClosed_returnsFailedPrivacyGate_andStops() = runTest {
         manager.setGeohash("s0000000")
-        LiveLocationPrivacyGate.update(false)
+        gate.update(false)
 
         val result = manager.send("synthetic note", "alice")
 

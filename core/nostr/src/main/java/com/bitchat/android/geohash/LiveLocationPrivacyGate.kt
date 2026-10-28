@@ -3,6 +3,8 @@ package com.bitchat.android.geohash
 import java.util.concurrent.CopyOnWriteArraySet
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.ReentrantReadWriteLock
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlin.concurrent.read
 import kotlin.concurrent.write
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -79,7 +81,12 @@ internal class LiveLocationAccessPolicy(
 
 internal const val DEFAULT_LIVE_LOCATION_ENABLED = false
 
-object LiveLocationPrivacyGate {
+/**
+ * The one gate every live-location consumer holds. Two would let turning location off revoke
+ * access in one consumer and not another.
+ */
+@Singleton
+class LiveLocationPrivacyGate @Inject constructor() {
     private val policy = LiveLocationAccessPolicy()
     private val revocationListeners = CopyOnWriteArraySet<() -> Unit>()
 

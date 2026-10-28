@@ -28,7 +28,7 @@ class DefaultAppInitializer @Inject constructor(
 
     override fun initializeLibraries() {
         // Initialize PoW preferences early in the initialization process
-        powPreferences.init(context)
+        powPreferences.load()
 
         // Initialize Location Notes Manager (extracted to separate file)
         locationNotesInitializer.initialize(context)
