@@ -19,6 +19,8 @@ android {
 dependencies {
     api(project(":core:domain"))
     api(libs.kotlinx.coroutines.android)
+    // The dispatcher qualifiers (com.bitchat.android.di) are javax.inject.Qualifier.
+    api(libs.javax.inject)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.process)
     // The same BouncyCastle and Tink the phone pins; Tink backs the encrypted identity prefs.

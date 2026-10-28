@@ -1,5 +1,6 @@
 plugins {
     id("bitchat.android.library")
+    id("bitchat.android.hilt")
 }
 
 android {
