@@ -5,11 +5,14 @@ import java.net.InetSocketAddress
 import java.net.Proxy
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Centralized OkHttp provider to ensure all network traffic honors Tor settings.
  */
-object OkHttpProvider {
+@Singleton
+class OkHttpProvider @Inject constructor(private val tor: ArtiTorManager) {
     enum class Route {
         DIRECT,
         TOR
@@ -68,8 +71,7 @@ object OkHttpProvider {
 
     private fun baseBuilderForCurrentProxy(): Pair<OkHttpClient.Builder, Route> {
         val builder = OkHttpClient.Builder()
-        val torProvider = ArtiTorManager.getInstance()
-        val socks: InetSocketAddress? = torProvider.currentSocksAddress()
+        val socks: InetSocketAddress? = tor.currentSocksAddress()
         // If a SOCKS address is defined, always use it. TorProvider sets this as soon as Tor mode is ON,
         // even before bootstrap, to prevent any direct connections from occurring.
         if (socks != null) {

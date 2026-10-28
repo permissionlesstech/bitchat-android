@@ -27,6 +27,9 @@ import kotlinx.coroutines.CompletableDeferred
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.atomic.AtomicLong
+import javax.inject.Inject
+import javax.inject.Singleton
+import dagger.Lazy
 
 /**
  * Tor provider implementation using custom-built Arti (Tor-in-Rust).
@@ -36,7 +39,11 @@ import java.util.concurrent.atomic.AtomicLong
  *
  * Based on the original TorManager implementation.
  */
-class ArtiTorManager private constructor() {
+@Singleton
+class ArtiTorManager @Inject constructor(
+    // Lazy: OkHttpProvider reads this manager, and this manager resets it synchronously.
+    private val okHttp: Lazy<OkHttpProvider>
+) {
     enum class TorState {
         OFF,
         STARTING,
@@ -61,15 +68,6 @@ class ArtiTorManager private constructor() {
         private const val INACTIVITY_TIMEOUT_MS: Long = 5_000L
         private const val MAX_RETRY_ATTEMPTS: Int = 5
         private const val STOP_TIMEOUT_MS: Long = 7_000L
-
-        @Volatile
-        private var INSTANCE: ArtiTorManager? = null
-
-        fun getInstance(): ArtiTorManager {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: ArtiTorManager().also { INSTANCE = it }
-            }
-        }
     }
 
     private val appScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -171,7 +169,7 @@ class ArtiTorManager private constructor() {
                 desiredMode = savedMode
                 socksAddr = InetSocketAddress("127.0.0.1", currentSocksPort)
                 try {
-                    OkHttpProvider.reset()
+                    okHttp.get().reset()
                 } catch (_: Throwable) {
                 }  // Only reset OkHttp during init
             }
@@ -345,9 +343,9 @@ class ArtiTorManager private constructor() {
      * Reset network connections after Tor state changes.
      * Rebuilds OkHttp clients, then signals [routeChanges] so open connections are closed.
      */
-    private fun resetNetworkConnections() {
+    internal fun resetNetworkConnections() {
         try {
-            OkHttpProvider.reset()
+            okHttp.get().reset()
         } catch (_: Throwable) {
         }
         _routeChanges.tryEmit(Unit)
