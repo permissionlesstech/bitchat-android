@@ -44,7 +44,7 @@ class DebugSettingsLifecycleTest {
 
     private val scheduler = TestCoroutineScheduler()
     private val background = StandardTestDispatcher(scheduler)
-    private val manager = DebugSettingsManager()
+    private val manager = DebugSettingsManager(DebugPreferenceManager())
     private val owner = TestLifecycleOwner(Lifecycle.State.RESUMED)
 
     private val mesh = object : MeshDiagnostics {

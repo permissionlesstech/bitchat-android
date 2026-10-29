@@ -9,7 +9,6 @@ import com.bitchat.android.services.ConversationRepository
 import com.bitchat.android.services.PrivateMessageArrivalOrder
 import com.bitchat.android.spam.SpamFilter
 import com.bitchat.android.spam.SpamFilterPreferences
-import com.bitchat.android.ui.debug.DebugPreferenceManager
 import dagger.Module
 import dagger.Provides
 import javax.inject.Inject
@@ -56,10 +55,6 @@ object MeshBridgeModule {
     // 10c-2a-1 bridge: deleted when SpamFilterPreferences is flipped
     @Provides
     fun provideSpamFilterPreferences(): SpamFilterPreferences = SpamFilterPreferences
-
-    // 10c-2a-1 bridge: deleted when DebugPreferenceManager is flipped
-    @Provides
-    fun provideDebugPreferenceManager(): DebugPreferenceManager = DebugPreferenceManager
 
     // 10c-2a-1 bridge: deleted when GeohashAliasRegistry is flipped
     @Provides

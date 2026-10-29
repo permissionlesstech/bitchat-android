@@ -2,28 +2,33 @@ package com.bitchat.android.ui.debug
 
 import android.content.Context
 import android.content.SharedPreferences
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * SharedPreferences-backed persistence for debug settings.
  * Keeps the DebugSettingsManager stateless with regard to Android Context.
  */
-object DebugPreferenceManager {
-    private const val PREFS_NAME = "bitchat_debug_settings"
-    private const val KEY_VERBOSE = "verbose_logging"
-    private const val KEY_GATT_SERVER = "gatt_server_enabled"
-    private const val KEY_GATT_CLIENT = "gatt_client_enabled"
-    private const val KEY_PACKET_RELAY = "packet_relay_enabled"
-    private const val KEY_MAX_CONN_OVERALL = "max_connections_overall"
-    private const val KEY_MAX_CONN_SERVER = "max_connections_server"
-    private const val KEY_MAX_CONN_CLIENT = "max_connections_client"
-    private const val KEY_SEEN_PACKET_CAP = "seen_packet_capacity"
-    // GCS keys (no migration/back-compat)
-    private const val KEY_GCS_MAX_BYTES = "gcs_max_filter_bytes"
-    private const val KEY_GCS_FPR = "gcs_filter_fpr_percent"
-    // Transport master toggles
-    private const val KEY_BLE_ENABLED = "ble_enabled"
-    private const val KEY_WIFI_AWARE_ENABLED = "wifi_aware_enabled"
-    private const val KEY_WIFI_AWARE_VERBOSE = "wifi_aware_verbose"
+@Singleton
+class DebugPreferenceManager @Inject constructor() {
+    private companion object {
+        const val PREFS_NAME = "bitchat_debug_settings"
+        const val KEY_VERBOSE = "verbose_logging"
+        const val KEY_GATT_SERVER = "gatt_server_enabled"
+        const val KEY_GATT_CLIENT = "gatt_client_enabled"
+        const val KEY_PACKET_RELAY = "packet_relay_enabled"
+        const val KEY_MAX_CONN_OVERALL = "max_connections_overall"
+        const val KEY_MAX_CONN_SERVER = "max_connections_server"
+        const val KEY_MAX_CONN_CLIENT = "max_connections_client"
+        const val KEY_SEEN_PACKET_CAP = "seen_packet_capacity"
+        // GCS keys (no migration/back-compat)
+        const val KEY_GCS_MAX_BYTES = "gcs_max_filter_bytes"
+        const val KEY_GCS_FPR = "gcs_filter_fpr_percent"
+        // Transport master toggles
+        const val KEY_BLE_ENABLED = "ble_enabled"
+        const val KEY_WIFI_AWARE_ENABLED = "wifi_aware_enabled"
+        const val KEY_WIFI_AWARE_VERBOSE = "wifi_aware_verbose"
+    }
 
     private lateinit var prefs: SharedPreferences
 

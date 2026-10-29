@@ -1,5 +1,6 @@
 package com.bitchat.android.onboarding
 
+import com.bitchat.android.ui.debug.DebugPreferenceManager
 import android.Manifest
 import android.app.Application
 import android.content.Context
@@ -33,7 +34,7 @@ class DeviceReadinessKeysTest {
             .edit().clear().commit()
     }
 
-    private fun readiness() = SystemDeviceReadiness(application) { false }
+    private fun readiness() = SystemDeviceReadiness(application, DebugPreferenceManager()) { false }
 
     @Test
     fun existingUsersStoredChoicesAreReadUnderTheirOldNames() {

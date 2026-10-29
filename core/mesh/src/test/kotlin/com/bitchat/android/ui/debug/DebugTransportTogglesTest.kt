@@ -6,7 +6,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class DebugTransportTogglesTest {
-    private val settings = DebugSettingsManager()
+    private val settings = DebugSettingsManager(DebugPreferenceManager())
     private val applied = mutableListOf<String>()
 
     private val recorder = object : TransportToggles {

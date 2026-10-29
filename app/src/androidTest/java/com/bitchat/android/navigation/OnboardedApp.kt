@@ -1,5 +1,6 @@
 package com.bitchat.android.navigation
 
+import com.bitchat.android.ui.debug.DebugPreferenceManager
 import android.os.ParcelFileDescriptor
 import android.view.KeyEvent
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -41,7 +42,7 @@ internal object OnboardedApp {
 
     fun prepare() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val readiness = SystemDeviceReadiness(context) { WifiAwareSupport.isSupported(context) }
+        val readiness = SystemDeviceReadiness(context, DebugPreferenceManager()) { WifiAwareSupport.isSupported(context) }
         val grants = readiness.requiredPermissions() +
             readiness.optionalPermissions() +
             listOfNotNull(readiness.backgroundLocationPermission())

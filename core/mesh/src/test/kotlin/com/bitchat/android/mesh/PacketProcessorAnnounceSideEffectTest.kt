@@ -1,5 +1,6 @@
 package com.bitchat.android.mesh
 
+import com.bitchat.android.ui.debug.DebugPreferenceManager
 import dagger.Lazy
 import com.bitchat.android.ui.debug.DebugSettingsManager
 import com.bitchat.android.model.RoutedPacket
@@ -67,7 +68,7 @@ class PacketProcessorAnnounceSideEffectTest {
     }
 
     private fun processor(delegate: RecordingDelegate): PacketProcessor =
-        PacketProcessor(MY_PEER_ID, Lazy(lazy { DebugSettingsManager() }::value)).also {
+        PacketProcessor(MY_PEER_ID, Lazy(lazy { DebugSettingsManager(DebugPreferenceManager()) }::value)).also {
             it.delegate = delegate
             processors += it
         }

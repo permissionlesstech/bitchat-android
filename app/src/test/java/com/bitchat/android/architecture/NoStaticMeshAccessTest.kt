@@ -71,14 +71,13 @@ class NoStaticMeshAccessTest {
             "the bridges and FavoritesInitRetry; each bridge goes with its class's flip (Tasks 5 and 6)",
         "core/mesh/src/main/java/com/bitchat/android/mesh/PowerManager.kt" to
             "injected class still reaching the AppStateStore object; goes with AppStateStore in Task 6",
-        "core/mesh/src/main/java/com/bitchat/android/ui/debug/DebugSettingsManager.kt" to
-            "injected class still reaching the DebugPreferenceManager object; goes with it in Task 6",
         "core/mesh/src/main/java/com/bitchat/android/services/SeenMessageStore.kt" to
             "injected class still reaching the AppStateStore object; goes with AppStateStore in Task 6",
         "core/mesh/src/main/java/com/bitchat/android/features/voice/LiveVoiceManager.kt" to
             "injected class still reaching the AppStateStore object; goes with AppStateStore in Task 6",
         "core/mesh/src/main/java/com/bitchat/android/favorites/FavoritesPersistenceService.kt" to
-            "still-static class (shared) reaching AppStateStore; flipped in Task 5",
+            "still-static class (shared) reaching AppStateStore; flipped in Task 7. Also reached statically by " +
+            "ContactDirectory (until its flip), MessageRouter (R14), NostrIdentityBridge and WearPeerIdentityState",
         "core/mesh/src/main/java/com/bitchat/android/spam/SpamFilterPreferences.kt" to
             "still-static object reaching SpamFilter; flipped in Task 6",
         "core/mesh/src/main/java/com/bitchat/android/services/ContactDirectory.kt" to

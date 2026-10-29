@@ -1,5 +1,6 @@
 package com.bitchat.android.onboarding
 
+import com.bitchat.android.ui.debug.DebugPreferenceManager
 import android.Manifest
 import android.app.Application
 import android.bluetooth.BluetoothAdapter
@@ -35,7 +36,7 @@ class SystemDeviceReadinessTest {
         shadowOf(application).denyPermissions(Manifest.permission.POST_NOTIFICATIONS)
     }
 
-    private fun readiness() = SystemDeviceReadiness(application) { false }
+    private fun readiness() = SystemDeviceReadiness(application, DebugPreferenceManager()) { false }
 
     // Bluetooth and location status (moved from SystemStateManagerContractTest)
 
@@ -90,7 +91,7 @@ class SystemDeviceReadinessTest {
 
     @Test
     fun requiredPermissionsAreBluetoothAndLocationWhileWifiAwareIsOff() {
-        val readiness = SystemDeviceReadiness(application) { true }
+        val readiness = SystemDeviceReadiness(application, DebugPreferenceManager()) { true }
 
         assertEquals(
             listOf(

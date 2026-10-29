@@ -65,6 +65,7 @@ interface DeviceReadiness {
 
 class SystemDeviceReadiness @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val debugPreferences: DebugPreferenceManager,
     private val wifiAwareAvailability: WifiAwareAvailability,
 ) : DeviceReadiness {
 
@@ -94,7 +95,7 @@ class SystemDeviceReadiness @Inject constructor(
             firstLaunch = !permissionPrefs.getBoolean(KEY_FIRST_TIME_COMPLETE, false),
             batterySkipped = BatteryOptimizationPreferenceManager.isSkipped(context),
             backgroundLocationSkipped = BackgroundLocationPreferenceManager.isSkipped(context),
-            bleRequired = try { DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true },
+            bleRequired = try { debugPreferences.getBleEnabled(true) } catch (_: Exception) { true },
         )
     }
 
@@ -245,7 +246,7 @@ class SystemDeviceReadiness @Inject constructor(
     private fun shouldRequireWifiAwarePermission(): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
         val enabled = try {
-            DebugPreferenceManager.getWifiAwareEnabled(false)
+            debugPreferences.getWifiAwareEnabled(false)
         } catch (_: Exception) {
             false
         }

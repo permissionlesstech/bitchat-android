@@ -23,7 +23,7 @@ class DebugPollTest {
     private val peerB = "fedcba9876543210"
     private val address = "00:11:22:33:44:55"
 
-    private val manager = DebugSettingsManager()
+    private val manager = DebugSettingsManager(DebugPreferenceManager())
 
     private val discovered = MutableStateFlow(mapOf(peerA to "alice"))
     private val connected = MutableStateFlow(mapOf(peerB to "192.0.2.1"))

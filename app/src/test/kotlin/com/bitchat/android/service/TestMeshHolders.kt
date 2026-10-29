@@ -1,5 +1,6 @@
 package com.bitchat.android.service
 
+import com.bitchat.android.ui.debug.DebugPreferenceManager
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.mesh.UnifiedMeshService
 import com.bitchat.android.services.AppStateStore
@@ -33,7 +34,7 @@ fun testWifiAwareController(
 ): WifiAwareController = WifiAwareController(
     newMesh = Provider<WifiAwareMeshService> { error("tests never start Wi-Fi Aware") },
     meshServiceHolder = meshServiceHolder,
-    debugSettingsManager = Lazy(lazy { DebugSettingsManager() }::value),
+    debugSettingsManager = Lazy(lazy { DebugSettingsManager(DebugPreferenceManager()) }::value),
     appStateStore = AppStateStore,
     ioDispatcher = ioDispatcher,
 )

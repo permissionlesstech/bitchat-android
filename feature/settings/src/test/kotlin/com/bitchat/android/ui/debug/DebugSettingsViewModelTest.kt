@@ -49,7 +49,7 @@ class DebugSettingsViewModelTest {
     private val main = UnconfinedTestDispatcher(scheduler)
     private val background = StandardTestDispatcher(scheduler)
     private val store = ViewModelStore()
-    private val manager = DebugSettingsManager()
+    private val manager = DebugSettingsManager(DebugPreferenceManager())
 
     private val graphState = MutableStateFlow(MeshGraphService.GraphSnapshot(emptyList(), emptyList()))
     private val graph = object : MeshGraphSource {
