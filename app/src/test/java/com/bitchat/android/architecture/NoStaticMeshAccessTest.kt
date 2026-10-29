@@ -171,7 +171,7 @@ class NoStaticMeshAccessTest {
     }
 
     /** Every Kotlin file under `<module>/src/main` below [trees], paired with its code. */
-    private fun mainSources(trees: List<String> = listOf("app", "wear", "core/chat", "core/nostr", "core/tor", "feature")): List<Pair<File, String>> {
+    private fun mainSources(trees: List<String> = listOf("app", "wear", "core/chat", "core/nostr", "core/readiness", "core/tor", "feature")): List<Pair<File, String>> {
         val files = trees.map { File(root, it) }.flatMap { tree ->
             tree.walkTopDown()
                 .onEnter { it.name != "build" }

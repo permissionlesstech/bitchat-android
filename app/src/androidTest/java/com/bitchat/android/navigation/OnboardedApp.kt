@@ -42,7 +42,7 @@ internal object OnboardedApp {
 
     fun prepare() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val readiness = SystemDeviceReadiness(context, DebugPreferenceManager()) { WifiAwareSupport.isSupported(context) }
+        val readiness = SystemDeviceReadiness(context, DebugPreferenceManager().apply { init(context) }) { WifiAwareSupport.isSupported(context) }
         val grants = readiness.requiredPermissions() +
             readiness.optionalPermissions() +
             listOfNotNull(readiness.backgroundLocationPermission())
