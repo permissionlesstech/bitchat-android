@@ -1,5 +1,7 @@
 package com.bitchat.android.mesh
 
+import com.bitchat.android.di.IoDispatcher
+import kotlinx.coroutines.CoroutineDispatcher
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.crypto.EncryptionService
@@ -79,6 +81,7 @@ class BluetoothMeshService @AssistedInject constructor(
     liveVoiceManager: Lazy<LiveVoiceManager>,
     powerManager: PowerManager,
     transferProgressManager: TransferProgressManager,
+    @IoDispatcher ioDispatcher: CoroutineDispatcher,
 ) : TransportBridgeService.TransportLayer {
 
     @AssistedFactory
@@ -101,7 +104,7 @@ class BluetoothMeshService @AssistedInject constructor(
     val myPeerID: String = encryptionService.getIdentityFingerprint().take(16)
     private val peerManager = PeerManager(peerFingerprintManager)
     private val fragmentManager = FragmentManager()
-    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val serviceScope = CoroutineScope(ioDispatcher + SupervisorJob())
     private val readReceiptRetrySender = RetryingControlPacketSender(serviceScope)
     private val authenticatedPeerStateStore = SecureAuthenticatedPeerStateStore(context)
     private val authenticatedPeerState by lazy {

@@ -1,5 +1,7 @@
 package com.bitchat.watch.mesh
 
+import com.bitchat.android.di.IoDispatcher
+import kotlinx.coroutines.CoroutineDispatcher
 import android.bluetooth.BluetoothDevice
 import android.content.Context
 import android.util.Log
@@ -33,7 +35,6 @@ import dagger.Lazy
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -62,6 +63,7 @@ class WearMeshService @Inject constructor(
     transportBridgeService: TransportBridgeService,
     verificationService: VerificationService,
     seenMessageStore: Lazy<SeenMessageStore>,
+    @IoDispatcher ioDispatcher: CoroutineDispatcher,
 ) {
 
     companion object {
@@ -76,7 +78,7 @@ class WearMeshService @Inject constructor(
     private val permissionManager = BluetoothPermissionManager(context, requireLocation = false)
 
     val myPeerID: String = encryptionService.getIdentityFingerprint().take(16)
-    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val serviceScope = CoroutineScope(ioDispatcher + SupervisorJob())
 
     private val bleTransport = BleTransport()
     private val meshCore: MeshCore

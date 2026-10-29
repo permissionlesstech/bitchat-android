@@ -1,5 +1,7 @@
 package com.bitchat.android.mesh
 
+import com.bitchat.android.di.DefaultDispatcher
+import kotlinx.coroutines.CoroutineDispatcher
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.favorites.FavoriteControlMessage
@@ -17,7 +19,6 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
@@ -45,6 +46,7 @@ class UnifiedMeshService @AssistedInject constructor(
     private val debugPreferenceManager: DebugPreferenceManager,
     private val nostrIdentityBridge: NostrIdentityBridge,
     private val powerManager: PowerManager,
+    @DefaultDispatcher defaultDispatcher: CoroutineDispatcher,
 ) : MeshService, BluetoothMeshDelegate {
 
     @AssistedFactory
@@ -56,7 +58,7 @@ class UnifiedMeshService @AssistedInject constructor(
         private const val TAG = "UnifiedMeshService"
     }
 
-    private val serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private val serviceScope = CoroutineScope(defaultDispatcher + SupervisorJob())
     private var announcementJob: Job? = null
 
     override val myPeerID: String

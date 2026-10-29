@@ -1,5 +1,7 @@
 package com.bitchat.android.wifiaware
 
+import com.bitchat.android.di.IoDispatcher
+import kotlinx.coroutines.CoroutineDispatcher
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
@@ -48,7 +50,6 @@ import javax.inject.Inject
 import java.io.InterruptedIOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -99,6 +100,7 @@ class WifiAwareMeshService @Inject constructor(
     private val seenMessageStore: Lazy<SeenMessageStore>,
     conversationListPreferences: ConversationListPreferences,
     private val powerManager: PowerManager,
+    @IoDispatcher ioDispatcher: CoroutineDispatcher,
 ) : MeshService, TransportBridgeService.TransportLayer {
 
     companion object {
@@ -122,7 +124,7 @@ class WifiAwareMeshService @Inject constructor(
 
     // Peer ID must match BluetoothMeshService: first 16 hex chars of identity fingerprint (8 bytes)
     override val myPeerID: String = encryptionService.getIdentityFingerprint().take(16)
-    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val serviceScope = CoroutineScope(ioDispatcher + SupervisorJob())
     private val wifiTransport = WifiAwareTransport()
     private lateinit var meshCore: MeshCore
     private lateinit var fragmentingSender: FragmentingPacketSender
