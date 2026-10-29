@@ -45,6 +45,7 @@ class DebugSettingsLifecycleTest {
     private val scheduler = TestCoroutineScheduler()
     private val background = StandardTestDispatcher(scheduler)
     private val manager = DebugSettingsManager(DebugPreferenceManager())
+    private val spamFilter = SpamFilter()
     private val owner = TestLifecycleOwner(Lifecycle.State.RESUMED)
 
     private val mesh = object : MeshDiagnostics {
@@ -103,8 +104,8 @@ class DebugSettingsLifecycleTest {
         },
         defaultDispatcher = background,
         ioDispatcher = background,
-        spamFilterPreferences = SpamFilterPreferences,
-        spamFilter = SpamFilter.shared,
+        spamFilterPreferences = SpamFilterPreferences(spamFilter),
+        spamFilter = spamFilter,
     )
 
     // Held in a store so tearDown can clear it.

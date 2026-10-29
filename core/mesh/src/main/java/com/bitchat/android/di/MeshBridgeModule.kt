@@ -7,8 +7,6 @@ import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ConversationRepository
 import com.bitchat.android.services.PrivateMessageArrivalOrder
-import com.bitchat.android.spam.SpamFilter
-import com.bitchat.android.spam.SpamFilterPreferences
 import dagger.Module
 import dagger.Provides
 import javax.inject.Inject
@@ -25,10 +23,6 @@ import dagger.hilt.components.SingletonComponent
 @Module
 @InstallIn(SingletonComponent::class)
 object MeshBridgeModule {
-
-    // 10c-2a-1 bridge: deleted when SpamFilter is flipped
-    @Provides
-    fun provideSpamFilter(): SpamFilter = SpamFilter.shared
 
     // 10c-2a-1 bridge: deleted when FavoritesPersistenceService is flipped
     @Provides
@@ -51,10 +45,6 @@ object MeshBridgeModule {
     // 10c-2a-1 bridge: deleted when PrivateMessageArrivalOrder is flipped
     @Provides
     fun providePrivateMessageArrivalOrder(): PrivateMessageArrivalOrder = PrivateMessageArrivalOrder
-
-    // 10c-2a-1 bridge: deleted when SpamFilterPreferences is flipped
-    @Provides
-    fun provideSpamFilterPreferences(): SpamFilterPreferences = SpamFilterPreferences
 
     // 10c-2a-1 bridge: deleted when GeohashAliasRegistry is flipped
     @Provides

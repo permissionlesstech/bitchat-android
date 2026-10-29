@@ -78,8 +78,6 @@ class NoStaticMeshAccessTest {
         "core/mesh/src/main/java/com/bitchat/android/favorites/FavoritesPersistenceService.kt" to
             "still-static class (shared) reaching AppStateStore; flipped in Task 7. Also reached statically by " +
             "ContactDirectory (until its flip), MessageRouter (R14), NostrIdentityBridge and WearPeerIdentityState",
-        "core/mesh/src/main/java/com/bitchat/android/spam/SpamFilterPreferences.kt" to
-            "still-static object reaching SpamFilter; flipped in Task 6",
         "core/mesh/src/main/java/com/bitchat/android/services/ContactDirectory.kt" to
             "still-static object reaching FavoritesPersistenceService, GeohashAliasRegistry and " +
             "PrivateMessageArrivalOrder; flipped in Task 6",

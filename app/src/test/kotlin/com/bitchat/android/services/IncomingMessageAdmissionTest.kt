@@ -32,8 +32,10 @@ import java.util.UUID
 @RunWith(RobolectricTestRunner::class)
 class IncomingMessageAdmissionTest {
     /** Admission into the same process-wide state and filter the mesh services pass in. */
+    private val spamFilter = SpamFilter()
+
     private fun admit(message: BitchatMessage): Boolean =
-        IncomingMessageAdmission.admitToAppState(message, AppStateStore, SpamFilter.shared)
+        IncomingMessageAdmission.admitToAppState(message, AppStateStore, spamFilter)
 
     private lateinit var context: Context
     private lateinit var databaseName: String

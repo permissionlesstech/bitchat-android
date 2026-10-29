@@ -30,11 +30,11 @@ class GeohashMessageHandlerSpamTest {
     // What the handler emitted, by channel key.
     private val channelMessages = mutableMapOf<String, MutableList<BitchatMessage>>()
     private lateinit var handler: GeohashMessageHandler
+    private val spamFilter = SpamFilter()
 
     @Before
     fun setup() {
         com.bitchat.android.services.AppStateStore.clear()
-        SpamFilter.shared.reset()
         val dataManager = DataManager(context = application)
         handler = GeohashMessageHandler(
             application = application,
@@ -49,13 +49,12 @@ class GeohashMessageHandlerSpamTest {
             spamFilterDispatcher = testDispatcher,
             geohashAliases = GeohashAliasRegistry,
             nostrIdentity = NostrIdentityBridge,
-            spamFilter = SpamFilter.shared,
+            spamFilter = spamFilter,
         )
     }
 
     @After
     fun tearDown() {
-        SpamFilter.shared.reset()
         com.bitchat.android.services.AppStateStore.clear()
     }
 

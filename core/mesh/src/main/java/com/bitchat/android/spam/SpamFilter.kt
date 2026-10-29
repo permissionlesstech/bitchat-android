@@ -6,6 +6,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlin.math.abs
 
 enum class SpamVerdict {
@@ -33,10 +35,15 @@ enum class SpamVerdict {
  * Verdicts are remembered by message ID, so the same message arriving over BLE and Wi-Fi Aware,
  * or through both geohash handlers, is judged once and counted once.
  */
+@Singleton
 class SpamFilter(
     config: SpamFilterConfig = SpamFilterConfig(),
     private val clock: () -> Long = System::currentTimeMillis
 ) {
+    /** The injected filter: default limits and the wall clock. */
+    @Inject
+    constructor() : this(SpamFilterConfig(), System::currentTimeMillis)
+
     @Volatile
     var enabled: Boolean = true
 
@@ -224,9 +231,6 @@ class SpamFilter(
 
     companion object {
         private const val MAX_FLAGGED = 500
-
-        /** Process-wide filter shared by every transport and geohash handler. */
-        val shared = SpamFilter()
 
         /**
          * True for notices this device generated itself, such as "X favorited you". Every message

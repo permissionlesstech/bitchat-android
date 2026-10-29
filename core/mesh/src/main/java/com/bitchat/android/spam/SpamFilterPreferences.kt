@@ -5,28 +5,34 @@ import android.content.SharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
- * Persists the user's on/off choice for [SpamFilter.shared] (on by default), plus the debug
+ * Persists the user's on/off choice for the injected [SpamFilter] (on by default), plus the debug
  * settings: tuned limits and the bypass that marks spam instead of hiding it.
  */
-object SpamFilterPreferences {
-
-    private const val PREFS_NAME = "spam_filter_preferences"
-    private const val KEY_ENABLED = "spam_filter_enabled"
-    private const val KEY_DEBUG_BYPASS = "spam_filter_debug_bypass"
-    private const val KEY_MESSAGE_BURST = "spam_filter_message_burst"
-    private const val KEY_SECONDS_PER_MESSAGE = "spam_filter_seconds_per_message"
-    private const val KEY_CHARACTERS_PER_MINUTE = "spam_filter_characters_per_minute"
-    private const val KEY_LINKS_PER_MINUTE = "spam_filter_links_per_minute"
-    private const val KEY_ALLOWED_REPEATS = "spam_filter_allowed_repeats"
-    private const val KEY_CROSS_USER_ALLOWED_REPEATS = "spam_filter_cross_user_allowed_repeats"
-    private const val KEY_CROSS_USER_MIN_LENGTH = "spam_filter_cross_user_min_length"
-    private const val KEY_REPEAT_SIMILARITY = "spam_filter_repeat_similarity"
-    private const val KEY_REPEAT_WINDOW_MINUTES = "spam_filter_repeat_window_minutes"
-    private const val KEY_SELF_MATCH_THRESHOLD = "spam_filter_self_match_threshold"
-    private const val KEY_SELF_MATCH_MIN_LENGTH = "spam_filter_self_match_min_length"
-    private const val DEFAULT_ENABLED = true
+@Singleton
+class SpamFilterPreferences @Inject constructor(
+    private val spamFilter: SpamFilter,
+) {
+    private companion object {
+        const val PREFS_NAME = "spam_filter_preferences"
+        const val KEY_ENABLED = "spam_filter_enabled"
+        const val KEY_DEBUG_BYPASS = "spam_filter_debug_bypass"
+        const val KEY_MESSAGE_BURST = "spam_filter_message_burst"
+        const val KEY_SECONDS_PER_MESSAGE = "spam_filter_seconds_per_message"
+        const val KEY_CHARACTERS_PER_MINUTE = "spam_filter_characters_per_minute"
+        const val KEY_LINKS_PER_MINUTE = "spam_filter_links_per_minute"
+        const val KEY_ALLOWED_REPEATS = "spam_filter_allowed_repeats"
+        const val KEY_CROSS_USER_ALLOWED_REPEATS = "spam_filter_cross_user_allowed_repeats"
+        const val KEY_CROSS_USER_MIN_LENGTH = "spam_filter_cross_user_min_length"
+        const val KEY_REPEAT_SIMILARITY = "spam_filter_repeat_similarity"
+        const val KEY_REPEAT_WINDOW_MINUTES = "spam_filter_repeat_window_minutes"
+        const val KEY_SELF_MATCH_THRESHOLD = "spam_filter_self_match_threshold"
+        const val KEY_SELF_MATCH_MIN_LENGTH = "spam_filter_self_match_min_length"
+        const val DEFAULT_ENABLED = true
+    }
 
     private val _enabled = MutableStateFlow(DEFAULT_ENABLED)
     val enabled: StateFlow<Boolean> = _enabled.asStateFlow()
@@ -54,7 +60,7 @@ object SpamFilterPreferences {
         sharedPrefs?.edit()?.putBoolean(KEY_ENABLED, enabled)?.apply()
         applyEnabled(enabled)
         // Start from a clean slate so budgets don't carry over from before the toggle.
-        SpamFilter.shared.reset()
+        spamFilter.reset()
     }
 
     fun setDebugBypass(enabled: Boolean) {
@@ -100,16 +106,16 @@ object SpamFilterPreferences {
 
     private fun applyEnabled(enabled: Boolean) {
         _enabled.value = enabled
-        SpamFilter.shared.enabled = enabled
+        spamFilter.enabled = enabled
     }
 
     private fun applyDebugBypass(enabled: Boolean) {
         _debugBypass.value = enabled
-        SpamFilter.shared.debugBypass = enabled
+        spamFilter.debugBypass = enabled
     }
 
     private fun applyTuning(tuning: SpamTuning) {
         _tuning.value = tuning
-        SpamFilter.shared.config = tuning.toConfig()
+        spamFilter.config = tuning.toConfig()
     }
 }

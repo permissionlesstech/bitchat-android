@@ -35,21 +35,20 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class NostrBackgroundEventProcessorTest {
     private lateinit var scope: CoroutineScope
+    private val spamFilter = SpamFilter()
 
     @Before
     fun setUp() {
         AppStateStore.clear()
         // This test floods one sender to measure throughput; that is exactly what the spam
         // filter hides, so it is covered by SpamFilterTest instead.
-        SpamFilter.shared.enabled = false
+        spamFilter.enabled = false
         scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
 
     @After
     fun tearDown() {
         scope.cancel()
-        SpamFilter.shared.enabled = true
-        SpamFilter.shared.reset()
         AppStateStore.clear()
     }
 
@@ -69,7 +68,7 @@ class NostrBackgroundEventProcessorTest {
             geohashAliases = GeohashAliasRegistry,
             geohashConversations = GeohashConversationRegistry,
             nostrIdentity = NostrIdentityBridge,
-            spamFilter = SpamFilter.shared,
+            spamFilter = spamFilter,
             seenMessageStore = Lazy(lazy { SeenMessageStore(application) }::value),
         )
         val identity = NostrIdentity.generate()

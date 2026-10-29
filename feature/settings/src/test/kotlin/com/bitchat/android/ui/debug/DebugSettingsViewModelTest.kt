@@ -50,6 +50,7 @@ class DebugSettingsViewModelTest {
     private val background = StandardTestDispatcher(scheduler)
     private val store = ViewModelStore()
     private val manager = DebugSettingsManager(DebugPreferenceManager())
+    private val spamFilter = SpamFilter()
 
     private val graphState = MutableStateFlow(MeshGraphService.GraphSnapshot(emptyList(), emptyList()))
     private val graph = object : MeshGraphSource {
@@ -122,8 +123,8 @@ class DebugSettingsViewModelTest {
             inspectDistribution = { distribution },
             defaultDispatcher = background,
             ioDispatcher = background,
-            spamFilterPreferences = SpamFilterPreferences,
-            spamFilter = SpamFilter.shared,
+            spamFilterPreferences = SpamFilterPreferences(spamFilter),
+            spamFilter = spamFilter,
         )
         // Held in a store so tearDown can clear it, which cancels its poll.
         val factory = object : ViewModelProvider.Factory {

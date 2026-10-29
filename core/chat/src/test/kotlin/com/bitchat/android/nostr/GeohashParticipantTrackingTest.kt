@@ -46,6 +46,7 @@ class GeohashParticipantTrackingTest {
     private val identity = NostrIdentity.fromSeed("geohash-participant-fixture")
     private var now = System.currentTimeMillis() / 1000 * 1000
     private val store = GeohashParticipantStore { now }
+    private val spamFilter = SpamFilter()
     private lateinit var scope: CoroutineScope
     private lateinit var dataManager: DataManager
     private lateinit var repo: GeohashRepository
@@ -72,7 +73,7 @@ class GeohashParticipantTrackingTest {
             geohashAliases = GeohashAliasRegistry,
             geohashConversations = GeohashConversationRegistry,
             nostrIdentity = NostrIdentityBridge,
-            spamFilter = SpamFilter.shared,
+            spamFilter = spamFilter,
             seenMessageStore = Lazy(lazy { SeenMessageStore(application) }::value),
         )
     }

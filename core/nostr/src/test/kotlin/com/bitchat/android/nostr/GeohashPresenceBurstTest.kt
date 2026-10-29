@@ -35,7 +35,7 @@ class GeohashPresenceBurstTest {
         signatureVerificationDispatcher = dispatcher,
         geohashAliases = GeohashAliasRegistry,
         nostrIdentity = NostrIdentityBridge,
-        spamFilter = SpamFilter.shared,
+        spamFilter = SpamFilter(),
     )
     // A synthetic fixture channel; no device location or relay traffic is used.
     private val geohash = "s000"

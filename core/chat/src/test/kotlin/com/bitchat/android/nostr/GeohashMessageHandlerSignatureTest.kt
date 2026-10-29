@@ -59,7 +59,7 @@ class GeohashMessageHandlerSignatureTest {
             signatureVerificationDispatcher = testDispatcher,
             geohashAliases = GeohashAliasRegistry,
             nostrIdentity = NostrIdentityBridge,
-            spamFilter = SpamFilter.shared,
+            spamFilter = SpamFilter(),
         )
     }
 
