@@ -1,6 +1,6 @@
 package com.bitchat.android.ui
 
-import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.di.FavoritesInitRetry
 import com.bitchat.android.mesh.TransferProgressManager
 import com.bitchat.android.services.AppStateStore
 import android.content.Context
@@ -65,7 +65,7 @@ class ChatSessionStartup @Inject constructor(
     private val appStateStore: AppStateStore,
     private val contactDirectory: ContactDirectory,
     private val transferProgress: TransferProgressManager,
-    private val favorites: Lazy<FavoritesPersistenceService>,
+    private val favoritesInitRetry: FavoritesInitRetry,
 ) {
 
     private companion object {
@@ -224,8 +224,7 @@ class ChatSessionStartup @Inject constructor(
         geohashSession.initialize()
 
         // Initialize favorites persistence service
-        // (the binding initializes the service on first resolution)
-        favorites.get()
+        favoritesInitRetry.run()
 
         // Reflect "they favorited us" changes into reactive UI state (drives star celebrations)
         conversationDirectory.startFavoriteTracking()

@@ -15,6 +15,8 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.platform.app.InstrumentationRegistry
 import com.bitchat.android.feature.settings.R
+import com.bitchat.android.spam.SpamFilter
+import com.bitchat.android.spam.SpamFilterPreferences
 import com.bitchat.android.ui.theme.BitchatTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -35,7 +37,11 @@ class DebugSettingsScreenTest {
 
         compose.setContent {
             BitchatTheme {
-                DebugSettingsScreen(uiState = state, onAction = { actions += it })
+                DebugSettingsScreen(
+                    uiState = state,
+                    onAction = { actions += it },
+                    spamFilterSection = { SpamFilterDebugSection(SpamFilterPreferences, SpamFilter.shared) },
+                )
             }
         }
 

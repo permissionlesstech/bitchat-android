@@ -22,6 +22,7 @@ import com.bitchat.android.ui.debug.DebugPreferenceManager
 import com.bitchat.android.ui.debug.DebugSettingsManager
 import dagger.Module
 import dagger.Provides
+import javax.inject.Inject
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
@@ -56,14 +57,8 @@ object MeshBridgeModule {
 
     // 10c-2a-1 bridge: deleted when FavoritesPersistenceService is flipped
     @Provides
-    fun provideFavoritesPersistenceService(
-        @ApplicationContext context: Context
-    ): FavoritesPersistenceService {
-        // The chat session's start-up used to call initialize again to retry a failed first
-        // attempt in Application.onCreate; resolving the binding keeps that retry.
-        FavoritesPersistenceService.initialize(context)
-        return FavoritesPersistenceService.shared
-    }
+    fun provideFavoritesPersistenceService(): FavoritesPersistenceService =
+        FavoritesPersistenceService.shared
 
     // 10c-2a-1 bridge: deleted when LiveVoiceManager is flipped
     @Provides
@@ -123,4 +118,13 @@ object MeshBridgeModule {
     // 10c-2a-1 bridge: deleted when VerificationService is flipped
     @Provides
     fun provideVerificationService(): VerificationService = VerificationService
+}
+
+/**
+ * The one retry of `FavoritesPersistenceService.initialize` that the chat session's start-up
+ * makes after Application.onCreate's first attempt.
+ */
+// 10c-2a-1 bridge: deleted when FavoritesPersistenceService is flipped
+class FavoritesInitRetry @Inject constructor(@ApplicationContext private val context: Context) {
+    fun run() = FavoritesPersistenceService.initialize(context)
 }

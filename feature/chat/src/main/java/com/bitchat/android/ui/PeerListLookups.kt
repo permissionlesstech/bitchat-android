@@ -65,8 +65,8 @@ interface PeerListLookups {
 }
 
 /**
- * Forwards to the singletons and session objects. The favourites are resolved on every call,
- * not captured, so an uninitialised service throws where it threw before. The identity state
+ * Forwards to the singletons and session objects. The favourites are a Lazy that caches only a
+ * success, so an uninitialised service throws on each call, where it threw before. The identity state
  * manager is built once, with the adapter, so a failure to build it is as loud as it was in
  * composition and is not retried per row.
  */
