@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import javax.inject.Inject
+import javax.inject.Singleton
 
 enum class FavoriteIndicator {
     None,
@@ -39,9 +41,10 @@ fun favoriteIndicator(
  *
  * Favorites are keyed by the authenticated Noise public key, while screens navigate with the
  * short mesh peer ID. The shared persistence service resolves that mapping and notifies this
- * object whenever either side changes the relationship.
+ * state whenever either side changes the relationship.
  */
-object WearPeerIdentityState : FavoritesChangeListener {
+@Singleton
+class WearPeerIdentityState @Inject constructor() : FavoritesChangeListener {
     private val _revision = MutableStateFlow(0L)
     val revision: StateFlow<Long> = _revision.asStateFlow()
 

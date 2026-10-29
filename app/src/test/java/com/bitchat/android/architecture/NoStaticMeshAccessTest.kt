@@ -57,7 +57,7 @@ class NoStaticMeshAccessTest {
         "wear/src/main/java/com/bitchat/watch/notification/WearNotificationCoordinator.kt" to
             "still-static class (getInstance) reaching WearChatState; constructor-injected when flipped in Task 7",
         "wear/src/main/java/com/bitchat/watch/ui/WearPeerIdentityState.kt" to
-            "still-static object reaching FavoritesPersistenceService; constructor-injected when flipped in Task 7",
+            "injected WearPeerIdentityState still reaching FavoritesPersistenceService; goes with its flip in Task 6b",
     )
 
     /**
