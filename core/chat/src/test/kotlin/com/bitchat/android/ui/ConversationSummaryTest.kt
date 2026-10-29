@@ -3,7 +3,6 @@ package com.bitchat.android.ui
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.services.PrivateMessageArrivalOrder
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -11,18 +10,15 @@ import org.junit.Test
 import java.util.Date
 
 class ConversationSummaryTest {
-    @After
-    fun tearDown() {
-        PrivateMessageArrivalOrder.clear()
-    }
+    private val arrivalOrder = PrivateMessageArrivalOrder()
 
     @Test
     fun `read offline conversation remains present`() {
         val message = incoming("message", "alice", 100L)
-        PrivateMessageArrivalOrder.record(message.id)
+        arrivalOrder.record(message.id)
 
         val conversations = buildConversationSummaries(
-            arrivalOrder = PrivateMessageArrivalOrder,
+            arrivalOrder = arrivalOrder,
             unreadConversationIDs = emptySet(),
             privateChats = mapOf("alice-peer" to listOf(message)),
             currentUserIdentifiers = setOf("me"),
@@ -40,11 +36,11 @@ class ConversationSummaryTest {
     fun `canonical aliases yield one conversation with unique messages`() {
         val first = incoming("first", "alice", 300L)
         val second = incoming("second", "alice", 100L)
-        PrivateMessageArrivalOrder.record(first.id)
-        PrivateMessageArrivalOrder.record(second.id)
+        arrivalOrder.record(first.id)
+        arrivalOrder.record(second.id)
 
         val conversations = buildConversationSummaries(
-            arrivalOrder = PrivateMessageArrivalOrder,
+            arrivalOrder = arrivalOrder,
             unreadConversationIDs = setOf("mesh-alias"),
             privateChats = mapOf(
                 "mesh-alias" to listOf(first),
@@ -107,11 +103,11 @@ class ConversationSummaryTest {
             timestamp = 100L,
             content = "  latest\nmessage  "
         )
-        PrivateMessageArrivalOrder.record(first.id)
-        PrivateMessageArrivalOrder.record(second.id)
+        arrivalOrder.record(first.id)
+        arrivalOrder.record(second.id)
 
         val conversation = buildConversationSummaries(
-            arrivalOrder = PrivateMessageArrivalOrder,
+            arrivalOrder = arrivalOrder,
             unreadConversationIDs = emptySet(),
             privateChats = mapOf("alice-peer" to listOf(first, second)),
             currentUserIdentifiers = setOf("me"),
@@ -134,7 +130,7 @@ class ConversationSummaryTest {
         )
 
         val conversation = buildConversationSummaries(
-            arrivalOrder = PrivateMessageArrivalOrder,
+            arrivalOrder = arrivalOrder,
             unreadConversationIDs = emptySet(),
             privateChats = mapOf("alice-peer" to listOf(message)),
             currentUserIdentifiers = setOf("me"),
@@ -156,7 +152,7 @@ class ConversationSummaryTest {
         )
 
         val conversations = buildConversationSummaries(
-            arrivalOrder = PrivateMessageArrivalOrder,
+            arrivalOrder = arrivalOrder,
             unreadConversationIDs = emptySet(),
             privateChats = mapOf(
                 "CONTACT_ALICE" to listOf(outgoing),
@@ -182,7 +178,7 @@ class ConversationSummaryTest {
         ).copy(senderPeerID = "my-stable-peer-id")
 
         val conversation = buildConversationSummaries(
-            arrivalOrder = PrivateMessageArrivalOrder,
+            arrivalOrder = arrivalOrder,
             unreadConversationIDs = setOf("contact_alice"),
             privateChats = mapOf("contact_alice" to listOf(outgoing)),
             currentUserIdentifiers = setOf("new nickname", "my-stable-peer-id"),
@@ -228,7 +224,7 @@ class ConversationSummaryTest {
         val latest = incoming("latest", "alice", 300L)
 
         val conversation = buildConversationSummaries(
-            arrivalOrder = PrivateMessageArrivalOrder,
+            arrivalOrder = arrivalOrder,
             unreadConversationIDs = setOf("contact_alice"),
             privateChats = mapOf("contact_alice" to listOf(latest)),
             currentUserIdentifiers = setOf("me"),

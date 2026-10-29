@@ -18,16 +18,14 @@ class TestMeshStores(
     conversationRepository: ConversationRepository? = null,
     identityManagerProvider: (Context) -> SecureIdentityStateManager = { SecureIdentityStateManager(it) },
 ) {
-    val contactDirectory: ContactDirectory = ContactDirectory(Lazy { favorites }, identityManagerProvider)
+    val arrivalOrder: PrivateMessageArrivalOrder = PrivateMessageArrivalOrder()
+    val contactDirectory: ContactDirectory =
+        ContactDirectory(Lazy { favorites }, arrivalOrder, identityManagerProvider)
     val appStateStore: AppStateStore = AppStateStore(
         contactDirectory,
+        arrivalOrder,
         Lazy { conversationRepository ?: error("this test builds no conversation repository") },
         conversationRepository,
     )
     val favorites: FavoritesPersistenceService = FavoritesPersistenceService(context, appStateStore)
-
-    init {
-        // Still one per process: start from an empty receipt order, as AppStateStore.clear() did.
-        PrivateMessageArrivalOrder.clear()
-    }
 }

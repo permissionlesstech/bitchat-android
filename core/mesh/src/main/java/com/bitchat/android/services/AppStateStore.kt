@@ -17,6 +17,7 @@ import javax.inject.Singleton
 @Singleton
 class AppStateStore(
     private val contactDirectory: ContactDirectory,
+    private val arrivalOrder: PrivateMessageArrivalOrder,
     private val repositories: Lazy<ConversationRepository>,
     conversationRepository: ConversationRepository?,
 ) {
@@ -27,8 +28,9 @@ class AppStateStore(
      */
     @Inject constructor(
         contactDirectory: ContactDirectory,
+        arrivalOrder: PrivateMessageArrivalOrder,
         repositories: Lazy<ConversationRepository>,
-    ) : this(contactDirectory, repositories, null)
+    ) : this(contactDirectory, arrivalOrder, repositories, null)
 
     companion object {
         const val MAX_PUBLIC_TIMELINE_MESSAGES = 1_000
@@ -144,7 +146,7 @@ class AppStateStore(
                 .distinctBy { it.id }
                 .maxWithOrNull(
                     compareBy<BitchatMessage> {
-                        PrivateMessageArrivalOrder.sequenceOf(it.id) ?: Long.MIN_VALUE
+                        arrivalOrder.sequenceOf(it.id) ?: Long.MIN_VALUE
                     }.thenBy { it.timestamp.time }
                 )
                 ?: return
@@ -341,7 +343,7 @@ class AppStateStore(
         if (privateConversationWritesSuspended) return false
         if (seenMessageIds.contains(msg.id)) return false
         seenMessageIds.add(msg.id)
-        PrivateMessageArrivalOrder.record(msg.id)
+        arrivalOrder.record(msg.id)
         val conversationID = contactDirectory.canonicalConversationId(peerID)
         val map = _privateMessages.value.toMutableMap()
         val list = (map[conversationID] ?: emptyList()) + msg
@@ -947,7 +949,7 @@ class AppStateStore(
             retainedPublicMessageIds.clear()
             recentPublicMessageIds.clear()
             recentPublicMessageKeys.clear()
-            PrivateMessageArrivalOrder.clear()
+            arrivalOrder.clear()
             privateWritesSinceGlobalPrune = 0
             peerIdsByTransport.clear()
             directPeerIdsByTransport.clear()
@@ -980,7 +982,7 @@ class AppStateStore(
             if (privateConversationWritesSuspended) return
             val liveChats = _privateMessages.value
             val liveMessageIDs = liveChats.values.flatten().map { it.id }
-            PrivateMessageArrivalOrder.restore(
+            arrivalOrder.restore(
                 snapshot.arrivalOrder,
                 liveMessageIDs,
                 snapshot.receivedAtByMessageID,
@@ -1020,7 +1022,7 @@ class AppStateStore(
                 snapshot.displayNames + _privateConversationDisplayNames.value
             _privateMessages.value = contactDirectory.canonicalizePrivateChats(
                 merged.mapValues { (_, messages) ->
-                    PrivateMessageArrivalOrder.order(messages.distinctBy { it.id })
+                    arrivalOrder.order(messages.distinctBy { it.id })
                 }
             )
             canonicalizePrivateConversationStateLocked()
@@ -1188,7 +1190,7 @@ class AppStateStore(
         compareByDescending<BitchatMessage> {
             it.id in _readPrivateMessageIDs.value
         }.thenBy {
-            PrivateMessageArrivalOrder.sequenceOf(it.id) ?: Long.MAX_VALUE
+            arrivalOrder.sequenceOf(it.id) ?: Long.MAX_VALUE
         }
 
     private fun privateMessagePayloadBytes(message: BitchatMessage): Long =

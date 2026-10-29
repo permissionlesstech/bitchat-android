@@ -22,10 +22,13 @@ import javax.inject.Singleton
 @Singleton
 class ContactDirectory(
     private val favorites: Lazy<FavoritesPersistenceService>,
+    private val arrivalOrder: PrivateMessageArrivalOrder,
     private val identityManagerProvider: (Context) -> SecureIdentityStateManager,
 ) {
-    @Inject constructor(favorites: Lazy<FavoritesPersistenceService>) :
-        this(favorites, { SecureIdentityStateManager(it) })
+    @Inject constructor(
+        favorites: Lazy<FavoritesPersistenceService>,
+        arrivalOrder: PrivateMessageArrivalOrder,
+    ) : this(favorites, arrivalOrder, { SecureIdentityStateManager(it) })
 
     data class ContactResolution(
         val conversationID: String,
@@ -132,7 +135,7 @@ class ContactDirectory(
             // A private message's timestamp comes from the sender and is not a reliable ordering
             // signal when peers' clocks differ. Use the local receipt sequence so interleaved
             // alias lists can be merged back into their global arrival order.
-            PrivateMessageArrivalOrder.order(messages.distinctBy { it.id })
+            arrivalOrder.order(messages.distinctBy { it.id })
         }
     }
 

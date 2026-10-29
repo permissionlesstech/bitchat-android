@@ -1,7 +1,6 @@
 package com.bitchat.android.di
 
 import com.bitchat.android.nostr.GeohashAliasRegistry
-import com.bitchat.android.services.PrivateMessageArrivalOrder
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -16,10 +15,6 @@ import dagger.hilt.components.SingletonComponent
 @Module
 @InstallIn(SingletonComponent::class)
 object MeshBridgeModule {
-
-    // 10c-2a-1 bridge: deleted when PrivateMessageArrivalOrder is flipped
-    @Provides
-    fun providePrivateMessageArrivalOrder(): PrivateMessageArrivalOrder = PrivateMessageArrivalOrder
 
     // 10c-2a-1 bridge: deleted when GeohashAliasRegistry is flipped
     @Provides
