@@ -51,7 +51,7 @@ class NoStaticMeshAccessTest {
         "core/chat/src/main/java/com/bitchat/android/services/MessageRouter.kt" to
             "deferred to 10c-2a-2: mesh-replacement machinery the identity holder replaces",
         "core/nostr/src/main/java/com/bitchat/android/nostr/NostrIdentity.kt" to
-            "NostrIdentityBridge is a still-static object; flipped in Task 7",
+            "injected NostrIdentityBridge still reaching FavoritesPersistenceService; goes with its flip in Task 6b",
         "wear/src/main/java/com/bitchat/watch/di/WearBridgeModule.kt" to
             "bridge for the watch's still-static objects; deleted with their flips in Task 7",
         "wear/src/main/java/com/bitchat/watch/notification/WearNotificationCoordinator.kt" to

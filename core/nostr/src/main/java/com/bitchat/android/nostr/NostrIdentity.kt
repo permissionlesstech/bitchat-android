@@ -7,6 +7,8 @@ import com.bitchat.android.identity.SecureIdentityStateManager
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Manages Nostr identity (secp256k1 keypair) for NIP-17 private messaging
@@ -95,10 +97,13 @@ data class NostrIdentity(
  * Bridge between Noise and Nostr identities
  * Manages persistent storage and per-geohash identity derivation
  */
-object NostrIdentityBridge {
-    private const val TAG = "NostrIdentityBridge"
-    private const val NOSTR_PRIVATE_KEY = "nostr_private_key"
-    private const val DEVICE_SEED_KEY = "nostr_device_seed"
+@Singleton
+class NostrIdentityBridge @Inject constructor() {
+    private companion object {
+        const val TAG = "NostrIdentityBridge"
+        const val NOSTR_PRIVATE_KEY = "nostr_private_key"
+        const val DEVICE_SEED_KEY = "nostr_device_seed"
+    }
     
     // Cache for derived geohash identities to avoid repeated crypto operations
     private val geohashIdentityCache = ConcurrentHashMap<String, NostrIdentity>()

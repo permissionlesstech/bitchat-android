@@ -29,12 +29,12 @@ class GeohashPresenceBurstTest {
     private val dispatcher = StandardTestDispatcher()
     private val scope = TestScope(dispatcher)
     private val dataManager = DataManager(application)
-    private val repo = GeohashRepository(application, dataManager, scope, NostrIdentityBridge) { "test-self" }
+    private val repo = GeohashRepository(application, dataManager, scope, NostrIdentityBridge()) { "test-self" }
     private val handler = GeohashMessageHandler(
         application, repo, scope, dataManager, { _, _ -> }, PoWPreferenceManager(application),
         signatureVerificationDispatcher = dispatcher,
         geohashAliases = GeohashAliasRegistry,
-        nostrIdentity = NostrIdentityBridge,
+        nostrIdentity = NostrIdentityBridge(),
         spamFilter = SpamFilter(),
     )
     // A synthetic fixture channel; no device location or relay traffic is used.

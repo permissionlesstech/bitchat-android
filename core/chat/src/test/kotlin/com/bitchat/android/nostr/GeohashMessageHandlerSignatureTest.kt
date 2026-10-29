@@ -48,7 +48,7 @@ class GeohashMessageHandlerSignatureTest {
         chatState = ChatState(scope = testScope, appStateStore = AppStateStore)
         dataManager = DataManager(context = application)
         messageManager = MessageManager(state = chatState, appStateStore = AppStateStore, contactDirectory = ContactDirectory)
-        repo = GeohashRepository(application, dataManager, testScope, NostrIdentityBridge) { chatState.getNicknameValue() }
+        repo = GeohashRepository(application, dataManager, testScope, NostrIdentityBridge()) { chatState.getNicknameValue() }
         handler = GeohashMessageHandler(
             application = application,
             repo = repo,
@@ -58,7 +58,7 @@ class GeohashMessageHandlerSignatureTest {
             powPreferences = PoWPreferenceManager(application),
             signatureVerificationDispatcher = testDispatcher,
             geohashAliases = GeohashAliasRegistry,
-            nostrIdentity = NostrIdentityBridge,
+            nostrIdentity = NostrIdentityBridge(),
             spamFilter = SpamFilter(),
         )
     }

@@ -2,6 +2,7 @@ package com.bitchat.android.di
 
 import android.content.Context
 import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.nostr.NostrTransport
 import com.bitchat.android.services.MessageRouter
 import dagger.Lazy
@@ -40,6 +41,7 @@ object ServicesModule {
     fun provideMessageRouter(
         @ApplicationContext context: Context,
         mesh: MeshService,
+        nostrIdentity: NostrIdentityBridge,
         nostrTransport: Lazy<NostrTransport>,
-    ): MessageRouter = MessageRouter.getInstance(context, mesh) { nostrTransport.get() }
+    ): MessageRouter = MessageRouter.getInstance(context, mesh, nostrIdentity) { nostrTransport.get() }
 }

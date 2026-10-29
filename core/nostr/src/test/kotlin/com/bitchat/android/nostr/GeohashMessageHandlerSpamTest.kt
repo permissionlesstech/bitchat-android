@@ -38,7 +38,7 @@ class GeohashMessageHandlerSpamTest {
         val dataManager = DataManager(context = application)
         handler = GeohashMessageHandler(
             application = application,
-            repo = GeohashRepository(application, dataManager, testScope, NostrIdentityBridge) { "me" },
+            repo = GeohashRepository(application, dataManager, testScope, NostrIdentityBridge()) { "me" },
             scope = testScope,
             dataManager = dataManager,
             addChannelMessage = { channel, message ->
@@ -48,7 +48,7 @@ class GeohashMessageHandlerSpamTest {
             signatureVerificationDispatcher = testDispatcher,
             spamFilterDispatcher = testDispatcher,
             geohashAliases = GeohashAliasRegistry,
-            nostrIdentity = NostrIdentityBridge,
+            nostrIdentity = NostrIdentityBridge(),
             spamFilter = spamFilter,
         )
     }

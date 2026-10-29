@@ -57,7 +57,7 @@ class GeohashParticipantTrackingTest {
         AppStateStore.clear()
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         dataManager = DataManager(application)
-        repo = GeohashRepository(application, dataManager, scope, NostrIdentityBridge, store) { "self" }
+        repo = GeohashRepository(application, dataManager, scope, NostrIdentityBridge(), store) { "self" }
         repo.setCurrentGeohash(geohash)
         repo.observeParticipants()
         processor = NostrBackgroundEventProcessor(
@@ -72,7 +72,7 @@ class GeohashParticipantTrackingTest {
             peerFingerprints = PeerFingerprintManager(),
             geohashAliases = GeohashAliasRegistry,
             geohashConversations = GeohashConversationRegistry,
-            nostrIdentity = NostrIdentityBridge,
+            nostrIdentity = NostrIdentityBridge(),
             spamFilter = spamFilter,
             seenMessageStore = Lazy(lazy { SeenMessageStore(application) }::value),
         )
@@ -134,7 +134,7 @@ class GeohashParticipantTrackingTest {
     fun `a recreated UI hydrates chat participants and follows shared clearing`() = runBlocking {
         receiveChat()
 
-        val recreatedRepo = GeohashRepository(application, dataManager, scope, NostrIdentityBridge, store) { "self" }
+        val recreatedRepo = GeohashRepository(application, dataManager, scope, NostrIdentityBridge(), store) { "self" }
         recreatedRepo.setCurrentGeohash(geohash)
         recreatedRepo.observeParticipants()
         withTimeout(5_000) {
@@ -199,8 +199,8 @@ class GeohashParticipantTrackingTest {
     @Test
     fun `service participant bursts publish one foreground snapshot per interval`() = runTest {
         val sharedStore = GeohashParticipantStore { now }
-        val foregroundRepo = GeohashRepository(application, dataManager, backgroundScope, NostrIdentityBridge, sharedStore) { "self" }
-        val serviceRepo = GeohashRepository(application, dataManager, backgroundScope, NostrIdentityBridge, sharedStore) { "self" }
+        val foregroundRepo = GeohashRepository(application, dataManager, backgroundScope, NostrIdentityBridge(), sharedStore) { "self" }
+        val serviceRepo = GeohashRepository(application, dataManager, backgroundScope, NostrIdentityBridge(), sharedStore) { "self" }
         foregroundRepo.setCurrentGeohash(geohash)
         foregroundRepo.observeParticipants()
         val snapshots = mutableListOf<Int>()

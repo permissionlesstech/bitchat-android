@@ -5,6 +5,7 @@ import android.util.Log
 import com.bitchat.android.favorites.FavoriteControlMessage
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.ReadReceipt
+import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.nostr.NostrTransport
 import com.bitchat.android.util.AppConstants
 import kotlinx.coroutines.CoroutineScope
@@ -22,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap
 class MessageRouter private constructor(
     private val context: Context,
     private var mesh: MeshService,
+    private val nostrIdentity: NostrIdentityBridge,
     private val nostr: NostrTransport
 ) {
     enum class RouteResult {
@@ -58,10 +60,15 @@ class MessageRouter private constructor(
          * [nostr] is asked for only when the router does not exist yet, so a caller can pass an
          * injected `dagger.Lazy` and leave the transport unbuilt until then.
          */
-        fun getInstance(context: Context, mesh: MeshService, nostr: () -> NostrTransport): MessageRouter {
+        fun getInstance(
+            context: Context,
+            mesh: MeshService,
+            nostrIdentity: NostrIdentityBridge,
+            nostr: () -> NostrTransport,
+        ): MessageRouter {
             val instance = INSTANCE ?: synchronized(this) {
                 INSTANCE ?: run {
-                    MessageRouter(context.applicationContext, mesh, nostr()).also { instance ->
+                    MessageRouter(context.applicationContext, mesh, nostrIdentity, nostr()).also { instance ->
                         // Register for favorites changes to flush outbox
                         try {
                             com.bitchat.android.favorites.FavoritesPersistenceService.shared.addListener(instance.favoriteListener)
@@ -174,7 +181,7 @@ class MessageRouter private constructor(
         if (com.bitchat.android.nostr.GeohashAliasRegistry.contains(toPeerID)) {
             val recipientHex = com.bitchat.android.nostr.GeohashAliasRegistry.get(toPeerID)
             if (recipientHex != null) {
-                nostr.sendDeliveryAckGeohash(messageID, recipientHex, try { com.bitchat.android.nostr.NostrIdentityBridge.getCurrentNostrIdentity(context)!! } catch (_: Exception) { return })
+                nostr.sendDeliveryAckGeohash(messageID, recipientHex, try { nostrIdentity.getCurrentNostrIdentity(context)!! } catch (_: Exception) { return })
                 return
             }
         }
@@ -189,7 +196,7 @@ class MessageRouter private constructor(
         val resolution = ContactDirectory.resolve(toPeerID)
         val meshTarget = resolution.meshPeerID ?: toPeerID.takeIf { ContactIdentityResolver.isMeshPeerId(it) }
         if (meshTarget != null && mesh.getPeerInfo(meshTarget)?.isConnected == true && mesh.hasEstablishedSession(meshTarget)) {
-            val myNpub = try { com.bitchat.android.nostr.NostrIdentityBridge.getCurrentNostrIdentity(context)?.npub } catch (_: Exception) { null }
+            val myNpub = try { nostrIdentity.getCurrentNostrIdentity(context)?.npub } catch (_: Exception) { null }
             val content = FavoriteControlMessage.encode(isFavorite, myNpub)
             val nickname = mesh.getPeerNicknames()[meshTarget] ?: meshTarget
             mesh.sendPrivateMessage(content, meshTarget, nickname, null)

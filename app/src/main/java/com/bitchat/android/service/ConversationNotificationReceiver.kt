@@ -6,6 +6,7 @@ import android.content.Intent
 import androidx.core.app.RemoteInput
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
+import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.nostr.NostrTransport
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ContactDirectory
@@ -30,6 +31,7 @@ class ConversationNotificationReceiver : BroadcastReceiver() {
     @InstallIn(SingletonComponent::class)
     interface Dependencies {
         fun nostrTransport(): NostrTransport
+        fun nostrIdentity(): NostrIdentityBridge
         fun contactDirectory(): ContactDirectory
         fun appStateStore(): AppStateStore
         fun meshServiceHolder(): MeshServiceHolder
@@ -85,7 +87,11 @@ class ConversationNotificationReceiver : BroadcastReceiver() {
                             forceRead = true
                         )
                         if (persisted) {
-                            MessageRouter.getInstance(context.applicationContext, mesh) {
+                            MessageRouter.getInstance(
+                                context.applicationContext,
+                                mesh,
+                                dependencies.nostrIdentity(),
+                            ) {
                                 dependencies.nostrTransport()
                             }
                                 .sendPrivate(

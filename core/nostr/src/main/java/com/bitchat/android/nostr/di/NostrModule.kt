@@ -3,7 +3,6 @@ package com.bitchat.android.nostr.di
 import com.bitchat.android.nostr.GeohashConversationRegistry
 import com.bitchat.android.nostr.LocationNotesManager
 import com.bitchat.android.nostr.NearbyNotesController
-import com.bitchat.android.nostr.NostrIdentityBridge
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -23,10 +22,6 @@ object NostrModule {
             subscribe = manager::setGeohash,
             unsubscribe = manager::stop,
         )
-
-    // 10c-2a-1 bridge: deleted when NostrIdentityBridge is flipped
-    @Provides
-    fun provideNostrIdentityBridge(): NostrIdentityBridge = NostrIdentityBridge
 
     // 10c-2a-1 bridge: deleted when GeohashConversationRegistry is flipped
     @Provides

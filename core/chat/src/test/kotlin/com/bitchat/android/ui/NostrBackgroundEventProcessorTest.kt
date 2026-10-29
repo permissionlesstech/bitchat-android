@@ -67,7 +67,7 @@ class NostrBackgroundEventProcessorTest {
             peerFingerprints = PeerFingerprintManager(),
             geohashAliases = GeohashAliasRegistry,
             geohashConversations = GeohashConversationRegistry,
-            nostrIdentity = NostrIdentityBridge,
+            nostrIdentity = NostrIdentityBridge(),
             spamFilter = spamFilter,
             seenMessageStore = Lazy(lazy { SeenMessageStore(application) }::value),
         )

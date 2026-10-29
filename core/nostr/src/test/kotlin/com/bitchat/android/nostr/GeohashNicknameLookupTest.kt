@@ -32,7 +32,7 @@ class GeohashNicknameLookupTest {
     fun setUp() {
         AppStateStore.clear()
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
-        repo = GeohashRepository(application, DataManager(application), scope, NostrIdentityBridge, store) { "me" }
+        repo = GeohashRepository(application, DataManager(application), scope, NostrIdentityBridge(), store) { "me" }
         store.cacheNickname(firstAlice, "fixture-alice")
         store.cacheNickname(secondAlice, "fixture-alice")
         store.cacheNickname(bob, "fixture-bob")
