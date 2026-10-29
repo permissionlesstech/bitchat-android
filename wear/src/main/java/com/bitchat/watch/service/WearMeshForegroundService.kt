@@ -1,5 +1,6 @@
 package com.bitchat.watch.service
 
+import dagger.hilt.android.AndroidEntryPoint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -35,6 +36,7 @@ import kotlinx.coroutines.launch
  * Keeps the BLE mesh (scan + advertise + GATT) alive while the app is backgrounded or the watch
  * goes ambient. Bluetooth mesh only; no internet connectivity is used or declared.
  */
+@AndroidEntryPoint
 class WearMeshForegroundService : Service() {
 
     companion object {

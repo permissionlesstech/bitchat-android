@@ -1,0 +1,120 @@
+package com.bitchat.android.di
+
+import android.content.Context
+import com.bitchat.android.features.voice.LiveVoiceManager
+import com.bitchat.android.features.voice.VoiceWaveformCache
+import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.mesh.PeerFingerprintManager
+import com.bitchat.android.mesh.PowerManager
+import com.bitchat.android.mesh.TransferProgressManager
+import com.bitchat.android.nostr.GeohashAliasRegistry
+import com.bitchat.android.service.TransportBridgeService
+import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.ConversationRepository
+import com.bitchat.android.services.PrivateMessageArrivalOrder
+import com.bitchat.android.services.SeenMessageStore
+import com.bitchat.android.services.VerificationService
+import com.bitchat.android.services.meshgraph.MeshGraphService
+import com.bitchat.android.spam.SpamFilter
+import com.bitchat.android.spam.SpamFilterPreferences
+import com.bitchat.android.ui.debug.DebugPreferenceManager
+import com.bitchat.android.ui.debug.DebugSettingsManager
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
+
+/**
+ * Hands today's static `:core:mesh` instances to the graph, so consumers can depend on the type
+ * before each class is flipped to an `@Inject` constructor. Every binding is unscoped on purpose:
+ * the accessor it calls already guarantees the single instance, and each bridge is deleted in the
+ * commit that flips its class.
+ */
+@Module
+@InstallIn(SingletonComponent::class)
+object MeshBridgeModule {
+
+    // 10c-2a-1 bridge: deleted when PowerManager is flipped
+    @Provides
+    fun providePowerManager(@ApplicationContext context: Context): PowerManager =
+        PowerManager.getInstance(context)
+
+    // 10c-2a-1 bridge: deleted when PeerFingerprintManager is flipped
+    @Provides
+    fun providePeerFingerprintManager(): PeerFingerprintManager =
+        PeerFingerprintManager.getInstance()
+
+    // 10c-2a-1 bridge: deleted when DebugSettingsManager is flipped
+    @Provides
+    fun provideDebugSettingsManager(): DebugSettingsManager = DebugSettingsManager.getInstance()
+
+    // 10c-2a-1 bridge: deleted when SpamFilter is flipped
+    @Provides
+    fun provideSpamFilter(): SpamFilter = SpamFilter.shared
+
+    // 10c-2a-1 bridge: deleted when FavoritesPersistenceService is flipped
+    @Provides
+    fun provideFavoritesPersistenceService(): FavoritesPersistenceService =
+        FavoritesPersistenceService.shared
+
+    // 10c-2a-1 bridge: deleted when LiveVoiceManager is flipped
+    @Provides
+    fun provideLiveVoiceManager(@ApplicationContext context: Context): LiveVoiceManager =
+        LiveVoiceManager.getInstance(context)
+
+    // 10c-2a-1 bridge: deleted when SeenMessageStore is flipped
+    @Provides
+    fun provideSeenMessageStore(@ApplicationContext context: Context): SeenMessageStore =
+        SeenMessageStore.getInstance(context)
+
+    // 10c-2a-1 bridge: deleted when ConversationRepository is flipped
+    @Provides
+    fun provideConversationRepository(@ApplicationContext context: Context): ConversationRepository =
+        ConversationRepository.getInstance(context)
+
+    // 10c-2a-1 bridge: deleted when MeshGraphService is flipped
+    @Provides
+    fun provideMeshGraphService(): MeshGraphService = MeshGraphService.getInstance()
+
+    // 10c-2a-1 bridge: deleted when AppStateStore is flipped
+    @Provides
+    fun provideAppStateStore(): AppStateStore = AppStateStore
+
+    // 10c-2a-1 bridge: deleted when ContactDirectory is flipped
+    @Provides
+    fun provideContactDirectory(): ContactDirectory = ContactDirectory
+
+    // 10c-2a-1 bridge: deleted when TransportBridgeService is flipped
+    @Provides
+    fun provideTransportBridgeService(): TransportBridgeService = TransportBridgeService
+
+    // 10c-2a-1 bridge: deleted when PrivateMessageArrivalOrder is flipped
+    @Provides
+    fun providePrivateMessageArrivalOrder(): PrivateMessageArrivalOrder = PrivateMessageArrivalOrder
+
+    // 10c-2a-1 bridge: deleted when VoiceWaveformCache is flipped
+    @Provides
+    fun provideVoiceWaveformCache(): VoiceWaveformCache = VoiceWaveformCache
+
+    // 10c-2a-1 bridge: deleted when SpamFilterPreferences is flipped
+    @Provides
+    fun provideSpamFilterPreferences(): SpamFilterPreferences = SpamFilterPreferences
+
+    // 10c-2a-1 bridge: deleted when TransferProgressManager is flipped
+    @Provides
+    fun provideTransferProgressManager(): TransferProgressManager = TransferProgressManager
+
+    // 10c-2a-1 bridge: deleted when DebugPreferenceManager is flipped
+    @Provides
+    fun provideDebugPreferenceManager(): DebugPreferenceManager = DebugPreferenceManager
+
+    // 10c-2a-1 bridge: deleted when GeohashAliasRegistry is flipped
+    @Provides
+    fun provideGeohashAliasRegistry(): GeohashAliasRegistry = GeohashAliasRegistry
+
+    // 10c-2a-1 bridge: deleted when VerificationService is flipped
+    @Provides
+    fun provideVerificationService(): VerificationService = VerificationService
+}

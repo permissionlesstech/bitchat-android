@@ -1,9 +1,5 @@
-package com.bitchat.android.nostr.di
+package com.bitchat.android.di
 
-import com.bitchat.android.di.DefaultDispatcher
-import com.bitchat.android.di.IoDispatcher
-import com.bitchat.android.di.MainDispatcher
-import com.bitchat.android.di.MainImmediateDispatcher
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

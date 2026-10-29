@@ -1,5 +1,6 @@
 package com.bitchat.watch
 
+import dagger.hilt.android.AndroidEntryPoint
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
@@ -81,6 +82,7 @@ sealed interface WearScreen {
     data class TextInput(val peerID: String?) : WearScreen
 }
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private var hasPermissions by mutableStateOf(false)

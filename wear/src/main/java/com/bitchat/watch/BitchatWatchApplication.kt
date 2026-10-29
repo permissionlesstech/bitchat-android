@@ -4,7 +4,9 @@ import android.app.Application
 import com.bitchat.android.mesh.PowerManager
 import com.bitchat.watch.notification.WearNotificationCoordinator
 import com.bitchat.watch.ui.WearPeerIdentityState
+import dagger.hilt.android.HiltAndroidApp
 
+@HiltAndroidApp
 class BitchatWatchApplication : Application() {
     override fun onCreate() {
         super.onCreate()
