@@ -1,13 +1,10 @@
 package com.bitchat.android.di
 
-import android.content.Context
 import com.bitchat.android.nostr.GeohashAliasRegistry
-import com.bitchat.android.services.ConversationRepository
 import com.bitchat.android.services.PrivateMessageArrivalOrder
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 
 /**
@@ -19,11 +16,6 @@ import dagger.hilt.components.SingletonComponent
 @Module
 @InstallIn(SingletonComponent::class)
 object MeshBridgeModule {
-
-    // 10c-2a-1 bridge: deleted when ConversationRepository is flipped
-    @Provides
-    fun provideConversationRepository(@ApplicationContext context: Context): ConversationRepository =
-        ConversationRepository.getInstance(context)
 
     // 10c-2a-1 bridge: deleted when PrivateMessageArrivalOrder is flipped
     @Provides

@@ -11,6 +11,7 @@ import android.util.Log
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.model.DeliveryStatus
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -27,6 +28,8 @@ import java.security.MessageDigest
 import java.util.Date
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Process-wide, serialized persistence for private conversations.
@@ -36,30 +39,24 @@ import java.util.concurrent.atomic.AtomicBoolean
  * writer so a delete/merge followed by a newly arriving message is applied in the same order that
  * [AppStateStore] publishes it.
  */
+@Singleton
 class ConversationRepository(
     context: Context,
-    private val dispatcher: CoroutineDispatcher = Executors
-        .newSingleThreadExecutor { runnable ->
-            Thread(runnable, "conversation-store").apply { isDaemon = true }
-        }
-        .asCoroutineDispatcher(),
+    private val dispatcher: CoroutineDispatcher = writerDispatcher(),
     databaseName: String = ConversationDatabase.DEFAULT_DATABASE_NAME,
     storageCipher: ConversationStorageCipher = AndroidConversationStorageCipher()
 ) {
+    @Inject constructor(@ApplicationContext context: Context) : this(context, writerDispatcher())
+
     companion object {
         private const val TAG = "ConversationRepository"
 
-        @Volatile
-        private var instance: ConversationRepository? = null
-
-        fun getInstance(context: Context): ConversationRepository =
-            instance ?: synchronized(this) {
-                instance ?: ConversationRepository(context.applicationContext).also {
-                    instance = it
-                }
+        /** The one writer thread every mutation is queued on. */
+        private fun writerDispatcher(): CoroutineDispatcher = Executors
+            .newSingleThreadExecutor { runnable ->
+                Thread(runnable, "conversation-store").apply { isDaemon = true }
             }
-
-        fun tryGetInstance(): ConversationRepository? = instance
+            .asCoroutineDispatcher()
     }
 
     private val applicationContext = context.applicationContext

@@ -19,7 +19,11 @@ class TestMeshStores(
     identityManagerProvider: (Context) -> SecureIdentityStateManager = { SecureIdentityStateManager(it) },
 ) {
     val contactDirectory: ContactDirectory = ContactDirectory(Lazy { favorites }, identityManagerProvider)
-    val appStateStore: AppStateStore = AppStateStore(contactDirectory, conversationRepository)
+    val appStateStore: AppStateStore = AppStateStore(
+        contactDirectory,
+        Lazy { conversationRepository ?: error("this test builds no conversation repository") },
+        conversationRepository,
+    )
     val favorites: FavoritesPersistenceService = FavoritesPersistenceService(context, appStateStore)
 
     init {

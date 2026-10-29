@@ -61,14 +61,11 @@ class NoStaticMeshAccessTest {
      * A class's reaches of itself, in its own file, are never counted.
      */
     private val stillStaticInMesh = mapOf(
-        "core/mesh/src/main/java/com/bitchat/android/di/MeshBridgeModule.kt" to
-            "the bridges; each goes with its class's flip in Task 6c",
         "core/mesh/src/main/java/com/bitchat/android/services/ContactDirectory.kt" to
             "injected class still reaching the GeohashAliasRegistry and PrivateMessageArrivalOrder objects; " +
             "goes with their flips in Task 6c",
         "core/mesh/src/main/java/com/bitchat/android/services/AppStateStore.kt" to
-            "injected class still reaching ConversationRepository (getInstance) and the PrivateMessageArrivalOrder " +
-            "object; goes with their flips in Task 6c",
+            "injected class still reaching the PrivateMessageArrivalOrder object; goes with its flip in Task 6c",
     )
 
     private val accessor = Regex(

@@ -6,6 +6,7 @@ import com.bitchat.android.model.DeliveryStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import dagger.Lazy
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -16,13 +17,18 @@ import javax.inject.Singleton
 @Singleton
 class AppStateStore(
     private val contactDirectory: ContactDirectory,
+    private val repositories: Lazy<ConversationRepository>,
     conversationRepository: ConversationRepository?,
 ) {
     /**
-     * Without a repository until [initializeConversationPersistence] hands it one. A test passes
-     * its repository to the other constructor instead, so the store writes to it from the start.
+     * Without a repository until [initializeConversationPersistence] builds and hands it one. A
+     * test passes its repository to the other constructor instead, so the store writes to it from
+     * the start.
      */
-    @Inject constructor(contactDirectory: ContactDirectory) : this(contactDirectory, null)
+    @Inject constructor(
+        contactDirectory: ContactDirectory,
+        repositories: Lazy<ConversationRepository>,
+    ) : this(contactDirectory, repositories, null)
 
     companion object {
         const val MAX_PUBLIC_TIMELINE_MESSAGES = 1_000
@@ -94,7 +100,7 @@ class AppStateStore(
     }
 
     fun initializeConversationPersistence(context: Context) {
-        val repository = ConversationRepository.getInstance(context.applicationContext)
+        val repository = repositories.get()
         conversationRepository = repository
         repository.initialize(::restorePrivateConversations)
     }
@@ -104,7 +110,7 @@ class AppStateStore(
      * after a controlled shutdown cleared the process-wide state.
      */
     fun reloadConversationPersistence(context: Context) {
-        val repository = ConversationRepository.getInstance(context.applicationContext)
+        val repository = repositories.get()
         conversationRepository = repository
         repository.reload(::restorePrivateConversations)
     }
