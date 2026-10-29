@@ -283,7 +283,13 @@ class BluetoothGattServerManager(
                 }
 
                 if (BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE.contentEquals(value)) {
-                    connectionTracker.addSubscribedDevice(device)
+                    val granted = connectionTracker.requestBroadcastSubscription(device)
+                    if (!granted) {
+                        Log.i(
+                            TAG,
+                            "Deferring broadcast feed for ${device.address} until verified ANNOUNCE"
+                        )
+                    }
 
                     connectionScope.launch {
                         delay(100)
