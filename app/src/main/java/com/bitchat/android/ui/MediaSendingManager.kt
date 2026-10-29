@@ -676,6 +676,16 @@ class MediaSendingManager(
         filePath: String,
         messageType: BitchatMessageType
     ) {
+        // File packets have no encrypted-channel envelope. Never publish protected media as public mesh.
+        if (channelOrNull != null && channelManager.isChannelPasswordProtected(channelOrNull)) {
+            channelManager.addChannelMessage(channelOrNull, BitchatMessage(
+                sender = "system",
+                content = "Media sharing is unavailable in password-protected channels.",
+                timestamp = Date(),
+                isRelay = false
+            ), null)
+            return
+        }
         val payload = withContext(mediaWorkDispatcher) { filePacket.encode() }
             ?: run {
                 Log.e(TAG, "Failed to encode file packet for broadcast send")

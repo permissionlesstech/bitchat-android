@@ -88,6 +88,24 @@ class MediaSendingManagerMigrationTest {
     }
 
     @Test
+    fun `protected channel media never falls back to a public file broadcast`() {
+        val channels = mock<ChannelManager>()
+        whenever(channels.isChannelPasswordProtected("#locked")).thenReturn(true)
+        val protectedManager = MediaSendingManager(
+            state, MessageManager(state), channels,
+            CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+            mediaWorkDispatcher = Dispatchers.Unconfined,
+            getMeshService = { mesh }
+        )
+        protectedManager.sendVoiceNote(null, "#locked", file.absolutePath)
+        protectedManager.sendImageNote(null, "#locked", file.absolutePath)
+        protectedManager.sendFileNote(null, "#locked", file.absolutePath)
+        verify(mesh, never()).sendFileBroadcast(any())
+        verify(channels, times(3)).addChannelMessage(eq("#locked"), any(), eq(null))
+        assertTrue(state.getMessagesValue().isEmpty())
+    }
+
+    @Test
     fun `preflight rejection creates only a visible failure and no file echo or send`() {
         whenever(mesh.prepareFilePrivate(eq(peerID), any(), any(), eq(false)))
             .thenReturn(PrivateMediaPreparation.Rejected("too many fragments"))

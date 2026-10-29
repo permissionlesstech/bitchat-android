@@ -20,6 +20,23 @@ The remaining implementation work and milestone progress are tracked in
 | Nostr | Bech32, secp256k1 key derivation, NIP-01 event IDs/signatures, NIP-44 authenticated encryption, NIP-13 PoW, authenticated NIP-17 seals, 22h outbound envelope randomization | `ClientRewriteNostrContractTest`, `NostrProtocolTest` |
 | Application state | Peer unions, canonical private conversations, chronological history, delivery/read behavior, media migration policy | `AppStateStoreTest`, `PrivateChatManagerTest`, `MediaSendingManagerMigrationTest` |
 
+## Public and channel message admission
+
+Public Mesh text retains its UTF-8 payload. Channel text uses the existing
+binary chat envelope, preserving the channel and mentions. If that envelope
+cannot be encoded (including the encoder's capacity limit and the 255-byte
+UTF-8 channel-name limit), the sender must reject it; it must never fall back to public Mesh text.
+
+A decoded broadcast envelope supplies content, channel and mentions only.
+The receiver takes sender identity, nickname, message ID and timestamp from
+its verified peer and outer packet, and clears private and relay metadata.
+Encrypted channel envelopes retain their ciphertext and encryption flag for password unlock; without a matching
+key, the visible content is an encrypted-message placeholder. Encrypted
+envelopes without a channel are rejected. Inner fields cannot turn a
+broadcast into a private conversation.
+`ChannelMessagePayloadTest` and `MessageHandlerTest` enforce these rules;
+`ClientRewriteWireContractTest` retains the literal chat payload vectors.
+
 ## Golden-vector policy
 
 Golden vectors compare literal externally visible bytes or hashes. Do not update
@@ -60,6 +77,27 @@ The task runs the new golden vectors and the complete existing unit suite. A
 rewrite is compatible only when this gate passes. Tests should be ported
 unchanged when package boundaries change; adapter façades are preferable to
 weakening assertions.
+
+## Password-protected channel admission
+
+Channel names must fit the existing one-byte UTF-8 wire length without
+truncation. An unencodable channel payload must be rejected, never published
+as public mesh text. Broadcast envelopes take identity, nickname, message ID,
+and timestamp from the verified outer packet; inner private and relay flags
+cannot redirect a broadcast into a private conversation.
+
+Historical encrypted channel text uses PBKDF2-HMAC-SHA256 (100,000 iterations,
+32-byte key, UTF-8 channel name as salt), followed by AES-256-GCM with a
+12-byte nonce prepended to ciphertext and its 16-byte tag. The existing chat
+payload encryption flag substitutes those bytes for plaintext content. The
+literal independently generated fixture in `ChannelManagerTest` pins this
+format and its SHA-256 key commitment.
+
+Password derivation and encryption cannot restore state or emit content after
+a panic wipe, leave, or superseding key operation. Command-generated channel
+text follows the same encryption policy as composed text. File packets do not
+carry encrypted-channel context, so voice notes, images, and files in a
+password-protected channel are rejected with a visible message.
 
 ## Device-only acceptance
 

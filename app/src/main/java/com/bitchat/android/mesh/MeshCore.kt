@@ -533,20 +533,34 @@ class MeshCore(
     fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null) {
         if (content.isEmpty()) return
         scope.launch {
-            val packet = BitchatPacket(
-                version = 1u,
-                type = MessageType.MESSAGE.value,
-                senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
-                recipientID = SpecialRecipients.BROADCAST,
-                timestamp = System.currentTimeMillis().toULong(),
-                payload = content.toByteArray(Charsets.UTF_8),
-                signature = null,
-                ttl = maxTtl
-            )
-            val signedPacket = signPacketBeforeBroadcast(packet)
-            dispatchGlobal(RoutedPacket(signedPacket))
-            try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
+            val payload = encodePublicOrChannelMessage(
+                content, mentions, channel, delegate?.getNickname() ?: myPeerID, myPeerID
+            ) ?: return@launch
+            broadcastMessagePayload(payload)
         }
+    }
+
+    fun sendBinaryBroadcast(payload: ByteArray) {
+        if (payload.isEmpty()) return
+        scope.launch {
+            broadcastMessagePayload(payload)
+        }
+    }
+
+    private suspend fun broadcastMessagePayload(payload: ByteArray) {
+        val packet = BitchatPacket(
+            version = 1u,
+            type = MessageType.MESSAGE.value,
+            senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
+            recipientID = SpecialRecipients.BROADCAST,
+            timestamp = System.currentTimeMillis().toULong(),
+            payload = payload,
+            signature = null,
+            ttl = maxTtl
+        )
+        val signedPacket = signPacketBeforeBroadcast(packet)
+        dispatchGlobal(RoutedPacket(signedPacket))
+        try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
     }
 
     private fun sendAuthenticatedPeerState(
