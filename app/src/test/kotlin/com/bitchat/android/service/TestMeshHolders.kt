@@ -23,7 +23,7 @@ fun testMeshServiceHolder(): MeshServiceHolder = MeshServiceHolder(
         override fun create(bluetooth: BluetoothMeshService): UnifiedMeshService =
             error("tests attach their mesh instead")
     },
-    transportBridgeService = TransportBridgeService,
+    transportBridgeService = TransportBridgeService(),
 )
 
 /** A fresh [WifiAwareController] per test that never builds a Wi-Fi Aware mesh. */

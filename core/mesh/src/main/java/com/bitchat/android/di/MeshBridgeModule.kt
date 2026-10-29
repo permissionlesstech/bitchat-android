@@ -4,7 +4,6 @@ import android.content.Context
 import com.bitchat.android.features.voice.VoiceWaveformCache
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.nostr.GeohashAliasRegistry
-import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ConversationRepository
@@ -51,10 +50,6 @@ object MeshBridgeModule {
     // 10c-2a-1 bridge: deleted when ContactDirectory is flipped
     @Provides
     fun provideContactDirectory(): ContactDirectory = ContactDirectory
-
-    // 10c-2a-1 bridge: deleted when TransportBridgeService is flipped
-    @Provides
-    fun provideTransportBridgeService(): TransportBridgeService = TransportBridgeService
 
     // 10c-2a-1 bridge: deleted when PrivateMessageArrivalOrder is flipped
     @Provides

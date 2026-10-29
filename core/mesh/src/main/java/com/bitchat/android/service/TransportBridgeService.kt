@@ -9,6 +9,8 @@ import java.security.MessageDigest
 import java.util.Collections
 import java.util.LinkedHashMap
 import java.util.concurrent.ConcurrentHashMap
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Central bridge for routing packets between different transport layers
@@ -17,10 +19,13 @@ import java.util.concurrent.ConcurrentHashMap
  * Allows a packet received on one transport to be seamlessly relayed
  * to all other active transports, effectively bridging separate meshes.
  */
-object TransportBridgeService {
-    private const val TAG = "TransportBridgeService"
-    private const val MAX_SEEN_PACKETS = 4096
-    private const val SEEN_PACKET_TTL_MS = 5 * 60 * 1000L
+@Singleton
+class TransportBridgeService @Inject constructor() {
+    private companion object {
+        const val TAG = "TransportBridgeService"
+        const val MAX_SEEN_PACKETS = 4096
+        const val SEEN_PACKET_TTL_MS = 5 * 60 * 1000L
+    }
 
     /**
      * Interface that any transport layer (BLE, WiFi, Tor, etc.) must implement
