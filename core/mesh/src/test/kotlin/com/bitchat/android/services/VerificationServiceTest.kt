@@ -18,6 +18,7 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class VerificationServiceTest {
     private lateinit var encryptionService: EncryptionService
+    private val service = VerificationService()
 
     @Before
     fun setup() {
@@ -27,7 +28,7 @@ class VerificationServiceTest {
             PeerFingerprintManager(),
             Lazy { FavoritesPersistenceService.shared },
         )
-        VerificationService.configure(encryptionService)
+        service.configure(encryptionService)
     }
 
     @Test
@@ -62,27 +63,27 @@ class VerificationServiceTest {
 
     @Test
     fun `verifyScannedQR rejects signed extreme timestamps`() {
-        assertNull(VerificationService.verifyScannedQR(signedQr(Long.MIN_VALUE), maxAgeSeconds = 60))
-        assertNull(VerificationService.verifyScannedQR(signedQr(Long.MAX_VALUE), maxAgeSeconds = 60))
+        assertNull(service.verifyScannedQR(signedQr(Long.MIN_VALUE), maxAgeSeconds = 60))
+        assertNull(service.verifyScannedQR(signedQr(Long.MAX_VALUE), maxAgeSeconds = 60))
     }
 
     @Test
     fun `verifyScannedQR accepts a freshly signed payload`() {
-        val qr = VerificationService.buildMyQRString(nickname = "alice", npub = null)
+        val qr = service.buildMyQRString(nickname = "alice", npub = null)
         assertNotNull(qr)
-        assertNotNull(VerificationService.verifyScannedQR(qr!!, maxAgeSeconds = 60))
+        assertNotNull(service.verifyScannedQR(qr!!, maxAgeSeconds = 60))
     }
 
     @Test
     fun `verifyScannedQR rejects a future-dated payload`() {
         val qr = signedQr(ts = (System.currentTimeMillis() / 1000L) + 3_600L)
-        assertNull(VerificationService.verifyScannedQR(qr, maxAgeSeconds = 60))
+        assertNull(service.verifyScannedQR(qr, maxAgeSeconds = 60))
     }
 
     @Test
     fun `verifyScannedQR rejects an expired payload`() {
         val qr = signedQr(ts = (System.currentTimeMillis() / 1000L) - 3_600L)
-        assertNull(VerificationService.verifyScannedQR(qr, maxAgeSeconds = 60))
+        assertNull(service.verifyScannedQR(qr, maxAgeSeconds = 60))
     }
 
     private fun signedQr(ts: Long): String {

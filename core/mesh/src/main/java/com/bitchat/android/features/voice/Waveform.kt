@@ -11,12 +11,15 @@ import kotlinx.coroutines.launch
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.ConcurrentHashMap
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlin.math.abs
 import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.min
 
-object VoiceWaveformCache {
+@Singleton
+class VoiceWaveformCache @Inject constructor() {
     private val map = ConcurrentHashMap<String, FloatArray>()
     fun put(path: String, samples: FloatArray) { map[path] = samples }
     fun get(path: String): FloatArray? = map[path]

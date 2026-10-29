@@ -1,14 +1,12 @@
 package com.bitchat.android.di
 
 import android.content.Context
-import com.bitchat.android.features.voice.VoiceWaveformCache
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ConversationRepository
 import com.bitchat.android.services.PrivateMessageArrivalOrder
-import com.bitchat.android.services.VerificationService
 import com.bitchat.android.spam.SpamFilter
 import com.bitchat.android.spam.SpamFilterPreferences
 import com.bitchat.android.ui.debug.DebugPreferenceManager
@@ -55,10 +53,6 @@ object MeshBridgeModule {
     @Provides
     fun providePrivateMessageArrivalOrder(): PrivateMessageArrivalOrder = PrivateMessageArrivalOrder
 
-    // 10c-2a-1 bridge: deleted when VoiceWaveformCache is flipped
-    @Provides
-    fun provideVoiceWaveformCache(): VoiceWaveformCache = VoiceWaveformCache
-
     // 10c-2a-1 bridge: deleted when SpamFilterPreferences is flipped
     @Provides
     fun provideSpamFilterPreferences(): SpamFilterPreferences = SpamFilterPreferences
@@ -70,10 +64,6 @@ object MeshBridgeModule {
     // 10c-2a-1 bridge: deleted when GeohashAliasRegistry is flipped
     @Provides
     fun provideGeohashAliasRegistry(): GeohashAliasRegistry = GeohashAliasRegistry
-
-    // 10c-2a-1 bridge: deleted when VerificationService is flipped
-    @Provides
-    fun provideVerificationService(): VerificationService = VerificationService
 }
 
 /**

@@ -10,13 +10,18 @@ import java.io.ByteArrayOutputStream
 import java.security.SecureRandom
 import androidx.core.net.toUri
 import java.lang.ref.WeakReference
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * QR verification helpers: schema, signing, and basic challenge/response helpers.
  */
-object VerificationService {
-    private const val CONTEXT = "bitchat-verify-v1"
-    private const val RESPONSE_CONTEXT = "bitchat-verify-resp-v1"
+@Singleton
+class VerificationService @Inject constructor() {
+    private companion object {
+        const val CONTEXT = "bitchat-verify-v1"
+        const val RESPONSE_CONTEXT = "bitchat-verify-resp-v1"
+    }
 
     private var encryptionServiceRef: WeakReference<EncryptionService>? = null
 
@@ -104,7 +109,7 @@ object VerificationService {
 
     fun buildMyQRString(nickname: String, npub: String?): String? {
         val service = encryptionServiceRef?.get() ?: return null
-        val cache = Cache.last
+        val cache = lastCache
         if (cache != null && cache.nickname == nickname && cache.npub == npub) {
             if (System.currentTimeMillis() - cache.builtAtMs < 60_000L) {
                 return cache.value
@@ -135,7 +140,7 @@ object VerificationService {
         val signature = service.signData(payload.canonicalBytes()) ?: return null
         val signed = payload.copy(sigHex = signature.hexEncodedString())
         val out = signed.toUrlString()
-        Cache.last = CacheEntry(nickname, npub, System.currentTimeMillis(), out)
+        lastCache = CacheEntry(nickname, npub, System.currentTimeMillis(), out)
         return out
     }
 
@@ -291,9 +296,7 @@ object VerificationService {
         val value: String
     )
 
-    private object Cache {
-        var last: CacheEntry? = null
-    }
+    private var lastCache: CacheEntry? = null
 }
 
 /** Absolute age in seconds, saturating when the difference cannot fit in a Long. */
