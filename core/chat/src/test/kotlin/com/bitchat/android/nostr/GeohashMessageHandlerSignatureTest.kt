@@ -2,6 +2,11 @@ package com.bitchat.android.nostr
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import com.bitchat.android.nostr.GeohashAliasRegistry
+import com.bitchat.android.nostr.NostrIdentityBridge
+import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.spam.SpamFilter
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.DataManager
 import com.bitchat.android.ui.MessageManager
@@ -40,10 +45,10 @@ class GeohashMessageHandlerSignatureTest {
     @Before
     fun setup() {
         com.bitchat.android.services.AppStateStore.clear()
-        chatState = ChatState(scope = testScope)
+        chatState = ChatState(scope = testScope, appStateStore = AppStateStore)
         dataManager = DataManager(context = application)
-        messageManager = MessageManager(state = chatState)
-        repo = GeohashRepository(application, dataManager, testScope) { chatState.getNicknameValue() }
+        messageManager = MessageManager(state = chatState, appStateStore = AppStateStore, contactDirectory = ContactDirectory)
+        repo = GeohashRepository(application, dataManager, testScope, NostrIdentityBridge) { chatState.getNicknameValue() }
         handler = GeohashMessageHandler(
             application = application,
             repo = repo,
@@ -51,7 +56,10 @@ class GeohashMessageHandlerSignatureTest {
             dataManager = dataManager,
             addChannelMessage = messageManager::addChannelMessage,
             powPreferences = PoWPreferenceManager(application),
-            signatureVerificationDispatcher = testDispatcher
+            signatureVerificationDispatcher = testDispatcher,
+            geohashAliases = GeohashAliasRegistry,
+            nostrIdentity = NostrIdentityBridge,
+            spamFilter = SpamFilter.shared,
         )
     }
 

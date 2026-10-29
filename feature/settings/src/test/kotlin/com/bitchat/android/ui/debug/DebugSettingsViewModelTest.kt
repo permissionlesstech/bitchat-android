@@ -9,6 +9,8 @@ import com.bitchat.android.settings.MeshDiagnostics
 import com.bitchat.android.settings.MeshSnapshot
 import com.bitchat.android.settings.TransportDiagnostics
 import com.bitchat.android.settings.WifiAwareStatus
+import com.bitchat.android.spam.SpamFilter
+import com.bitchat.android.spam.SpamFilterPreferences
 import com.bitchat.android.util.DistributionInfoProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -120,6 +122,8 @@ class DebugSettingsViewModelTest {
             inspectDistribution = { distribution },
             defaultDispatcher = background,
             ioDispatcher = background,
+            spamFilterPreferences = SpamFilterPreferences,
+            spamFilter = SpamFilter.shared,
         )
         // Held in a store so tearDown can clear it, which cancels its poll.
         val factory = object : ViewModelProvider.Factory {

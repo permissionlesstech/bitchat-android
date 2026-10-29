@@ -1,5 +1,7 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.nostr.GeohashAliasRegistry
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -9,6 +11,7 @@ import com.bitchat.android.navigation.Navigator
 import com.bitchat.android.navigation.openPrivateChat
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ConversationListPreferences
+import dagger.Lazy
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
@@ -45,6 +48,9 @@ class ChatViewModel @Inject constructor(
     private val composerMedia: ComposerMedia,
     private val panicClear: PanicClear,
     sessionStartup: ChatSessionStartup,
+    private val contactDirectory: ContactDirectory,
+    private val favorites: Lazy<FavoritesPersistenceService>,
+    private val geohashAliases: GeohashAliasRegistry,
 ) : ViewModel() {
 
     private companion object {
@@ -148,7 +154,7 @@ class ChatViewModel @Inject constructor(
 
     /** The saved composer draft of [conversationID], read when the composer is created. */
     fun conversationDraft(conversationID: String?): String =
-        conversationListPreferences.composerDraft(conversationID)
+        conversationListPreferences.composerDraft(conversationID, contactDirectory)
 
     fun createVoiceRecorder(toPeerIDOrNull: String?, channelOrNull: String?): VoiceRecorder =
         composerMedia.createVoiceRecorder(toPeerIDOrNull, channelOrNull)
@@ -255,13 +261,14 @@ class ChatViewModel @Inject constructor(
                 selectedPeerID = targetKey,
                 connectedPeers = state.getConnectedPeersValue(),
                 meshNoiseKeyForPeer = { pid -> mesh.getPeerInfo(pid)?.noisePublicKey },
-                nostrPubHexForAlias = { alias -> com.bitchat.android.nostr.GeohashAliasRegistry.get(alias) },
-                findNoiseKeyForNostr = { key -> com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNoiseKey(key) }
+                nostrPubHexForAlias = { alias -> geohashAliases.get(alias) },
+                findNoiseKeyForNostr = { key -> favorites.get().findNoiseKey(key) },
+                contactDirectory = contactDirectory,
                 )
                 canonical ?: targetKey
             }
 
-            navigator.openPrivateChat(ContactDirectory.canonicalConversationId(openPeer))
+            navigator.openPrivateChat(contactDirectory.canonicalConversationId(openPeer))
         } catch (e: Exception) {
             Log.w(TAG, "openLatestUnreadPrivateChat failed: ${e.message}")
         }

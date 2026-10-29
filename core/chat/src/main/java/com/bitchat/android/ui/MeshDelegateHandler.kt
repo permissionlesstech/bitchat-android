@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.ui.NotificationTextUtils
 import com.bitchat.android.mesh.MeshService
@@ -29,12 +30,14 @@ class MeshDelegateHandler(
     private val onHapticFeedback: () -> Unit,
     private val getMyPeerID: () -> String,
     private val getMeshService: () -> MeshService,
+    private val appStateStore: AppStateStore,
+    private val contactDirectory: ContactDirectory,
     private val markMessageReadLocally: (messageID: String) -> Unit = {},
     private val reconciliationDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : BluetoothMeshDelegate {
     private val peerUpdates = Channel<List<String>>(Channel.CONFLATED)
     private val peerConversations = PeerConversationReconciler(
-        com.bitchat.android.services.AppStateStore::reconcilePeerConversations
+        appStateStore::reconcilePeerConversations
     )
 
     init {
@@ -145,19 +148,21 @@ class MeshDelegateHandler(
             peerConversations.reconcile(mergedPeers.map { peerID ->
                 PeerConversationReconciler.PeerAliases(
                     peerID,
-                    ContactDirectory.canonicalConversationId(peerID),
-                    ContactDirectory.aliasesForConversation(peerID)
+                    contactDirectory.canonicalConversationId(peerID),
+                    contactDirectory.aliasesForConversation(peerID)
                 )
             })
         }
 
         state.getSelectedPrivateChatPeerValue()?.let { currentPeer ->
-            val canonical = ContactDirectory.canonicalConversationId(currentPeer)
+            val canonical = contactDirectory.canonicalConversationId(currentPeer)
             if (canonical != currentPeer) {
                 com.bitchat.android.services.ConversationAliasResolver.unifyChatsIntoPeer(
                     state = state,
                     targetPeerID = canonical,
-                    keysToMerge = ContactDirectory.aliasesForConversation(currentPeer).toList()
+                    keysToMerge = contactDirectory.aliasesForConversation(currentPeer).toList(),
+                    contactDirectory = contactDirectory,
+                    appStateStore = appStateStore,
                 )
                 state.setSelectedPrivateChatPeer(canonical)
             }
@@ -255,8 +260,8 @@ class MeshDelegateHandler(
         
         // Send read receipt if user is currently focused on this specific chat
         val senderPeerID = message.senderPeerID
-        val senderConversationID = senderPeerID?.let { ContactDirectory.canonicalConversationId(it) }
-        val focusedConversationID = currentPrivateChatPeer?.let { ContactDirectory.canonicalConversationId(it) }
+        val senderConversationID = senderPeerID?.let { contactDirectory.canonicalConversationId(it) }
+        val focusedConversationID = currentPrivateChatPeer?.let { contactDirectory.canonicalConversationId(it) }
         val shouldSendReadReceipt = !isAppInBackground &&
             senderConversationID != null &&
             focusedConversationID == senderConversationID
@@ -273,7 +278,7 @@ class MeshDelegateHandler(
             val nickname = state.getNicknameValue().ifBlank { "unknown" }
             val mesh = getMeshService()
             try {
-                val meshPeerID = ContactDirectory.resolve(senderConversationID).meshPeerID
+                val meshPeerID = contactDirectory.resolve(senderConversationID).meshPeerID
                     ?: senderPeerID.takeIf {
                         com.bitchat.android.services.ContactIdentityResolver.isMeshPeerId(it)
                     }

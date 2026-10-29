@@ -8,6 +8,7 @@ import com.bitchat.android.mesh.PrivateMediaWireMode
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.services.ConversationRepository
 import com.bitchat.android.services.InMemoryConversationStorageCipher
@@ -50,7 +51,7 @@ class MediaSendingManagerMigrationTest {
 
     @Before
     fun setup() {
-        state = ChatState(CoroutineScope(SupervisorJob() + Dispatchers.Unconfined))
+        state = ChatState(CoroutineScope(SupervisorJob() + Dispatchers.Unconfined), AppStateStore)
         state.setNickname("me")
         conversationDatabaseName = "media-send-${UUID.randomUUID()}.db"
         conversationRepository = ConversationRepository(
@@ -66,8 +67,9 @@ class MediaSendingManagerMigrationTest {
         whenever(mesh.getPeerNicknames()).thenReturn(mapOf(peerID to "old peer"))
         manager = MediaSendingManager(
             state,
-            MessageManager(state),
+            MessageManager(state, AppStateStore, ContactDirectory),
             mock(),
+            ContactDirectory,
             CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
             mediaWorkDispatcher = Dispatchers.Unconfined,
             getMeshService = { mesh }
@@ -119,8 +121,9 @@ class MediaSendingManagerMigrationTest {
                 }
             val asynchronousManager = MediaSendingManager(
                 state,
-                MessageManager(state),
+                MessageManager(state, AppStateStore, ContactDirectory),
                 mock(),
+                ContactDirectory,
                 CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
                 mediaWorkDispatcher = dispatcher,
                 getMeshService = { mesh }

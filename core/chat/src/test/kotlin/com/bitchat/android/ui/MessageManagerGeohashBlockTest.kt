@@ -2,6 +2,7 @@ package com.bitchat.android.ui
 
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.ContactDirectory
 import java.util.Date
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -19,8 +20,8 @@ class MessageManagerGeohashBlockTest {
 
     @Test
     fun `blocking a sender hides their existing messages in every geohash timeline`() = runTest {
-        val state = ChatState(backgroundScope)
-        val manager = MessageManager(state)
+        val state = ChatState(backgroundScope, AppStateStore)
+        val manager = MessageManager(state, AppStateStore, ContactDirectory)
         manager.addChannelMessage("geo:s00000", message("geo-1", blocked))
         manager.addChannelMessage("geo:s00000", message("geo-2", other))
         manager.addChannelMessage("geo:s00001", message("geo-3", blocked.uppercase()))

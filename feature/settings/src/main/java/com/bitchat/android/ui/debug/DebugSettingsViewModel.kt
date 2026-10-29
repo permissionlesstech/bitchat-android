@@ -7,6 +7,8 @@ import androidx.lifecycle.viewModelScope
 import com.bitchat.android.settings.MeshDiagnostics
 import com.bitchat.android.settings.TransportDiagnostics
 import com.bitchat.android.share.AppBuildInfo
+import com.bitchat.android.spam.SpamFilter
+import com.bitchat.android.spam.SpamFilterPreferences
 import com.bitchat.android.util.DistributionInfoProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -45,6 +47,9 @@ import kotlinx.coroutines.withContext
 @HiltViewModel
 class DebugSettingsViewModel internal constructor(
     private val manager: DebugSettingsManager,
+    /** The spam filter controls the Debug screen draws. */
+    internal val spamFilterPreferences: SpamFilterPreferences,
+    internal val spamFilter: SpamFilter,
     /** Keeps the relay graph's mode and series, as the card's saveable state did. */
     private val savedState: SavedStateHandle,
     graph: MeshGraphSource,
@@ -59,6 +64,8 @@ class DebugSettingsViewModel internal constructor(
     @Inject
     constructor(
         manager: DebugSettingsManager,
+        spamFilterPreferences: SpamFilterPreferences,
+        spamFilter: SpamFilter,
         savedState: SavedStateHandle,
         graph: MeshGraphSource,
         diagnostics: TransportDiagnostics,
@@ -66,6 +73,8 @@ class DebugSettingsViewModel internal constructor(
         @ApplicationContext context: Context,
     ) : this(
         manager = manager,
+        spamFilterPreferences = spamFilterPreferences,
+        spamFilter = spamFilter,
         savedState = savedState,
         graph = graph,
         diagnostics = diagnostics,
@@ -73,6 +82,9 @@ class DebugSettingsViewModel internal constructor(
         defaultDispatcher = Dispatchers.Default,
         ioDispatcher = Dispatchers.IO,
     )
+
+    /** The packet and route pulses the mesh graph animates. */
+    val meshVisualEvents: Flow<DebugSettingsManager.MeshVisualEvent> get() = manager.meshVisualEvents
 
     // One worker at a time, in submission order.
     private val meshDispatcher = defaultDispatcher.limitedParallelism(1)

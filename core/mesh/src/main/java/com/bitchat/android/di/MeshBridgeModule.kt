@@ -56,8 +56,14 @@ object MeshBridgeModule {
 
     // 10c-2a-1 bridge: deleted when FavoritesPersistenceService is flipped
     @Provides
-    fun provideFavoritesPersistenceService(): FavoritesPersistenceService =
-        FavoritesPersistenceService.shared
+    fun provideFavoritesPersistenceService(
+        @ApplicationContext context: Context
+    ): FavoritesPersistenceService {
+        // The chat session's start-up used to call initialize again to retry a failed first
+        // attempt in Application.onCreate; resolving the binding keeps that retry.
+        FavoritesPersistenceService.initialize(context)
+        return FavoritesPersistenceService.shared
+    }
 
     // 10c-2a-1 bridge: deleted when LiveVoiceManager is flipped
     @Provides

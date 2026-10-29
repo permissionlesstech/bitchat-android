@@ -4,6 +4,7 @@ import android.content.Context
 import com.bitchat.android.features.voice.LiveVoicePreferences
 import com.bitchat.android.features.voice.LiveVoiceTarget
 import com.bitchat.android.features.voice.VoiceRecorder
+import com.bitchat.android.services.ContactDirectory
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.scopes.ActivityRetainedScoped
 import javax.inject.Inject
@@ -18,6 +19,7 @@ class ComposerMedia @Inject constructor(
     @ApplicationContext private val context: Context,
     private val mediaSendingManager: MediaSendingManager,
     private val sessionMesh: ChatSessionMesh,
+    private val contactDirectory: ContactDirectory,
 ) {
 
     private val mesh get() = sessionMesh.unified
@@ -29,7 +31,7 @@ class ComposerMedia @Inject constructor(
     fun createVoiceRecorder(toPeerIDOrNull: String?, channelOrNull: String?): VoiceRecorder {
         if (!LiveVoicePreferences.isEnabled(context)) return VoiceRecorder(context)
         val recipientPeerID = toPeerIDOrNull?.let {
-            PrivateMediaRecipientResolver.resolve(it, mesh)?.meshPeerID
+            PrivateMediaRecipientResolver.resolve(it, mesh, contactDirectory)?.meshPeerID
         }
         val liveTarget = when {
             toPeerIDOrNull != null && recipientPeerID != null && mesh.hasEstablishedSession(recipientPeerID) ->

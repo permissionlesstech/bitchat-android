@@ -6,6 +6,7 @@ import androidx.navigation3.runtime.entryProvider
 import com.bitchat.android.chat.ChatEntriesModule
 import com.bitchat.android.location.LocationEntriesModule
 import com.bitchat.android.onboarding.OnboardingEntriesModule
+import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.settings.SettingsEntriesModule
 import com.bitchat.android.ui.ChatState
 import kotlinx.coroutines.test.TestScope
@@ -51,7 +52,7 @@ class EveryRouteHasAnEntryTest {
     @Test
     fun `every route resolves to an entry`() {
         val navigator = AppNavigator()
-        val chatState = ChatState(TestScope())
+        val chatState = ChatState(TestScope(), AppStateStore)
         val installers: Set<EntryProviderInstaller> = setOf(
             SettingsEntriesModule.settingsEntries(
                 navigator = navigator,

@@ -28,6 +28,7 @@ import kotlin.math.*
 import kotlin.random.Random
 import androidx.compose.material3.MaterialTheme
 import com.bitchat.android.ui.debug.DebugSettingsManager.MeshVisualEvent
+import kotlinx.coroutines.flow.Flow
 
 // Physics constants
 private const val REPULSION_FORCE = 100000f
@@ -270,6 +271,7 @@ fun ForceDirectedMeshGraph(
     wifiAwarePeerIDs: Set<String> = emptySet(),
     blePeerIDs: Set<String> = emptySet(),
     localPeerID: String? = null,
+    visualEvents: Flow<MeshVisualEvent>,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -283,9 +285,8 @@ fun ForceDirectedMeshGraph(
     var motion by remember { mutableIntStateOf(0) }
 
     // Listen for visual events
-    val debugManager = remember { DebugSettingsManager.getInstance() }
     LaunchedEffect(Unit) {
-        debugManager.meshVisualEvents.collect { event ->
+        visualEvents.collect { event ->
             when (event) {
                 is MeshVisualEvent.PacketActivity -> simulation.triggerNodePulse(event.peerID)
                 is MeshVisualEvent.RouteActivity -> simulation.triggerRouteAnimation(event.route)

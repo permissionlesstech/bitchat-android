@@ -22,6 +22,7 @@ class ConversationSummaryTest {
         PrivateMessageArrivalOrder.record(message.id)
 
         val conversations = buildConversationSummaries(
+            arrivalOrder = PrivateMessageArrivalOrder,
             unreadConversationIDs = emptySet(),
             privateChats = mapOf("alice-peer" to listOf(message)),
             currentUserIdentifiers = setOf("me"),
@@ -43,6 +44,7 @@ class ConversationSummaryTest {
         PrivateMessageArrivalOrder.record(second.id)
 
         val conversations = buildConversationSummaries(
+            arrivalOrder = PrivateMessageArrivalOrder,
             unreadConversationIDs = setOf("mesh-alias"),
             privateChats = mapOf(
                 "mesh-alias" to listOf(first),
@@ -109,6 +111,7 @@ class ConversationSummaryTest {
         PrivateMessageArrivalOrder.record(second.id)
 
         val conversation = buildConversationSummaries(
+            arrivalOrder = PrivateMessageArrivalOrder,
             unreadConversationIDs = emptySet(),
             privateChats = mapOf("alice-peer" to listOf(first, second)),
             currentUserIdentifiers = setOf("me"),
@@ -131,6 +134,7 @@ class ConversationSummaryTest {
         )
 
         val conversation = buildConversationSummaries(
+            arrivalOrder = PrivateMessageArrivalOrder,
             unreadConversationIDs = emptySet(),
             privateChats = mapOf("alice-peer" to listOf(message)),
             currentUserIdentifiers = setOf("me"),
@@ -152,6 +156,7 @@ class ConversationSummaryTest {
         )
 
         val conversations = buildConversationSummaries(
+            arrivalOrder = PrivateMessageArrivalOrder,
             unreadConversationIDs = emptySet(),
             privateChats = mapOf(
                 "CONTACT_ALICE" to listOf(outgoing),
@@ -177,6 +182,7 @@ class ConversationSummaryTest {
         ).copy(senderPeerID = "my-stable-peer-id")
 
         val conversation = buildConversationSummaries(
+            arrivalOrder = PrivateMessageArrivalOrder,
             unreadConversationIDs = setOf("contact_alice"),
             privateChats = mapOf("contact_alice" to listOf(outgoing)),
             currentUserIdentifiers = setOf("new nickname", "my-stable-peer-id"),
@@ -222,6 +228,7 @@ class ConversationSummaryTest {
         val latest = incoming("latest", "alice", 300L)
 
         val conversation = buildConversationSummaries(
+            arrivalOrder = PrivateMessageArrivalOrder,
             unreadConversationIDs = setOf("contact_alice"),
             privateChats = mapOf("contact_alice" to listOf(latest)),
             currentUserIdentifiers = setOf("me"),

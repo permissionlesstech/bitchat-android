@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.services.AppStateStore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -29,7 +30,7 @@ class ChatStateBackNavigationTest {
     @Before
     fun setUp() {
         scope = TestScope(UnconfinedTestDispatcher())
-        state = ChatState(scope)
+        state = ChatState(scope, AppStateStore)
     }
 
     @After

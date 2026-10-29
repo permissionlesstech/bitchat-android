@@ -44,6 +44,7 @@ class SecurityVerificationViewModel @AssistedInject constructor(
     state: ChatState,
     private val verificationHandler: VerificationHandler,
     private val mesh: ChatSessionMesh,
+    private val contactDirectory: ContactDirectory,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -52,7 +53,7 @@ class SecurityVerificationViewModel @AssistedInject constructor(
     }
 
     private val peerID = state.selectedPrivateChatPeer.map {
-        ContactDirectory.canonicalConversationId(conversationID)
+        contactDirectory.canonicalConversationId(conversationID)
     }
 
     val uiState: StateFlow<SecurityVerificationUiState> = combine(
@@ -66,7 +67,7 @@ class SecurityVerificationViewModel @AssistedInject constructor(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = uiStateFor(
-            ContactDirectory.canonicalConversationId(conversationID),
+            contactDirectory.canonicalConversationId(conversationID),
             verificationHandler.verifiedFingerprints.value,
             state.peerSessionStates.value,
         ),
@@ -97,7 +98,7 @@ class SecurityVerificationViewModel @AssistedInject constructor(
             isVerified = fingerprint != null && fingerprint in verifiedFingerprints,
             sessionState = resolveConversationSessionState(
                 conversationID = peerID,
-                activeMeshPeerID = ContactDirectory.resolve(peerID).meshPeerID,
+                activeMeshPeerID = contactDirectory.resolve(peerID).meshPeerID,
                 peerSessionStates = peerSessionStates,
             ),
             canStartHandshake = fingerprint == null && peerID.matches(MeshPeerIdPattern),

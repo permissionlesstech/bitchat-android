@@ -95,6 +95,8 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         context.applicationContext,
         androidx.core.app.NotificationManagerCompat.from(context.applicationContext),
         com.bitchat.android.di.AppNotificationTargets,
+        com.bitchat.android.services.ContactDirectory,
+        com.bitchat.android.services.ConversationListPreferences.getInstance(context.applicationContext),
     )
 
     // Wi-Fi Aware transport

@@ -10,6 +10,7 @@ import com.bitchat.android.nostr.GeohashConversationRegistry
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.services.ConversationListPreferences
+import dagger.Lazy
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -49,6 +50,10 @@ class PrivateChatViewModel @AssistedInject constructor(
     private val geohashSession: GeohashSession,
     private val conversationListPreferences: ConversationListPreferences,
     private val wifiAwarePeers: WifiAwarePeers,
+    private val contactDirectory: ContactDirectory,
+    private val favorites: Lazy<FavoritesPersistenceService>,
+    private val geohashConversations: GeohashConversationRegistry,
+    private val geohashAliases: GeohashAliasRegistry,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -57,18 +62,18 @@ class PrivateChatViewModel @AssistedInject constructor(
     }
 
     val conversationID: StateFlow<String> = state.selectedPrivateChatPeer
-        .map { ContactDirectory.canonicalConversationId(routeConversationID) }
+        .map { contactDirectory.canonicalConversationId(routeConversationID) }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
-            initialValue = ContactDirectory.canonicalConversationId(routeConversationID),
+            initialValue = contactDirectory.canonicalConversationId(routeConversationID),
         )
 
     private val resolvers = object : PrivateChatResolvers {
-        override fun contact(conversationID: String) = ContactDirectory.resolve(conversationID)
+        override fun contact(conversationID: String) = contactDirectory.resolve(conversationID)
 
         override fun favoriteStatus(conversationID: String) = try {
-            FavoritesPersistenceService.shared.getFavoriteStatus(conversationID)
+            favorites.get().getFavoriteStatus(conversationID)
         } catch (_: Exception) {
             null
         }
@@ -77,10 +82,10 @@ class PrivateChatViewModel @AssistedInject constructor(
             verificationHandler.resolvePeerDisplayNameForFingerprint(conversationID)
 
         override fun geohashOf(conversationID: String) =
-            GeohashConversationRegistry.get(conversationID)
+            geohashConversations.get(conversationID)
 
         override fun nostrPubkeyOf(conversationID: String) =
-            GeohashAliasRegistry.get(conversationID)
+            geohashAliases.get(conversationID)
 
         override fun geohashDisplayName(nostrPubkeyHex: String, geohash: String) =
             geohashSession.displayNameForGeohashConversation(nostrPubkeyHex, geohash)
@@ -175,5 +180,5 @@ class PrivateChatViewModel @AssistedInject constructor(
 
     /** The saved composer draft of [conversationID], read when the composer is created. */
     fun draft(conversationID: String): String =
-        conversationListPreferences.composerDraft(conversationID)
+        conversationListPreferences.composerDraft(conversationID, contactDirectory)
 }

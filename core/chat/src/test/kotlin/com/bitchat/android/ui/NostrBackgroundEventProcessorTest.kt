@@ -2,14 +2,22 @@ package com.bitchat.android.ui
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.mesh.PeerFingerprintManager
+import com.bitchat.android.nostr.GeohashAliasRegistry
+import com.bitchat.android.nostr.GeohashConversationRegistry
 import com.bitchat.android.nostr.GeohashParticipantStore
 import com.bitchat.android.nostr.NostrEvent
 import com.bitchat.android.nostr.NostrIdentity
+import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.nostr.NostrKind
 import com.bitchat.android.nostr.NostrTransport
 import com.bitchat.android.nostr.PoWPreferenceManager
 import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.spam.SpamFilter
+import dagger.Lazy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -53,7 +61,16 @@ class NostrBackgroundEventProcessorTest {
             scope,
             GeohashParticipantStore(),
             PoWPreferenceManager(application),
-            nostrTransport = { mock<NostrTransport>() }
+            nostrTransport = { mock<NostrTransport>() },
+            appStateStore = AppStateStore,
+            contactDirectory = ContactDirectory,
+            favorites = Lazy { FavoritesPersistenceService.shared },
+            peerFingerprints = PeerFingerprintManager.getInstance(),
+            geohashAliases = GeohashAliasRegistry,
+            geohashConversations = GeohashConversationRegistry,
+            nostrIdentity = NostrIdentityBridge,
+            spamFilter = SpamFilter.shared,
+            seenMessageStore = Lazy { SeenMessageStore.getInstance(application) },
         )
         val identity = NostrIdentity.generate()
         val expectedIds = mutableSetOf<String>()

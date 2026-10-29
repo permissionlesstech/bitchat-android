@@ -2,9 +2,18 @@ package com.bitchat.android.nostr
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.mesh.PeerFingerprintManager
+import com.bitchat.android.nostr.GeohashAliasRegistry
+import com.bitchat.android.nostr.GeohashConversationRegistry
+import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.SeenMessageStore
+import com.bitchat.android.spam.SpamFilter
 import com.bitchat.android.ui.DataManager
 import com.bitchat.android.ui.NostrBackgroundEventProcessor
+import dagger.Lazy
 import java.util.Date
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -47,7 +56,7 @@ class GeohashParticipantTrackingTest {
         AppStateStore.clear()
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         dataManager = DataManager(application)
-        repo = GeohashRepository(application, dataManager, scope, store) { "self" }
+        repo = GeohashRepository(application, dataManager, scope, NostrIdentityBridge, store) { "self" }
         repo.setCurrentGeohash(geohash)
         repo.observeParticipants()
         processor = NostrBackgroundEventProcessor(
@@ -55,7 +64,16 @@ class GeohashParticipantTrackingTest {
             scope,
             store,
             PoWPreferenceManager(application),
-            nostrTransport = { mock<NostrTransport>() }
+            nostrTransport = { mock<NostrTransport>() },
+            appStateStore = AppStateStore,
+            contactDirectory = ContactDirectory,
+            favorites = Lazy { FavoritesPersistenceService.shared },
+            peerFingerprints = PeerFingerprintManager.getInstance(),
+            geohashAliases = GeohashAliasRegistry,
+            geohashConversations = GeohashConversationRegistry,
+            nostrIdentity = NostrIdentityBridge,
+            spamFilter = SpamFilter.shared,
+            seenMessageStore = Lazy { SeenMessageStore.getInstance(application) },
         )
     }
 
@@ -115,7 +133,7 @@ class GeohashParticipantTrackingTest {
     fun `a recreated UI hydrates chat participants and follows shared clearing`() = runBlocking {
         receiveChat()
 
-        val recreatedRepo = GeohashRepository(application, dataManager, scope, store) { "self" }
+        val recreatedRepo = GeohashRepository(application, dataManager, scope, NostrIdentityBridge, store) { "self" }
         recreatedRepo.setCurrentGeohash(geohash)
         recreatedRepo.observeParticipants()
         withTimeout(5_000) {
@@ -180,8 +198,8 @@ class GeohashParticipantTrackingTest {
     @Test
     fun `service participant bursts publish one foreground snapshot per interval`() = runTest {
         val sharedStore = GeohashParticipantStore { now }
-        val foregroundRepo = GeohashRepository(application, dataManager, backgroundScope, sharedStore) { "self" }
-        val serviceRepo = GeohashRepository(application, dataManager, backgroundScope, sharedStore) { "self" }
+        val foregroundRepo = GeohashRepository(application, dataManager, backgroundScope, NostrIdentityBridge, sharedStore) { "self" }
+        val serviceRepo = GeohashRepository(application, dataManager, backgroundScope, NostrIdentityBridge, sharedStore) { "self" }
         foregroundRepo.setCurrentGeohash(geohash)
         foregroundRepo.observeParticipants()
         val snapshots = mutableListOf<Int>()

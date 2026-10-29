@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.bitchat.android.features.voice.LiveVoiceManager
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 import kotlinx.coroutines.launch
@@ -63,7 +62,7 @@ fun PrivateChatScreen(
     // when NavDisplay holds it at STARTED. Leaving releases only this screen's
     // claim, so a chat that replaced it, or chat showing the mesh, is left alone.
     val context = LocalContext.current
-    val liveVoiceManager = remember(context) { LiveVoiceManager.getInstance(context) }
+    val liveVoiceManager = remember(context) { context.chatScreenDependencies().liveVoiceManager() }
     val liveVoiceOwner = remember { Any() }
     LifecycleStartEffect(liveVoiceManager, peerID) {
         liveVoiceManager.claimDirectMessage(liveVoiceOwner, peerID)
@@ -150,6 +149,7 @@ fun PrivateChatScreen(
                 messages = uiState.messages,
                 currentUserNickname = uiState.nickname,
                 meshService = viewModel.mesh,
+                spamFlagged = remember(context) { context.chatScreenDependencies().spamFilter().flagged },
                 modifier = Modifier.weight(1f),
                 conversationKey = "dm:$peerID",
                 forceScrollToBottom = forceScrollToBottom,

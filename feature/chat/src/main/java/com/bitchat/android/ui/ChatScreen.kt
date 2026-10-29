@@ -39,7 +39,6 @@ import com.bitchat.android.feature.chat.R
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
-import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.ui.media.FullScreenImageViewer
 import com.bitchat.android.ui.theme.BitchatMotion
 
@@ -118,9 +117,7 @@ fun ChatScreen(
     val dependencies = remember(context) { context.chatScreenDependencies() }
     val locationManager = remember(dependencies) { dependencies.locationChannelManager() }
     val nearbyNotesController = remember(dependencies) { dependencies.nearbyNotesController() }
-    val liveVoiceManager = remember(context) {
-        com.bitchat.android.features.voice.LiveVoiceManager.getInstance(context)
-    }
+    val liveVoiceManager = remember(dependencies) { dependencies.liveVoiceManager() }
     val nearbyNotesRevealed by nearbyNotesController.revealed.collectAsStateWithLifecycle()
     val locationPermissionState by locationManager.permissionState.collectAsStateWithLifecycle()
     val locationEnabled by locationManager.effectiveLocationEnabled.collectAsStateWithLifecycle(false)
@@ -135,7 +132,7 @@ fun ChatScreen(
     // started and may still name a chat begun with /msg. Keyed on the selection
     // too, so the id is canonicalized again as the conversation resolves.
     val visiblePrivatePeer = remember(openPrivateChatID, selectedPrivatePeer) {
-        openPrivateChatID?.let(ContactDirectory::canonicalConversationId) ?: selectedPrivatePeer
+        openPrivateChatID?.let(dependencies.contactDirectory()::canonicalConversationId) ?: selectedPrivatePeer
     }
     val isMeshTimeline =
         currentChannel == null &&
@@ -263,6 +260,7 @@ fun ChatScreen(
                 messages = displayMessages,
                 currentUserNickname = nickname,
                 meshService = viewModel.meshService,
+                spamFlagged = remember(dependencies) { dependencies.spamFilter().flagged },
                 mentionPeerIdentities = mentionPeerIdentities,
                 modifier = Modifier.fillMaxSize(),
                 conversationKey = conversationKey,
@@ -585,7 +583,7 @@ fun ChatInputSection(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val activePublicTalker by remember(context) {
-        com.bitchat.android.features.voice.LiveVoiceManager.getInstance(context).activePublicTalker
+        context.chatScreenDependencies().liveVoiceManager().activePublicTalker
     }.collectAsState()
     Column(
         // Flat, slightly translucent screen background — the same treatment as the top bar, so the

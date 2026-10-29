@@ -99,7 +99,18 @@ class BitchatApplication : Application() {
                     scope,
                     nostrBackgroundRuntime.get().participants,
                     powPreferences.get(),
-                    nostrTransport = { nostrTransport.get() }
+                    nostrTransport = { nostrTransport.get() },
+                    appStateStore = com.bitchat.android.services.AppStateStore,
+                    contactDirectory = com.bitchat.android.services.ContactDirectory,
+                    favorites = Lazy { com.bitchat.android.favorites.FavoritesPersistenceService.shared },
+                    peerFingerprints = com.bitchat.android.mesh.PeerFingerprintManager.getInstance(),
+                    geohashAliases = com.bitchat.android.nostr.GeohashAliasRegistry,
+                    geohashConversations = com.bitchat.android.nostr.GeohashConversationRegistry,
+                    nostrIdentity = com.bitchat.android.nostr.NostrIdentityBridge,
+                    spamFilter = com.bitchat.android.spam.SpamFilter.shared,
+                    seenMessageStore = Lazy {
+                        com.bitchat.android.services.SeenMessageStore.getInstance(app)
+                    },
                 )
             }
         } catch (_: Exception) { }

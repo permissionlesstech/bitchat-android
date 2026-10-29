@@ -38,6 +38,8 @@ class NotificationManager(
   private val context: Context,
   private val notificationManager: NotificationManagerCompat,
   private val targets: NotificationTargets,
+  private val contactDirectory: ContactDirectory,
+  private val conversationPreferences: ConversationListPreferences,
 ) {
 
     companion object {
@@ -71,8 +73,12 @@ class NotificationManager(
          * Synchronizes notification action receivers with every manager instance in this process.
          * Without this, an old in-memory MessagingStyle history could reappear on the next DM.
          */
-        fun acknowledgeConversation(context: Context, conversationID: String) {
-            val canonicalID = ContactDirectory.canonicalConversationId(conversationID)
+        fun acknowledgeConversation(
+            context: Context,
+            conversationID: String,
+            contactDirectory: ContactDirectory,
+        ) {
+            val canonicalID = contactDirectory.canonicalConversationId(conversationID)
             val managers = synchronized(liveManagers) { liveManagers.toList() }
             managers.forEach { it.clearNotificationsForSender(canonicalID) }
             if (managers.isEmpty()) {
@@ -83,8 +89,6 @@ class NotificationManager(
 
     private val systemNotificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as AndroidNotificationManager
-    private val conversationPreferences =
-        ConversationListPreferences.getInstance(context.applicationContext)
     
     // Track pending notifications per sender to enable grouping
     private val pendingNotifications = ConcurrentHashMap<String, MutableList<PendingNotification>>()
@@ -163,7 +167,7 @@ class NotificationManager(
      * Update current private chat peer - affects notification logic
      */
     fun setCurrentPrivateChatPeer(peerID: String?) {
-        currentPrivateChatPeer = peerID?.let { ContactDirectory.canonicalConversationId(it) }
+        currentPrivateChatPeer = peerID?.let { contactDirectory.canonicalConversationId(it) }
         Log.d(TAG, "Current private chat peer changed: $currentPrivateChatPeer")
     }
 
@@ -179,7 +183,7 @@ class NotificationManager(
      * Show a notification for a private message with proper grouping and state awareness
      */
     fun showPrivateMessageNotification(senderPeerID: String, senderNickname: String, messageContent: String) {
-        val conversationID = ContactDirectory.canonicalConversationId(senderPeerID)
+        val conversationID = contactDirectory.canonicalConversationId(senderPeerID)
         if (conversationPreferences.isMuted(conversationID)) {
             Log.d(TAG, "Skipping muted conversation notification")
             return
@@ -467,9 +471,9 @@ class NotificationManager(
      * Clear notifications for a specific sender (e.g., when user opens their chat)
      */
     fun clearNotificationsForSender(senderPeerID: String) {
-        val conversationID = ContactDirectory.canonicalConversationId(senderPeerID)
+        val conversationID = contactDirectory.canonicalConversationId(senderPeerID)
         val matchingKeys = pendingNotifications.keys.filter { key ->
-            ContactDirectory.canonicalConversationId(key) == conversationID
+            contactDirectory.canonicalConversationId(key) == conversationID
         }
         matchingKeys.forEach { key ->
             pendingNotifications.remove(key)

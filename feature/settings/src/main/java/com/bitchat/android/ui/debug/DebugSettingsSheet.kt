@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.rotate
+import com.bitchat.android.ui.debug.DebugSettingsManager.MeshVisualEvent
 import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.android.services.meshgraph.MeshGraphService
 import androidx.compose.ui.res.stringResource
@@ -50,6 +51,8 @@ import com.bitchat.android.settings.WifiAwareStatus
 import com.bitchat.android.ui.ObserveAsEvents
 import com.bitchat.android.ui.theme.BitchatTheme
 import com.bitchat.android.util.DistributionInfoProvider
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 
 @Composable
 internal fun MeshTopologySection(
@@ -57,6 +60,7 @@ internal fun MeshTopologySection(
     wifiAwareConnected: Map<String, String>,
     localPeerID: String? = null,
     blePeerIDs: Set<String> = emptySet(),
+    visualEvents: Flow<MeshVisualEvent>,
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val wifiAwarePeerIDs = remember(wifiAwareConnected) { wifiAwareConnected.keys.toSet() }
@@ -79,6 +83,7 @@ internal fun MeshTopologySection(
                     wifiAwarePeerIDs = wifiAwarePeerIDs,
                     blePeerIDs = blePeerIDs,
                     localPeerID = localPeerID,
+                    visualEvents = visualEvents,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(300.dp)
@@ -222,6 +227,10 @@ fun DebugSettingsRoot(
 
     DebugSettingsScreen(
         uiState = uiState,
+        visualEvents = viewModel.meshVisualEvents,
+        spamFilterSection = {
+            SpamFilterDebugSection(viewModel.spamFilterPreferences, viewModel.spamFilter)
+        },
         onAction = { action ->
             when (action) {
                 is DebugSettingsAction.CopyCertificateClicked -> {
@@ -256,6 +265,9 @@ internal fun DebugSettingsScreen(
     uiState: DebugSettingsUiState,
     onAction: (DebugSettingsAction) -> Unit,
     modifier: Modifier = Modifier,
+    /** The Root supplies the live mesh events and the spam filter controls; previews and tests show none. */
+    visualEvents: Flow<MeshVisualEvent> = emptyFlow(),
+    spamFilterSection: @Composable () -> Unit = {},
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
@@ -322,7 +334,7 @@ internal fun DebugSettingsScreen(
                 DistributionInfoSection(uiState.distributionInfo) { onAction(DebugSettingsAction.CopyCertificateClicked(it)) }
             }
             item {
-                SpamFilterDebugSection()
+                spamFilterSection()
             }
             // Verbose logging toggle
             item {
@@ -352,6 +364,7 @@ internal fun DebugSettingsScreen(
                     wifiAwareConnected = uiState.wifiAwareLivePeers,
                     localPeerID = uiState.localPeerID,
                     blePeerIDs = blePeerIDs,
+                    visualEvents = visualEvents,
                 )
             }
 

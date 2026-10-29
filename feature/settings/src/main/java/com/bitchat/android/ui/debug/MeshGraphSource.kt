@@ -13,9 +13,11 @@ interface MeshGraphSource {
     val graphState: StateFlow<MeshGraphService.GraphSnapshot>
 }
 
-internal class MeshGraphServiceSource @Inject constructor() : MeshGraphSource {
+internal class MeshGraphServiceSource @Inject constructor(
+    meshGraphService: MeshGraphService,
+) : MeshGraphSource {
     override val graphState: StateFlow<MeshGraphService.GraphSnapshot> =
-        MeshGraphService.getInstance().graphState
+        meshGraphService.graphState
 }
 
 @Module

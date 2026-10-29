@@ -14,12 +14,16 @@ data class PrivateMediaRecipient(
  * encryption and transport APIs require the current 16-hex peer ID.
  */
 object PrivateMediaRecipientResolver {
-    fun resolve(requestedRecipientID: String, meshService: MeshService): PrivateMediaRecipient? {
+    fun resolve(
+        requestedRecipientID: String,
+        meshService: MeshService,
+        contactDirectory: ContactDirectory,
+    ): PrivateMediaRecipient? {
         val requested = requestedRecipientID.trim()
-        val conversationID = ContactDirectory.canonicalConversationId(requested)
+        val conversationID = contactDirectory.canonicalConversationId(requested)
 
         val directoryPeerID = runCatching {
-            ContactDirectory.resolve(requested).meshPeerID
+            contactDirectory.resolve(requested).meshPeerID
         }.getOrNull()
         val directPeerID = requested.takeIf(ContactIdentityResolver::isMeshPeerId)
         val expectedFingerprint =

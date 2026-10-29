@@ -1,6 +1,7 @@
 package com.bitchat.android.ui
 
 import android.view.HapticFeedbackConstants
+import androidx.compose.ui.platform.LocalContext
 import com.bitchat.android.ui.theme.BitchatFontFamily
 // [Goose] TODO: Replace inline file attachment stub with FilePickerButton abstraction that dispatches via FileShareDispatcher
 
@@ -324,6 +325,8 @@ fun MessageInput(
 ) {
     val palette = LocalBitchatPalette.current
     val colorScheme = MaterialTheme.colorScheme
+    val context = LocalContext.current
+    val waveformCache = remember(context) { context.chatScreenDependencies().voiceWaveformCache() }
     val isFocused = remember { mutableStateOf(false) }
     val hasText = value.text.isNotBlank()
     val focusRequester = remember { FocusRequester() }
@@ -666,7 +669,7 @@ fun MessageInput(
                                     AudioWaveformExtractor.extractAsync(path, sampleCount = 120) { arr ->
                                         if (arr != null) {
                                             try {
-                                                com.bitchat.android.features.voice.VoiceWaveformCache.put(path, arr)
+                                                waveformCache.put(path, arr)
                                             } catch (_: Exception) {}
                                         }
                                     }

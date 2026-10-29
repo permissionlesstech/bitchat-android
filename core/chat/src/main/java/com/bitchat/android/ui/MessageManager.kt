@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.services.ContactDirectory
@@ -9,7 +10,11 @@ import java.util.Collections
 /**
  * Handles all message-related operations including deduplication and organization
  */
-class MessageManager(private val state: ChatState) {
+class MessageManager(
+    private val state: ChatState,
+    private val appStateStore: AppStateStore,
+    private val contactDirectory: ContactDirectory,
+) {
     
     // Message deduplication for duplicate deliveries from multiple local transports.
     private val processedUIMessages = Collections.synchronizedSet(mutableSetOf<String>())
@@ -20,8 +25,8 @@ class MessageManager(private val state: ChatState) {
     // MARK: - Public Message Management
     
     fun addMessage(message: BitchatMessage) {
-        com.bitchat.android.services.AppStateStore.addPublicMessage(message)
-        state.setMessages(com.bitchat.android.services.AppStateStore.publicMessages.value)
+        appStateStore.addPublicMessage(message)
+        state.setMessages(appStateStore.publicMessages.value)
     }
 
     // Log a system message into the main chat (visible to user)
@@ -36,7 +41,7 @@ class MessageManager(private val state: ChatState) {
     }
     
     fun clearMessages() {
-        com.bitchat.android.services.AppStateStore.clearPublicTimelines()
+        appStateStore.clearPublicTimelines()
         state.setMessages(emptyList())
         state.setChannelMessages(emptyMap())
     }
@@ -44,8 +49,8 @@ class MessageManager(private val state: ChatState) {
     // MARK: - Channel Message Management
     
     fun addChannelMessage(channel: String, message: BitchatMessage) {
-        com.bitchat.android.services.AppStateStore.addChannelMessage(channel, message)
-        state.setChannelMessages(com.bitchat.android.services.AppStateStore.channelMessages.value)
+        appStateStore.addChannelMessage(channel, message)
+        state.setChannelMessages(appStateStore.channelMessages.value)
         
         // Update unread count if not currently viewing this channel
         // Consider both classic channels (state.currentChannel) and geohash location channel selection
@@ -66,13 +71,13 @@ class MessageManager(private val state: ChatState) {
     }
     
     fun clearChannelMessages(channel: String) {
-        com.bitchat.android.services.AppStateStore.clearChannelMessages(channel)
-        state.setChannelMessages(com.bitchat.android.services.AppStateStore.channelMessages.value)
+        appStateStore.clearChannelMessages(channel)
+        state.setChannelMessages(appStateStore.channelMessages.value)
     }
     
     fun removeChannelMessages(channel: String) {
-        com.bitchat.android.services.AppStateStore.clearChannelMessages(channel, remove = true)
-        state.setChannelMessages(com.bitchat.android.services.AppStateStore.channelMessages.value)
+        appStateStore.clearChannelMessages(channel, remove = true)
+        state.setChannelMessages(appStateStore.channelMessages.value)
         
         val updatedUnread = state.getUnreadChannelMessagesValue().toMutableMap()
         updatedUnread.remove(channel)
@@ -88,9 +93,9 @@ class MessageManager(private val state: ChatState) {
     // MARK: - Private Message Management
 
     fun addPrivateMessage(peerID: String, message: BitchatMessage) {
-        val conversationID = ContactDirectory.canonicalConversationId(peerID)
+        val conversationID = contactDirectory.canonicalConversationId(peerID)
         val accepted = try {
-            com.bitchat.android.services.AppStateStore.addPrivateMessage(
+            appStateStore.addPrivateMessage(
                 conversationID,
                 message
             )
@@ -112,9 +117,9 @@ class MessageManager(private val state: ChatState) {
         message: BitchatMessage,
         forceRead: Boolean = false
     ): Boolean {
-        val conversationID = ContactDirectory.canonicalConversationId(peerID)
+        val conversationID = contactDirectory.canonicalConversationId(peerID)
         val accepted = try {
-            com.bitchat.android.services.AppStateStore.addPrivateMessageDurably(
+            appStateStore.addPrivateMessageDurably(
                 peerID = conversationID,
                 msg = message,
                 forceRead = forceRead
@@ -140,11 +145,11 @@ class MessageManager(private val state: ChatState) {
         val chatMessages = currentPrivateChats[conversationID]?.toMutableList() ?: mutableListOf()
         chatMessages.add(message)
         currentPrivateChats[conversationID] = chatMessages
-        state.setPrivateChats(ContactDirectory.canonicalizePrivateChats(currentPrivateChats))
+        state.setPrivateChats(contactDirectory.canonicalizePrivateChats(currentPrivateChats))
         
         // Mark as unread if not currently viewing this chat
         val selectedConversationID = state.getSelectedPrivateChatPeerValue()
-            ?.let(ContactDirectory::canonicalConversationId)
+            ?.let(contactDirectory::canonicalConversationId)
         if (
             !forceRead &&
             selectedConversationID != conversationID &&
@@ -158,9 +163,9 @@ class MessageManager(private val state: ChatState) {
 
     // Variant that does not mark unread (used when we know the message has been read already, e.g., persisted Nostr read store)
     fun addPrivateMessageNoUnread(peerID: String, message: BitchatMessage) {
-        val conversationID = ContactDirectory.canonicalConversationId(peerID)
+        val conversationID = contactDirectory.canonicalConversationId(peerID)
         val accepted = try {
-            com.bitchat.android.services.AppStateStore.addPrivateMessage(
+            appStateStore.addPrivateMessage(
                 peerID = conversationID,
                 msg = message,
                 forceRead = true
@@ -173,11 +178,11 @@ class MessageManager(private val state: ChatState) {
     }
     
     fun clearPrivateMessages(peerID: String) {
-        val conversationID = ContactDirectory.canonicalConversationId(peerID)
-        com.bitchat.android.services.AppStateStore.deletePrivateConversation(conversationID)
+        val conversationID = contactDirectory.canonicalConversationId(peerID)
+        appStateStore.deletePrivateConversation(conversationID)
         val updatedChats = state.getPrivateChatsValue().toMutableMap()
         updatedChats.keys.removeAll { key ->
-            ContactDirectory.canonicalConversationId(key)
+            contactDirectory.canonicalConversationId(key)
                 .equals(conversationID, ignoreCase = true)
         }
         state.setPrivateChats(updatedChats)
@@ -185,7 +190,7 @@ class MessageManager(private val state: ChatState) {
     }
     
     fun initializePrivateChat(peerID: String) {
-        val conversationID = ContactDirectory.canonicalConversationId(peerID)
+        val conversationID = contactDirectory.canonicalConversationId(peerID)
         if (state.getPrivateChatsValue().containsKey(conversationID)) return
         
         val updatedChats = state.getPrivateChatsValue().toMutableMap()
@@ -197,7 +202,7 @@ class MessageManager(private val state: ChatState) {
         peerID: String,
         aliases: Set<String> = emptySet()
     ) {
-        val conversationID = ContactDirectory.canonicalConversationId(peerID)
+        val conversationID = contactDirectory.canonicalConversationId(peerID)
         val updatedUnread = state.getUnreadPrivateMessagesValue().toMutableSet()
         val normalizedAliases = (aliases + peerID + conversationID)
             .mapTo(mutableSetOf()) { it.lowercase() }
@@ -311,7 +316,7 @@ class MessageManager(private val state: ChatState) {
         if (updated) {
             state.setPrivateChats(updatedPrivateChats)
             // Keep process-wide store in sync to prevent snapshot overwrites resetting status
-            try { com.bitchat.android.services.AppStateStore.updatePrivateMessageStatus(messageID, status) } catch (_: Exception) { }
+            try { appStateStore.updatePrivateMessageStatus(messageID, status) } catch (_: Exception) { }
         }
         
         // Update in main messages
@@ -345,8 +350,8 @@ class MessageManager(private val state: ChatState) {
 
     // Drop a blocked sender's messages from every geohash timeline
     fun removeGeohashMessagesFromSender(pubkeyHex: String) {
-        com.bitchat.android.services.AppStateStore.removeGeohashMessagesFromSender(pubkeyHex)
-        state.setChannelMessages(com.bitchat.android.services.AppStateStore.channelMessages.value)
+        appStateStore.removeGeohashMessagesFromSender(pubkeyHex)
+        state.setChannelMessages(appStateStore.channelMessages.value)
     }
 
     // Remove a message from all locations (main timeline, private chats, channels)
@@ -375,7 +380,7 @@ class MessageManager(private val state: ChatState) {
             }
             if (changed) {
                 state.setPrivateChats(chats.filterValues { it.isNotEmpty() })
-                com.bitchat.android.services.AppStateStore.removePrivateMessage(messageID)
+                appStateStore.removePrivateMessage(messageID)
             }
         }
         // Channels

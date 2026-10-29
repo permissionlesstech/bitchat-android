@@ -1,5 +1,7 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.spam.SpamFilter
+import com.bitchat.android.services.AppStateStore
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.di.ChatSessionScope
@@ -45,6 +47,9 @@ class PanicClear @Inject constructor(
     private val seenMessageStoreLazy: Lazy<SeenMessageStore>,
     private val locationChannelManagerLazy: Lazy<LocationChannelManager>,
     private val geohashBookmarksStoreLazy: Lazy<GeohashBookmarksStore>,
+    private val appStateStore: AppStateStore,
+    private val spamFilter: SpamFilter,
+    private val favorites: Lazy<FavoritesPersistenceService>,
     @ChatSessionScope private val scope: CoroutineScope,
 ) {
 
@@ -86,11 +91,10 @@ class PanicClear @Inject constructor(
         // any transport callback already in flight until the fresh identity is ready.
         clearAllMeshServiceData()
         val conversationsCleared =
-            com.bitchat.android.services.AppStateStore
-                .panicClearPrivateConversations()
+            appStateStore.panicClearPrivateConversations()
 
         // Clear all UI managers
-        com.bitchat.android.services.AppStateStore.clear()
+        appStateStore.clear()
         messageManager.clearAllMessages()
         channelManager.clearAllChannels()
         privateChatManager.clearAllPrivateChats()
@@ -114,7 +118,7 @@ class PanicClear @Inject constructor(
         }
 
         // The spam filter keeps recent message text and sender keys for its repeat checks
-        com.bitchat.android.spam.SpamFilter.shared.reset()
+        spamFilter.reset()
         
         // Clear all cryptographic data
         if (!clearAllCryptographicData()) wipeComplete = false
@@ -164,8 +168,7 @@ class PanicClear @Inject constructor(
         }
 
         // Recreate mesh service with fresh identity
-        com.bitchat.android.services.AppStateStore
-            .resumePrivateConversationsAfterPanic()
+        appStateStore.resumePrivateConversationsAfterPanic()
         recreateMeshServiceAfterPanic()
 
         // In a duress scenario "did it work?" must not be a guess: the natural
@@ -243,7 +246,7 @@ class PanicClear @Inject constructor(
 
             // Clear FavoritesPersistenceService persistent relationships
             try {
-                FavoritesPersistenceService.shared.clearAllFavorites()
+                favorites.get().clearAllFavorites()
                 Log.d(TAG, "✅ Cleared FavoritesPersistenceService relationships")
             } catch (_: Exception) {
                 cleared = false

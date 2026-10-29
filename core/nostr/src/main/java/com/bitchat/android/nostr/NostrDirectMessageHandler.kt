@@ -14,6 +14,7 @@ import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.services.SeenMessageStore
+import dagger.Lazy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -29,9 +30,11 @@ class NostrDirectMessageHandler(
     private val dataManager: com.bitchat.android.ui.DataManager,
     // Asked for at each ack, where the handler used to reach for the transport.
     private val nostrTransportProvider: () -> NostrTransport,
-    private val seenStoreProvider: () -> SeenMessageStore = {
-        SeenMessageStore.getInstance(application)
-    }
+    private val seenStoreProvider: () -> SeenMessageStore,
+    private val geohashAliases: GeohashAliasRegistry,
+    private val geohashConversations: GeohashConversationRegistry,
+    private val contactDirectory: ContactDirectory,
+    private val favorites: Lazy<FavoritesPersistenceService>,
 ) {
     companion object { private const val TAG = "NostrDirectMessageHandler" }
 
@@ -85,11 +88,11 @@ class NostrDirectMessageHandler(
                 val messageTimestamp = Date(rumorTimestamp * 1000L)
                 val convKey = "nostr_${senderPubkey.take(16)}"
                 repo.putNostrKeyMapping(convKey, senderPubkey)
-                com.bitchat.android.nostr.GeohashAliasRegistry.put(convKey, senderPubkey)
+                geohashAliases.put(convKey, senderPubkey)
                 if (geohash.isNotEmpty()) {
                     // Remember which geohash this conversation belongs to so we can subscribe on-demand
                     repo.setConversationGeohash(convKey, geohash)
-                    GeohashConversationRegistry.set(convKey, geohash)
+                    geohashConversations.set(convKey, geohash)
                 }
 
                 // Ensure sender appears in geohash people list even if they haven't posted publicly yet
@@ -104,7 +107,7 @@ class NostrDirectMessageHandler(
                 }
 
                 val senderNickname = repo.displayNameForNostrPubkeyUI(senderPubkey)
-                val conversationID = ContactDirectory.canonicalConversationId(convKey)
+                val conversationID = contactDirectory.canonicalConversationId(convKey)
 
                 processNoisePayload(noisePayload, conversationID, senderNickname, messageTimestamp, senderPubkey, identity)
 
@@ -245,19 +248,19 @@ class NostrDirectMessageHandler(
     ): Boolean {
         return try {
             val senderNpub = control.npub ?: ContactIdentityResolver.npubFromHex(senderPubkey)
-            val noiseKey = senderNpub?.let { FavoritesPersistenceService.shared.findNoiseKey(it) }
-                ?: FavoritesPersistenceService.shared.findNoiseKey(senderPubkey)
+            val noiseKey = senderNpub?.let { favorites.get().findNoiseKey(it) }
+                ?: favorites.get().findNoiseKey(senderPubkey)
 
             if (noiseKey == null) {
                 Log.w(TAG, "Favorite notification from Nostr sender without known Noise key: ${senderPubkey.take(16)}...")
                 return false
             }
 
-            FavoritesPersistenceService.shared.updatePeerFavoritedUs(noiseKey, control.isFavorite)
-            senderNpub?.let { FavoritesPersistenceService.shared.updateNostrPublicKey(noiseKey, it) }
-            val targetConversationID = ContactDirectory.canonicalConversationId(conversationID)
+            favorites.get().updatePeerFavoritedUs(noiseKey, control.isFavorite)
+            senderNpub?.let { favorites.get().updateNostrPublicKey(noiseKey, it) }
+            val targetConversationID = contactDirectory.canonicalConversationId(conversationID)
 
-            val relationship = FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
+            val relationship = favorites.get().getFavoriteStatus(noiseKey)
             val displayName = relationship
                 ?.peerNickname
                 ?.takeUnless { it.equals("Unknown", ignoreCase = true) }

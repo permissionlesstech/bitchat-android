@@ -34,9 +34,12 @@ fun rememberComposerText(
 }
 
 /** The saved draft for a private conversation, by its canonical id; empty for none. */
-internal fun ConversationListPreferences.composerDraft(conversationID: String?): String =
+internal fun ConversationListPreferences.composerDraft(
+    conversationID: String?,
+    contactDirectory: ContactDirectory,
+): String =
     conversationID
-        ?.let(ContactDirectory::canonicalConversationId)
+        ?.let(contactDirectory::canonicalConversationId)
         ?.lowercase()
         ?.let(drafts.value::get)
         .orEmpty()

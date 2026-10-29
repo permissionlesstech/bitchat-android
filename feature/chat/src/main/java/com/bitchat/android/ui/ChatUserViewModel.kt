@@ -43,6 +43,7 @@ class ChatUserViewModel @AssistedInject constructor(
     private val geohashSession: GeohashSession,
     private val messageSender: MessageSender,
     private val navigator: Navigator,
+    private val contactDirectory: ContactDirectory,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -100,7 +101,7 @@ class ChatUserViewModel @AssistedInject constructor(
     }
 
     private fun openPrivateChat(peerID: String) {
-        navigator.openPrivateChat(ContactDirectory.canonicalConversationId(peerID))
+        navigator.openPrivateChat(contactDirectory.canonicalConversationId(peerID))
     }
 
     private fun uiStateFor(message: BitchatMessage?, myNickname: String) = ChatUserUiState(

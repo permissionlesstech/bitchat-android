@@ -21,6 +21,7 @@ class GeohashRepository(
     private val dataManager: com.bitchat.android.ui.DataManager,
     /** Owns the coalesced presence publication; cancelling it drops a pending refresh. */
     private val scope: CoroutineScope,
+    private val nostrIdentity: NostrIdentityBridge,
     private val participantStore: GeohashParticipantStore = GeohashParticipantStore(),
     /** This device's nickname, shown for our own entry in a geohash. */
     private val nickname: () -> String,
@@ -204,7 +205,7 @@ class GeohashRepository(
             .map { (pubkeyHex, lastSeen) ->
             // Use our actual nickname for self; otherwise use cached nickname or anon
             val base = try {
-                val myHex = currentGeohash?.let { NostrIdentityBridge.deriveIdentity(it, application).publicKeyHex }
+                val myHex = currentGeohash?.let { nostrIdentity.deriveIdentity(it, application).publicKeyHex }
                 if (myHex != null && myHex.equals(pubkeyHex, true)) {
                     nickname()
                 } else {
@@ -246,7 +247,7 @@ class GeohashRepository(
         val current = currentGeohash
         if (current != null) {
             try {
-                val my = NostrIdentityBridge.deriveIdentity(current, application)
+                val my = nostrIdentity.deriveIdentity(current, application)
                 if (my.publicKeyHex.equals(lower, true)) {
                     return "${nickname()}#$suffix"
                 }
@@ -263,7 +264,7 @@ class GeohashRepository(
         val current = currentGeohash
         val base: String = try {
             if (current != null) {
-                val my = NostrIdentityBridge.deriveIdentity(current, application)
+                val my = nostrIdentity.deriveIdentity(current, application)
                 if (my.publicKeyHex.equals(lower, true)) {
                     nickname()
                 } else geoNicknames[lower] ?: "anon"

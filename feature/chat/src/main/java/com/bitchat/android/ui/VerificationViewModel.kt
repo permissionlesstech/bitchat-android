@@ -48,6 +48,8 @@ class VerificationViewModel @AssistedInject constructor(
     state: ChatState,
     private val verificationHandler: VerificationHandler,
     private val mesh: ChatSessionMesh,
+    nostrIdentity: NostrIdentityBridge,
+    private val verificationService: VerificationService,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -59,7 +61,7 @@ class VerificationViewModel @AssistedInject constructor(
 
     // Read once: the identity does not change while the screen is open.
     private val npub: String? = try {
-        NostrIdentityBridge.getCurrentNostrIdentity(context)?.npub
+        nostrIdentity.getCurrentNostrIdentity(context)?.npub
     } catch (_: Exception) {
         null
     }
@@ -90,7 +92,7 @@ class VerificationViewModel @AssistedInject constructor(
         when (action) {
             is VerificationAction.SelectTab -> selectedTab.value = action.tab
             is VerificationAction.CodeScanned -> {
-                val qr = VerificationService.verifyScannedQR(action.code)
+                val qr = verificationService.verifyScannedQR(action.code)
                 // Back to this device's code, which the other side now scans.
                 if (qr != null && verificationHandler.beginQRVerification(qr)) {
                     selectedTab.value = VerificationTab.MyCode
@@ -101,7 +103,7 @@ class VerificationViewModel @AssistedInject constructor(
     }
 
     private fun qrStringFor(nickname: String): String =
-        VerificationService.buildMyQRString(nickname, npub) ?: ""
+        verificationService.buildMyQRString(nickname, npub) ?: ""
 
     private fun uiStateFor(
         tab: VerificationTab,

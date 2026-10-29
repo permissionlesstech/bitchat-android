@@ -46,11 +46,12 @@ internal class PreferenceTorRouting @Inject constructor(
     @ApplicationContext private val context: Context,
     // Lazy: nothing builds the Tor manager until availability is asked.
     private val torManager: Lazy<ArtiTorManager>,
+    private val torPreferences: TorPreferenceManager,
 ) : TorRouting {
-    override val mode: StateFlow<TorMode> get() = TorPreferenceManager.modeFlow
+    override val mode: StateFlow<TorMode> get() = torPreferences.modeFlow
 
     override fun isTorAvailable(): Boolean = torManager.get().isTorAvailable()
-    override fun setMode(mode: TorMode) = TorPreferenceManager.set(context, mode)
+    override fun setMode(mode: TorMode) = torPreferences.set(context, mode)
 }
 
 @Module

@@ -22,6 +22,7 @@ class NostrClient @Inject constructor(
     private val relayManager: NostrRelayManager,
     private val powPreferences: PoWPreferenceManager,
     @MainDispatcher mainDispatcher: CoroutineDispatcher,
+    private val nostrIdentity: NostrIdentityBridge,
 ) {
     
     companion object {
@@ -51,7 +52,7 @@ class NostrClient @Inject constructor(
         scope.launch {
             try {
                 // Load or create identity
-                currentIdentity = NostrIdentityBridge.getCurrentNostrIdentity(context)
+                currentIdentity = nostrIdentity.getCurrentNostrIdentity(context)
                 
                 if (currentIdentity != null) {
                     _currentNpub.value = currentIdentity!!.npub
@@ -168,7 +169,7 @@ class NostrClient @Inject constructor(
         scope.launch {
             try {
                 // Derive geohash-specific identity
-                val geohashIdentity = NostrIdentityBridge.deriveIdentity(geohash, context)
+                val geohashIdentity = nostrIdentity.deriveIdentity(geohash, context)
                 
                 // Create ephemeral event (with PoW if enabled)
                 val event = NostrProtocol.createEphemeralGeohashEvent(

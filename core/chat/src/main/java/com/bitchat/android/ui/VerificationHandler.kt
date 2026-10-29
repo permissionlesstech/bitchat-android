@@ -12,6 +12,7 @@ import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.services.VerificationService
 import com.bitchat.android.util.dataFromHexString
 import com.bitchat.android.util.hexEncodedString
+import dagger.Lazy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,7 +32,10 @@ class VerificationHandler(
     private val identityManager: SecureIdentityStateManager,
     private val state: ChatState,
     private val notificationManager: NotificationManager,
-    private val messageManager: MessageManager
+    private val messageManager: MessageManager,
+    private val favorites: Lazy<FavoritesPersistenceService>,
+    private val geohashAliases: GeohashAliasRegistry,
+    private val verificationService: VerificationService,
 ) {
     // Helper to get current mesh service (may change after panic clear)
     private val meshService: MeshService
@@ -104,7 +108,7 @@ class VerificationHandler(
 
     fun didReceiveVerifyChallenge(peerID: String, payload: ByteArray) {
         scope.launch {
-            val parsed = VerificationService.parseVerifyChallenge(payload) ?: return@launch
+            val parsed = verificationService.parseVerifyChallenge(payload) ?: return@launch
             val myNoiseHex = meshService.getStaticNoisePublicKey()?.hexEncodedString()?.lowercase() ?: return@launch
             if (parsed.first.lowercase() != myNoiseHex) return@launch
 
@@ -133,12 +137,12 @@ class VerificationHandler(
 
     fun didReceiveVerifyResponse(peerID: String, payload: ByteArray) {
         scope.launch {
-            val resp = VerificationService.parseVerifyResponse(payload) ?: return@launch
+            val resp = verificationService.parseVerifyResponse(payload) ?: return@launch
             val pending = pendingQRVerifications[peerID] ?: return@launch
             if (!resp.noiseKeyHex.equals(pending.noiseKeyHex, ignoreCase = true)) return@launch
             if (!resp.nonceA.contentEquals(pending.nonceA)) return@launch
 
-            val ok = VerificationService.verifyResponseSignature(
+            val ok = verificationService.verifyResponseSignature(
                 noiseKeyHex = resp.noiseKeyHex,
                 nonceA = resp.nonceA,
                 signature = resp.signature,
@@ -202,16 +206,16 @@ class VerificationHandler(
                         return fingerprintFromNoiseHex(noiseHex)?.also { identityManager.cacheNoiseFingerprint(noiseHex, it) }
                     }
                     val favorite = try {
-                        FavoritesPersistenceService.shared.getFavoriteStatus(peerID)
+                        favorites.get().getFavoriteStatus(peerID)
                     } catch (_: Exception) {
                         null
                     }
                     favorite?.peerNoisePublicKey?.let { fingerprintFromNoiseBytes(it) }
                 }
                 peerID.startsWith("nostr_") -> {
-                    val pubHex = GeohashAliasRegistry.get(peerID)
+                    val pubHex = geohashAliases.get(peerID)
                     val noiseKey = pubHex?.let {
-                        FavoritesPersistenceService.shared.findNoiseKey(it)
+                        favorites.get().findNoiseKey(it)
                     }
                     noiseKey?.let {
                         val noiseHex = it.hexEncodedString()
@@ -220,12 +224,11 @@ class VerificationHandler(
                 }
                 peerID.startsWith("nostr:") -> {
                     val prefix = peerID.removePrefix("nostr:").lowercase()
-                    val pubHex = GeohashAliasRegistry
-                        .snapshot()
+                    val pubHex = geohashAliases.snapshot()
                         .values
                         .firstOrNull { it.lowercase().startsWith(prefix) }
                     val noiseKey = pubHex?.let {
-                        FavoritesPersistenceService.shared.findNoiseKey(it)
+                        favorites.get().findNoiseKey(it)
                     }
                     noiseKey?.let {
                         val noiseHex = it.hexEncodedString()
@@ -241,7 +244,7 @@ class VerificationHandler(
                         return fingerprintFromNoiseHex(noiseHex)?.also { identityManager.cacheNoiseFingerprint(noiseHex, it) }
                     }
                     val favorite = try {
-                        FavoritesPersistenceService.shared.getFavoriteStatus(peerID)
+                        favorites.get().getFavoriteStatus(peerID)
                     } catch (_: Exception) {
                         null
                     }
@@ -273,14 +276,14 @@ class VerificationHandler(
                 peerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
             } catch (_: Exception) { null }
             val favorite = noiseKeyBytes?.let {
-                FavoritesPersistenceService.shared.getFavoriteStatus(it)
+                favorites.get().getFavoriteStatus(it)
             }
             favorite?.peerNickname?.takeIf { it.isNotBlank() }?.let { return it }
         }
 
         if (peerID.length == 16 && peerID.matches(hexRegex)) {
             val favorite = try {
-                FavoritesPersistenceService.shared.getFavoriteStatus(peerID)
+                favorites.get().getFavoriteStatus(peerID)
             } catch (_: Exception) {
                 null
             }

@@ -17,6 +17,7 @@ class LocationNotesInitializer @Inject constructor(
     private val notesManager: Lazy<LocationNotesManager>,
     private val relayManager: Lazy<NostrRelayManager>,
     private val liveLocationGate: LiveLocationPrivacyGate,
+    private val nostrIdentity: NostrIdentityBridge,
 ) {
 
     private companion object {
@@ -69,7 +70,7 @@ class LocationNotesInitializer @Inject constructor(
                     }
                 },
                 deriveIdentity = { geohash ->
-                    NostrIdentityBridge.deriveIdentity(geohash, context)
+                    nostrIdentity.deriveIdentity(geohash, context)
                 }
             )
             Log.d(TAG, "✅ Location Notes Manager initialized")

@@ -1,8 +1,14 @@
 package com.bitchat.android.nostr
 
 import android.os.Build
+import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.nostr.GeohashAliasRegistry
+import com.bitchat.android.nostr.GeohashConversationRegistry
+import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ConversationRepository
 import com.bitchat.android.services.InMemoryConversationStorageCipher
 import com.bitchat.android.services.SeenMessageStore
@@ -13,6 +19,7 @@ import com.bitchat.android.ui.MessageManager
 import com.bitchat.android.ui.NoiseSessionDelegate
 import com.bitchat.android.ui.PrivateChatManager
 import com.google.gson.Gson
+import dagger.Lazy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -76,14 +83,18 @@ class NostrDirectMessageHandlerTest {
     @Test
     fun `private messages use authenticated rumor time instead of randomized gift wrap time`() {
         val application = RuntimeEnvironment.getApplication()
-        val state = ChatState(scope).apply { setNickname("recipient") }
+        val state = ChatState(scope, AppStateStore).apply { setNickname("recipient") }
         val dataManager = DataManager(application)
-        val messageManager = MessageManager(state)
+        val messageManager = MessageManager(state, AppStateStore, ContactDirectory)
         val privateChatManager = PrivateChatManager(
             state = state,
             messageManager = messageManager,
             dataManager = dataManager,
-            noiseSessionDelegate = mock<NoiseSessionDelegate>()
+            noiseSessionDelegate = mock<NoiseSessionDelegate>(),
+            contactDirectory = ContactDirectory,
+            appStateStore = AppStateStore,
+            favorites = Lazy { FavoritesPersistenceService.shared },
+            peerFingerprints = PeerFingerprintManager.getInstance(),
         )
         val seenStore = mock<SeenMessageStore>()
         whenever(seenStore.hasDelivered(any())).thenReturn(true)
@@ -93,10 +104,14 @@ class NostrDirectMessageHandlerTest {
             inbox = ChatPrivateMessageInbox(state, privateChatManager),
             updateDeliveryStatus = { _, _ -> },
             scope = scope,
-            repo = GeohashRepository(application, dataManager, scope) { state.getNicknameValue() },
+            repo = GeohashRepository(application, dataManager, scope, NostrIdentityBridge) { state.getNicknameValue() },
             dataManager = dataManager,
             nostrTransportProvider = { mock<NostrTransport>() },
-            seenStoreProvider = { seenStore }
+            seenStoreProvider = { seenStore },
+            geohashAliases = GeohashAliasRegistry,
+            geohashConversations = GeohashConversationRegistry,
+            contactDirectory = ContactDirectory,
+            favorites = Lazy { FavoritesPersistenceService.shared },
         )
         val sender = NostrIdentity.generate()
         val recipient = NostrIdentity.generate()
@@ -165,10 +180,14 @@ class NostrDirectMessageHandlerTest {
             inbox = refusingInbox,
             updateDeliveryStatus = { _, _ -> },
             scope = scope,
-            repo = GeohashRepository(application, dataManager, scope) { "recipient" },
+            repo = GeohashRepository(application, dataManager, scope, NostrIdentityBridge) { "recipient" },
             dataManager = dataManager,
             nostrTransportProvider = { mock<NostrTransport>() },
-            seenStoreProvider = { seenStore }
+            seenStoreProvider = { seenStore },
+            geohashAliases = GeohashAliasRegistry,
+            geohashConversations = GeohashConversationRegistry,
+            contactDirectory = ContactDirectory,
+            favorites = Lazy { FavoritesPersistenceService.shared },
         )
         val sender = NostrIdentity.generate()
         val recipient = NostrIdentity.generate()
@@ -201,13 +220,17 @@ class NostrDirectMessageHandlerTest {
     @Test
     fun `blocked geohash sender gets no delivery ack`() {
         val application = RuntimeEnvironment.getApplication()
-        val state = ChatState(scope).apply { setNickname("recipient") }
+        val state = ChatState(scope, AppStateStore).apply { setNickname("recipient") }
         val dataManager = DataManager(application)
         val privateChatManager = PrivateChatManager(
             state = state,
-            messageManager = MessageManager(state),
+            messageManager = MessageManager(state, AppStateStore, ContactDirectory),
             dataManager = dataManager,
-            noiseSessionDelegate = mock<NoiseSessionDelegate>()
+            noiseSessionDelegate = mock<NoiseSessionDelegate>(),
+            contactDirectory = ContactDirectory,
+            appStateStore = AppStateStore,
+            favorites = Lazy { FavoritesPersistenceService.shared },
+            peerFingerprints = PeerFingerprintManager.getInstance(),
         )
         val seenStore = mock<SeenMessageStore>()
         val handler = NostrDirectMessageHandler(
@@ -215,10 +238,14 @@ class NostrDirectMessageHandlerTest {
             inbox = ChatPrivateMessageInbox(state, privateChatManager),
             updateDeliveryStatus = { _, _ -> },
             scope = scope,
-            repo = GeohashRepository(application, dataManager, scope) { state.getNicknameValue() },
+            repo = GeohashRepository(application, dataManager, scope, NostrIdentityBridge) { state.getNicknameValue() },
             dataManager = dataManager,
             nostrTransportProvider = { mock<NostrTransport>() },
-            seenStoreProvider = { seenStore }
+            seenStoreProvider = { seenStore },
+            geohashAliases = GeohashAliasRegistry,
+            geohashConversations = GeohashConversationRegistry,
+            contactDirectory = ContactDirectory,
+            favorites = Lazy { FavoritesPersistenceService.shared },
         )
         val sender = NostrIdentity.generate()
         val recipient = NostrIdentity.generate()

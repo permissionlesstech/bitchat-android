@@ -1,9 +1,12 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.nostr.GeohashAliasRegistry
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.di.ChatSessionScope
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.MessageRouter
+import dagger.Lazy
 import dagger.hilt.android.scopes.ActivityRetainedScoped
 import java.util.Date
 import javax.inject.Inject
@@ -32,6 +35,9 @@ class MessageSender @Inject constructor(
     // Provider, not a cached instance: each get() re-points the router at the
     // current mesh, as it did in ChatViewModel.
     private val messageRouterProvider: Provider<MessageRouter>,
+    private val contactDirectory: ContactDirectory,
+    private val favorites: Lazy<FavoritesPersistenceService>,
+    private val geohashAliases: GeohashAliasRegistry,
     @ChatSessionScope private val scope: CoroutineScope,
 ) {
 
@@ -90,13 +96,14 @@ class MessageSender @Inject constructor(
         
         if (selectedPeer != null) {
             // If the selected peer is a temporary Nostr alias or a noise-hex identity, resolve to a canonical target
-            selectedPeer = ContactDirectory.canonicalConversationId(
+            selectedPeer = contactDirectory.canonicalConversationId(
                 com.bitchat.android.services.ConversationAliasResolver.resolveCanonicalPeerID(
                 selectedPeerID = selectedPeer,
                 connectedPeers = state.getConnectedPeersValue(),
                 meshNoiseKeyForPeer = { pid -> mesh.getPeerInfo(pid)?.noisePublicKey },
-                nostrPubHexForAlias = { alias -> com.bitchat.android.nostr.GeohashAliasRegistry.get(alias) },
-                findNoiseKeyForNostr = { key -> com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNoiseKey(key) }
+                nostrPubHexForAlias = { alias -> geohashAliases.get(alias) },
+                findNoiseKeyForNostr = { key -> favorites.get().findNoiseKey(key) },
+                contactDirectory = contactDirectory,
                 )
             ).also { canonical ->
                 if (canonical != state.getSelectedPrivateChatPeerValue()) {
@@ -179,7 +186,7 @@ class MessageSender @Inject constructor(
     }
 
     private fun nicknameForPeer(peerID: String): String? {
-        val contact = ContactDirectory.resolve(peerID)
+        val contact = contactDirectory.resolve(peerID)
         val meshPeerID = contact.meshPeerID ?: peerID
         return contact.displayName
             ?: state.peerNicknames.value[meshPeerID]

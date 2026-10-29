@@ -14,6 +14,8 @@ import com.bitchat.android.settings.MeshDiagnostics
 import com.bitchat.android.settings.MeshSnapshot
 import com.bitchat.android.settings.TransportDiagnostics
 import com.bitchat.android.settings.WifiAwareStatus
+import com.bitchat.android.spam.SpamFilter
+import com.bitchat.android.spam.SpamFilterPreferences
 import com.bitchat.android.ui.theme.BitchatTheme
 import com.bitchat.android.util.DistributionInfoProvider
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -101,6 +103,8 @@ class DebugSettingsLifecycleTest {
         },
         defaultDispatcher = background,
         ioDispatcher = background,
+        spamFilterPreferences = SpamFilterPreferences,
+        spamFilter = SpamFilter.shared,
     )
 
     // Held in a store so tearDown can clear it.

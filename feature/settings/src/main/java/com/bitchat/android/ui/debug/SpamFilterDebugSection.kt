@@ -31,13 +31,13 @@ import kotlin.math.roundToInt
 
 /** Debug controls for the spam filter: live limit tuning and the mark-instead-of-hide bypass. */
 @Composable
-fun SpamFilterDebugSection() {
+fun SpamFilterDebugSection(spamFilterPreferences: SpamFilterPreferences, spamFilter: SpamFilter) {
     val colorScheme = MaterialTheme.colorScheme
-    val filterEnabled by SpamFilterPreferences.enabled.collectAsState()
-    val bypass by SpamFilterPreferences.debugBypass.collectAsState()
-    val tuning by SpamFilterPreferences.tuning.collectAsState()
-    val flagged by SpamFilter.shared.flagged.collectAsState()
-    val update: (SpamTuning) -> Unit = SpamFilterPreferences::setTuning
+    val filterEnabled by spamFilterPreferences.enabled.collectAsState()
+    val bypass by spamFilterPreferences.debugBypass.collectAsState()
+    val tuning by spamFilterPreferences.tuning.collectAsState()
+    val flagged by spamFilter.flagged.collectAsState()
+    val update: (SpamTuning) -> Unit = spamFilterPreferences::setTuning
 
     Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -45,7 +45,7 @@ fun SpamFilterDebugSection() {
                 Icon(Icons.Filled.FilterAlt, contentDescription = null, tint = colorScheme.error)
                 Text("Spam filter", fontFamily = BitchatFontFamily, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 Spacer(Modifier.weight(1f))
-                Switch(checked = filterEnabled, onCheckedChange = SpamFilterPreferences::setEnabled)
+                Switch(checked = filterEnabled, onCheckedChange = spamFilterPreferences::setEnabled)
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column(Modifier.weight(1f)) {
@@ -57,7 +57,7 @@ fun SpamFilterDebugSection() {
                         color = colorScheme.onSurface.copy(alpha = 0.7f)
                     )
                 }
-                Switch(checked = bypass, onCheckedChange = SpamFilterPreferences::setDebugBypass, enabled = filterEnabled)
+                Switch(checked = bypass, onCheckedChange = spamFilterPreferences::setDebugBypass, enabled = filterEnabled)
             }
 
             Text(

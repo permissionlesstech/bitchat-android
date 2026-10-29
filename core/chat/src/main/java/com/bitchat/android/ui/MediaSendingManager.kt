@@ -1,6 +1,7 @@
 package com.bitchat.android.ui
 
 import android.util.Log
+import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.model.BitchatMessage
@@ -34,6 +35,7 @@ class MediaSendingManager(
     private val state: ChatState,
     private val messageManager: MessageManager,
     private val channelManager: ChannelManager,
+    private val contactDirectory: ContactDirectory,
     private val scope: CoroutineScope,
     private val mediaWorkDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val getMeshService: () -> MeshService
@@ -301,7 +303,7 @@ class MediaSendingManager(
         val transferId = withContext(mediaWorkDispatcher) {
             sha256Hex(payload)
         }
-        val recipient = PrivateMediaRecipientResolver.resolve(toPeerID, meshService)
+        val recipient = PrivateMediaRecipientResolver.resolve(toPeerID, meshService, contactDirectory)
             ?: run {
                 addPrivateMediaSystemMessage(
                     toPeerID,

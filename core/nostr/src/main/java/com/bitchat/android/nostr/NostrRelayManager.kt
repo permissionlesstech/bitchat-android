@@ -6,6 +6,7 @@ import androidx.annotation.VisibleForTesting
 import com.bitchat.android.di.IoDispatcher
 import com.bitchat.android.geohash.LiveLocationPrivacyGate
 import com.bitchat.android.mesh.PowerManager
+import dagger.Lazy
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,6 +37,8 @@ class NostrRelayManager @Inject constructor(
     // Event deduplication system
     private val eventDeduplicator: NostrEventDeduplicator,
     @IoDispatcher ioDispatcher: CoroutineDispatcher,
+    // Lazy: the power profile is first read where the manager used to ask for it.
+    private val powerManagerSource: Lazy<PowerManager>,
 ) {
     
     companion object {
@@ -130,7 +133,7 @@ class NostrRelayManager @Inject constructor(
     private val routeChangeLock = Any()
     private var routeChangeJob: Job? = null
     private val powerManager: PowerManager
-        get() = PowerManager.getInstance(appContext)
+        get() = powerManagerSource.get()
     
     // OkHttp client for WebSocket connections (via provider to honor Tor)
     private val httpClient: OkHttpClient

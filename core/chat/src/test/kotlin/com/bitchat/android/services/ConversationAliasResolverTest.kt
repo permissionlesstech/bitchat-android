@@ -19,7 +19,7 @@ class ConversationAliasResolverTest {
     fun setUp() {
         AppStateStore.clear()
         scope = CoroutineScope(SupervisorJob())
-        state = ChatState(scope)
+        state = ChatState(scope, AppStateStore)
     }
 
     @After
@@ -61,7 +61,9 @@ class ConversationAliasResolverTest {
         ConversationAliasResolver.unifyChatsIntoPeer(
             state = state,
             targetPeerID = "target-peer",
-            keysToMerge = listOf("source-alias")
+            keysToMerge = listOf("source-alias"),
+            contactDirectory = ContactDirectory,
+            appStateStore = AppStateStore,
         )
 
         assertEquals(

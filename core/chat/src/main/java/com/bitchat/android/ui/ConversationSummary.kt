@@ -35,6 +35,7 @@ internal fun buildConversationSummaries(
     currentUserIdentifiers: Set<String>,
     canonicalize: (String) -> String,
     isMessageRead: (BitchatMessage) -> Boolean,
+    arrivalOrder: PrivateMessageArrivalOrder,
     persistedUnreadCounts: Map<String, Int> = emptyMap()
 ): List<ConversationSummary> {
     if (privateChats.isEmpty()) return emptyList()
@@ -70,7 +71,7 @@ internal fun buildConversationSummaries(
         if (messages.isEmpty()) return@mapNotNull null
 
         fun activityOrder(message: BitchatMessage): Long =
-            PrivateMessageArrivalOrder.sequenceOf(message.id) ?: message.timestamp.time
+            arrivalOrder.sequenceOf(message.id) ?: message.timestamp.time
 
         val latest = messages.maxWithOrNull(
             compareBy<BitchatMessage>(::activityOrder).thenBy { it.id }
@@ -115,7 +116,7 @@ internal fun buildConversationSummaries(
             displayName = displayName,
             unreadCount = unreadCount,
             latestMessageAt =
-                PrivateMessageArrivalOrder.receivedAtOf(latest.id) ?: latest.timestamp.time,
+                arrivalOrder.receivedAtOf(latest.id) ?: latest.timestamp.time,
             latestActivityOrder = activityOrder(latest),
             latestMessageType = latest.type,
             latestMessagePreview = latest.conversationPreview(),

@@ -37,6 +37,11 @@ class NostrBackgroundRuntime @Inject constructor(
     private val locationChannelsSource: Lazy<LocationChannelManager>,
     private val relayManager: Lazy<NostrRelayManager>,
     private val liveLocationGate: LiveLocationPrivacyGate,
+    private val nostrIdentity: NostrIdentityBridge,
+    private val geohashAliases: GeohashAliasRegistry,
+    private val geohashConversations: GeohashConversationRegistry,
+    // Lazy: PowerManager is first touched in startPresenceScheduler, as before.
+    private val powerManagerSource: Lazy<PowerManager>,
 ) {
     private companion object {
         const val TAG = "NostrBackground"
@@ -117,7 +122,7 @@ class NostrBackgroundRuntime @Inject constructor(
     }
 
     private fun subscribeAccountDm() {
-        val identity = NostrIdentityBridge.getCurrentNostrIdentity(application) ?: return
+        val identity = nostrIdentity.getCurrentNostrIdentity(application) ?: return
         subscriptions.subscribeGiftWraps(
             pubkey = identity.publicKeyHex,
             sinceMs = System.currentTimeMillis() - 172_800_000L,
@@ -184,7 +189,7 @@ class NostrBackgroundRuntime @Inject constructor(
     ) {
         scope.launch {
             val subscribe = {
-                val identity = NostrIdentityBridge.deriveIdentity(geohash, application)
+                val identity = nostrIdentity.deriveIdentity(geohash, application)
                 subscriptions.subscribeGiftWraps(
                     pubkey = identity.publicKeyHex,
                     sinceMs = System.currentTimeMillis() - 172_800_000L,
@@ -194,7 +199,7 @@ class NostrBackgroundRuntime @Inject constructor(
                     },
                     liveLocationToken = liveLocationToken
                 )
-                GeohashAliasRegistry.put(
+                geohashAliases.put(
                     "nostr_${identity.publicKeyHex.take(16)}",
                     identity.publicKeyHex
                 )
@@ -209,7 +214,7 @@ class NostrBackgroundRuntime @Inject constructor(
     }
 
     private fun startPresenceScheduler() {
-        val powerManager = PowerManager.getInstance(application)
+        val powerManager = powerManagerSource.get()
         scope.launch {
             val nostrSchedule = powerManager.profile
                 .map { it.nostr }
@@ -250,7 +255,7 @@ class NostrBackgroundRuntime @Inject constructor(
 
                             var identity: NostrIdentity? = null
                             liveLocationGate.runIfAllowed(token) {
-                                identity = NostrIdentityBridge.deriveIdentity(geohash, application)
+                                identity = nostrIdentity.deriveIdentity(geohash, application)
                             }
                             val preparedIdentity = identity ?: return@forEach
                             if (!liveLocationGate.accepts(token)) return@forEach
@@ -280,7 +285,7 @@ class NostrBackgroundRuntime @Inject constructor(
 
     fun conversationGeohash(conversationKey: String): String? =
         if (initialized) eventProcessor.conversationGeohash(conversationKey)
-        else GeohashConversationRegistry.get(conversationKey)
+        else geohashConversations.get(conversationKey)
 
     fun displayNameForNostrPubkey(pubkeyHex: String): String? =
         if (initialized) eventProcessor.displayNameForNostrPubkey(pubkeyHex) else null

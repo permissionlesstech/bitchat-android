@@ -2,13 +2,18 @@ package com.bitchat.android.services
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
+import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.DataManager
 import com.bitchat.android.ui.MessageManager
 import com.bitchat.android.ui.NoiseSessionDelegate
 import com.bitchat.android.ui.PrivateChatManager
+import dagger.Lazy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.TestScope
@@ -151,13 +156,17 @@ class IncomingMessageAdmissionTest {
 
     @Test
     fun `outgoing callback runs only after local echo survives process state clear`() {
-        val state = ChatState(TestScope())
+        val state = ChatState(TestScope(), AppStateStore)
         state.setNickname("me")
         val manager = PrivateChatManager(
             state = state,
-            messageManager = MessageManager(state),
+            messageManager = MessageManager(state, AppStateStore, ContactDirectory),
             dataManager = DataManager(context),
-            noiseSessionDelegate = testNoiseDelegate()
+            noiseSessionDelegate = testNoiseDelegate(),
+            contactDirectory = ContactDirectory,
+            appStateStore = AppStateStore,
+            favorites = Lazy { FavoritesPersistenceService.shared },
+            peerFingerprints = PeerFingerprintManager.getInstance(),
         )
         var callbackInvoked = false
 
@@ -187,13 +196,17 @@ class IncomingMessageAdmissionTest {
 
     @Test
     fun `outgoing messages to different peers keep separate persisted conversations`() {
-        val state = ChatState(TestScope())
+        val state = ChatState(TestScope(), AppStateStore)
         state.setNickname("me")
         val manager = PrivateChatManager(
             state = state,
-            messageManager = MessageManager(state),
+            messageManager = MessageManager(state, AppStateStore, ContactDirectory),
             dataManager = DataManager(context),
-            noiseSessionDelegate = testNoiseDelegate()
+            noiseSessionDelegate = testNoiseDelegate(),
+            contactDirectory = ContactDirectory,
+            appStateStore = AppStateStore,
+            favorites = Lazy { FavoritesPersistenceService.shared },
+            peerFingerprints = PeerFingerprintManager.getInstance(),
         )
 
         runBlocking {
@@ -252,12 +265,16 @@ class IncomingMessageAdmissionTest {
         )
         repositoriesToClose += failingRepository
         AppStateStore.setConversationRepositoryForTest(failingRepository)
-        val state = ChatState(TestScope())
+        val state = ChatState(TestScope(), AppStateStore)
         val manager = PrivateChatManager(
             state = state,
-            messageManager = MessageManager(state),
+            messageManager = MessageManager(state, AppStateStore, ContactDirectory),
             dataManager = DataManager(context),
-            noiseSessionDelegate = testNoiseDelegate()
+            noiseSessionDelegate = testNoiseDelegate(),
+            contactDirectory = ContactDirectory,
+            appStateStore = AppStateStore,
+            favorites = Lazy { FavoritesPersistenceService.shared },
+            peerFingerprints = PeerFingerprintManager.getInstance(),
         )
         var callbackInvoked = false
 

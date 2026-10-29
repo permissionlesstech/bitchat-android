@@ -2,6 +2,9 @@ package com.bitchat.android.nostr
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import com.bitchat.android.nostr.GeohashAliasRegistry
+import com.bitchat.android.nostr.NostrIdentityBridge
+import com.bitchat.android.spam.SpamFilter
 import com.bitchat.android.ui.DataManager
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.drop
@@ -26,9 +29,13 @@ class GeohashPresenceBurstTest {
     private val dispatcher = StandardTestDispatcher()
     private val scope = TestScope(dispatcher)
     private val dataManager = DataManager(application)
-    private val repo = GeohashRepository(application, dataManager, scope) { "test-self" }
+    private val repo = GeohashRepository(application, dataManager, scope, NostrIdentityBridge) { "test-self" }
     private val handler = GeohashMessageHandler(
-        application, repo, scope, dataManager, { _, _ -> }, PoWPreferenceManager(application), dispatcher
+        application, repo, scope, dataManager, { _, _ -> }, PoWPreferenceManager(application),
+        signatureVerificationDispatcher = dispatcher,
+        geohashAliases = GeohashAliasRegistry,
+        nostrIdentity = NostrIdentityBridge,
+        spamFilter = SpamFilter.shared,
     )
     // A synthetic fixture channel; no device location or relay traffic is used.
     private val geohash = "s000"

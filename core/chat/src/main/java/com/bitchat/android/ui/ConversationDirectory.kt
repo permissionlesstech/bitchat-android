@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.di.ChatSessionScope
 import com.bitchat.android.favorites.FavoritesChangeListener
 import com.bitchat.android.favorites.FavoritesPersistenceService
@@ -7,6 +8,7 @@ import com.bitchat.android.nostr.GeohashConversationRegistry
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.services.ConversationListPreferences
+import com.bitchat.android.services.PrivateMessageArrivalOrder
 import com.bitchat.android.services.SeenMessageStore
 import dagger.Lazy
 import dagger.hilt.android.scopes.ActivityRetainedScoped
@@ -48,6 +50,11 @@ class ConversationDirectory @Inject constructor(
     private val privateChatManager: PrivateChatManager,
     private val notificationManager: NotificationManager,
     private val sessionMesh: ChatSessionMesh,
+    private val appStateStore: AppStateStore,
+    private val contactDirectory: ContactDirectory,
+    private val arrivalOrder: PrivateMessageArrivalOrder,
+    private val geohashConversations: GeohashConversationRegistry,
+    private val favorites: Lazy<FavoritesPersistenceService>,
     @ChatSessionScope private val scope: CoroutineScope,
 ) {
 
@@ -56,7 +63,7 @@ class ConversationDirectory @Inject constructor(
     }
 
     val conversationStoreState =
-        com.bitchat.android.services.AppStateStore.conversationStoreState
+        appStateStore.conversationStoreState
     private val conversationPresencePeers = MutableStateFlow<List<String>>(emptyList())
     private val conversationPresenceRemovalJobs = mutableMapOf<String, Job>()
     private val conversationDirectoryRevision = MutableStateFlow(0L)
@@ -84,7 +91,7 @@ class ConversationDirectory @Inject constructor(
         state.peerNicknames,
         state.peerFingerprints,
         conversationDirectoryRevision,
-        com.bitchat.android.services.AppStateStore.privateConversationDisplayNames
+        appStateStore.privateConversationDisplayNames
     ) { connectedPeerIDs, peerNicknames, _, _, persistedDisplayNames ->
         ConversationLiveIdentityState(
             connectedPeerIDs = connectedPeerIDs,
@@ -98,14 +105,14 @@ class ConversationDirectory @Inject constructor(
         state.privateChats,
         state.nickname,
         conversationLiveIdentityState,
-        com.bitchat.android.services.AppStateStore.unreadPrivateMessageCounts
+        appStateStore.unreadPrivateMessageCounts
     ) { unreadConversationIDs, chats, currentNickname, liveIdentity, unreadCounts ->
         val seenStore = seenMessageStore.get()
         val connectedPeerByIdentity = buildMap {
             liveIdentity.connectedPeerIDs.forEach { peerID ->
                 val identities = runCatching {
-                    ContactDirectory.aliasesForConversation(peerID) +
-                        ContactDirectory.canonicalConversationId(peerID)
+                    contactDirectory.aliasesForConversation(peerID) +
+                        contactDirectory.canonicalConversationId(peerID)
                 }.getOrDefault(setOf(peerID))
                 identities.forEach { identity ->
                     putIfAbsent(identity.lowercase(), peerID)
@@ -116,14 +123,15 @@ class ConversationDirectory @Inject constructor(
             unreadConversationIDs = unreadConversationIDs,
             privateChats = chats,
             currentUserIdentifiers = setOf(currentNickname, sessionMesh.unified.myPeerID),
-            canonicalize = ContactDirectory::canonicalConversationId,
+            canonicalize = contactDirectory::canonicalConversationId,
+            arrivalOrder = arrivalOrder,
             isMessageRead = { message ->
-                com.bitchat.android.services.AppStateStore.isPrivateMessageRead(message.id) ||
+                appStateStore.isPrivateMessageRead(message.id) ||
                     seenStore.hasBeenReadLocally(message.id)
             },
             persistedUnreadCounts = unreadCounts
         ).map { summary ->
-            val resolution = ContactDirectory.resolve(summary.conversationID)
+            val resolution = contactDirectory.resolve(summary.conversationID)
             val resolvedNostrPubkey = summary.nostrPubkey
                 ?: resolution.nostrPubkey?.let(ContactIdentityResolver::nostrPubkeyHex)
             val aliases = buildSet {
@@ -166,7 +174,7 @@ class ConversationDirectory @Inject constructor(
                 connectedPeerID = connectedPeerID,
                 sourceGeohash = aliases
                     .asSequence()
-                    .mapNotNull(GeohashConversationRegistry::get)
+                    .mapNotNull(geohashConversations::get)
                     .firstOrNull()
             )
         }
@@ -244,15 +252,14 @@ class ConversationDirectory @Inject constructor(
                 }.toMap()
             }.collect { connectedNames ->
                 conversationListPreferences.canonicalizeAliases()
-                com.bitchat.android.services.AppStateStore
-                    .updatePrivateConversationDisplayNames(connectedNames)
+                appStateStore.updatePrivateConversationDisplayNames(connectedNames)
             }
         }
     }
 
     private fun refreshPeerFavoritedUs() {
         try {
-            val fingerprints = com.bitchat.android.favorites.FavoritesPersistenceService.shared
+            val fingerprints = favorites.get()
                 .getAllRelationships()
                 .filter { it.theyFavoritedUs }
                 .mapNotNull { relationship ->
@@ -268,18 +275,17 @@ class ConversationDirectory @Inject constructor(
     suspend fun delete(
         peerOrConversationID: String
     ): com.bitchat.android.services.DeletedPrivateConversation? {
-        val canonicalID = ContactDirectory.canonicalConversationId(peerOrConversationID)
+        val canonicalID = contactDirectory.canonicalConversationId(peerOrConversationID)
         val wasPinned = conversationListPreferences.isPinned(canonicalID)
         val wasMuted = conversationListPreferences.isMuted(canonicalID)
         val draft = conversationListPreferences.draftFor(canonicalID)
         val unreadAliases = matchingUnreadAliases(
             unreadConversationIDs = state.getUnreadPrivateMessagesValue(),
             canonicalConversationID = canonicalID,
-            canonicalize = ContactDirectory::canonicalConversationId
+            canonicalize = contactDirectory::canonicalConversationId
         )
         val deletion = withContext(Dispatchers.IO) {
-            com.bitchat.android.services.AppStateStore
-                .deletePrivateConversationAndWait(canonicalID)
+            appStateStore.deletePrivateConversationAndWait(canonicalID)
         }?.copy(
             wasPinned = wasPinned,
             wasMuted = wasMuted,
@@ -288,8 +294,8 @@ class ConversationDirectory @Inject constructor(
         conversationListPreferences.removeConversation(canonicalID)
 
         state.setPrivateChats(
-            ContactDirectory.canonicalizePrivateChats(
-                com.bitchat.android.services.AppStateStore.privateMessages.value
+            contactDirectory.canonicalizePrivateChats(
+                appStateStore.privateMessages.value
             )
         )
         state.setUnreadPrivateMessages(
@@ -300,7 +306,7 @@ class ConversationDirectory @Inject constructor(
         val selected = state.getSelectedPrivateChatPeerValue()
         if (
             selected != null &&
-            ContactDirectory.canonicalConversationId(selected)
+            contactDirectory.canonicalConversationId(selected)
                 .equals(canonicalID, ignoreCase = true)
         ) {
             privateChatManager.endPrivateChat()
@@ -315,8 +321,7 @@ class ConversationDirectory @Inject constructor(
         deletion: com.bitchat.android.services.DeletedPrivateConversation
     ): Boolean {
         val restored = withContext(Dispatchers.IO) {
-            com.bitchat.android.services.AppStateStore
-                .restoreDeletedConversation(deletion)
+            appStateStore.restoreDeletedConversation(deletion)
         }
         if (!restored) return false
         if (deletion.wasPinned != conversationListPreferences.isPinned(deletion.conversationID)) {
@@ -329,8 +334,8 @@ class ConversationDirectory @Inject constructor(
             conversationListPreferences.setDraft(deletion.conversationID, it)
         }
         state.setPrivateChats(
-            ContactDirectory.canonicalizePrivateChats(
-                com.bitchat.android.services.AppStateStore.privateMessages.value
+            contactDirectory.canonicalizePrivateChats(
+                appStateStore.privateMessages.value
             )
         )
         if (deletion.unreadMessageCount > 0) {
@@ -345,16 +350,15 @@ class ConversationDirectory @Inject constructor(
         conversationID: String,
         isRead: Boolean
     ): Boolean {
-        val canonicalID = ContactDirectory.canonicalConversationId(conversationID)
+        val canonicalID = contactDirectory.canonicalConversationId(conversationID)
         val updated = withContext(Dispatchers.IO) {
-            com.bitchat.android.services.AppStateStore
-                .setPrivateConversationRead(canonicalID, isRead)
+            appStateStore.setPrivateConversationRead(canonicalID, isRead)
         }
         if (!updated) return false
         state.setUnreadPrivateMessages(
             if (isRead) {
                 state.getUnreadPrivateMessagesValue().filterNotTo(mutableSetOf()) {
-                    ContactDirectory.canonicalConversationId(it)
+                    contactDirectory.canonicalConversationId(it)
                         .equals(canonicalID, ignoreCase = true)
                 }
             } else {
@@ -376,7 +380,7 @@ class ConversationDirectory @Inject constructor(
     fun startFavoriteTracking() {
         refreshPeerFavoritedUs()
         try {
-            com.bitchat.android.favorites.FavoritesPersistenceService.shared.addListener(
+            favorites.get().addListener(
                 favoriteRelationshipChangeListener
             )
             favoriteRelationshipListenerRegistered = true
@@ -386,7 +390,7 @@ class ConversationDirectory @Inject constructor(
     fun stopFavoriteTracking() {
         if (favoriteRelationshipListenerRegistered) {
             runCatching {
-                FavoritesPersistenceService.shared.removeListener(
+                favorites.get().removeListener(
                     favoriteRelationshipChangeListener
                 )
             }

@@ -1,6 +1,7 @@
 package com.bitchat.android.ui
 
 import android.app.Application
+import com.bitchat.android.spam.SpamFilter
 import dagger.Lazy
 import android.util.Log
 import androidx.lifecycle.DefaultLifecycleObserver
@@ -51,6 +52,10 @@ class GeohashSession(
     private val nostrBackgroundRuntime: NostrBackgroundRuntime,
     private val liveLocationPrivacyGate: LiveLocationPrivacyGate,
     private val powPreferences: PoWPreferenceManager,
+    private val geohashAliases: GeohashAliasRegistry,
+    private val spamFilter: SpamFilter,
+    private val geohashConversations: GeohashConversationRegistry,
+    private val nostrIdentity: NostrIdentityBridge,
     // Lazy: each is touched only where the session used to ask for it, not when it is built.
     private val locationChannelManagerSource: Lazy<com.bitchat.android.geohash.LocationChannelManager>,
     private val relayManagerSource: Lazy<NostrRelayManager>,
@@ -62,7 +67,7 @@ class GeohashSession(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private val repo = GeohashRepository(
-        application, dataManager, scope, nostrBackgroundRuntime.participants
+        application, dataManager, scope, nostrIdentity, nostrBackgroundRuntime.participants
     ) { state.getNicknameValue() }
     private val uiSubscriptionOwner = "geohash-ui-${UUID.randomUUID()}"
     private val subscriptionManager = NostrSubscriptionManager(
@@ -76,7 +81,10 @@ class GeohashSession(
         scope = scope,
         dataManager = dataManager,
         addChannelMessage = messageManager::addChannelMessage,
-        powPreferences = powPreferences
+        powPreferences = powPreferences,
+        geohashAliases = geohashAliases,
+        nostrIdentity = nostrIdentity,
+        spamFilter = spamFilter,
     )
 
     // Presence heartbeat firehose (kind 20001). High-volume; paused while backgrounded.
@@ -140,15 +148,15 @@ class GeohashSession(
     /** Returns true only when the persisted Nostr identity was wiped; the rest is in-memory teardown. */
     fun panicReset(): Boolean {
         repo.clearAll()
-        GeohashAliasRegistry.clear()
-        GeohashConversationRegistry.clear()
+        geohashAliases.clear()
+        geohashConversations.clear()
         subscriptionManager.unsubscribeAllOwned()
         currentGeohashPresenceSubId = null
         activeChannelGeohash = null
         geoTimer?.cancel()
         geoTimer = null
         val identityCleared = try {
-            NostrIdentityBridge.clearAllAssociations(application)
+            nostrIdentity.clearAllAssociations(application)
         } catch (_: Exception) {
             false
         }
@@ -185,7 +193,7 @@ class GeohashSession(
                     powDifficulty = if (pow.enabled) pow.difficulty else null
                 )
                 messageManager.addChannelMessage("geo:${channel.geohash}", localMsg)
-                val identity = NostrIdentityBridge.deriveIdentity(
+                val identity = nostrIdentity.deriveIdentity(
                     forGeohash = channel.geohash,
                     context = application
                 )
@@ -284,7 +292,7 @@ class GeohashSession(
         val gh = (current as? com.bitchat.android.geohash.ChannelID.Location)?.channel?.geohash
         if (!gh.isNullOrEmpty()) {
             repo.setConversationGeohash(convKey, gh)
-            GeohashConversationRegistry.set(convKey, gh)
+            geohashConversations.set(convKey, gh)
         }
         onStartPrivateChat(convKey)
         Log.d(TAG, "🗨️ Started geohash DM")
@@ -398,7 +406,7 @@ class GeohashSession(
                 try { messageManager.clearChannelUnreadCount("geo:${channel.channel.geohash}") } catch (_: Exception) { }
 
                 try {
-                    val identity = NostrIdentityBridge.deriveIdentity(channel.channel.geohash, application)
+                    val identity = nostrIdentity.deriveIdentity(channel.channel.geohash, application)
                     // We don't update participant here anymore; presence loop handles it via Kind 20001
                     val teleported = locationChannelManager?.teleported?.value
                         ?: state.isTeleported.value

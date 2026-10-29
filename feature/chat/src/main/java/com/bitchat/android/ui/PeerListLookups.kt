@@ -9,6 +9,7 @@ import com.bitchat.android.mesh.PeerInfo
 import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.services.ContactDirectory
 import dagger.Binds
+import dagger.Lazy
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.components.ViewModelComponent
@@ -64,7 +65,7 @@ interface PeerListLookups {
 }
 
 /**
- * Forwards to today's singletons and session objects. The singletons are read on every call,
+ * Forwards to the singletons and session objects. The favourites are resolved on every call,
  * not captured, so an uninitialised service throws where it threw before. The identity state
  * manager is built once, with the adapter, so a failure to build it is as loud as it was in
  * composition and is not retried per row.
@@ -74,29 +75,32 @@ internal class RealPeerListLookups @Inject constructor(
     private val contactFavorites: ContactFavorites,
     private val verificationHandler: VerificationHandler,
     private val sessionMesh: ChatSessionMesh,
+    private val contactDirectory: ContactDirectory,
+    private val favorites: Lazy<FavoritesPersistenceService>,
+    private val nostrIdentity: NostrIdentityBridge,
 ) : PeerListLookups {
 
     private val identityStateManager = SecureIdentityStateManager(appContext)
 
     override fun aliasesForConversation(peerOrConversationID: String): Set<String> =
-        ContactDirectory.aliasesForConversation(peerOrConversationID)
+        contactDirectory.aliasesForConversation(peerOrConversationID)
 
     override fun canonicalConversationId(peerOrConversationID: String): String =
-        ContactDirectory.canonicalConversationId(peerOrConversationID)
+        contactDirectory.canonicalConversationId(peerOrConversationID)
 
     override fun isFavorite(peerID: String): Boolean = contactFavorites.isFavorite(peerID)
 
     override fun favoriteStatus(peerID: String): FavoriteRelationship? =
-        FavoritesPersistenceService.shared.getFavoriteStatus(peerID)
+        favorites.get().getFavoriteStatus(peerID)
 
     override fun ourFavorites(): List<FavoriteRelationship> =
-        FavoritesPersistenceService.shared.getOurFavorites()
+        favorites.get().getOurFavorites()
 
     override fun nostrPubkeyForPeerID(peerID: String): String? =
-        FavoritesPersistenceService.shared.findNostrPubkeyForPeerID(peerID)
+        favorites.get().findNostrPubkeyForPeerID(peerID)
 
     override fun nostrPubkeyForNoiseKey(noisePublicKey: ByteArray): String? =
-        FavoritesPersistenceService.shared.findNostrPubkey(noisePublicKey)
+        favorites.get().findNostrPubkey(noisePublicKey)
 
     override fun peerInfo(peerID: String): PeerInfo? = sessionMesh.unified.getPeerInfo(peerID)
 
@@ -111,7 +115,7 @@ internal class RealPeerListLookups @Inject constructor(
 
     override fun geohashIdentityPublicKeyHex(geohash: String): String? =
         try {
-            NostrIdentityBridge.deriveIdentity(
+            nostrIdentity.deriveIdentity(
                 forGeohash = geohash,
                 context = appContext
             ).publicKeyHex

@@ -18,10 +18,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.bitchat.android.features.voice.AudioWaveformExtractor
-import com.bitchat.android.features.voice.VoiceWaveformCache
 import com.bitchat.android.features.voice.resampleWave
+import com.bitchat.android.ui.chatScreenDependencies
 
 @Composable
 fun ScrollingWaveformRecorder(
@@ -58,7 +59,9 @@ fun WaveformPreview(
     onLoaded: ((FloatArray) -> Unit)? = null,
     onSeek: ((Float) -> Unit)? = null
 ) {
-    val cached = remember(path) { VoiceWaveformCache.get(path) }
+    val context = LocalContext.current
+    val waveformCache = remember(context) { context.chatScreenDependencies().voiceWaveformCache() }
+    val cached = remember(path) { waveformCache.get(path) }
     val stateSamples = remember { mutableStateListOf<Float>() }
     val progress = (sendProgress ?: playbackProgress)?.coerceIn(0f, 1f) ?: 0f
     LaunchedEffect(cached) {
@@ -68,7 +71,7 @@ fun WaveformPreview(
         } else {
             AudioWaveformExtractor.extractAsync(path, sampleCount = 120) { arr ->
                 if (arr != null) {
-                    VoiceWaveformCache.put(path, arr)
+                    waveformCache.put(path, arr)
                     stateSamples.clear(); stateSamples.addAll(arr.toList())
                     onLoaded?.invoke(arr)
                 }

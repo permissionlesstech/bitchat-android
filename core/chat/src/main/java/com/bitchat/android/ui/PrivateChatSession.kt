@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ContactDirectory
 import dagger.hilt.android.scopes.ActivityRetainedScoped
 import javax.inject.Inject
@@ -20,6 +21,8 @@ class PrivateChatSession @Inject constructor(
     private val notificationManager: NotificationManager,
     private val geohashSession: GeohashSession,
     private val sessionMesh: ChatSessionMesh,
+    private val appStateStore: AppStateStore,
+    private val contactDirectory: ContactDirectory,
 ) {
 
     suspend fun start(peerID: String) {
@@ -29,18 +32,17 @@ class PrivateChatSession @Inject constructor(
         }
 
         val (conversationID, success) = withContext(Dispatchers.IO) {
-            val canonicalID = ContactDirectory.canonicalConversationId(peerID)
-            com.bitchat.android.services.AppStateStore
-                .loadPrivateConversationHistory(canonicalID)
+            val canonicalID = contactDirectory.canonicalConversationId(peerID)
+            appStateStore.loadPrivateConversationHistory(canonicalID)
             state.setPrivateChats(
-                ContactDirectory.canonicalizePrivateChats(
-                    com.bitchat.android.services.AppStateStore.privateMessages.value
+                contactDirectory.canonicalizePrivateChats(
+                    appStateStore.privateMessages.value
                 )
             )
             val unreadAliases = matchingUnreadAliases(
                 unreadConversationIDs = state.getUnreadPrivateMessagesValue(),
                 canonicalConversationID = canonicalID,
-                canonicalize = ContactDirectory::canonicalConversationId
+                canonicalize = contactDirectory::canonicalConversationId
             )
             canonicalID to privateChatManager.startPrivateChat(
                 peerID = canonicalID,
@@ -60,11 +62,10 @@ class PrivateChatSession @Inject constructor(
         val conversationID = state.getSelectedPrivateChatPeerValue()
         privateChatManager.endPrivateChat()
         if (conversationID != null) {
-            com.bitchat.android.services.AppStateStore
-                .releasePrivateConversationHistory(conversationID)
+            appStateStore.releasePrivateConversationHistory(conversationID)
             state.setPrivateChats(
-                ContactDirectory.canonicalizePrivateChats(
-                    com.bitchat.android.services.AppStateStore.privateMessages.value
+                contactDirectory.canonicalizePrivateChats(
+                    appStateStore.privateMessages.value
                 )
             )
         }
@@ -85,8 +86,8 @@ class PrivateChatSession @Inject constructor(
     fun end(conversationID: String) {
         val selected = state.getSelectedPrivateChatPeerValue() ?: return
         if (
-            ContactDirectory.canonicalConversationId(selected).equals(
-                ContactDirectory.canonicalConversationId(conversationID),
+            contactDirectory.canonicalConversationId(selected).equals(
+                contactDirectory.canonicalConversationId(conversationID),
                 ignoreCase = true
             )
         ) {

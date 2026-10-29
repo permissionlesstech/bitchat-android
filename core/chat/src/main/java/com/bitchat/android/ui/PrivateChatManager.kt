@@ -5,9 +5,11 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 
+import dagger.Lazy
 import java.util.*
 import android.util.Log
 
@@ -34,16 +36,20 @@ class PrivateChatManager(
     private val messageManager: MessageManager,
     private val dataManager: DataManager,
     private val noiseSessionDelegate: NoiseSessionDelegate,
+    private val contactDirectory: ContactDirectory,
+    private val appStateStore: AppStateStore,
+    private val favorites: Lazy<FavoritesPersistenceService>,
+    private val peerFingerprints: PeerFingerprintManager,
     private val trackUnreadMessages: Boolean = true,
     private val hasReadReceiptBeenSent: (messageID: String) -> Boolean = { false },
-    private val markMessageReadLocally: (messageID: String) -> Unit = {}
+    private val markMessageReadLocally: (messageID: String) -> Unit = {},
 ) {
 
     companion object {
         private const val TAG = "PrivateChatManager"
     }
 
-    private val fingerprintManager = PeerFingerprintManager.getInstance()
+    private val fingerprintManager = peerFingerprints
 
     // Track received private messages that need read receipts
     private val unreadReceivedMessages = mutableMapOf<String, MutableList<BitchatMessage>>()
@@ -55,8 +61,8 @@ class PrivateChatManager(
         meshService: MeshService,
         unreadAliases: Set<String> = emptySet()
     ): Boolean {
-        val conversationID = ContactDirectory.canonicalConversationId(peerID)
-        val route = ContactDirectory.resolve(conversationID)
+        val conversationID = contactDirectory.canonicalConversationId(peerID)
+        val route = contactDirectory.resolve(conversationID)
         val meshPeerID = route.meshPeerID ?: peerID.takeIf { ContactIdentityResolver.isMeshPeerId(it) }
 
         if (isPeerBlocked(peerID)) {
@@ -105,7 +111,7 @@ class PrivateChatManager(
         myPeerID: String,
         onSendMessage: (String, String, String, String) -> Unit
     ): Boolean {
-        val conversationID = ContactDirectory.canonicalConversationId(peerID)
+        val conversationID = contactDirectory.canonicalConversationId(peerID)
         if (isPeerBlocked(peerID)) {
             val systemMessage = BitchatMessage(
                 sender = "system",
@@ -148,7 +154,7 @@ class PrivateChatManager(
         myPeerID: String,
         onSendMessage: (String, String, String, String) -> Unit
     ): Boolean {
-        val conversationID = ContactDirectory.canonicalConversationId(peerID)
+        val conversationID = contactDirectory.canonicalConversationId(peerID)
         if (isPeerBlocked(peerID)) {
             val systemMessage = BitchatMessage(
                 sender = "system",
@@ -182,14 +188,14 @@ class PrivateChatManager(
 
     fun isPeerBlocked(peerID: String): Boolean {
         val fingerprint = fingerprintManager.getFingerprintForPeer(peerID)
-            ?: ContactIdentityResolver.fingerprintFromContactConversationId(ContactDirectory.canonicalConversationId(peerID))
-            ?: ContactDirectory.resolve(peerID).noisePublicKey?.let { ContactIdentityResolver.fingerprintHex(it) }
+            ?: ContactIdentityResolver.fingerprintFromContactConversationId(contactDirectory.canonicalConversationId(peerID))
+            ?: contactDirectory.resolve(peerID).noisePublicKey?.let { ContactIdentityResolver.fingerprintHex(it) }
         return fingerprint != null && dataManager.isUserBlocked(fingerprint)
     }
 
     fun toggleFavorite(peerID: String) {
         var fingerprint = fingerprintManager.getFingerprintForPeer(peerID)
-            ?: ContactIdentityResolver.fingerprintFromContactConversationId(ContactDirectory.canonicalConversationId(peerID))
+            ?: ContactIdentityResolver.fingerprintFromContactConversationId(contactDirectory.canonicalConversationId(peerID))
 
         if (fingerprint == null && ContactIdentityResolver.isNoiseKeyHex(peerID)) {
             try {
@@ -233,7 +239,7 @@ class PrivateChatManager(
 
     fun isFavorite(peerID: String): Boolean {
         val fingerprint = fingerprintManager.getFingerprintForPeer(peerID)
-            ?: ContactIdentityResolver.fingerprintFromContactConversationId(ContactDirectory.canonicalConversationId(peerID))
+            ?: ContactIdentityResolver.fingerprintFromContactConversationId(contactDirectory.canonicalConversationId(peerID))
             ?: if (ContactIdentityResolver.isNoiseKeyHex(peerID)) {
                 ContactIdentityResolver.bytesFromHex(peerID)?.let { ContactIdentityResolver.fingerprintHex(it) }
             } else {
@@ -246,7 +252,7 @@ class PrivateChatManager(
         }
 
         val persistedFavorite = try {
-            FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.isFavorite == true
+            favorites.get().getFavoriteStatus(peerID)?.isFavorite == true
         } catch (_: Exception) {
             false
         }
@@ -378,7 +384,7 @@ class PrivateChatManager(
     ) {
         val senderPeerID = message.senderPeerID
         if (senderPeerID != null) {
-            val conversationID = ContactDirectory.canonicalConversationId(senderPeerID)
+            val conversationID = contactDirectory.canonicalConversationId(senderPeerID)
             // Mesh-origin private message: AppStateStore updates the list; avoid double-add here.
             if (!isPeerBlocked(senderPeerID)) {
                 // Ensure chat exists
@@ -432,7 +438,7 @@ class PrivateChatManager(
     ): Boolean {
         val senderPeerID = message.senderPeerID
         val conversationID = senderPeerID
-            ?.let(ContactDirectory::canonicalConversationId)
+            ?.let(contactDirectory::canonicalConversationId)
             ?: state.getSelectedPrivateChatPeerValue()
             ?: return false
 
@@ -473,7 +479,7 @@ class PrivateChatManager(
         meshPeerID: String?,
         meshService: MeshService
     ) {
-        val canonicalConversationID = ContactDirectory.canonicalConversationId(conversationID)
+        val canonicalConversationID = contactDirectory.canonicalConversationId(conversationID)
 
         // Collect candidate messages: all incoming messages from this peer in the conversation
         val chats = try { state.getPrivateChatsValue() } catch (_: Exception) { emptyMap<String, List<BitchatMessage>>() }
@@ -495,7 +501,7 @@ class PrivateChatManager(
             val senderPeerID = msg.senderPeerID
             val isFromTarget = senderPeerID != null && (
                 senderPeerID == meshPeerID ||
-                    ContactDirectory.canonicalConversationId(senderPeerID) == canonicalConversationID
+                    contactDirectory.canonicalConversationId(senderPeerID) == canonicalConversationID
                 )
             if (isFromTarget) {
                 try {
@@ -587,7 +593,7 @@ class PrivateChatManager(
     // MARK: - Consolidation
 
     private fun consolidateNostrTempConversationIfNeeded(targetPeerID: String, meshService: MeshService) {
-        val targetConversationID = ContactDirectory.canonicalConversationId(targetPeerID)
+        val targetConversationID = contactDirectory.canonicalConversationId(targetPeerID)
         if (ContactIdentityResolver.isNostrAlias(targetPeerID)) return
 
         val tryMergeKeys = mutableListOf<String>()
@@ -605,7 +611,7 @@ class PrivateChatManager(
                 tryMergeKeys.add(noiseHex)
             }
             try {
-                FavoritesPersistenceService.shared.findNostrPubkey(noiseKey)
+                favorites.get().findNostrPubkey(noiseKey)
                     ?.let { ContactIdentityResolver.nostrAliasForPubkey(it) }
                     ?.let { tryMergeKeys.add(it) }
             } catch (_: Exception) { }
@@ -615,7 +621,9 @@ class PrivateChatManager(
             com.bitchat.android.services.ConversationAliasResolver.unifyChatsIntoPeer(
                 state = state,
                 targetPeerID = targetConversationID,
-                keysToMerge = tryMergeKeys
+                keysToMerge = tryMergeKeys,
+                contactDirectory = contactDirectory,
+                appStateStore = appStateStore,
             )
         }
     }

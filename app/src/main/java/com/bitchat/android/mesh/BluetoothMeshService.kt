@@ -125,6 +125,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         context.applicationContext,
         androidx.core.app.NotificationManagerCompat.from(context.applicationContext),
         com.bitchat.android.di.AppNotificationTargets,
+        com.bitchat.android.services.ContactDirectory,
+        com.bitchat.android.services.ConversationListPreferences.getInstance(context.applicationContext),
     )
     
     // Service state management

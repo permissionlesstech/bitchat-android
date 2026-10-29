@@ -1,5 +1,8 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.mesh.TransferProgressManager
+import com.bitchat.android.services.AppStateStore
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.di.ChatSessionScope
@@ -59,6 +62,10 @@ class ChatSessionStartup @Inject constructor(
     private val geohashSession: GeohashSession,
     private val contactFavorites: ContactFavorites,
     private val conversationDirectory: ConversationDirectory,
+    private val appStateStore: AppStateStore,
+    private val contactDirectory: ContactDirectory,
+    private val transferProgress: TransferProgressManager,
+    private val favorites: Lazy<FavoritesPersistenceService>,
 ) {
 
     private companion object {
@@ -83,13 +90,13 @@ class ChatSessionStartup @Inject constructor(
         conversationDirectory.observePresenceWithDisconnectGrace()
         // Note: Mesh service delegate is now set by MainActivity
         loadAndInitialize()
-        ContactDirectory.initialize(context) { mesh }
-        com.bitchat.android.services.AppStateStore.canonicalizePrivateChats()
+        contactDirectory.initialize(context) { mesh }
+        appStateStore.canonicalizePrivateChats()
         conversationDirectory.observeDisplayNames()
         // Application startup performs the initial restore. Repeat it for every new UI owner
         // because a quick reopen can reuse a process whose in-memory state was cleared during
         // controlled shutdown.
-        com.bitchat.android.services.AppStateStore.reloadConversationPersistence(context)
+        appStateStore.reloadConversationPersistence(context)
         // Mark queued private messages as failed when the router gives up on them
         try {
             messageRouterProvider.get().onMessageExpired = { messageID ->
@@ -101,13 +108,13 @@ class ChatSessionStartup @Inject constructor(
         } catch (_: Exception) { }
         // Hydrate UI state from process-wide AppStateStore to survive Activity recreation
         scope.launch {
-            try { com.bitchat.android.services.AppStateStore.peers.collect { peers ->
+            try { appStateStore.peers.collect { peers ->
                 state.setConnectedPeers(peers)
                 state.setIsConnected(peers.isNotEmpty())
             } } catch (_: Exception) { }
         }
         scope.launch {
-            try { com.bitchat.android.services.AppStateStore.publicMessages.collect { msgs ->
+            try { appStateStore.publicMessages.collect { msgs ->
                 // Source of truth is AppStateStore; replace to avoid duplicate keys in LazyColumn
                 state.setMessages(msgs)
             } } catch (_: Exception) { }
@@ -115,12 +122,12 @@ class ChatSessionStartup @Inject constructor(
         scope.launch {
             try {
                 combine(
-                    com.bitchat.android.services.AppStateStore.privateMessages,
-                    com.bitchat.android.services.AppStateStore.unreadPrivateMessageCounts
+                    appStateStore.privateMessages,
+                    appStateStore.unreadPrivateMessageCounts
                 ) { byPeer, unreadCounts -> byPeer to unreadCounts }
                     .collect { (byPeer, unreadCounts) ->
                 val (canonicalChats, unreadConversationIDs) = withContext(Dispatchers.IO) {
-                    val canonical = ContactDirectory.canonicalizePrivateChats(byPeer)
+                    val canonical = contactDirectory.canonicalizePrivateChats(byPeer)
                     val unread = try {
                         val myNick = state.getNicknameValue().ifBlank { mesh.myPeerID }
                         canonical
@@ -128,8 +135,7 @@ class ChatSessionStartup @Inject constructor(
                                 messages.any { message ->
                                     message.sender != myNick &&
                                         message.sender != "system" &&
-                                        !com.bitchat.android.services.AppStateStore
-                                            .isPrivateMessageRead(message.id) &&
+                                        !appStateStore.isPrivateMessageRead(message.id) &&
                                         !seenMessageStore.hasBeenReadLocally(message.id)
                                 }
                             }
@@ -147,14 +153,14 @@ class ChatSessionStartup @Inject constructor(
             } } catch (_: Exception) { }
         }
         scope.launch {
-            try { com.bitchat.android.services.AppStateStore.channelMessages.collect { byChannel ->
+            try { appStateStore.channelMessages.collect { byChannel ->
                 // Replace with store snapshot
                 state.setChannelMessages(byChannel)
             } } catch (_: Exception) { }
         }
         // Subscribe to BLE transfer progress and reflect in message deliveryStatus
         scope.launch {
-            com.bitchat.android.mesh.TransferProgressManager.events.collect { evt ->
+            transferProgress.events.collect { evt ->
                 mediaSendingManager.handleTransferProgressEvent(evt)
             }
         }
@@ -163,7 +169,7 @@ class ChatSessionStartup @Inject constructor(
     private fun stop() {
         conversationDirectory.stopFavoriteTracking()
         geohashSession.shutdownUiSubscriptions()
-        com.bitchat.android.services.AppStateStore.setSelectedPrivateChatPeer(null)
+        appStateStore.setSelectedPrivateChatPeer(null)
     }
 
     private fun loadAndInitialize() {
@@ -218,7 +224,8 @@ class ChatSessionStartup @Inject constructor(
         geohashSession.initialize()
 
         // Initialize favorites persistence service
-        com.bitchat.android.favorites.FavoritesPersistenceService.initialize(context)
+        // (the binding initializes the service on first resolution)
+        favorites.get()
 
         // Reflect "they favorited us" changes into reactive UI state (drives star celebrations)
         conversationDirectory.startFavoriteTracking()

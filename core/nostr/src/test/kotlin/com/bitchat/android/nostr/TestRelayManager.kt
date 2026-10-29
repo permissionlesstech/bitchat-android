@@ -2,6 +2,8 @@ package com.bitchat.android.nostr
 
 import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.geohash.LiveLocationPrivacyGate
+import com.bitchat.android.mesh.PowerManager
+import dagger.Lazy
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -24,4 +26,5 @@ internal fun newRelayManager(
     liveLocationGate = LiveLocationPrivacyGate(),
     eventDeduplicator = NostrEventDeduplicator(),
     ioDispatcher = dispatcher,
+    powerManagerSource = Lazy { PowerManager.getInstance(ApplicationProvider.getApplicationContext()) },
 )

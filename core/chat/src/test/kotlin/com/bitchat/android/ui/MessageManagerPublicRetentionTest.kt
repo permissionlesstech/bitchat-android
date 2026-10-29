@@ -2,6 +2,7 @@ package com.bitchat.android.ui
 
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.ContactDirectory
 import java.util.Date
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -16,8 +17,8 @@ class MessageManagerPublicRetentionTest {
 
     @Test
     fun `clear and leave do not resurrect retained messages on the next append`() = runTest {
-        val state = ChatState(backgroundScope)
-        val manager = MessageManager(state)
+        val state = ChatState(backgroundScope, AppStateStore)
+        val manager = MessageManager(state, AppStateStore, ContactDirectory)
         manager.addMessage(message(0))
         manager.addChannelMessage("fixture-channel", message(1))
         manager.clearMessages()

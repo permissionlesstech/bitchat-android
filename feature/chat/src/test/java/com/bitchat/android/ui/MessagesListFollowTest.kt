@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
 import java.util.Date
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -66,6 +67,7 @@ class MessagesListFollowTest {
                 messages = messages,
                 currentUserNickname = "me",
                 meshService = meshService,
+                spamFlagged = MutableStateFlow(emptyMap()),
                 modifier = Modifier.size(360.dp, 640.dp),
                 conversationKey = "geo:test",
                 onScrolledUpChanged = { scrolledUp = it }

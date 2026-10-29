@@ -87,7 +87,6 @@ import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.model.DeliveryStatus
-import com.bitchat.android.spam.SpamFilter
 import com.bitchat.android.spam.SpamVerdict
 import com.bitchat.android.ui.media.FileMessageItem
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
@@ -101,6 +100,7 @@ import com.bitchat.android.ui.theme.colorForPeer
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Locale
+import kotlinx.coroutines.flow.StateFlow
 
 
 // VoiceNotePlayer moved to com.bitchat.android.ui.media.VoiceNotePlayer
@@ -225,6 +225,8 @@ fun MessagesList(
     messages: List<BitchatMessage>,
     currentUserNickname: String,
     meshService: MeshService,
+    /** Spam let through by the debug bypass; empty unless that debug setting is on. */
+    spamFlagged: StateFlow<Map<String, SpamVerdict>>,
     modifier: Modifier = Modifier,
     mentionPeerIdentities: Map<String, PeerIdentity>? = null,
     /**
@@ -256,7 +258,7 @@ fun MessagesList(
     // switch simply recomposes the list against the new layout.
     val bubbles by ChatUiModeManager.modeFlow.collectAsState()
     // Spam let through by the debug bypass; empty unless that debug setting is on.
-    val spamFlags by SpamFilter.shared.flagged.collectAsState()
+    val spamFlags by spamFlagged.collectAsState()
 
     // A fresh scroll position per conversation. Sharing one state meant a switch inherited the
     // previous channel's offset and then had to correct itself, which is what the jump was.

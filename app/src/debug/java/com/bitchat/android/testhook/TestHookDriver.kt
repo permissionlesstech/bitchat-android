@@ -23,6 +23,7 @@ import com.bitchat.android.service.MeshForegroundService
 import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.ui.DataManager
 import com.bitchat.android.ui.PrivateMediaRecipientResolver
 import com.bitchat.android.util.AppConstants
@@ -378,7 +379,7 @@ object TestHookDriver {
         val encoded = packet.encode() ?: return err("file_send", "failed to TLV-encode packet")
         val transferId = sha256Hex(encoded)
         val recipient = peerID?.let {
-            PrivateMediaRecipientResolver.resolve(it, mesh)
+            PrivateMediaRecipientResolver.resolve(it, mesh, ContactDirectory)
                 ?: return err("file_send", "no active mesh route for private conversation: $it")
         }
 
@@ -501,7 +502,7 @@ object TestHookDriver {
         val mesh = mesh(context)
         LiveVoicePreferences.setEnabled(context, true)
         val recipient = requestedPeer?.let {
-            PrivateMediaRecipientResolver.resolve(it, mesh)
+            PrivateMediaRecipientResolver.resolve(it, mesh, ContactDirectory)
                 ?: return err("ptt_send", "no active mesh route for private conversation")
         }
         if (recipient != null && !mesh.hasEstablishedSession(recipient.meshPeerID)) {

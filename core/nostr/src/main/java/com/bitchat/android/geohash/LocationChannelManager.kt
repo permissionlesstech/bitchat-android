@@ -38,6 +38,7 @@ class LocationChannelManager @Inject constructor(
     // A provider: the geocoder asks for the clients on each lookup.
     httpClients: Provider<NostrHttpClients>,
     @MainImmediateDispatcher mainImmediateDispatcher: CoroutineDispatcher,
+    private val nostrIdentity: NostrIdentityBridge,
 ) {
     
     companion object {
@@ -330,7 +331,7 @@ class LocationChannelManager @Inject constructor(
         if (invalidateAccess) liveLocationGate.invalidate()
         cancelLiveLocationWork()
         _isLoadingLocation.value = false
-        NostrIdentityBridge.clearGeohashIdentityCache(
+        nostrIdentity.clearGeohashIdentityCache(
             _availableChannels.value.map { it.geohash }
         )
         _availableChannels.value = emptyList()

@@ -24,6 +24,9 @@ class GeohashMessageHandler(
     private val dataManager: com.bitchat.android.ui.DataManager,
     private val addChannelMessage: (String, BitchatMessage) -> Unit,
     private val powPreferences: PoWPreferenceManager,
+    private val geohashAliases: GeohashAliasRegistry,
+    private val nostrIdentity: NostrIdentityBridge,
+    private val spamFilter: SpamFilter,
     private val signatureVerificationDispatcher: CoroutineDispatcher = Dispatchers.Default,
     // The foreground handler runs on the main thread; the spam checks are CPU work.
     private val spamFilterDispatcher: CoroutineDispatcher = signatureVerificationDispatcher
@@ -82,14 +85,14 @@ class GeohashMessageHandler(
                 event.tags.find { it.size >= 2 && it[0] == "t" && it[1] == "teleport" }?.let { repo.markTeleported(pubkey) }
                 // Register a geohash DM alias for this participant so MessageRouter can route DMs via Nostr
                 try {
-                    com.bitchat.android.nostr.GeohashAliasRegistry.put("nostr_${pubkey.take(16)}", pubkey)
+                    geohashAliases.put("nostr_${pubkey.take(16)}", pubkey)
                 } catch (_: Exception) { }
 
                 // Stop here for presence events - they don't produce chat messages
                 if (event.kind == NostrKind.GEOHASH_PRESENCE) return@launch
 
                 // Skip our own events for message emission
-                val my = NostrIdentityBridge.deriveIdentity(subscribedGeohash, application)
+                val my = nostrIdentity.deriveIdentity(subscribedGeohash, application)
                 if (my.publicKeyHex.equals(pubkey, true)) return@launch
 
                 val isTeleportPresence = event.tags.any { it.size >= 2 && it[0] == "t" && it[1] == "teleport" } &&
@@ -114,7 +117,7 @@ class GeohashMessageHandler(
                     } catch (_: Exception) { null }
                 )
                 val hide = withContext(spamFilterDispatcher) {
-                    SpamFilter.shared.shouldHide(msg, SpamFilter.nostrSenderKey(pubkey))
+                    spamFilter.shouldHide(msg, SpamFilter.nostrSenderKey(pubkey))
                 }
                 if (hide) {
                     Log.d(TAG, "Hiding geohash spam ${event.id.take(8)}...")

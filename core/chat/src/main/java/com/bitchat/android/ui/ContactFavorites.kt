@@ -1,10 +1,12 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.services.MessageRouter
+import dagger.Lazy
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.scopes.ActivityRetainedScoped
 import javax.inject.Inject
@@ -23,6 +25,8 @@ class ContactFavorites @Inject constructor(
     private val privateChatManager: PrivateChatManager,
     private val sessionMesh: ChatSessionMesh,
     private val messageRouterProvider: Provider<MessageRouter>,
+    private val contactDirectory: ContactDirectory,
+    private val favorites: Lazy<FavoritesPersistenceService>,
 ) {
 
     private val mesh get() = sessionMesh.unified
@@ -49,11 +53,11 @@ class ContactFavorites @Inject constructor(
             } else if (ContactIdentityResolver.isNoiseKeyHex(peerID)) {
                 noiseKey = ContactIdentityResolver.bytesFromHex(peerID)
                 val rel = noiseKey?.let {
-                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(it)
+                    favorites.get().getFavoriteStatus(it)
                 }
                 if (rel != null) nickname = rel.peerNickname
             } else {
-                val contact = ContactDirectory.resolve(peerID)
+                val contact = contactDirectory.resolve(peerID)
                 noiseKey = contact.noisePublicKey
                 contact.displayName?.let { nickname = it }
             }
@@ -63,7 +67,7 @@ class ContactFavorites @Inject constructor(
                 val fingerprint = identityManager.generateFingerprint(noiseKey!!)
                 val isNowFavorite = dataManager.favoritePeers.contains(fingerprint)
 
-                com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateFavoriteStatus(
+                favorites.get().updateFavoriteStatus(
                     noisePublicKey = noiseKey!!,
                     nickname = nickname,
                     isFavorite = isNowFavorite

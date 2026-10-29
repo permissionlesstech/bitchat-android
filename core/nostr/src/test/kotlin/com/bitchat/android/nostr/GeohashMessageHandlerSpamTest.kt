@@ -3,6 +3,8 @@ package com.bitchat.android.nostr
 import android.app.Application
 import com.bitchat.android.model.BitchatMessage
 import androidx.test.core.app.ApplicationProvider
+import com.bitchat.android.nostr.GeohashAliasRegistry
+import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.spam.SpamFilter
 import com.bitchat.android.ui.DataManager
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -36,7 +38,7 @@ class GeohashMessageHandlerSpamTest {
         val dataManager = DataManager(context = application)
         handler = GeohashMessageHandler(
             application = application,
-            repo = GeohashRepository(application, dataManager, testScope) { "me" },
+            repo = GeohashRepository(application, dataManager, testScope, NostrIdentityBridge) { "me" },
             scope = testScope,
             dataManager = dataManager,
             addChannelMessage = { channel, message ->
@@ -44,7 +46,10 @@ class GeohashMessageHandlerSpamTest {
             },
             powPreferences = PoWPreferenceManager(application),
             signatureVerificationDispatcher = testDispatcher,
-            spamFilterDispatcher = testDispatcher
+            spamFilterDispatcher = testDispatcher,
+            geohashAliases = GeohashAliasRegistry,
+            nostrIdentity = NostrIdentityBridge,
+            spamFilter = SpamFilter.shared,
         )
     }
 

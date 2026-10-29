@@ -2,11 +2,16 @@ package com.bitchat.android.ui
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.GeohashChannel
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.ContactDirectory
+import dagger.Lazy
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertFalse
 import junit.framework.TestCase.assertTrue
@@ -30,10 +35,10 @@ class CommandProcessorTest {
   @OptIn(ExperimentalCoroutinesApi::class)
   private val testDispatcher = UnconfinedTestDispatcher()
   private val testScope = TestScope(testDispatcher)
-  private val chatState = ChatState(scope = testScope)
+  private val chatState = ChatState(scope = testScope, appStateStore = AppStateStore)
   private lateinit var commandProcessor: CommandProcessor
 
-  val messageManager: MessageManager = MessageManager(state = chatState)
+  val messageManager: MessageManager = MessageManager(state = chatState, appStateStore = AppStateStore, contactDirectory = ContactDirectory)
   val channelManager: ChannelManager = ChannelManager(
     state = chatState,
     messageManager = messageManager,
@@ -53,7 +58,11 @@ class CommandProcessorTest {
         state = chatState,
         messageManager = messageManager,
         dataManager = DataManager(context = context),
-        noiseSessionDelegate = mock<NoiseSessionDelegate>()
+        noiseSessionDelegate = mock<NoiseSessionDelegate>(),
+        contactDirectory = ContactDirectory,
+        appStateStore = AppStateStore,
+        favorites = Lazy { FavoritesPersistenceService.shared },
+        peerFingerprints = PeerFingerprintManager.getInstance(),
       )
     )
   }
@@ -125,7 +134,11 @@ class CommandProcessorTest {
         messageManager = messageManager,
         dataManager = DataManager(context = context),
         noiseSessionDelegate = mock<NoiseSessionDelegate>(),
-        markMessageReadLocally = locallyRead::add
+        markMessageReadLocally = locallyRead::add,
+        contactDirectory = ContactDirectory,
+        appStateStore = AppStateStore,
+        favorites = Lazy { FavoritesPersistenceService.shared },
+        peerFingerprints = PeerFingerprintManager.getInstance(),
       )
     )
 
@@ -153,7 +166,11 @@ class CommandProcessorTest {
         state = chatState,
         messageManager = messageManager,
         dataManager = DataManager(context = context),
-        noiseSessionDelegate = mock<NoiseSessionDelegate>()
+        noiseSessionDelegate = mock<NoiseSessionDelegate>(),
+        contactDirectory = ContactDirectory,
+        appStateStore = AppStateStore,
+        favorites = Lazy { FavoritesPersistenceService.shared },
+        peerFingerprints = PeerFingerprintManager.getInstance(),
       ),
       routePrivateMessage = { _, content, recipient, _, _ -> routed += content to recipient }
     )

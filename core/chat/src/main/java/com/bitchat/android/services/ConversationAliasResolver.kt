@@ -9,7 +9,8 @@ object ConversationAliasResolver {
         connectedPeers: List<String>,
         meshNoiseKeyForPeer: (String) -> ByteArray?,
         nostrPubHexForAlias: (String) -> String?,
-        findNoiseKeyForNostr: (String) -> ByteArray?
+        findNoiseKeyForNostr: (String) -> ByteArray?,
+        contactDirectory: ContactDirectory,
     ): String {
         var peer = selectedPeerID
         try {
@@ -35,20 +36,22 @@ object ConversationAliasResolver {
                 }
             }
         } catch (_: Exception) { /* no-op */ }
-        return ContactDirectory.canonicalConversationId(peer)
+        return contactDirectory.canonicalConversationId(peer)
     }
 
     fun unifyChatsIntoPeer(
         state: ChatState,
         targetPeerID: String,
-        keysToMerge: List<String>
+        keysToMerge: List<String>,
+        contactDirectory: ContactDirectory,
+        appStateStore: AppStateStore,
     ) {
         if (keysToMerge.isEmpty()) return
-        val targetConversationID = ContactDirectory.canonicalConversationId(targetPeerID)
+        val targetConversationID = contactDirectory.canonicalConversationId(targetPeerID)
         val mergeKeys = (keysToMerge + targetPeerID)
-            .flatMap { ContactDirectory.aliasesForConversation(it) }
+            .flatMap { contactDirectory.aliasesForConversation(it) }
             .distinct()
-        AppStateStore.unifyPrivateChatsIntoPeer(targetConversationID, mergeKeys)
+        appStateStore.unifyPrivateChatsIntoPeer(targetConversationID, mergeKeys)
 
         val currentChats = state.getPrivateChatsValue().toMutableMap()
         val targetList = currentChats[targetConversationID]?.toMutableList() ?: mutableListOf()
@@ -65,7 +68,7 @@ object ConversationAliasResolver {
         if (didMerge) {
             currentChats[targetConversationID] = targetList
                 .distinctBy { it.id }
-            state.setPrivateChats(ContactDirectory.canonicalizePrivateChats(currentChats))
+            state.setPrivateChats(contactDirectory.canonicalizePrivateChats(currentChats))
 
             // Move unread flags
             val unread = state.getUnreadPrivateMessagesValue().toMutableSet()

@@ -1,5 +1,6 @@
 package com.bitchat.android.nostr
 
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.favorites.FavoriteControlMessage
@@ -27,6 +28,9 @@ class NostrTransport @Inject constructor(
     private val relayManager: Lazy<NostrRelayManager>,
     private val locationChannels: Lazy<LocationChannelManager>,
     @IoDispatcher ioDispatcher: CoroutineDispatcher,
+    private val nostrIdentity: NostrIdentityBridge,
+    private val contactDirectory: ContactDirectory,
+    private val favorites: Lazy<FavoritesPersistenceService>,
 ) {
     
     companion object {
@@ -67,7 +71,7 @@ class NostrTransport @Inject constructor(
                     return@launch
                 }
                 
-                val senderIdentity = NostrIdentityBridge.getCurrentNostrIdentity(context)
+                val senderIdentity = nostrIdentity.getCurrentNostrIdentity(context)
                 if (senderIdentity == null) {
                     Log.e(TAG, "No Nostr identity available")
                     return@launch
@@ -80,7 +84,7 @@ class NostrTransport @Inject constructor(
                 }
 
                 val recipientPeerIDForEmbed = try {
-                    com.bitchat.android.favorites.FavoritesPersistenceService.shared
+                    favorites.get()
                         .findPeerIDForNostrPubkey(recipientNostrPubkey)
                 } catch (_: Exception) { null }
                 if (recipientPeerIDForEmbed.isNullOrBlank()) {
@@ -148,7 +152,7 @@ class NostrTransport @Inject constructor(
                     return@launch
                 }
                 
-                val senderIdentity = NostrIdentityBridge.getCurrentNostrIdentity(context)
+                val senderIdentity = nostrIdentity.getCurrentNostrIdentity(context)
                 if (senderIdentity == null) {
                     Log.e(TAG, "No Nostr identity available for read receipt")
                     scheduleNextReadAck()
@@ -212,7 +216,7 @@ class NostrTransport @Inject constructor(
                     return@launch
                 }
                 
-                val senderIdentity = NostrIdentityBridge.getCurrentNostrIdentity(context)
+                val senderIdentity = nostrIdentity.getCurrentNostrIdentity(context)
                 if (senderIdentity == null) {
                     Log.e(TAG, "No Nostr identity available for favorite notification")
                     return@launch
@@ -264,7 +268,7 @@ class NostrTransport @Inject constructor(
                     return@launch
                 }
                 
-                val senderIdentity = NostrIdentityBridge.getCurrentNostrIdentity(context)
+                val senderIdentity = nostrIdentity.getCurrentNostrIdentity(context)
                 if (senderIdentity == null) {
                     Log.e(TAG, "No Nostr identity available for delivery ack")
                     return@launch
@@ -391,7 +395,7 @@ class NostrTransport @Inject constructor(
         }
         
         val fromIdentity = try {
-            NostrIdentityBridge.deriveIdentity(geohash, context)
+            nostrIdentity.deriveIdentity(geohash, context)
         } catch (e: Exception) {
             Log.e(TAG, "NostrTransport: cannot derive geohash identity for $geohash: ${e.message}")
             return
@@ -433,18 +437,18 @@ class NostrTransport @Inject constructor(
      */
     private fun resolveNostrPublicKey(peerID: String): String? {
         try {
-            ContactDirectory.resolve(peerID).nostrPubkey?.let { return it }
+            contactDirectory.resolve(peerID).nostrPubkey?.let { return it }
 
-            com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNostrPubkeyForPeerID(peerID)?.let { return it }
+            favorites.get().findNostrPubkeyForPeerID(peerID)?.let { return it }
 
             if (ContactIdentityResolver.isNoiseKeyHex(peerID)) {
                 val noiseKey = ContactIdentityResolver.bytesFromHex(peerID) ?: return null
-                val favoriteStatus = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
+                val favoriteStatus = favorites.get().getFavoriteStatus(noiseKey)
                 if (favoriteStatus?.peerNostrPublicKey != null) return favoriteStatus.peerNostrPublicKey
             }
 
             if (ContactIdentityResolver.isMeshPeerId(peerID)) {
-                val fallbackStatus = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)
+                val fallbackStatus = favorites.get().getFavoriteStatus(peerID)
                 return fallbackStatus?.peerNostrPublicKey
             }
             

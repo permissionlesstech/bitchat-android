@@ -3,17 +3,27 @@ package com.bitchat.android.di
 import android.app.Application
 import android.content.Context
 import androidx.core.app.NotificationManagerCompat
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.geohash.LiveLocationPrivacyGate
+import com.bitchat.android.mesh.PeerFingerprintManager
+import com.bitchat.android.nostr.GeohashAliasRegistry
+import com.bitchat.android.nostr.GeohashConversationRegistry
 import com.bitchat.android.nostr.LocationNotesManager
 import com.bitchat.android.nostr.NostrBackgroundRuntime
+import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.nostr.NostrRelayManager
 import com.bitchat.android.nostr.NostrTransport
 import com.bitchat.android.nostr.PoWPreferenceManager
+import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.ConversationListPreferences
 import com.bitchat.android.services.MessageRouter
 import com.bitchat.android.services.SeenMessageStore
+import com.bitchat.android.services.VerificationService
+import com.bitchat.android.spam.SpamFilter
 import com.bitchat.android.ui.ChannelManager
 import com.bitchat.android.ui.ChatSessionMesh
 import com.bitchat.android.ui.ChatState
@@ -76,7 +86,10 @@ object ChatSessionModule {
 
     @Provides
     @ActivityRetainedScoped
-    fun provideChatState(@ChatSessionScope scope: CoroutineScope): ChatState = ChatState(scope)
+    fun provideChatState(
+        @ChatSessionScope scope: CoroutineScope,
+        appStateStore: AppStateStore,
+    ): ChatState = ChatState(scope, appStateStore)
 
     // The managers keep plain constructors, which their unit tests call
     // directly, so they are provided here rather than annotated for injection.
@@ -88,15 +101,26 @@ object ChatSessionModule {
 
     @Provides
     @ActivityRetainedScoped
-    fun provideMessageManager(state: ChatState): MessageManager = MessageManager(state)
+    fun provideMessageManager(
+        state: ChatState,
+        appStateStore: AppStateStore,
+        contactDirectory: ContactDirectory,
+    ): MessageManager = MessageManager(state, appStateStore, contactDirectory)
 
     @Provides
     @ActivityRetainedScoped
     fun provideNotificationManager(
         @ApplicationContext context: Context,
         targets: NotificationTargets,
-    ): NotificationManager =
-        NotificationManager(context, NotificationManagerCompat.from(context), targets)
+        contactDirectory: ContactDirectory,
+        conversationListPreferences: ConversationListPreferences,
+    ): NotificationManager = NotificationManager(
+        context,
+        NotificationManagerCompat.from(context),
+        targets,
+        contactDirectory,
+        conversationListPreferences,
+    )
 
     @Provides
     @ActivityRetainedScoped
@@ -128,11 +152,19 @@ object ChatSessionModule {
         dataManager: DataManager,
         mesh: ChatSessionMesh,
         seenMessageStore: Lazy<SeenMessageStore>,
+        contactDirectory: ContactDirectory,
+        appStateStore: AppStateStore,
+        favorites: Lazy<FavoritesPersistenceService>,
+        peerFingerprints: PeerFingerprintManager,
     ): PrivateChatManager = PrivateChatManager(
         state,
         messageManager,
         dataManager,
         mesh,
+        contactDirectory,
+        appStateStore,
+        favorites,
+        peerFingerprints,
         hasReadReceiptBeenSent = { messageID ->
             seenMessageStore.get().hasReadReceiptBeenSent(messageID)
         },
@@ -175,6 +207,9 @@ object ChatSessionModule {
         state: ChatState,
         notificationManager: NotificationManager,
         messageManager: MessageManager,
+        favorites: Lazy<FavoritesPersistenceService>,
+        geohashAliases: GeohashAliasRegistry,
+        verificationService: VerificationService,
     ): VerificationHandler = VerificationHandler(
         context = context,
         scope = scope,
@@ -182,7 +217,10 @@ object ChatSessionModule {
         identityManager = identityManager,
         state = state,
         notificationManager = notificationManager,
-        messageManager = messageManager
+        messageManager = messageManager,
+        favorites = favorites,
+        geohashAliases = geohashAliases,
+        verificationService = verificationService,
     )
 
     @Provides
@@ -193,10 +231,12 @@ object ChatSessionModule {
         channelManager: ChannelManager,
         @ChatSessionScope scope: CoroutineScope,
         mesh: ChatSessionMesh,
+        contactDirectory: ContactDirectory,
     ): MediaSendingManager = MediaSendingManager(
         state,
         messageManager,
         channelManager,
+        contactDirectory,
         scope
     ) { mesh.unified }
 
@@ -214,6 +254,10 @@ object ChatSessionModule {
         locationChannelManager: Lazy<LocationChannelManager>,
         relayManager: Lazy<NostrRelayManager>,
         locationNotesManager: Lazy<LocationNotesManager>,
+        geohashAliases: GeohashAliasRegistry,
+        geohashConversations: GeohashConversationRegistry,
+        nostrIdentity: NostrIdentityBridge,
+        spamFilter: SpamFilter,
     ): GeohashSession = GeohashSession(
         application = application,
         state = state,
@@ -223,6 +267,10 @@ object ChatSessionModule {
         nostrBackgroundRuntime = nostrBackgroundRuntime,
         liveLocationPrivacyGate = liveLocationPrivacyGate,
         powPreferences = powPreferences,
+        geohashAliases = geohashAliases,
+        spamFilter = spamFilter,
+        geohashConversations = geohashConversations,
+        nostrIdentity = nostrIdentity,
         locationChannelManagerSource = locationChannelManager,
         relayManagerSource = relayManager,
         locationNotesManagerSource = locationNotesManager,
@@ -240,6 +288,8 @@ object ChatSessionModule {
         @ChatSessionScope scope: CoroutineScope,
         mesh: ChatSessionMesh,
         seenMessageStore: Lazy<SeenMessageStore>,
+        appStateStore: AppStateStore,
+        contactDirectory: ContactDirectory,
     ): MeshDelegateHandler = MeshDelegateHandler(
         state = state,
         messageManager = messageManager,
@@ -250,6 +300,8 @@ object ChatSessionModule {
         onHapticFeedback = { ChatViewModelUtils.triggerHapticFeedback(context) },
         getMyPeerID = { mesh.unified.myPeerID },
         getMeshService = { mesh.unified },
+        appStateStore = appStateStore,
+        contactDirectory = contactDirectory,
         markMessageReadLocally = { messageID ->
             seenMessageStore.get().markReadLocally(messageID)
         }

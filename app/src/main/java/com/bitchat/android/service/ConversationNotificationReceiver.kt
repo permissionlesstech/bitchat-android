@@ -95,7 +95,7 @@ class ConversationNotificationReceiver : BroadcastReceiver() {
                     }
                 }
                 if (acknowledged) {
-                    NotificationManager.acknowledgeConversation(context, conversationID)
+                    NotificationManager.acknowledgeConversation(context, conversationID, ContactDirectory)
                 }
             } finally {
                 pendingResult.finish()

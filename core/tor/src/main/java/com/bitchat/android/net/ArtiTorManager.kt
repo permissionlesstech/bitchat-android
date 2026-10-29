@@ -42,7 +42,8 @@ import dagger.Lazy
 @Singleton
 class ArtiTorManager @Inject constructor(
     // Lazy: OkHttpProvider reads this manager, and this manager resets it synchronously.
-    private val okHttp: Lazy<OkHttpProvider>
+    private val okHttp: Lazy<OkHttpProvider>,
+    private val torPreferences: TorPreferenceManager,
 ) {
     enum class TorState {
         OFF,
@@ -142,7 +143,7 @@ class ArtiTorManager @Inject constructor(
             if (initialized) return
             initialized = true
             currentApplication = application
-            TorPreferenceManager.init(application)
+            torPreferences.init(application)
 
             val logListener = ArtiLogListener { logLine ->
                 val text = logLine ?: return@ArtiLogListener
@@ -161,7 +162,7 @@ class ArtiTorManager @Inject constructor(
                 .setLogListener(logListener)
                 .build()
 
-            val savedMode = TorPreferenceManager.get(application)
+            val savedMode = torPreferences.get(application)
             if (savedMode == TorMode.ON) {
                 if (currentSocksPort < DEFAULT_SOCKS_PORT) {
                     currentSocksPort = DEFAULT_SOCKS_PORT
@@ -178,7 +179,7 @@ class ArtiTorManager @Inject constructor(
             }
 
             appScope.launch {
-                TorPreferenceManager.modeFlow.collect { mode ->
+                torPreferences.modeFlow.collect { mode ->
                     applyMode(application, mode)
                 }
             }

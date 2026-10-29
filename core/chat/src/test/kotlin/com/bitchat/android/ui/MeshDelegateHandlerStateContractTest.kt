@@ -4,6 +4,8 @@ import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.PeerInfo
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
+import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.ContactDirectory
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -41,9 +43,9 @@ class MeshDelegateHandlerStateContractTest {
     fun setUp() {
         scope = TestScope(UnconfinedTestDispatcher())
         com.bitchat.android.services.AppStateStore.clear()
-        state = ChatState(scope)
+        state = ChatState(scope, AppStateStore)
         state.setNickname("Résumé")
-        messages = MessageManager(state)
+        messages = MessageManager(state, AppStateStore, ContactDirectory)
         channels = mock()
         privateChats = mock()
         notifications = mock()
@@ -62,6 +64,8 @@ class MeshDelegateHandlerStateContractTest {
             getMeshService = { mesh },
             markMessageReadLocally = locallyReadMessageIDs::add,
             reconciliationDispatcher = UnconfinedTestDispatcher(scope.testScheduler),
+            appStateStore = AppStateStore,
+            contactDirectory = ContactDirectory,
         )
     }
 
