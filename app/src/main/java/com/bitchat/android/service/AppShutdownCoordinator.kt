@@ -4,9 +4,11 @@ import android.app.Application
 import android.os.Process
 import androidx.core.app.NotificationManagerCompat
 import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.mesh.PowerManager
 import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.net.TorMode
 import com.bitchat.android.nostr.NostrRelayManager
+import com.bitchat.android.services.AppStateStore
 import dagger.Lazy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,9 +33,11 @@ import javax.inject.Singleton
  */
 @Singleton
 class AppShutdownCoordinator @Inject constructor(
-    // Lazy: shutdown is the only place either is touched, so building the coordinator constructs neither.
+    // Lazy: shutdown is the only place any is touched, so building the coordinator constructs none.
     private val relayManager: Lazy<NostrRelayManager>,
     private val torManager: Lazy<ArtiTorManager>,
+    private val powerManager: Lazy<PowerManager>,
+    private val appStateStore: Lazy<AppStateStore>,
 ) {
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private val shutdownToken = AtomicLong(0L)
@@ -66,7 +70,7 @@ class AppShutdownCoordinator @Inject constructor(
             // Stop mesh (best-effort)
             try { mesh?.stopServices() } catch (_: Exception) { }
             try { relayManager.get().disconnect() } catch (_: Exception) { }
-            try { com.bitchat.android.mesh.PowerManager.getInstance(app).shutdown() } catch (_: Exception) { }
+            try { powerManager.get().shutdown() } catch (_: Exception) { }
 
             // Stop Tor temporarily (do not change user setting)
             val torProvider = torManager.get()
@@ -75,13 +79,12 @@ class AppShutdownCoordinator @Inject constructor(
             }
             val conversationFlush = async {
                 try {
-                    com.bitchat.android.services.AppStateStore
-                        .awaitConversationPersistence()
+                    appStateStore.get().awaitConversationPersistence()
                 } catch (_: Exception) { }
             }
 
             // Clear AppState in-memory store
-            try { com.bitchat.android.services.AppStateStore.clear() } catch (_: Exception) { }
+            try { appStateStore.get().clear() } catch (_: Exception) { }
 
             // Stop foreground and clear notification
             try { stopForeground() } catch (_: Exception) { }

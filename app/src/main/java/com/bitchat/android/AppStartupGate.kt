@@ -60,6 +60,7 @@ class AppStartupGate @Inject constructor(
     private val skip: BluetoothSkipSession,
     private val initializer: AppInitializer,
     @AppStartupScope private val scope: CoroutineScope,
+    private val wifiAwareController: WifiAwareController,
 ) : OnboardingHost {
 
     private companion object {
@@ -175,7 +176,7 @@ class AppStartupGate @Inject constructor(
     }
 
     // Wi-Fi Aware waits on location services.
-    override fun locationServicesEnabled() = WifiAwareController.startIfPossible()
+    override fun locationServicesEnabled() = wifiAwareController.startIfPossible()
 
     /** Try again on an error step: back to CHECKING, then the checks (T40). */
     override suspend fun retry(): Boolean {

@@ -9,8 +9,7 @@ import org.junit.Test
  * into the graph), so callers take them by injection and never reach one through its class name.
  * Read from the sources of the modules that use them, comments and string text dropped.
  *
- * Callers inside `:core:mesh` build the classes themselves and are not scanned. `app/` and `wear/`
- * are exempt as trees until Task 3 moves them.
+ * Callers inside `:core:mesh` build the classes themselves and are not scanned.
  */
 class NoStaticMeshAccessTest {
 
@@ -37,6 +36,7 @@ class NoStaticMeshAccessTest {
     /** Classes allowed to be reached statically anywhere, with the reason. */
     private val allowedClasses = mapOf(
         "MessageRouter" to "deferred to 10c-2a-2: mesh-replacement machinery the identity holder replaces",
+        "WearMeshService" to "Task 4 gives it an injectable constructor and WearMeshHolder; its callers move there",
     )
 
     /**
@@ -52,10 +52,27 @@ class NoStaticMeshAccessTest {
             "deferred to 10c-2a-2: mesh-replacement machinery the identity holder replaces",
         "core/nostr/src/main/java/com/bitchat/android/nostr/NostrIdentity.kt" to
             "NostrIdentityBridge is a still-static object; flipped in Task 7",
+        "app/src/main/java/com/bitchat/android/mesh/BluetoothMeshService.kt" to
+            "hand-built by MeshServiceHolder; takes its singletons by constructor in Task 4",
+        "app/src/main/java/com/bitchat/android/mesh/UnifiedMeshService.kt" to
+            "hand-built by MeshServiceHolder; takes its singletons by constructor in Task 4",
+        "app/src/main/java/com/bitchat/android/wifi-aware/WifiAwareMeshService.kt" to
+            "hand-built by WifiAwareController; takes its singletons by constructor in Task 4",
+        "wear/src/main/java/com/bitchat/watch/mesh/WearMeshService.kt" to
+            "hand-built by getOrCreate; takes its singletons by constructor in Task 4",
+        "app/src/main/java/com/bitchat/android/wifi-aware/WifiAwareController.kt" to
+            "still-static object that builds the Wi-Fi Aware mesh; flipped in Task 4",
+        "app/src/main/java/com/bitchat/android/service/MeshServiceHolder.kt" to
+            "still-static object that builds the mesh services; flipped in Task 4",
+        "app/src/main/java/com/bitchat/android/services/IncomingMessageAdmission.kt" to
+            "object called only by the hand-built mesh services; takes AppStateStore and SpamFilter once they hold them (Task 4)",
+        "wear/src/main/java/com/bitchat/watch/di/WearBridgeModule.kt" to
+            "bridge for the watch's still-static objects; deleted with their flips in Task 7",
+        "wear/src/main/java/com/bitchat/watch/notification/WearNotificationCoordinator.kt" to
+            "still-static class (getInstance) reaching WearChatState; constructor-injected when flipped in Task 7",
+        "wear/src/main/java/com/bitchat/watch/ui/WearPeerIdentityState.kt" to
+            "still-static object reaching FavoritesPersistenceService; constructor-injected when flipped in Task 7",
     )
-
-    /** Trees exempt until Task 3 moves the app and the watch. */
-    private val exemptTrees = listOf("app/", "wear/")
 
     private val accessor = Regex(
         """(?<![\w@])(${(accessorClasses - allowedClasses.keys).joinToString("|")})\s*(?:\.|::)\s*""" +
@@ -70,7 +87,7 @@ class NoStaticMeshAccessTest {
     fun noStaticMeshAccessOutsideMesh() {
         val offenders = mainSources().filter { (file, _) ->
             val path = file.relativeTo(root).invariantSeparatorsPath
-            exemptTrees.none { path.startsWith(it) } && path !in stillStatic
+            path !in stillStatic
         }.flatMap { (file, code) ->
             (accessor.findAll(code) + objectReach.findAll(code))
                 .map { "${location(file, code, it.range.first)}: ${it.value.replace(Regex("\\s+"), "")}" }

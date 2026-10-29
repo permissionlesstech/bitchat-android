@@ -1,6 +1,8 @@
 package com.bitchat.watch
 
+import dagger.Lazy
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
@@ -63,6 +65,10 @@ import com.bitchat.watch.ui.PeopleScreen
 import com.bitchat.watch.ui.UserDetailScreen
 import com.bitchat.watch.ui.VerificationCodeScreen
 import com.bitchat.watch.ui.WearChatState
+import com.bitchat.watch.ui.WearPeerIdentityState
+import com.bitchat.android.features.voice.LiveVoiceManager
+import com.bitchat.android.features.voice.VoiceWaveformCache
+import com.bitchat.android.services.AppStateStore
 import com.bitchat.watch.ui.FormEdgeButton
 import com.bitchat.watch.ui.WearFormScreen
 import com.bitchat.watch.ui.formHeader
@@ -84,6 +90,16 @@ sealed interface WearScreen {
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    // What the screens read and write, handed down to them as parameters.
+    @Inject lateinit var appStateStore: AppStateStore
+    @Inject lateinit var chatState: WearChatState
+    @Inject lateinit var peerIdentity: WearPeerIdentityState
+    @Inject lateinit var voiceWaveformCache: VoiceWaveformCache
+    @Inject lateinit var notificationCoordinator: WearNotificationCoordinator
+
+    // Lazy: built where the first screen or onResume asks for it, as it was before injection.
+    @Inject lateinit var liveVoiceManager: Lazy<LiveVoiceManager>
 
     private var hasPermissions by mutableStateOf(false)
     private var bluetoothEnabled by mutableStateOf(false)
@@ -142,6 +158,12 @@ class MainActivity : ComponentActivity() {
                                     onSkip = { notificationPromptDismissed = true }
                                 )
                             else -> WearNavHost(
+                                appStateStore = appStateStore,
+                                chatState = chatState,
+                                peerIdentity = peerIdentity,
+                                liveVoiceManager = liveVoiceManager.get(),
+                                voiceWaveformCache = voiceWaveformCache,
+                                notificationCoordinator = notificationCoordinator,
                                 launchRequest = pendingLaunchRequest,
                                 onQuit = ::quit,
                                 onLaunchRequestHandled = { requestID ->
@@ -170,20 +192,18 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        com.bitchat.android.features.voice.LiveVoiceManager.getInstance(applicationContext)
-            .setAppForeground(true)
-        WearChatState.setAppInForeground(true)
-        WearChatState.openDmPeer?.let { peerID ->
-            WearChatState.openDm(peerID)
-            WearNotificationCoordinator.getInstance(applicationContext).clearConversation(peerID)
+        liveVoiceManager.get().setAppForeground(true)
+        chatState.setAppInForeground(true)
+        chatState.openDmPeer?.let { peerID ->
+            chatState.openDm(peerID)
+            notificationCoordinator.clearConversation(peerID)
         }
         refreshState()
     }
 
     override fun onPause() {
-        com.bitchat.android.features.voice.LiveVoiceManager.getInstance(applicationContext)
-            .setAppForeground(false)
-        WearChatState.setAppInForeground(false)
+        liveVoiceManager.get().setAppForeground(false)
+        chatState.setAppInForeground(false)
         super.onPause()
     }
 
@@ -422,6 +442,12 @@ internal class WearNavigationState(
 
 @Composable
 internal fun WearNavHost(
+    appStateStore: AppStateStore,
+    chatState: WearChatState,
+    peerIdentity: WearPeerIdentityState,
+    liveVoiceManager: LiveVoiceManager,
+    voiceWaveformCache: VoiceWaveformCache,
+    notificationCoordinator: WearNotificationCoordinator,
     launchRequest: WearLaunchRequest?,
     onQuit: () -> Unit,
     onLaunchRequestHandled: (Long) -> Unit
@@ -489,6 +515,12 @@ internal fun WearNavHost(
                 move = if (isBackground) WearNavMove.Swipe else lastMove
             ) {
                 WearScreenContent(
+                    appStateStore = appStateStore,
+                    chatState = chatState,
+                    peerIdentity = peerIdentity,
+                    liveVoiceManager = liveVoiceManager,
+                    voiceWaveformCache = voiceWaveformCache,
+                    notificationCoordinator = notificationCoordinator,
                     screen = screen,
                     active = !isBackground,
                     onNavigate = if (isBackground) { _ -> } else ::push,
@@ -542,6 +574,12 @@ private val WearEnterEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
  */
 @Composable
 private fun WearScreenContent(
+    appStateStore: AppStateStore,
+    chatState: WearChatState,
+    peerIdentity: WearPeerIdentityState,
+    liveVoiceManager: LiveVoiceManager,
+    voiceWaveformCache: VoiceWaveformCache,
+    notificationCoordinator: WearNotificationCoordinator,
     screen: WearScreen,
     active: Boolean,
     onNavigate: (WearScreen) -> Unit,
@@ -554,9 +592,13 @@ private fun WearScreenContent(
             var chatOwnsGesture by remember { mutableStateOf(false) }
             ChatHomePager(
                 swipeEnabled = !chatOwnsGesture,
-                menu = { ChatMenuScreen(onQuit = onQuit) },
+                menu = { ChatMenuScreen(appStateStore = appStateStore, onQuit = onQuit) },
                 chat = {
                     ChatScreen(
+                        appStateStore = appStateStore,
+                        chatState = chatState,
+                        liveVoiceManager = liveVoiceManager,
+                        voiceWaveformCache = voiceWaveformCache,
                         active = active,
                         onOpenPeople = { onNavigate(WearScreen.People) },
                         onOpenTextInput = { onNavigate(WearScreen.TextInput(null)) },
@@ -566,6 +608,9 @@ private fun WearScreenContent(
             )
         }
         is WearScreen.People -> PeopleScreen(
+            appStateStore = appStateStore,
+            chatState = chatState,
+            peerIdentity = peerIdentity,
             onOpenDm = { onNavigate(WearScreen.Dm(it)) },
             onEditNickname = { onNavigate(WearScreen.Nickname) }
         )
@@ -584,6 +629,12 @@ private fun WearScreenContent(
             )
         }
         is WearScreen.Dm -> DmScreen(
+            appStateStore = appStateStore,
+            chatState = chatState,
+            peerIdentity = peerIdentity,
+            liveVoiceManager = liveVoiceManager,
+            voiceWaveformCache = voiceWaveformCache,
+            notificationCoordinator = notificationCoordinator,
             peerID = screen.peerID,
             active = active,
             onOpenUserDetail = { onNavigate(WearScreen.UserDetail(screen.peerID)) },
@@ -591,10 +642,11 @@ private fun WearScreenContent(
             onHorizontalGestureActive = onGestureOwned
         )
         is WearScreen.UserDetail -> UserDetailScreen(
+            peerIdentity = peerIdentity,
             peerID = screen.peerID,
             onOpenVerification = { onNavigate(WearScreen.Verification(screen.peerID)) }
         )
-        is WearScreen.Verification -> VerificationCodeScreen(peerID = screen.peerID)
+        is WearScreen.Verification -> VerificationCodeScreen(peerIdentity = peerIdentity, peerID = screen.peerID)
         is WearScreen.TextInput -> {
             val mesh = WearMeshService.peek()
             val sendScope = androidx.compose.runtime.rememberCoroutineScope()
@@ -607,10 +659,10 @@ private fun WearScreenContent(
                 onSend = { text ->
                     mesh?.let { m ->
                         if (screen.peerID == null) {
-                            sendPublicMessage(m, text)
+                            sendPublicMessage(appStateStore, m, text)
                         } else {
                             val nick = m.getPeerNickname(screen.peerID) ?: screen.peerID
-                            sendPrivateMessage(m, screen.peerID, nick, text, sendScope)
+                            sendPrivateMessage(appStateStore, m, screen.peerID, nick, text, sendScope)
                         }
                     }
                     onBack()

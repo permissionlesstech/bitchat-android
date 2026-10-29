@@ -78,4 +78,60 @@ class AppStartupOrderTest {
             "NostrHttpClients" in onCreate
         )
     }
+
+    /**
+     * The mesh preference stores are loaded in the order `onCreate` loads them today: favourites,
+     * private-conversation persistence, Nostr identity, spam filter preference, debug preferences,
+     * Wi-Fi Aware controller, transport toggles, geohash registries, then the mesh-service
+     * preferences. Each reads stored state the next one (or a transport started after it) relies
+     * on, and none of them may be resolved earlier than its own line.
+     */
+    @Test
+    fun onCreate_initialisesMeshPreferencesInTodaysOrder() {
+        val onCreate = applicationOnCreate()
+        val steps = linkedMapOf(
+            "power policy" to Regex("""powerManager\.get\(\)\.start\(\)"""),
+            "favourites" to Regex("""favoritesInit\.initialize\(\)"""),
+            "conversation persistence" to Regex("""appStateStore\.get\(\)\.initializeConversationPersistence\(this\)"""),
+            "nostr identity" to Regex("""nostrIdentityBridge\.get\(\)\.getCurrentNostrIdentity\(this\)"""),
+            "spam preferences" to Regex("""spamFilterPreferences\.get\(\)\.init\(this\)"""),
+            "debug preferences" to Regex("""debugPreferences\.get\(\)\.init\(this\)"""),
+            "wifi aware" to Regex("""wifiAwareController\.get\(\)\.initialize\(this,"""),
+            "transport toggles" to Regex("""debugSettings\.get\(\)\.transportToggles"""),
+            "geohash aliases" to Regex("""geohashAliases\.get\(\)\.initialize\(this\)"""),
+            "geohash conversations" to Regex("""geohashConversations\.get\(\)\.initialize\(this\)"""),
+            "mesh service preferences" to Regex("""meshServicePreferences\.get\(\)\.init\(this\)"""),
+        )
+        val positions = steps.map { (name, pattern) ->
+            val hits = pattern.findAll(onCreate).map { it.range.first }.toList()
+            assertEquals("BitchatApplication.onCreate must run $name exactly once", 1, hits.size)
+            name to hits.single()
+        }
+        assertEquals(
+            "Start-up order changed: ${steps.keys}",
+            positions.sortedBy { it.second }.map { it.first },
+            positions.map { it.first },
+        )
+    }
+
+    /** Hilt injects the Application's fields before `onCreate`'s own lines, so each must wait for its line. */
+    @Test
+    fun applicationInjectsEverythingLazily() {
+        val source = File(root, "app/src/main/java/com/bitchat/android/BitchatApplication.kt").readText()
+        val eager = Regex("""@Inject lateinit var (\w+): (?!Lazy<)(\w+)""").findAll(source)
+            .map { it.groupValues[1] to it.groupValues[2] }.toList()
+        assertEquals(
+            "Only the init bridge may be injected eagerly (it only holds a Context): $eager",
+            listOf("favoritesInit" to "FavoritesInitRetry"),
+            eager,
+        )
+    }
+
+    private fun applicationOnCreate(): String =
+        File(root, "app/src/main/java/com/bitchat/android/BitchatApplication.kt")
+            .readText()
+            .replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
+            .lines()
+            .joinToString("\n") { it.substringBefore("//") }
+            .substringAfter("override fun onCreate()")
 }

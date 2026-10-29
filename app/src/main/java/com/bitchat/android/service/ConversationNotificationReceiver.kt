@@ -25,16 +25,23 @@ import java.util.UUID
 /** Handles privacy-scoped direct reply and mark-read actions from DM notifications. */
 class ConversationNotificationReceiver : BroadcastReceiver() {
 
-    /** The receiver is built by the system, so it reaches the transport through an entry point. */
+    /** The receiver is built by the system, so it reaches what it uses through an entry point. */
     @EntryPoint
     @InstallIn(SingletonComponent::class)
     interface Dependencies {
         fun nostrTransport(): NostrTransport
+        fun contactDirectory(): ContactDirectory
+        fun appStateStore(): AppStateStore
+        fun meshServiceHolder(): MeshServiceHolder
     }
 
     override fun onReceive(context: Context, intent: Intent) {
+        val dependencies = EntryPointAccessors
+            .fromApplication(context.applicationContext, Dependencies::class.java)
+        val contactDirectory = dependencies.contactDirectory()
+        val appStateStore = dependencies.appStateStore()
         val conversationID = intent.getStringExtra(NotificationManager.EXTRA_PEER_ID)
-            ?.let(ContactDirectory::canonicalConversationId)
+            ?.let(contactDirectory::canonicalConversationId)
             ?: return
         val pendingResult = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
@@ -43,7 +50,7 @@ class ConversationNotificationReceiver : BroadcastReceiver() {
                 when (intent.action) {
                     NotificationManager.ACTION_MARK_CONVERSATION_READ -> {
                         acknowledged =
-                            AppStateStore.setPrivateConversationRead(conversationID, true)
+                            appStateStore.setPrivateConversationRead(conversationID, true)
                     }
 
                     NotificationManager.ACTION_REPLY_TO_CONVERSATION -> {
@@ -57,7 +64,7 @@ class ConversationNotificationReceiver : BroadcastReceiver() {
                         // the mesh runtime before dispatch so Android keeps the transport alive
                         // after this short-lived receiver finishes.
                         MeshForegroundService.start(context.applicationContext)
-                        val mesh = MeshServiceHolder.getUnifiedOrCreate(
+                        val mesh = dependencies.meshServiceHolder().getUnifiedOrCreate(
                             context.applicationContext
                         )
                         val message = BitchatMessage(
@@ -72,16 +79,14 @@ class ConversationNotificationReceiver : BroadcastReceiver() {
                             senderPeerID = mesh.myPeerID,
                             deliveryStatus = DeliveryStatus.Sending
                         )
-                        val persisted = AppStateStore.addPrivateMessageDurably(
+                        val persisted = appStateStore.addPrivateMessageDurably(
                             peerID = conversationID,
                             msg = message,
                             forceRead = true
                         )
                         if (persisted) {
                             MessageRouter.getInstance(context.applicationContext, mesh) {
-                                EntryPointAccessors
-                                    .fromApplication(context.applicationContext, Dependencies::class.java)
-                                    .nostrTransport()
+                                dependencies.nostrTransport()
                             }
                                 .sendPrivate(
                                     content = reply,
@@ -90,12 +95,12 @@ class ConversationNotificationReceiver : BroadcastReceiver() {
                                     messageID = message.id
                                 )
                             acknowledged =
-                                AppStateStore.setPrivateConversationRead(conversationID, true)
+                                appStateStore.setPrivateConversationRead(conversationID, true)
                         }
                     }
                 }
                 if (acknowledged) {
-                    NotificationManager.acknowledgeConversation(context, conversationID, ContactDirectory)
+                    NotificationManager.acknowledgeConversation(context, conversationID, contactDirectory)
                 }
             } finally {
                 pendingResult.finish()

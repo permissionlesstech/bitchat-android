@@ -12,9 +12,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-internal fun sendPublicMessage(mesh: WearMeshService, content: String) {
+internal fun sendPublicMessage(appStateStore: AppStateStore, mesh: WearMeshService, content: String) {
     mesh.sendMessage(content)
-    AppStateStore.addPublicMessage(
+    appStateStore.addPublicMessage(
         BitchatMessage(
             sender = mesh.nickname,
             content = content,
@@ -31,6 +31,7 @@ internal fun sendPublicMessage(mesh: WearMeshService, content: String) {
  * stays "Sending" while a retry loop waits for the session and completes the send.
  */
 internal fun sendPrivateMessage(
+    appStateStore: AppStateStore,
     mesh: WearMeshService,
     peerID: String,
     recipientNickname: String,
@@ -48,7 +49,7 @@ internal fun sendPrivateMessage(
             while (System.currentTimeMillis() < deadline) {
                 if (mesh.hasEstablishedSession(peerID)) {
                     mesh.sendPrivateMessageWithId(content, peerID, recipientNickname, messageID)
-                    AppStateStore.updatePrivateMessageStatus(messageID, DeliveryStatus.Sent)
+                    appStateStore.updatePrivateMessageStatus(messageID, DeliveryStatus.Sent)
                     return@launch
                 }
                 delay(400)
@@ -57,7 +58,7 @@ internal fun sendPrivateMessage(
             // refuses status downgrades, so it cannot be marked Failed from here).
         }
     }
-    AppStateStore.addPrivateMessage(
+    appStateStore.addPrivateMessage(
         peerID,
         BitchatMessage(
             id = messageID,
@@ -76,7 +77,7 @@ internal fun sendPrivateMessage(
  * Send a recorded voice note. Global chat: broadcast file packet. DM thread: Noise-encrypted
  * private file transfer. Local echo renders immediately (content = local path, type = Audio).
  */
-internal fun sendVoiceNote(mesh: WearMeshService, peerID: String?, path: String) {
+internal fun sendVoiceNote(appStateStore: AppStateStore, mesh: WearMeshService, peerID: String?, path: String) {
     val file = File(path)
     if (!file.isFile) return
     val packet = BitchatFilePacket(
@@ -100,8 +101,8 @@ internal fun sendVoiceNote(mesh: WearMeshService, peerID: String?, path: String)
         deliveryStatus = DeliveryStatus.Sent
     )
     if (peerID == null) {
-        AppStateStore.addPublicMessage(echo)
+        appStateStore.addPublicMessage(echo)
     } else {
-        AppStateStore.addPrivateMessage(peerID, echo)
+        appStateStore.addPrivateMessage(peerID, echo)
     }
 }

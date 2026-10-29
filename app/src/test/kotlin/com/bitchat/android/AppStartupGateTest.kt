@@ -1,5 +1,6 @@
 package com.bitchat.android
 
+import com.bitchat.android.wifiaware.WifiAwareController
 import com.bitchat.android.onboarding.BluetoothSkipSession
 import com.bitchat.android.onboarding.BluetoothStatus
 import com.bitchat.android.onboarding.FakeDeviceReadiness
@@ -34,7 +35,7 @@ class AppStartupGateTest {
     private val initializer = FakeAppInitializer()
 
     private fun TestScope.gate(scope: CoroutineScope = this) =
-        AppStartupGate(readiness, skip, initializer, scope)
+        AppStartupGate(readiness, skip, initializer, scope, WifiAwareController)
 
     private fun TestScope.advance(ms: Long) {
         advanceTimeBy(ms)

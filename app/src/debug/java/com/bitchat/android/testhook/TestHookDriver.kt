@@ -27,6 +27,7 @@ import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.ui.DataManager
 import com.bitchat.android.ui.PrivateMediaRecipientResolver
 import com.bitchat.android.util.AppConstants
+import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -55,7 +56,18 @@ object TestHookDriver {
     private const val DEFAULT_RECV_TIMEOUT_MS = 60_000L
     private const val DEFAULT_FILE_TIMEOUT_MS = 180_000L
 
+    // Looked up by each command from the application, so the objects are the graph's.
+    private lateinit var graph: TestHookDependencies
+    private val appStateStore get() = graph.appStateStore()
+    private val favoritesInit get() = graph.favoritesInit()
+    private val favorites get() = graph.favorites()
+    private val liveVoiceManager get() = graph.liveVoiceManager()
+    private val meshServiceHolder get() = graph.meshServiceHolder()
+    private val transferProgressManager get() = graph.transferProgressManager()
+    private val transportBridgeService get() = graph.transportBridgeService()
+
     suspend fun execute(context: Context, cmd: String, intent: Intent): JSONObject {
+        graph = EntryPointAccessors.fromApplication(context.applicationContext, TestHookDependencies::class.java)
         Log.d(TAG, "execute cmd=$cmd")
         val result = when (cmd) {
             "ping" -> ok(cmd).put("pong", true).put("package", context.packageName)
@@ -111,7 +123,7 @@ object TestHookDriver {
 
     private fun stop(context: Context): JSONObject {
         try {
-            MeshServiceHolder.unifiedMeshService?.stopServices()
+            meshServiceHolder.unifiedMeshService?.stopServices()
         } catch (e: Exception) {
             Log.w(TAG, "stopServices failed: ${e.message}")
         }
@@ -127,12 +139,12 @@ object TestHookDriver {
             .put("peer_id", mesh.myPeerID)
             .put("identity_fingerprint", mesh.getIdentityFingerprint())
             .put("noise_public_key", mesh.getStaticNoisePublicKey()?.toHex())
-            .put("nickname", AppStateStore.nickname.value)
+            .put("nickname", appStateStore.nickname.value)
     }
 
     private fun setNickname(context: Context, name: String): JSONObject {
         DataManager(context).saveNickname(name)
-        AppStateStore.setNickname(name)
+        appStateStore.setNickname(name)
         mesh(context).sendBroadcastAnnounce()
         return ok("set_nickname").put("nickname", name)
     }
@@ -144,9 +156,9 @@ object TestHookDriver {
         val minPeers = intent.getIntExtra("min_peers", 1)
         val mesh = mesh(context)
         val found = withTimeoutOrNull(timeoutMs) {
-            AppStateStore.peers.first { it.size >= minPeers }
+            appStateStore.peers.first { it.size >= minPeers }
         }
-        val peerIds = found ?: AppStateStore.peers.value
+        val peerIds = found ?: appStateStore.peers.value
         return ok("scan")
             .put("reached_min_peers", found != null)
             .put("peers", peerInfosJson(mesh, peerIds))
@@ -154,7 +166,7 @@ object TestHookDriver {
 
     private fun peers(context: Context): JSONObject {
         val mesh = mesh(context)
-        return ok("peers").put("peers", peerInfosJson(mesh, AppStateStore.peers.value))
+        return ok("peers").put("peers", peerInfosJson(mesh, appStateStore.peers.value))
     }
 
     /**
@@ -168,19 +180,19 @@ object TestHookDriver {
             .map(String::trim)
             .filter(String::isNotEmpty)
             .distinct()
-        AppStateStore.setPeers(peers)
+        appStateStore.setPeers(peers)
         return ok("inject_peers").put("peers", JSONArray(peers))
     }
 
     private suspend fun connect(peerID: String, intent: Intent): JSONObject {
         val timeoutMs = intent.getLongExtra("timeout_ms", DEFAULT_CONNECT_TIMEOUT_MS)
-        val ble = MeshServiceHolder.meshService ?: return err("connect", "BLE service not running")
+        val ble = meshServiceHolder.meshService ?: return err("connect", "BLE service not running")
         val address = ble.getDeviceAddressForPeer(peerID)
             ?: return err("connect", "no device address known for peer $peerID (scan first)")
         val accepted = ble.connectionManager.connectToAddress(address)
         if (!accepted) return err("connect", "connectToAddress($address) rejected")
         val direct = withTimeoutOrNull(timeoutMs) {
-            AppStateStore.directPeers.first { it.contains(peerID) }
+            appStateStore.directPeers.first { it.contains(peerID) }
         }
         return ok("connect")
             .put("peer", peerID)
@@ -250,13 +262,13 @@ object TestHookDriver {
         val fromPeer = intent.getStringExtra("peer")
         val contains = intent.getStringExtra("contains")
         val mesh = mesh(context)
-        val matcher = ArrivedMessageMatcher(AppStateStore.privateMessages.value.values.flatten()) { msg ->
+        val matcher = ArrivedMessageMatcher(appStateStore.privateMessages.value.values.flatten()) { msg ->
             msg.senderPeerID != mesh.myPeerID &&
                 (fromPeer == null || msg.senderPeerID == fromPeer) &&
                 (contains == null || msg.content.contains(contains))
         }
         val msg = withTimeoutOrNull(timeoutMs) {
-            AppStateStore.privateMessages
+            appStateStore.privateMessages
                 .mapNotNull { conversations -> matcher.firstArrived(conversations.values.flatten()) }
                 .first()
         } ?: return err("dm_recv", "timeout after ${timeoutMs}ms")
@@ -279,11 +291,11 @@ object TestHookDriver {
         }
         val found = withTimeoutOrNull(timeoutMs) {
             if (channel != null) {
-                val matcher = ArrivedMessageMatcher(AppStateStore.channelMessages.value.values.flatten(), accepts)
-                AppStateStore.channelMessages.mapNotNull { m -> matcher.firstArrived(m.values.flatten()) }.first()
+                val matcher = ArrivedMessageMatcher(appStateStore.channelMessages.value.values.flatten(), accepts)
+                appStateStore.channelMessages.mapNotNull { m -> matcher.firstArrived(m.values.flatten()) }.first()
             } else {
-                val matcher = ArrivedMessageMatcher(AppStateStore.publicMessages.value, accepts)
-                AppStateStore.publicMessages.mapNotNull(matcher::firstArrived).first()
+                val matcher = ArrivedMessageMatcher(appStateStore.publicMessages.value, accepts)
+                appStateStore.publicMessages.mapNotNull(matcher::firstArrived).first()
             }
         } ?: return err("msg_recv", "timeout after ${timeoutMs}ms")
         return ok("msg_recv")
@@ -302,8 +314,8 @@ object TestHookDriver {
             ?: return err("favorite_set", "peer is not known")
         val noisePublicKey = peerInfo.noisePublicKey
             ?: return err("favorite_set", "peer Noise key is unavailable")
-        FavoritesPersistenceService.initialize(context)
-        FavoritesPersistenceService.shared.updateFavoriteStatus(
+        favoritesInit.initialize()
+        favorites.updateFavoriteStatus(
             noisePublicKey = noisePublicKey,
             nickname = peerInfo.nickname,
             isFavorite = enabled
@@ -314,10 +326,10 @@ object TestHookDriver {
 
     private fun favoriteStatus(context: Context, peerID: String): JSONObject {
         val mesh = mesh(context)
-        FavoritesPersistenceService.initialize(context)
-        val relationship = FavoritesPersistenceService.shared.getFavoriteStatus(peerID)
+        favoritesInit.initialize()
+        val relationship = favorites.getFavoriteStatus(peerID)
             ?: mesh.getPeerInfo(peerID)?.noisePublicKey?.let {
-                FavoritesPersistenceService.shared.getFavoriteStatus(it)
+                favorites.getFavoriteStatus(it)
             }
         val isFavorite = relationship?.isFavorite == true
         val theyFavoritedUs = relationship?.theyFavoritedUs == true
@@ -387,7 +399,7 @@ object TestHookDriver {
             // Subscribe on a background dispatcher before sending so synchronous
             // failure events are not missed (SharedFlow has replay=0).
             val completion = async(Dispatchers.Default) {
-                TransferProgressManager.events.first { it.transferId == transferId && it.completed }
+                transferProgressManager.events.first { it.transferId == transferId && it.completed }
             }
             delay(50)
             val sendError = dispatchFileSend(
@@ -534,7 +546,7 @@ object TestHookDriver {
         val transferId = sha256Hex(encoded)
         return coroutineScope {
             val completion = async(Dispatchers.Default) {
-                TransferProgressManager.events.first { it.transferId == transferId && it.completed }
+                transferProgressManager.events.first { it.transferId == transferId && it.completed }
             }
             delay(50)
             val sendError = dispatchFileSend(
@@ -579,7 +591,7 @@ object TestHookDriver {
         var finished: LiveVoiceEvent.Finished? = null
         var liveSnapshot: File? = null
         val absorbed = withTimeoutOrNull(timeoutMs) {
-            LiveVoiceManager.getInstance(context).events.first { event ->
+            liveVoiceManager.events.first { event ->
                 val matches = event.scope == expectedScope &&
                     (fromPeer == null || event.peerID == fromPeer)
                 if (matches && event is LiveVoiceEvent.Finished) {
@@ -637,9 +649,9 @@ object TestHookDriver {
             payload = payload
         )
         if (peerID != null) {
-            TransportBridgeService.sendToPeerFromLocal(peerID, packet)
+            transportBridgeService.sendToPeerFromLocal(peerID, packet)
         } else {
-            TransportBridgeService.broadcastFromLocal(RoutedPacket(packet))
+            transportBridgeService.broadcastFromLocal(RoutedPacket(packet))
         }
         return ok("raw_send")
             .put("type", typeStr)
@@ -650,23 +662,23 @@ object TestHookDriver {
     // MARK: - Transport / state
 
     private fun setBle(enabled: Boolean): JSONObject {
-        val ble = MeshServiceHolder.meshService ?: return err("ble", "BLE service not running")
+        val ble = meshServiceHolder.meshService ?: return err("ble", "BLE service not running")
         ble.setBleTransportEnabled(enabled)
         return ok("ble").put("enabled", enabled)
     }
 
     private fun state(context: Context): JSONObject {
         val mesh = mesh(context)
-        val peersJson = peerInfosJson(mesh, AppStateStore.peers.value)
+        val peersJson = peerInfosJson(mesh, appStateStore.peers.value)
         val sessions = JSONObject()
-        AppStateStore.peers.value.forEach { peerID ->
+        appStateStore.peers.value.forEach { peerID ->
             sessions.put(peerID, mesh.getSessionState(peerID).toString())
         }
         return ok("state")
             .put("peer_id", mesh.myPeerID)
-            .put("nickname", AppStateStore.nickname.value)
+            .put("nickname", appStateStore.nickname.value)
             .put("peers", peersJson)
-            .put("direct_peers", JSONArray(AppStateStore.directPeers.value.toList()))
+            .put("direct_peers", JSONArray(appStateStore.directPeers.value.toList()))
             .put("sessions", sessions)
             .put("device_map", JSONObject(mesh.getDeviceAddressToPeerMapping() as Map<*, *>))
             .put("debug_status", mesh.getDebugStatus())
@@ -680,7 +692,7 @@ object TestHookDriver {
 
     // MARK: - Helpers
 
-    private fun mesh(context: Context): MeshService = MeshServiceHolder.getUnifiedOrCreate(context)
+    private fun mesh(context: Context): MeshService = meshServiceHolder.getUnifiedOrCreate(context)
 
     private fun peerInfosJson(mesh: MeshService, peerIds: List<String>): JSONArray {
         val nicknames = mesh.getPeerNicknames()
@@ -692,7 +704,7 @@ object TestHookDriver {
                 .put("id", id)
                 .put("nickname", nicknames[id] ?: info?.nickname)
                 .put("rssi", rssi[id])
-                .put("direct", AppStateStore.directPeers.value.contains(id))
+                .put("direct", appStateStore.directPeers.value.contains(id))
                 .put("connected", info?.isConnected)
                 .put("last_seen", info?.lastSeen)
                 .put("session", mesh.getSessionState(id).toString())

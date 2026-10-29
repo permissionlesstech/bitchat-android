@@ -79,10 +79,10 @@ fun ChatHomePager(
  * status, the live push-to-talk switch, and quitting.
  */
 @Composable
-fun ChatMenuScreen(onQuit: () -> Unit) {
+fun ChatMenuScreen(appStateStore: AppStateStore, onQuit: () -> Unit) {
     val context = LocalContext.current
     val palette = LocalBitchatPalette.current
-    val peers by AppStateStore.peers.collectAsState()
+    val peers by appStateStore.peers.collectAsState()
     val listState = rememberScalingLazyListState()
     var confirmQuit by rememberSaveable { mutableStateOf(false) }
     var liveVoiceEnabled by remember { mutableStateOf(LiveVoicePreferences.isEnabled(context)) }

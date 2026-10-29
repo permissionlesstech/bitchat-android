@@ -156,13 +156,16 @@ fun FullScreenImageViewer(path: String, onClose: () -> Unit) {
  * duration/progress. Playback via MediaPlayer.
  */
 @Composable
-fun VoiceNoteItem(path: String, messageID: String? = null) {
+fun VoiceNoteItem(
+    path: String,
+    liveVoiceManager: com.bitchat.android.features.voice.LiveVoiceManager,
+    voiceWaveformCache: com.bitchat.android.features.voice.VoiceWaveformCache,
+    messageID: String? = null,
+) {
     val palette = LocalBitchatPalette.current
-    val context = LocalContext.current
-    val liveIDs by com.bitchat.android.features.voice.LiveVoiceManager
-        .getInstance(context).liveMessageIDs.collectAsState()
+    val liveIDs by liveVoiceManager.liveMessageIDs.collectAsState()
     val isLive = messageID != null && messageID in liveIDs
-    var samples by remember { mutableStateOf(VoiceWaveformCache.get(path)) }
+    var samples by remember { mutableStateOf(voiceWaveformCache.get(path)) }
     var playing by remember { mutableStateOf(false) }
     var progress by remember { mutableFloatStateOf(0f) }
     var durationMs by remember { mutableIntStateOf(0) }
@@ -172,7 +175,7 @@ fun VoiceNoteItem(path: String, messageID: String? = null) {
         if (samples == null) {
             AudioWaveformExtractor.extractAsync(path) { extracted ->
                 if (extracted != null) {
-                    VoiceWaveformCache.put(path, extracted)
+                    voiceWaveformCache.put(path, extracted)
                     samples = extracted
                 }
             }

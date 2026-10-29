@@ -121,10 +121,12 @@ object MeshBridgeModule {
 }
 
 /**
- * The one retry of `FavoritesPersistenceService.initialize` that the chat session's start-up
- * makes after Application.onCreate's first attempt.
+ * `FavoritesPersistenceService.initialize`, for the callers that must run it before the instance
+ * exists: Application.onCreate's first attempt and the one retry the chat session's start-up makes.
  */
 // 10c-2a-1 bridge: deleted when FavoritesPersistenceService is flipped
 class FavoritesInitRetry @Inject constructor(@ApplicationContext private val context: Context) {
-    fun run() = FavoritesPersistenceService.initialize(context)
+    fun initialize() = FavoritesPersistenceService.initialize(context)
+
+    fun run() = initialize()
 }

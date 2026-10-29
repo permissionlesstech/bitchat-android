@@ -29,30 +29,34 @@ object MeshModule {
 
     @Provides
     fun provideBluetoothMeshService(
-        @ApplicationContext context: Context
-    ): BluetoothMeshService = MeshServiceHolder.getOrCreate(context)
+        @ApplicationContext context: Context,
+        meshServiceHolder: MeshServiceHolder,
+    ): BluetoothMeshService = meshServiceHolder.getOrCreate(context)
 
     @Provides
     fun provideMeshService(
-        @ApplicationContext context: Context
-    ): MeshService = MeshServiceHolder.getUnifiedOrCreate(context)
+        @ApplicationContext context: Context,
+        meshServiceHolder: MeshServiceHolder,
+    ): MeshService = meshServiceHolder.getUnifiedOrCreate(context)
 
     /** Panic clear's restart: exactly the holder calls it made, in the same order. */
     @Provides
     fun provideSessionMeshSource(
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
+        meshServiceHolder: MeshServiceHolder,
     ): SessionMeshSource = object : SessionMeshSource {
         override fun recreate(): MeshService {
             // Clear the holder so getOrCreate() returns a fresh instance
-            MeshServiceHolder.clear()
-            MeshServiceHolder.getOrCreate(context)
-            return MeshServiceHolder.getUnifiedOrCreate(context)
+            meshServiceHolder.clear()
+            meshServiceHolder.getOrCreate(context)
+            return meshServiceHolder.getUnifiedOrCreate(context)
         }
     }
 
     @Provides
-    fun provideWifiAwarePeers(): WifiAwarePeers = object : WifiAwarePeers {
-        override val connected = WifiAwareController.connectedPeers
-        override val enabled = WifiAwareController.enabled
-    }
+    fun provideWifiAwarePeers(wifiAwareController: WifiAwareController): WifiAwarePeers =
+        object : WifiAwarePeers {
+            override val connected = wifiAwareController.connectedPeers
+            override val enabled = wifiAwareController.enabled
+        }
 }

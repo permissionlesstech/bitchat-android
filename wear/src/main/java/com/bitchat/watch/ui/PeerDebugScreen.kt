@@ -38,14 +38,14 @@ import com.bitchat.android.ui.theme.colorForPeer
  * people screen arrives in M4.
  */
 @Composable
-fun PeerDebugScreen() {
-    val peers by AppStateStore.peers.collectAsState()
+fun PeerDebugScreen(appStateStore: AppStateStore, peerIdentity: WearPeerIdentityState) {
+    val peers by appStateStore.peers.collectAsState()
     val mesh = WearMeshService.peek()
     val listState = rememberScalingLazyListState()
     val palette = LocalBitchatPalette.current
     val nicknames = mesh?.getPeerNicknames() ?: emptyMap()
     val rssi = mesh?.getPeerRSSI() ?: emptyMap()
-    val identityRevision by WearPeerIdentityState.revision.collectAsState()
+    val identityRevision by peerIdentity.revision.collectAsState()
 
     ScreenScaffold(scrollState = listState) {
         ScalingLazyColumn(
@@ -78,7 +78,7 @@ fun PeerDebugScreen() {
                 val nick = nicknames[peerID] ?: peerID.take(8)
                 val encrypted = mesh?.hasEstablishedSession(peerID) == true
                 val identity = androidx.compose.runtime.remember(peerID, identityRevision) {
-                    WearPeerIdentityState.snapshot(peerID, mesh)
+                    peerIdentity.snapshot(peerID, mesh)
                 }
                 Row(
                     modifier = Modifier

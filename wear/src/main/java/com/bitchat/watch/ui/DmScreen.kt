@@ -48,6 +48,12 @@ import com.bitchat.android.ui.theme.colorForPeer
 
 @Composable
 fun DmScreen(
+    appStateStore: AppStateStore,
+    chatState: WearChatState,
+    peerIdentity: WearPeerIdentityState,
+    liveVoiceManager: com.bitchat.android.features.voice.LiveVoiceManager,
+    voiceWaveformCache: com.bitchat.android.features.voice.VoiceWaveformCache,
+    notificationCoordinator: WearNotificationCoordinator,
     peerID: String,
     active: Boolean = true,
     onOpenUserDetail: () -> Unit,
@@ -55,15 +61,12 @@ fun DmScreen(
     onHorizontalGestureActive: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
-    val privateMessages by AppStateStore.privateMessages.collectAsState()
+    val privateMessages by appStateStore.privateMessages.collectAsState()
     val messages = privateMessages[peerID] ?: emptyList()
     val mesh = WearMeshService.peek()
     val myPeerID = mesh?.myPeerID ?: ""
     val palette = LocalBitchatPalette.current
     var viewerPath by remember { mutableStateOf<String?>(null) }
-    val liveVoiceManager = remember(context) {
-        com.bitchat.android.features.voice.LiveVoiceManager.getInstance(context)
-    }
     val voice = rememberVoiceNoteController(
         recorderFactory = {
             val target = if (
@@ -74,12 +77,12 @@ fun DmScreen(
             } else null
             com.bitchat.android.features.voice.VoiceRecorder(context, target)
         }
-    ) { path -> mesh?.let { sendVoiceNote(it, peerID, path) } }
+    ) { path -> mesh?.let { sendVoiceNote(appStateStore, it, peerID, path) } }
 
     val nickname = mesh?.getPeerNickname(peerID) ?: peerID.take(8)
-    val identityRevision by WearPeerIdentityState.revision.collectAsState()
+    val identityRevision by peerIdentity.revision.collectAsState()
     val identity = remember(peerID, identityRevision) {
-        WearPeerIdentityState.snapshot(peerID, mesh)
+        peerIdentity.snapshot(peerID, mesh)
     }
     var sessionEstablished by remember {
         mutableStateOf(mesh?.hasEstablishedSession(peerID) == true)
@@ -90,10 +93,10 @@ fun DmScreen(
     if (active) {
         DisposableEffect(peerID) {
             liveVoiceManager.showDirectMessage(peerID)
-            WearChatState.openDm(peerID)
-            WearNotificationCoordinator.getInstance(context).clearConversation(peerID)
+            chatState.openDm(peerID)
+            notificationCoordinator.clearConversation(peerID)
             onDispose {
-                WearChatState.closeDm()
+                chatState.closeDm()
                 liveVoiceManager.clearVisibleConversation()
             }
         }
@@ -118,6 +121,8 @@ fun DmScreen(
         myPeerID = myPeerID,
         emptyText = if (sessionEstablished) "Encrypted\nSay hi" else "Securing…",
         voice = voice,
+        liveVoiceManager = liveVoiceManager,
+        voiceWaveformCache = voiceWaveformCache,
         onOpenImage = { viewerPath = it },
         header = { expanded ->
             DmHeader(

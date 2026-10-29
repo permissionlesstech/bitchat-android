@@ -3,6 +3,7 @@ package com.bitchat.android.di
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.onboarding.DeviceReadiness
 import com.bitchat.android.service.MeshServiceHolder
+import com.bitchat.android.wifiaware.WifiAwareController
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -17,7 +18,7 @@ import org.mockito.kotlin.whenever
  */
 class AppTransportDiagnosticsTest {
 
-    private val diagnostics = AppTransportDiagnostics(mock<DeviceReadiness>())
+    private val diagnostics = AppTransportDiagnostics(mock<DeviceReadiness>(), WifiAwareController, MeshServiceHolder)
 
     @Before
     fun setUp() {

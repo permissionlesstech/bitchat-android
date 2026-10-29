@@ -32,13 +32,13 @@ import com.bitchat.watch.ui.theme.ChatVisualTokens
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 
 @Composable
-fun VerificationCodeScreen(peerID: String) {
+fun VerificationCodeScreen(peerIdentity: WearPeerIdentityState, peerID: String) {
     val mesh = WearMeshService.peek()
-    val revision by WearPeerIdentityState.revision.collectAsState()
+    val revision by peerIdentity.revision.collectAsState()
     val identity = androidx.compose.runtime.remember(peerID, revision) {
-        WearPeerIdentityState.snapshot(peerID, mesh)
+        peerIdentity.snapshot(peerID, mesh)
     }
-    val myFingerprint = WearPeerIdentityState.myFingerprint(mesh)
+    val myFingerprint = peerIdentity.myFingerprint(mesh)
     val listState = rememberScalingLazyListState()
     val palette = LocalBitchatPalette.current
     // Icon and title share one state color, so the header reads as a single status.
@@ -54,7 +54,7 @@ fun VerificationCodeScreen(peerID: String) {
                 label = if (identity.isVerified) "Unverify" else "Verify",
                 enabled = identity.fingerprint != null,
                 onClick = {
-                    WearPeerIdentityState.setVerified(
+                    peerIdentity.setVerified(
                         peerID = peerID,
                         verified = !identity.isVerified,
                         mesh = mesh

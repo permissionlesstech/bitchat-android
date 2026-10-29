@@ -2,14 +2,18 @@ package com.bitchat.android.service
 
 import com.bitchat.android.ui.debug.TransportToggles
 import com.bitchat.android.wifiaware.WifiAwareController
+import javax.inject.Inject
 
 /** The phone's transports behind the shared debug toggles. */
-object MeshTransportToggles : TransportToggles {
+class MeshTransportToggles @Inject constructor(
+    private val meshServiceHolder: MeshServiceHolder,
+    private val wifiAwareController: WifiAwareController,
+) : TransportToggles {
     override fun setBleEnabled(enabled: Boolean) {
-        MeshServiceHolder.meshService?.setBleTransportEnabled(enabled)
+        meshServiceHolder.meshService?.setBleTransportEnabled(enabled)
     }
 
     override fun setWifiAwareEnabled(enabled: Boolean) {
-        WifiAwareController.setEnabled(enabled)
+        wifiAwareController.setEnabled(enabled)
     }
 }

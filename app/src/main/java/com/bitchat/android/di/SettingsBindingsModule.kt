@@ -33,12 +33,13 @@ abstract class SettingsBindingsModule {
 
 class AppBackgroundMeshSetting @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val meshServicePreferences: MeshServicePreferences,
 ) : BackgroundMeshSetting {
 
-    override fun isEnabled(): Boolean = MeshServicePreferences.isBackgroundEnabled(true)
+    override fun isEnabled(): Boolean = meshServicePreferences.isBackgroundEnabled(true)
 
     override fun setEnabled(enabled: Boolean) {
-        MeshServicePreferences.setBackgroundEnabled(enabled)
+        meshServicePreferences.setBackgroundEnabled(enabled)
         if (!enabled) {
             MeshForegroundService.stop(context)
         } else {
@@ -49,25 +50,27 @@ class AppBackgroundMeshSetting @Inject constructor(
 
 class AppTransportDiagnostics @Inject constructor(
     private val deviceReadiness: DeviceReadiness,
+    private val wifiAwareController: WifiAwareController,
+    private val meshServiceHolder: MeshServiceHolder,
 ) : TransportDiagnostics {
 
     override val wifiAwareStatus: StateFlow<WifiAwareStatus> = combineStates(
-        WifiAwareController.supported,
-        WifiAwareController.available,
-        WifiAwareController.running,
-        WifiAwareController.supportStatus,
+        wifiAwareController.supported,
+        wifiAwareController.available,
+        wifiAwareController.running,
+        wifiAwareController.supportStatus,
     ) { supported, available, running, supportStatus ->
         WifiAwareStatus(supported, available, running, supportStatus?.reason)
     }
-    override val wifiAwareConnectedPeers: StateFlow<Map<String, String>> = WifiAwareController.connectedPeers
+    override val wifiAwareConnectedPeers: StateFlow<Map<String, String>> = wifiAwareController.connectedPeers
     override val wifiAwareDiscoveredPeers: StateFlow<Map<String, String>> = combineStates(
-        WifiAwareController.discoveredPeers,
-        WifiAwareController.knownPeers,
+        wifiAwareController.discoveredPeers,
+        wifiAwareController.knownPeers,
         ::discoveredWithNicknames,
     )
 
     override fun sendWifiAwareAnnounce() {
-        WifiAwareController.getService()?.sendBroadcastAnnounce()
+        wifiAwareController.getService()?.sendBroadcastAnnounce()
     }
 
     override fun wifiAwarePermissions(): List<String> = deviceReadiness.wifiAwarePermissions()
@@ -81,7 +84,7 @@ class AppTransportDiagnostics @Inject constructor(
      * when none is. Debug never creates or replaces a mesh (B1).
      */
     override fun openMesh(): MeshDiagnostics? {
-        val current = MeshServiceHolder.meshService ?: return null
+        val current = meshServiceHolder.meshService ?: return null
         opened?.takeIf { it.mesh === current }?.let { return it }
         return BluetoothMeshDiagnostics(current).also { opened = it }
     }

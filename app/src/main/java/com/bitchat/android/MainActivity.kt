@@ -89,6 +89,22 @@ class MainActivity : OrientationAwareActivity() {
     @Inject
     lateinit var nearbyNotesController: com.bitchat.android.nostr.NearbyNotesController
 
+    // Lazy: the live voice manager is first built where the foreground effect is composed.
+    @Inject
+    lateinit var liveVoiceManager: dagger.Lazy<com.bitchat.android.features.voice.LiveVoiceManager>
+
+    @Inject
+    lateinit var meshServiceHolder: com.bitchat.android.service.MeshServiceHolder
+
+    @Inject
+    lateinit var wifiAwareController: WifiAwareController
+
+    @Inject
+    lateinit var contactDirectory: ContactDirectory
+
+    @Inject
+    lateinit var verificationService: VerificationService
+
     // The chat session's, shared with ChatViewModel; the verify deep link
     // starts a QR verification through it.
     @Inject
@@ -173,14 +189,14 @@ class MainActivity : OrientationAwareActivity() {
 
         // Start the foreground service when allowed, then get mesh instances from the holder.
         startMeshForegroundServiceBestEffort()
-        meshService = com.bitchat.android.service.MeshServiceHolder.getOrCreate(applicationContext)
-        unifiedMeshService = com.bitchat.android.service.MeshServiceHolder.getUnifiedOrCreate(applicationContext)
+        meshService = meshServiceHolder.getOrCreate(applicationContext)
+        unifiedMeshService = meshServiceHolder.getUnifiedOrCreate(applicationContext)
         // Expose BLE mesh to Wi‑Fi Aware controller for cross-transport relays - DEPRECATED
         // Bridging is now handled by TransportBridgeService automatically
 
         setContent {
             BitchatTheme {
-                AppForegroundEffect(nearbyNotesController)
+                AppForegroundEffect(nearbyNotesController, liveVoiceManager.get())
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     containerColor = MaterialTheme.colorScheme.background
@@ -327,7 +343,7 @@ class MainActivity : OrientationAwareActivity() {
         // Keep the unified mesh delegate attached when Wi-Fi Aware starts after the UI.
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                WifiAwareController.running.collect { running ->
+                wifiAwareController.running.collect { running ->
                     if (running && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
                         meshDelegateBinding.attach()
                     }
@@ -425,7 +441,7 @@ class MainActivity : OrientationAwareActivity() {
             startupGate.onResumed()
             if (startupGate.phase.value == AppPhase.READY) {
                 // If location is enabled, ensure Wi-Fi Aware starts if it was blocked by location earlier
-                WifiAwareController.startIfPossible()
+                wifiAwareController.startIfPossible()
             }
         }
     }
@@ -465,7 +481,7 @@ class MainActivity : OrientationAwareActivity() {
                     if (navigator.popTo(ChatRoute)) {
                         navigator.goTo(MeshPeerListRoute)
                         navigator.openPrivateChat(
-                            ContactDirectory.canonicalConversationId(peerID),
+                            contactDirectory.canonicalConversationId(peerID),
                             over = MeshPeerListRoute,
                         )
                     }
@@ -515,7 +531,7 @@ class MainActivity : OrientationAwareActivity() {
         // is not on the stack the result is false and nothing changes.
         navigator.popTo(ChatRoute)
         navigator.goTo(VerificationRoute(chatState.selectedPrivateChatPeer.value))
-        val qr = VerificationService.verifyScannedQR(uri.toString())
+        val qr = verificationService.verifyScannedQR(uri.toString())
         if (qr != null) {
             verificationHandler.beginQRVerification(qr)
         }

@@ -62,21 +62,22 @@ import java.util.Locale
 
 @Composable
 fun ChatScreen(
+    appStateStore: AppStateStore,
+    chatState: WearChatState,
+    liveVoiceManager: com.bitchat.android.features.voice.LiveVoiceManager,
+    voiceWaveformCache: com.bitchat.android.features.voice.VoiceWaveformCache,
     active: Boolean = true,
     onOpenPeople: () -> Unit,
     onOpenTextInput: () -> Unit,
     onHorizontalGestureActive: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
-    val messages by AppStateStore.publicMessages.collectAsState()
-    val peers by AppStateStore.peers.collectAsState()
-    val unreadDms by WearChatState.unreadDms.collectAsState()
+    val messages by appStateStore.publicMessages.collectAsState()
+    val peers by appStateStore.peers.collectAsState()
+    val unreadDms by chatState.unreadDms.collectAsState()
     val mesh = WearMeshService.peek()
     val myPeerID = mesh?.myPeerID ?: ""
     var viewerPath by remember { mutableStateOf<String?>(null) }
-    val liveVoiceManager = remember(context) {
-        com.bitchat.android.features.voice.LiveVoiceManager.getInstance(context)
-    }
     val busyTalker by liveVoiceManager.activePublicTalker.collectAsState()
     val voice = rememberVoiceNoteController(
         recorderFactory = {
@@ -89,7 +90,7 @@ fun ChatScreen(
             } else null
             com.bitchat.android.features.voice.VoiceRecorder(context, target)
         }
-    ) { path -> mesh?.let { sendVoiceNote(it, null, path) } }
+    ) { path -> mesh?.let { sendVoiceNote(appStateStore, it, null, path) } }
 
     // Push-to-talk drags and the image viewer own the whole screen; the home pager must not
     // turn them into a page swipe.
@@ -110,6 +111,8 @@ fun ChatScreen(
         myPeerID = myPeerID,
         emptyText = "No messages yet\nSay hi to the mesh",
         voice = voice,
+        liveVoiceManager = liveVoiceManager,
+        voiceWaveformCache = voiceWaveformCache,
         onOpenImage = { viewerPath = it },
         header = { expanded ->
             ChatHeader(
@@ -231,6 +234,8 @@ internal fun messageSenderColor(
 fun MessageItem(
     message: BitchatMessage,
     myPeerID: String,
+    liveVoiceManager: com.bitchat.android.features.voice.LiveVoiceManager,
+    voiceWaveformCache: com.bitchat.android.features.voice.VoiceWaveformCache,
     onOpenImage: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     animateAppear: Boolean = true
@@ -284,6 +289,8 @@ fun MessageItem(
             )
             BitchatMessageType.Audio -> VoiceNoteItem(
                 path = message.content.trim(),
+                liveVoiceManager = liveVoiceManager,
+                voiceWaveformCache = voiceWaveformCache,
                 messageID = message.id
             )
             BitchatMessageType.File -> {

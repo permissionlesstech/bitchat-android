@@ -42,14 +42,20 @@ import com.bitchat.android.ui.theme.LocalBitchatPalette
 import com.bitchat.android.ui.theme.colorForPeer
 
 @Composable
-fun PeopleScreen(onOpenDm: (String) -> Unit, onEditNickname: () -> Unit) {
-    val peers by AppStateStore.peers.collectAsState()
-    val unread by WearChatState.unreadDms.collectAsState()
+fun PeopleScreen(
+    appStateStore: AppStateStore,
+    chatState: WearChatState,
+    peerIdentity: WearPeerIdentityState,
+    onOpenDm: (String) -> Unit,
+    onEditNickname: () -> Unit,
+) {
+    val peers by appStateStore.peers.collectAsState()
+    val unread by chatState.unreadDms.collectAsState()
     val mesh = WearMeshService.peek()
     val listState = rememberScalingLazyListState()
     val palette = LocalBitchatPalette.current
     val nicknames = mesh?.getPeerNicknames() ?: emptyMap()
-    val identityRevision by WearPeerIdentityState.revision.collectAsState()
+    val identityRevision by peerIdentity.revision.collectAsState()
 
     // Peers with unread messages float to the top so they are easy to see and reach.
     val sortedPeers = androidx.compose.runtime.remember(
@@ -109,7 +115,7 @@ fun PeopleScreen(onOpenDm: (String) -> Unit, onEditNickname: () -> Unit) {
             }
             items(sortedPeers, key = { it }) { peerID ->
                 val nick = nicknames[peerID] ?: peerID.take(8)
-                val identity = WearPeerIdentityState.snapshot(peerID, mesh)
+                val identity = peerIdentity.snapshot(peerID, mesh)
                 PersonRow(
                     nickname = nick,
                     peerID = peerID,

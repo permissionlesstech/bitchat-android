@@ -28,6 +28,6 @@ object ShareBindingsModule {
 
     // Wi-Fi Aware holds the NAN interface the hotspot's P2P group needs.
     @Provides
-    fun provideHotspotRadioLease(): HotspotRadioLease =
-        HotspotRadioLease { WifiAwareController.acquireHotspotLease() }
+    fun provideHotspotRadioLease(wifiAwareController: WifiAwareController): HotspotRadioLease =
+        HotspotRadioLease { wifiAwareController.acquireHotspotLease() }
 }

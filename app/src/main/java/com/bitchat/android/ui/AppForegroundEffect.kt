@@ -3,7 +3,6 @@ package com.bitchat.android.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -22,9 +21,10 @@ import com.bitchat.android.nostr.NearbyNotesController
  * full-screen destination, private chat included.
  */
 @Composable
-fun AppForegroundEffect(nearbyNotesController: NearbyNotesController) {
-    val context = LocalContext.current
-    val liveVoiceManager = remember(context) { LiveVoiceManager.getInstance(context) }
+fun AppForegroundEffect(
+    nearbyNotesController: NearbyNotesController,
+    liveVoiceManager: LiveVoiceManager,
+) {
     val processLifecycleOwner = remember { ProcessLifecycleOwner.get() }
 
     DisposableEffect(processLifecycleOwner, nearbyNotesController, liveVoiceManager) {

@@ -34,13 +34,14 @@ import com.bitchat.android.ui.theme.colorForPeer
 
 @Composable
 fun UserDetailScreen(
+    peerIdentity: WearPeerIdentityState,
     peerID: String,
     onOpenVerification: () -> Unit
 ) {
     val mesh = WearMeshService.peek()
-    val revision by WearPeerIdentityState.revision.collectAsState()
+    val revision by peerIdentity.revision.collectAsState()
     val identity = androidx.compose.runtime.remember(peerID, revision) {
-        WearPeerIdentityState.snapshot(peerID, mesh)
+        peerIdentity.snapshot(peerID, mesh)
     }
     val nickname = mesh?.getPeerNickname(peerID) ?: peerID.take(8)
     val listState = rememberScalingLazyListState()
@@ -81,7 +82,7 @@ fun UserDetailScreen(
                 FilledTonalButton(
                     onClick = {
                         mesh?.let {
-                            WearPeerIdentityState.setFavorite(
+                            peerIdentity.setFavorite(
                                 peerID = peerID,
                                 isFavorite = !identity.isFavorite,
                                 mesh = it
