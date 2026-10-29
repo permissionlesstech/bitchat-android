@@ -9,7 +9,8 @@ import org.junit.Test
  * into the graph), so callers take them by injection and never reach one through its class name.
  * Read from the sources of the modules that use them, comments and string text dropped.
  *
- * Callers inside `:core:mesh` build the classes themselves and are not scanned.
+ * Inside `:core:mesh` the hand-built mesh parts take them by constructor too; only the classes
+ * that are still static themselves reach one ([stillStaticInMesh]).
  */
 class NoStaticMeshAccessTest {
 
@@ -36,7 +37,6 @@ class NoStaticMeshAccessTest {
     /** Classes allowed to be reached statically anywhere, with the reason. */
     private val allowedClasses = mapOf(
         "MessageRouter" to "deferred to 10c-2a-2: mesh-replacement machinery the identity holder replaces",
-        "WearMeshService" to "Task 4 gives it an injectable constructor and WearMeshHolder; its callers move there",
     )
 
     /**
@@ -52,26 +52,41 @@ class NoStaticMeshAccessTest {
             "deferred to 10c-2a-2: mesh-replacement machinery the identity holder replaces",
         "core/nostr/src/main/java/com/bitchat/android/nostr/NostrIdentity.kt" to
             "NostrIdentityBridge is a still-static object; flipped in Task 7",
-        "app/src/main/java/com/bitchat/android/mesh/BluetoothMeshService.kt" to
-            "hand-built by MeshServiceHolder; takes its singletons by constructor in Task 4",
-        "app/src/main/java/com/bitchat/android/mesh/UnifiedMeshService.kt" to
-            "hand-built by MeshServiceHolder; takes its singletons by constructor in Task 4",
-        "app/src/main/java/com/bitchat/android/wifi-aware/WifiAwareMeshService.kt" to
-            "hand-built by WifiAwareController; takes its singletons by constructor in Task 4",
-        "wear/src/main/java/com/bitchat/watch/mesh/WearMeshService.kt" to
-            "hand-built by getOrCreate; takes its singletons by constructor in Task 4",
-        "app/src/main/java/com/bitchat/android/wifi-aware/WifiAwareController.kt" to
-            "still-static object that builds the Wi-Fi Aware mesh; flipped in Task 4",
-        "app/src/main/java/com/bitchat/android/service/MeshServiceHolder.kt" to
-            "still-static object that builds the mesh services; flipped in Task 4",
-        "app/src/main/java/com/bitchat/android/services/IncomingMessageAdmission.kt" to
-            "object called only by the hand-built mesh services; takes AppStateStore and SpamFilter once they hold them (Task 4)",
         "wear/src/main/java/com/bitchat/watch/di/WearBridgeModule.kt" to
             "bridge for the watch's still-static objects; deleted with their flips in Task 7",
         "wear/src/main/java/com/bitchat/watch/notification/WearNotificationCoordinator.kt" to
             "still-static class (getInstance) reaching WearChatState; constructor-injected when flipped in Task 7",
         "wear/src/main/java/com/bitchat/watch/ui/WearPeerIdentityState.kt" to
             "still-static object reaching FavoritesPersistenceService; constructor-injected when flipped in Task 7",
+    )
+
+    /**
+     * `:core:mesh` files that are themselves still-static Scope classes (or their bridges), so they
+     * cannot take constructor injection yet (R7). The reason names what each still reaches, which
+     * is the consumers-first order Tasks 5 and 6 flip in, and the task that empties the entry.
+     * A class's reaches of itself, in its own file, are never counted.
+     */
+    private val stillStaticInMesh = mapOf(
+        "core/mesh/src/main/java/com/bitchat/android/di/MeshBridgeModule.kt" to
+            "the bridges and FavoritesInitRetry; each bridge goes with its class's flip (Tasks 5 and 6)",
+        "core/mesh/src/main/java/com/bitchat/android/mesh/PowerManager.kt" to
+            "still-static class (getInstance) reaching AppStateStore; flipped in Task 5",
+        "core/mesh/src/main/java/com/bitchat/android/ui/debug/DebugSettingsManager.kt" to
+            "still-static class (getInstance) reaching DebugPreferenceManager; flipped in Task 5",
+        "core/mesh/src/main/java/com/bitchat/android/services/SeenMessageStore.kt" to
+            "still-static class (getInstance) reaching AppStateStore; flipped in Task 5",
+        "core/mesh/src/main/java/com/bitchat/android/features/voice/LiveVoiceManager.kt" to
+            "still-static class (getInstance) reaching AppStateStore; flipped in Task 5",
+        "core/mesh/src/main/java/com/bitchat/android/favorites/FavoritesPersistenceService.kt" to
+            "still-static class (shared) reaching AppStateStore; flipped in Task 5",
+        "core/mesh/src/main/java/com/bitchat/android/spam/SpamFilterPreferences.kt" to
+            "still-static object reaching SpamFilter; flipped in Task 6",
+        "core/mesh/src/main/java/com/bitchat/android/services/ContactDirectory.kt" to
+            "still-static object reaching FavoritesPersistenceService, GeohashAliasRegistry and " +
+            "PrivateMessageArrivalOrder; flipped in Task 6",
+        "core/mesh/src/main/java/com/bitchat/android/services/AppStateStore.kt" to
+            "still-static object reaching ContactDirectory, PrivateMessageArrivalOrder and " +
+            "ConversationRepository; flipped last in Task 6",
     )
 
     private val accessor = Regex(
@@ -99,6 +114,25 @@ class NoStaticMeshAccessTest {
         )
     }
 
+    @Test
+    fun noStaticMeshAccessInsideMesh() {
+        val offenders = mainSources(listOf("core/mesh")).filter { (file, _) ->
+            file.relativeTo(root).invariantSeparatorsPath !in stillStaticInMesh
+        }.flatMap { (file, code) -> reachesOfOthers(file, code) }
+        assertTrue(
+            "Hand-built mesh parts must take the singletons by constructor, not reach them " +
+                "statically:\n" + offenders.joinToString("\n"),
+            offenders.isEmpty()
+        )
+    }
+
+    /** Reaches in [code] of classes other than the one [file] is named after. */
+    private fun reachesOfOthers(file: File, code: String): List<String> =
+        (accessor.findAll(code) + objectReach.findAll(code))
+            .filter { it.groupValues[1] != file.nameWithoutExtension }
+            .map { "${location(file, code, it.range.first)}: ${it.value.replace(Regex("\\s+"), "")}" }
+            .toList()
+
     /** The scan itself: a reach split over lines, a property read and a callable reference all count. */
     @Test
     fun theScanSeesSplitLinePropertyAndReferenceReaches() {
@@ -119,7 +153,7 @@ class NoStaticMeshAccessTest {
 
     @Test
     fun theStillStaticExemptionsExistAndStillReachAStatic() {
-        val problems = stillStatic.keys.mapNotNull { path ->
+        val outside = stillStatic.keys.mapNotNull { path ->
             val file = File(root, path)
             when {
                 !file.isFile -> "$path: no such file"
@@ -127,6 +161,15 @@ class NoStaticMeshAccessTest {
                 else -> "$path: no longer reaches a static; drop it from stillStatic"
             }
         }
+        val inside = stillStaticInMesh.keys.mapNotNull { path ->
+            val file = File(root, path)
+            when {
+                !file.isFile -> "$path: no such file"
+                reachesOfOthers(file, codeOnly(file.readText())).isNotEmpty() -> null
+                else -> "$path: no longer reaches another static; drop it from stillStaticInMesh"
+            }
+        }
+        val problems = outside + inside
         assertTrue(problems.joinToString("\n"), problems.isEmpty())
     }
 

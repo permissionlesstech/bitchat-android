@@ -35,7 +35,7 @@ import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.watch.R
-import com.bitchat.watch.mesh.WearMeshService
+import com.bitchat.watch.mesh.WearMeshHolder
 import com.bitchat.watch.ui.theme.ChatVisualTokens
 import com.bitchat.android.ui.PeerIdentity
 import com.bitchat.android.ui.theme.LocalBitchatPalette
@@ -46,12 +46,13 @@ fun PeopleScreen(
     appStateStore: AppStateStore,
     chatState: WearChatState,
     peerIdentity: WearPeerIdentityState,
+    meshHolder: WearMeshHolder,
     onOpenDm: (String) -> Unit,
     onEditNickname: () -> Unit,
 ) {
     val peers by appStateStore.peers.collectAsState()
     val unread by chatState.unreadDms.collectAsState()
-    val mesh = WearMeshService.peek()
+    val mesh = meshHolder.peek()
     val listState = rememberScalingLazyListState()
     val palette = LocalBitchatPalette.current
     val nicknames = mesh?.getPeerNicknames() ?: emptyMap()

@@ -17,8 +17,24 @@ import com.bitchat.android.protocol.SpecialRecipients
 import com.bitchat.android.model.RequestSyncPacket
 import com.bitchat.android.sync.GossipSyncManager
 import com.bitchat.android.util.toHexString
+import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.features.voice.LiveVoiceManager
+import com.bitchat.android.nostr.GeohashAliasRegistry
+import com.bitchat.android.service.MeshServiceHolder
+import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.ConversationListPreferences
+import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.services.VerificationService
+import com.bitchat.android.services.meshgraph.MeshGraphService
 import com.bitchat.android.service.TransportBridgeService
+import com.bitchat.android.spam.SpamFilter
+import com.bitchat.android.ui.debug.DebugPreferenceManager
+import com.bitchat.android.ui.debug.DebugSettingsManager
+import dagger.Lazy
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import java.util.*
@@ -38,8 +54,39 @@ import kotlin.random.Random
  * - BluetoothConnectionManager: BLE connections and GATT operations
  * - PacketProcessor: Incoming packet routing
  */
-class BluetoothMeshService(private val context: Context) : TransportBridgeService.TransportLayer {
-    private val debugManager by lazy { try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (e: Exception) { null } }
+/**
+ * Built only by [MeshServiceHolder], through [Factory], and the holder owns the one live instance.
+ * An assisted factory rather than a plain `@Inject` constructor, so the type cannot be injected
+ * directly: a direct injection would build a second mesh. Each `create()` builds a fresh one,
+ * which the holder needs when it replaces a stopped instance.
+ */
+class BluetoothMeshService @AssistedInject constructor(
+    @ApplicationContext private val context: Context,
+    private val appStateStore: AppStateStore,
+    private val transportBridgeService: TransportBridgeService,
+    private val verificationService: VerificationService,
+    private val meshServiceHolder: MeshServiceHolder,
+    private val meshGraphService: MeshGraphService,
+    private val debugSettingsManager: Lazy<DebugSettingsManager>,
+    private val debugPreferenceManager: DebugPreferenceManager,
+    private val seenMessageStore: Lazy<SeenMessageStore>,
+    private val geohashAliasRegistry: GeohashAliasRegistry,
+    private val spamFilter: SpamFilter,
+    contactDirectory: ContactDirectory,
+    conversationListPreferences: ConversationListPreferences,
+    peerFingerprintManager: PeerFingerprintManager,
+    favoritesPersistenceService: Lazy<FavoritesPersistenceService>,
+    liveVoiceManager: Lazy<LiveVoiceManager>,
+    powerManager: PowerManager,
+    transferProgressManager: TransferProgressManager,
+) : TransportBridgeService.TransportLayer {
+
+    @AssistedFactory
+    interface Factory {
+        fun create(): BluetoothMeshService
+    }
+
+    private val debugManager by lazy { try { debugSettingsManager.get() } catch (e: Exception) { null } }
     
     companion object {
         private const val TAG = "BluetoothMeshService"
@@ -48,11 +95,11 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     }
     
     // Core components - each handling specific responsibilities
-    private val encryptionService = EncryptionService(context)
+    private val encryptionService = EncryptionService(context, peerFingerprintManager, favoritesPersistenceService)
 
     // My peer identification - derived from persisted Noise identity fingerprint (first 16 hex chars)
     val myPeerID: String = encryptionService.getIdentityFingerprint().take(16)
-    private val peerManager = PeerManager()
+    private val peerManager = PeerManager(peerFingerprintManager)
     private val fragmentManager = FragmentManager()
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val readReceiptRetrySender = RetryingControlPacketSender(serviceScope)
@@ -109,14 +156,25 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     }
     private val securityManager = SecurityManager(encryptionService, myPeerID)
     private val storeForwardManager = StoreForwardManager()
-    private val messageHandler = MessageHandler(myPeerID, context.applicationContext)
+    private val messageHandler = MessageHandler(
+        myPeerID,
+        context.applicationContext,
+        liveVoiceManager,
+        meshGraphService,
+        favoritesPersistenceService,
+        contactDirectory,
+    )
     internal val connectionManager = BluetoothConnectionManager(
         context,
         myPeerID,
         BluetoothPermissionManager(context, requireLocation = true),
-        fragmentManager
+        fragmentManager,
+        powerManager,
+        debugSettingsManager,
+        debugPreferenceManager,
+        transferProgressManager,
     ) // Made internal for access
-    private val packetProcessor = PacketProcessor(myPeerID)
+    private val packetProcessor = PacketProcessor(myPeerID, debugSettingsManager)
     private data class VoiceFrameRequest(val recipientPeerID: String?, val payload: ByteArray)
     private val voiceFrameQueue = Channel<VoiceFrameRequest>(capacity = 128)
     private lateinit var gossipSyncManager: GossipSyncManager
@@ -125,8 +183,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         context.applicationContext,
         androidx.core.app.NotificationManagerCompat.from(context.applicationContext),
         com.bitchat.android.di.AppNotificationTargets,
-        com.bitchat.android.services.ContactDirectory,
-        com.bitchat.android.services.ConversationListPreferences.getInstance(context.applicationContext),
+        contactDirectory,
+        conversationListPreferences,
     )
     
     // Service state management
@@ -144,7 +202,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             for (request in voiceFrameQueue) dispatchVoiceFrame(request)
         }
         Log.i(TAG, "Initializing BluetoothMeshService for peer=$myPeerID")
-        VerificationService.configure(encryptionService)
+        verificationService.configure(encryptionService)
         setupDelegates()
         messageHandler.packetProcessor = packetProcessor
         //startPeriodicDebugLogging()
@@ -166,24 +224,24 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             scope = serviceScope,
             configProvider = object : GossipSyncManager.ConfigProvider {
                 override fun seenCapacity(): Int = try {
-                    com.bitchat.android.ui.debug.DebugPreferenceManager.getSeenPacketCapacity(500)
+                    debugPreferenceManager.getSeenPacketCapacity(500)
                 } catch (_: Exception) { 500 }
 
                 override fun gcsMaxBytes(): Int = try {
-                    com.bitchat.android.ui.debug.DebugPreferenceManager.getGcsMaxFilterBytes(400)
+                    debugPreferenceManager.getGcsMaxFilterBytes(400)
                 } catch (_: Exception) { 400 }
 
                 override fun gcsTargetFpr(): Double = try {
-                    com.bitchat.android.ui.debug.DebugPreferenceManager.getGcsFprPercent(1.0) / 100.0
+                    debugPreferenceManager.getGcsFprPercent(1.0) / 100.0
                 } catch (_: Exception) { 0.01 }
             }
         )
 
-        com.bitchat.android.service.MeshServiceHolder.setGossipManager(gossipSyncManager) { packet ->
+        meshServiceHolder.setGossipManager(gossipSyncManager) { packet ->
             signPacketBeforeBroadcast(packet)
         }
         if (isBleTransportEnabled()) {
-            TransportBridgeService.register("BLE", this)
+            transportBridgeService.register("BLE", this)
         }
         
         // Inject dynamic direct connection check into PeerManager
@@ -212,7 +270,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         if (!isBleTransportEnabled()) return false
         val queued = connectionManager.broadcastPacket(routed)
         if (!queued) return false
-        TransportBridgeService.broadcast("BLE", routed)
+        transportBridgeService.broadcast("BLE", routed)
         return true
     }
 
@@ -221,15 +279,15 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         val acceptedByBle =
             connectionManager.broadcastControlPacketAndAwaitAcceptance(routed)
         val acceptedByBridgedTransport =
-            TransportBridgeService.broadcastAndReport("BLE", routed)
+            transportBridgeService.broadcastAndReport("BLE", routed)
         return acceptedByBle || acceptedByBridgedTransport
     }
 
     private fun isBleTransportEnabled(): Boolean {
         return try {
-            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().bleEnabled.value
+            debugSettingsManager.get().bleEnabled.value
         } catch (_: Exception) {
-            try { com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
+            try { debugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
         }
     }
     
@@ -266,7 +324,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         peerManager.delegate = object : PeerManagerDelegate {
             override fun onPeerListUpdated(peerIDs: List<String>) {
                 // Update process-wide state first
-                try { com.bitchat.android.services.AppStateStore.setTransportPeers("BLE", peerIDs) } catch (_: Exception) { }
+                try { appStateStore.setTransportPeers("BLE", peerIDs) } catch (_: Exception) { }
                 // Then notify UI delegate if attached
                 delegate?.didUpdatePeerList(peerIDs)
             }
@@ -274,7 +332,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 authenticatedPeerState.clear(peerID)
                 try { gossipSyncManager.removeAnnouncementForPeer(peerID) } catch (_: Exception) { }
                 // Remove from mesh graph topology to prevent routing through stale peers
-                try { com.bitchat.android.services.meshgraph.MeshGraphService.getInstance().removePeer(peerID) } catch (_: Exception) { }
+                try { meshGraphService.removePeer(peerID) } catch (_: Exception) { }
 
                 // Also drop any Noise session state for this peer when they go offline
                 try {
@@ -497,7 +555,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 // callback or notify after panic mode rejected the message while wiping state.
                 if (
                     !com.bitchat.android.services.IncomingMessageAdmission
-                        .admitToAppState(message)
+                        .admitToAppState(message, appStateStore, spamFilter)
                 ) return
 
                 // And forward to UI delegate if attached
@@ -525,7 +583,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 // Status events can arrive while MainActivity has detached the UI delegate.
                 // Persist first so the next UI collector observes the advancement.
                 try {
-                    com.bitchat.android.services.AppStateStore.updatePrivateMessageStatus(
+                    appStateStore.updatePrivateMessageStatus(
                         messageID,
                         com.bitchat.android.model.DeliveryStatus.Delivered(peerID, Date())
                     )
@@ -535,7 +593,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             
             override fun onReadReceiptReceived(messageID: String, peerID: String) {
                 try {
-                    com.bitchat.android.services.AppStateStore.updatePrivateMessageStatus(
+                    appStateStore.updatePrivateMessageStatus(
                         messageID,
                         com.bitchat.android.model.DeliveryStatus.Read(peerID, Date())
                     )
@@ -654,7 +712,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
 
             override fun sendToPeer(peerID: String, routed: RoutedPacket): Boolean {
                 val sentOverBle = connectionManager.sendToPeer(peerID, routed)
-                TransportBridgeService.sendToPeer("BLE", peerID, routed.packet)
+                transportBridgeService.sendToPeer("BLE", peerID, routed.packet)
                 return sentOverBle
             }
             
@@ -676,7 +734,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         ) {
             // Log incoming for debug graphs (do not double-count anywhere else)
             try {
-                com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logIncoming(
+                debugSettingsManager.get().logIncoming(
                     packet = packet,
                     fromPeerID = peerID,
                     fromNickname = null,
@@ -701,7 +759,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                     val addr = device.address
                     val peer = connectionManager.addressPeerMap[addr]
                     val nick = peer?.let { peerManager.getPeerNickname(it) } ?: "unknown"
-                    com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
+                    debugSettingsManager.get()
                         .logPeerConnection(peer ?: "unknown", nick, addr, isInbound = !connectionManager.isClientConnection(addr)!!)
                 } catch (_: Exception) { }
             }
@@ -766,10 +824,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         if (!isBleTransportEnabled()) {
             Log.i(TAG, "BLE transport disabled by debug settings; not starting mesh service")
             connectionManager.disableTransport()
-            TransportBridgeService.unregister("BLE")
-            com.bitchat.android.service.MeshServiceHolder.stopSharedGossip("BLE")
-            try { com.bitchat.android.services.AppStateStore.clearTransportPeers("BLE") } catch (_: Exception) { }
-            try { com.bitchat.android.services.AppStateStore.clearTransportDirectPeers("BLE") } catch (_: Exception) { }
+            transportBridgeService.unregister("BLE")
+            meshServiceHolder.stopSharedGossip("BLE")
+            try { appStateStore.clearTransportPeers("BLE") } catch (_: Exception) { }
+            try { appStateStore.clearTransportDirectPeers("BLE") } catch (_: Exception) { }
             return
         }
         if (terminated) {
@@ -782,10 +840,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         
         if (connectionManager.startServices()) {
             isActive = true
-            TransportBridgeService.register("BLE", this)
+            transportBridgeService.register("BLE", this)
             
             // Start periodic syncs
-            com.bitchat.android.service.MeshServiceHolder.startSharedGossip("BLE")
+            meshServiceHolder.startSharedGossip("BLE")
         } else {
             Log.e(TAG, "Failed to start Bluetooth services")
         }
@@ -805,10 +863,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     private fun pauseServicesForTransportDisable() {
         Log.i(TAG, "Disabling BLE mesh transport")
         isActive = false
-        com.bitchat.android.service.MeshServiceHolder.stopSharedGossip("BLE")
-        TransportBridgeService.unregister("BLE")
-        try { com.bitchat.android.services.AppStateStore.clearTransportPeers("BLE") } catch (_: Exception) { }
-        try { com.bitchat.android.services.AppStateStore.clearTransportDirectPeers("BLE") } catch (_: Exception) { }
+        meshServiceHolder.stopSharedGossip("BLE")
+        transportBridgeService.unregister("BLE")
+        try { appStateStore.clearTransportPeers("BLE") } catch (_: Exception) { }
+        try { appStateStore.clearTransportDirectPeers("BLE") } catch (_: Exception) { }
         connectionManager.disableTransport()
         try { peerManager.refreshPeerList() } catch (_: Exception) { }
     }
@@ -824,9 +882,9 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         
         Log.i(TAG, "Stopping Bluetooth mesh service")
         isActive = false
-        TransportBridgeService.unregister("BLE")
-        try { com.bitchat.android.services.AppStateStore.clearTransportPeers("BLE") } catch (_: Exception) { }
-        try { com.bitchat.android.services.AppStateStore.clearTransportDirectPeers("BLE") } catch (_: Exception) { }
+        transportBridgeService.unregister("BLE")
+        try { appStateStore.clearTransportPeers("BLE") } catch (_: Exception) { }
+        try { appStateStore.clearTransportDirectPeers("BLE") } catch (_: Exception) { }
         
         // Send leave announcement
         sendLeaveAnnouncement()
@@ -835,7 +893,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             delay(200) // Give leave message time to send
 
             // Stop all components
-            com.bitchat.android.service.MeshServiceHolder.stopSharedGossip("BLE")
+            meshServiceHolder.stopSharedGossip("BLE")
             connectionManager.stopServices()
             peerManager.shutdown()
             fragmentManager.shutdown()
@@ -1130,7 +1188,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             // Route geohash read receipts via MessageRouter instead of here
             val geo = runCatching { com.bitchat.android.services.MessageRouter.tryGetInstance() }.getOrNull()
             val isGeoAlias = try {
-                val map = com.bitchat.android.nostr.GeohashAliasRegistry.snapshot()
+                val map = geohashAliasRegistry.snapshot()
                 map.containsKey(recipientPeerID)
             } catch (_: Exception) { false }
             if (isGeoAlias && geo != null) {
@@ -1180,8 +1238,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                     onComplete = { accepted ->
                         if (accepted) {
                             try {
-                                com.bitchat.android.services.SeenMessageStore
-                                    .getInstance(context.applicationContext)
+                                seenMessageStore.get()
                                     .markReadReceiptSent(messageID)
                             } catch (_: Exception) { }
                         }
@@ -1197,7 +1254,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     // MARK: QR Verification over Noise
 
     fun sendVerifyChallenge(peerID: String, noiseKeyHex: String, nonceA: ByteArray) {
-        val tlv = VerificationService.buildVerifyChallenge(noiseKeyHex, nonceA)
+        val tlv = verificationService.buildVerifyChallenge(noiseKeyHex, nonceA)
         val payload = NoisePayload(
             type = NoisePayloadType.VERIFY_CHALLENGE,
             data = tlv
@@ -1206,7 +1263,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     }
 
     fun sendVerifyResponse(peerID: String, noiseKeyHex: String, nonceA: ByteArray) {
-        val tlv = VerificationService.buildVerifyResponse(noiseKeyHex, nonceA) ?: return
+        val tlv = verificationService.buildVerifyResponse(noiseKeyHex, nonceA) ?: return
         val payload = NoisePayload(
             type = NoisePayloadType.VERIFY_RESPONSE,
             data = tlv
@@ -1275,7 +1332,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 }
                 // Always update our own node in the mesh graph with the neighbor list we used
                 try {
-                    com.bitchat.android.services.meshgraph.MeshGraphService.getInstance()
+                    meshGraphService
                         .updateFromAnnouncement(myPeerID, nickname, directPeers, System.currentTimeMillis().toULong())
                 } catch (_: Exception) { }
             } catch (_: Exception) { }
@@ -1337,7 +1394,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             }
             // Always update our own node in the mesh graph with the neighbor list we used
             try {
-                com.bitchat.android.services.meshgraph.MeshGraphService.getInstance()
+                meshGraphService
                     .updateFromAnnouncement(myPeerID, nickname, directPeers, System.currentTimeMillis().toULong())
             } catch (_: Exception) { }
         } catch (_: Exception) { }
@@ -1371,9 +1428,9 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             val direct = verified.filter { it.value.isDirectConnection }.keys.toSet()
             // Publish this transport's direct peers and gossip the cross-transport union so a
             // node connected via multiple transports advertises a complete neighbor list.
-            try { com.bitchat.android.services.AppStateStore.setTransportDirectPeers("BLE", direct) } catch (_: Exception) { }
+            try { appStateStore.setTransportDirectPeers("BLE", direct) } catch (_: Exception) { }
             val union = try {
-                com.bitchat.android.services.AppStateStore.getDirectPeers().ifEmpty { direct }
+                appStateStore.getDirectPeers().ifEmpty { direct }
             } catch (_: Exception) { direct }
             union.distinct().take(10)
         } catch (_: Exception) {
@@ -1568,7 +1625,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 val destination = recipient.joinToString("") { byte -> "%02x".format(byte) }
                 val path = com.bitchat.android.services.meshgraph.RoutePlanner.shortestPath(
                     myPeerID,
-                    destination
+                    destination,
+                    meshGraphService
                 )
                 if (path != null && path.size >= 3) {
                     val intermediates = path.subList(1, path.size - 1)

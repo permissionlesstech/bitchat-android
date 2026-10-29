@@ -1,5 +1,8 @@
 package com.bitchat.android.mesh
 
+import dagger.Lazy
+import com.bitchat.android.ui.debug.DebugSettingsManager
+import com.bitchat.android.ui.debug.DebugPreferenceManager
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
@@ -20,7 +23,12 @@ class BluetoothConnectionManagerTest {
         manager = BluetoothConnectionManager(
             RuntimeEnvironment.getApplication(),
             "0011223344556677",
-            BluetoothPermissionManager(RuntimeEnvironment.getApplication(), requireLocation = true)
+            BluetoothPermissionManager(RuntimeEnvironment.getApplication(), requireLocation = true),
+            null,
+            PowerManager.getInstance(RuntimeEnvironment.getApplication()),
+            Lazy { DebugSettingsManager.getInstance() },
+            DebugPreferenceManager,
+            TransferProgressManager,
         )
     }
 

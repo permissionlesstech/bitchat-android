@@ -8,6 +8,7 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.spam.SpamFilter
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.DataManager
 import com.bitchat.android.ui.MessageManager
@@ -30,6 +31,10 @@ import java.util.UUID
 
 @RunWith(RobolectricTestRunner::class)
 class IncomingMessageAdmissionTest {
+    /** Admission into the same process-wide state and filter the mesh services pass in. */
+    private fun admit(message: BitchatMessage): Boolean =
+        IncomingMessageAdmission.admitToAppState(message, AppStateStore, SpamFilter.shared)
+
     private lateinit var context: Context
     private lateinit var databaseName: String
     private lateinit var repository: ConversationRepository
@@ -66,7 +71,7 @@ class IncomingMessageAdmissionTest {
         assertTrue(runBlocking { AppStateStore.panicClearPrivateConversations() })
 
         assertFalse(
-            IncomingMessageAdmission.admitToAppState(
+            admit(
                 privateMessage(id = "during-panic")
             )
         )
@@ -77,16 +82,16 @@ class IncomingMessageAdmissionTest {
     fun `duplicate private transport delivery is rejected before downstream effects`() {
         val message = privateMessage(id = "same-message-over-two-transports")
 
-        assertTrue(IncomingMessageAdmission.admitToAppState(message))
-        assertFalse(IncomingMessageAdmission.admitToAppState(message))
+        assertTrue(admit(message))
+        assertFalse(admit(message))
     }
 
     @Test
     fun `older retained replay is rejected after summary-only restart`() {
         val older = privateMessage(id = "older-retained")
         val latest = privateMessage(id = "latest-summary").copy(timestamp = Date(2L))
-        assertTrue(IncomingMessageAdmission.admitToAppState(older))
-        assertTrue(IncomingMessageAdmission.admitToAppState(latest))
+        assertTrue(admit(older))
+        assertTrue(admit(latest))
 
         AppStateStore.clear()
         repository.reload { snapshot ->
@@ -98,7 +103,7 @@ class IncomingMessageAdmissionTest {
             AppStateStore.privateMessages.value.getValue("peer-a").map { it.id }
         )
 
-        assertFalse(IncomingMessageAdmission.admitToAppState(older))
+        assertFalse(admit(older))
         assertEquals(
             listOf(latest.id),
             AppStateStore.privateMessages.value.getValue("peer-a").map { it.id }
@@ -115,7 +120,7 @@ class IncomingMessageAdmissionTest {
         )
         val latest = privateMessage(id = "latest-summary").copy(timestamp = Date(2L))
         assertTrue(AppStateStore.addPrivateMessage("peer-a", older, forceRead = true))
-        assertTrue(IncomingMessageAdmission.admitToAppState(latest))
+        assertTrue(admit(latest))
         runBlocking { repository.awaitPendingWrites() }
 
         AppStateStore.releasePrivateConversationHistory("peer-a")
@@ -149,8 +154,8 @@ class IncomingMessageAdmissionTest {
         )
         val channel = public.copy(id = "channel", channel = "#mesh")
 
-        assertTrue(IncomingMessageAdmission.admitToAppState(public))
-        assertTrue(IncomingMessageAdmission.admitToAppState(channel))
+        assertTrue(admit(public))
+        assertTrue(admit(channel))
         assertTrue(AppStateStore.publicMessages.value.contains(public))
     }
 
@@ -297,7 +302,7 @@ class IncomingMessageAdmissionTest {
     fun `public flood from one peer is hidden while private messages still arrive`() {
         val peer = "flood-${UUID.randomUUID()}"
         val admitted = (1..7).map { index ->
-            IncomingMessageAdmission.admitToAppState(
+            admit(
                 BitchatMessage(
                     id = "$peer-$index",
                     sender = "flooder",
@@ -311,7 +316,7 @@ class IncomingMessageAdmissionTest {
         assertEquals(listOf(true, true, true, true, true, true, false), admitted)
         assertFalse(AppStateStore.publicMessages.value.any { it.id == "$peer-7" })
         assertTrue(
-            IncomingMessageAdmission.admitToAppState(
+            admit(
                 privateMessage(id = "$peer-dm").copy(senderPeerID = peer)
             )
         )
@@ -321,7 +326,7 @@ class IncomingMessageAdmissionTest {
     fun `peer calling itself system is still spam filtered`() {
         val peer = "system-nick-${UUID.randomUUID()}"
         val admitted = (1..7).map { index ->
-            IncomingMessageAdmission.admitToAppState(
+            admit(
                 BitchatMessage(
                     id = "$peer-$index",
                     sender = "system",
@@ -339,7 +344,7 @@ class IncomingMessageAdmissionTest {
     fun `local system notices are never spam filtered`() {
         val run = UUID.randomUUID().toString()
         val admitted = (1..10).map { index ->
-            IncomingMessageAdmission.admitToAppState(
+            admit(
                 BitchatMessage(
                     id = "notice-$run-$index",
                     sender = "system",

@@ -1,7 +1,6 @@
 package com.bitchat.android.di
 
 import android.content.Context
-import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.ui.SessionMeshSource
@@ -22,16 +21,14 @@ import dagger.hilt.components.SingletonComponent
  * unscoped — each injection re-reads the holder. Caching them with @Singleton
  * would pin the first instance for the process lifetime and hand out a stale
  * mesh service after a replacement.
+ *
+ * `BluetoothMeshService` itself has no binding: it is built only through its
+ * assisted factory, which only the holder takes, so injecting it directly does
+ * not compile. Code that needs the Bluetooth mesh asks the holder.
  */
 @Module
 @InstallIn(SingletonComponent::class)
 object MeshModule {
-
-    @Provides
-    fun provideBluetoothMeshService(
-        @ApplicationContext context: Context,
-        meshServiceHolder: MeshServiceHolder,
-    ): BluetoothMeshService = meshServiceHolder.getOrCreate(context)
 
     @Provides
     fun provideMeshService(

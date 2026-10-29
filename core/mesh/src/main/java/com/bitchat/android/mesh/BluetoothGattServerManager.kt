@@ -15,6 +15,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import com.bitchat.android.ui.debug.DebugPreferenceManager
+import com.bitchat.android.ui.debug.DebugSettingsManager
+import dagger.Lazy
 
 /**
  * Manages GATT server operations, advertising, and server-side connections
@@ -26,7 +29,9 @@ class BluetoothGattServerManager(
     private val permissionManager: BluetoothPermissionManager,
     private val powerManager: PowerManager,
     private val delegate: BluetoothConnectionManagerDelegate?,
-    private val myPeerID: String
+    private val myPeerID: String,
+    private val debugSettingsManager: Lazy<DebugSettingsManager>,
+    private val debugPreferenceManager: DebugPreferenceManager,
 ) {
     
     companion object {
@@ -54,15 +59,15 @@ class BluetoothGattServerManager(
 
     private fun isBleTransportEnabled(): Boolean {
         return try {
-            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().bleEnabled.value
+            debugSettingsManager.get().bleEnabled.value
         } catch (_: Exception) {
-            try { com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
+            try { debugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
         }
     }
 
     private fun isServerRoleEnabled(): Boolean {
         return isBleTransportEnabled() &&
-            (try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattServerEnabled.value } catch (_: Exception) { true })
+            (try { debugSettingsManager.get().gattServerEnabled.value } catch (_: Exception) { true })
     }
 
     /**

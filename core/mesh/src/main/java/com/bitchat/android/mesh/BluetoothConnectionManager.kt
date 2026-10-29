@@ -5,6 +5,9 @@ import android.content.Context
 import android.util.Log
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
+import com.bitchat.android.ui.debug.DebugPreferenceManager
+import com.bitchat.android.ui.debug.DebugSettingsManager
+import dagger.Lazy
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
@@ -18,7 +21,11 @@ class BluetoothConnectionManager(
     private val context: Context, 
     private val myPeerID: String,
     private val permissionManager: BluetoothPermissionManager,
-    private val fragmentManager: FragmentManager? = null
+    private val fragmentManager: FragmentManager?,
+    private val powerManager: PowerManager,
+    private val debugSettingsManager: Lazy<DebugSettingsManager>,
+    private val debugPreferenceManager: DebugPreferenceManager,
+    transferProgressManager: TransferProgressManager,
 ) {
     
     companion object {
@@ -30,15 +37,14 @@ class BluetoothConnectionManager(
         context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     private val bluetoothAdapter: BluetoothAdapter? = bluetoothManager.adapter
     
-    // Power management
-    private val powerManager = PowerManager.getInstance(context.applicationContext)
-    
     // Coroutines
     private val connectionScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
     // Component managers
     private val connectionTracker = BluetoothConnectionTracker(connectionScope, powerManager)
-    private val packetBroadcaster = BluetoothPacketBroadcaster(connectionScope, connectionTracker, fragmentManager, myPeerID)
+    private val packetBroadcaster = BluetoothPacketBroadcaster(
+        connectionScope, connectionTracker, fragmentManager, myPeerID, debugSettingsManager, transferProgressManager
+    )
     
     // Delegate for component managers to call back to main manager
     private val componentDelegate = object : BluetoothConnectionManagerDelegate {
@@ -86,10 +92,12 @@ class BluetoothConnectionManager(
     }
     
     private val serverManager = BluetoothGattServerManager(
-        context, connectionScope, connectionTracker, permissionManager, powerManager, componentDelegate, myPeerID
+        context, connectionScope, connectionTracker, permissionManager, powerManager, componentDelegate, myPeerID,
+        debugSettingsManager, debugPreferenceManager
     )
     private val clientManager = BluetoothGattClientManager(
-        context, connectionScope, connectionTracker, permissionManager, powerManager, componentDelegate
+        context, connectionScope, connectionTracker, permissionManager, powerManager, componentDelegate,
+        debugSettingsManager, debugPreferenceManager
     )
     
     // Service state
@@ -109,20 +117,20 @@ class BluetoothConnectionManager(
 
     private fun isBleTransportEnabled(): Boolean {
         return try {
-            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().bleEnabled.value
+            debugSettingsManager.get().bleEnabled.value
         } catch (_: Exception) {
-            try { com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
+            try { debugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
         }
     }
 
     private fun isGattServerEnabled(): Boolean {
         return isBleTransportEnabled() &&
-            (try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattServerEnabled.value } catch (_: Exception) { true })
+            (try { debugSettingsManager.get().gattServerEnabled.value } catch (_: Exception) { true })
     }
 
     private fun isGattClientEnabled(): Boolean {
         return isBleTransportEnabled() &&
-            (try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattClientEnabled.value } catch (_: Exception) { true })
+            (try { debugSettingsManager.get().gattClientEnabled.value } catch (_: Exception) { true })
     }
 
     init {
@@ -141,7 +149,7 @@ class BluetoothConnectionManager(
         }
         // Observe debug settings to enforce role state while active
         try {
-            val dbg = com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
+            val dbg = debugSettingsManager.get()
             // Master transport enable/disable
             connectionScope.launch {
                 dbg.bleEnabled.collect { enabled ->
@@ -190,7 +198,7 @@ class BluetoothConnectionManager(
         if (!isActive) return
         
         try {
-            val dbg = com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
+            val dbg = debugSettingsManager.get()
             val maxOverall = dbg.maxConnectionsOverall.value
             val maxServer = dbg.maxServerConnections.value
             val maxClient = dbg.maxClientConnections.value

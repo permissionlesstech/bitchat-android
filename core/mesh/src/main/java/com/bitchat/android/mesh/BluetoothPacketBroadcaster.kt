@@ -12,6 +12,8 @@ import android.util.Log
 import com.bitchat.android.protocol.SpecialRecipients
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.MessageType
+import com.bitchat.android.ui.debug.DebugSettingsManager
+import dagger.Lazy
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -46,7 +48,9 @@ class BluetoothPacketBroadcaster(
     private val connectionScope: CoroutineScope,
     private val connectionTracker: BluetoothConnectionTracker,
     private val fragmentManager: FragmentManager?,
-    private val myPeerID: String
+    private val myPeerID: String,
+    private val debugSettingsManager: Lazy<DebugSettingsManager>,
+    transferProgressManager: TransferProgressManager,
 ) {
     
     companion object {
@@ -82,7 +86,7 @@ class BluetoothPacketBroadcaster(
         try {
             val fromNick = incomingPeer?.let { nicknameResolver?.invoke(it) }
             val toNick = toPeer?.let { nicknameResolver?.invoke(it) }
-            val manager = com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
+            val manager = debugSettingsManager.get()
             // Always log outgoing for the actual transmission target
             manager.logOutgoing(
                 packetType = typeName,
@@ -124,7 +128,7 @@ class BluetoothPacketBroadcaster(
     
     // Actor scope for the broadcaster
     private val broadcasterScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private val fragmentingSender = FragmentingPacketSender(connectionScope, fragmentManager, TAG)
+    private val fragmentingSender = FragmentingPacketSender(connectionScope, fragmentManager, TAG, transferProgressManager)
 
     private enum class SendDirection { CLIENT_WRITE, SERVER_NOTIFICATION }
 

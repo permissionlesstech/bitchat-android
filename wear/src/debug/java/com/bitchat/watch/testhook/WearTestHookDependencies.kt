@@ -4,6 +4,7 @@ import com.bitchat.android.features.voice.LiveVoiceManager
 import com.bitchat.android.features.voice.VoiceWaveformCache
 import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.services.AppStateStore
+import com.bitchat.watch.mesh.WearMeshHolder
 import com.bitchat.watch.ui.WearChatState
 import com.bitchat.watch.ui.WearPeerIdentityState
 import dagger.hilt.EntryPoint
@@ -23,4 +24,5 @@ interface WearTestHookDependencies {
     fun liveVoiceManager(): LiveVoiceManager
     fun voiceWaveformCache(): VoiceWaveformCache
     fun transportBridgeService(): TransportBridgeService
+    fun meshHolder(): WearMeshHolder
 }

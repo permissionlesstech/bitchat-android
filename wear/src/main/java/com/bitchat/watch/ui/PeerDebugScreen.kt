@@ -28,7 +28,7 @@ import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.watch.R
-import com.bitchat.watch.mesh.WearMeshService
+import com.bitchat.watch.mesh.WearMeshHolder
 import com.bitchat.android.ui.PeerIdentity
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 import com.bitchat.android.ui.theme.colorForPeer
@@ -38,9 +38,13 @@ import com.bitchat.android.ui.theme.colorForPeer
  * people screen arrives in M4.
  */
 @Composable
-fun PeerDebugScreen(appStateStore: AppStateStore, peerIdentity: WearPeerIdentityState) {
+fun PeerDebugScreen(
+    appStateStore: AppStateStore,
+    peerIdentity: WearPeerIdentityState,
+    meshHolder: WearMeshHolder,
+) {
     val peers by appStateStore.peers.collectAsState()
-    val mesh = WearMeshService.peek()
+    val mesh = meshHolder.peek()
     val listState = rememberScalingLazyListState()
     val palette = LocalBitchatPalette.current
     val nicknames = mesh?.getPeerNicknames() ?: emptyMap()

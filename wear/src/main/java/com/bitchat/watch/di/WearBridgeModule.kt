@@ -12,7 +12,7 @@ import dagger.hilt.components.SingletonComponent
 
 /**
  * Hands today's static watch instances to the graph until each class is flipped. `WearMeshService`
- * is not bridged: it is created only after permissions are confirmed, so it gets its own holder.
+ * is not bridged: it is created only after permissions are confirmed, by `WearMeshHolder`.
  */
 @Module
 @InstallIn(SingletonComponent::class)

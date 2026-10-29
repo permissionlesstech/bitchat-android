@@ -52,7 +52,7 @@ internal object WearUiDemoSeeder {
     ): JSONObject {
         val appStateStore = graph.appStateStore()
         val chatState = graph.chatState()
-        val mesh = WearMeshService.getOrCreate(context)
+        val mesh = graph.meshHolder().getOrCreate()
         val me = mesh.myPeerID
         val demoPrefs = context.getSharedPreferences(DEMO_PREFS, Context.MODE_PRIVATE)
         val seededBefore = demoPrefs.getBoolean(KEY_SEEDED, false)
@@ -141,7 +141,7 @@ internal object WearUiDemoSeeder {
         (seededBefore && nickname == DEMO_SELF_NICKNAME)
 
     fun refreshPeers(context: Context, graph: WearTestHookDependencies): JSONObject {
-        addPeersToMesh(WearMeshService.getOrCreate(context))
+        addPeersToMesh(graph.meshHolder().getOrCreate())
         graph.appStateStore().setTransportPeers(TRANSPORT_ID, peers.keys.toList())
         return JSONObject().put("status", "ok")
     }

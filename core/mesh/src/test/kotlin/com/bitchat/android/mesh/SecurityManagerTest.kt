@@ -1,5 +1,7 @@
 package com.bitchat.android.mesh
 
+import dagger.Lazy
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import android.os.Build
 import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.model.IdentityAnnouncement
@@ -46,7 +48,11 @@ class SecurityManagerTest {
     private val invalidSignature = ByteArray(64) { 0 }
 
     // Fake implementation to bypass initialization issues in tests
-    open class FakeEncryptionService : EncryptionService(RuntimeEnvironment.getApplication()) {
+    open class FakeEncryptionService : EncryptionService(
+        RuntimeEnvironment.getApplication(),
+        PeerFingerprintManager.getInstance(),
+        Lazy { FavoritesPersistenceService.shared },
+    ) {
         var shouldVerify: Boolean = true
         var lastVerifySignature: ByteArray? = null
         var lastVerifyData: ByteArray? = null

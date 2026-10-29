@@ -4,8 +4,9 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.bitchat.android.MainActivity
 import com.bitchat.android.mesh.MeshService
-import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.testhook.ChatSessionTestAccess
+import com.bitchat.android.testhook.TestHookDependencies
+import dagger.hilt.android.EntryPointAccessors
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertSame
 import org.junit.BeforeClass
@@ -42,7 +43,7 @@ class PanicClearSessionTest {
 
         val after = sessionMesh()
         val context = rule.activity.applicationContext
-        assertSame(MeshServiceHolder.getUnifiedOrCreate(context), after)
+        assertSame(meshServiceHolder().getUnifiedOrCreate(context), after)
         assertNotEquals(before.myPeerID, after.myPeerID)
         // The recreated mesh reports to the session's delegate.
         assertSame(rule.activity.chatMeshDelegate, after.delegate)
@@ -52,11 +53,17 @@ class PanicClearSessionTest {
     fun theMeshReportsToTheSessionOnceTheAppHasStarted() {
         rule.awaitChat()
 
-        val mesh = MeshServiceHolder.getUnifiedOrCreate(rule.activity.applicationContext)
+        val mesh = meshServiceHolder().getUnifiedOrCreate(rule.activity.applicationContext)
         rule.waitUntil(timeoutMillis = 5_000) { mesh.delegate === rule.activity.chatMeshDelegate }
     }
 
     private fun session() = ChatSessionTestAccess.of(rule.activity)
+
+    /** The graph's holder, the one the session and the foreground service use. */
+    private fun meshServiceHolder() = EntryPointAccessors.fromApplication(
+        rule.activity.applicationContext,
+        TestHookDependencies::class.java,
+    ).meshServiceHolder()
 
     private fun sessionMesh(): MeshService {
         lateinit var mesh: MeshService

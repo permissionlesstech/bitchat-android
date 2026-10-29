@@ -1,6 +1,8 @@
 
 package com.bitchat.android.mesh
 
+import dagger.Lazy
+import com.bitchat.android.ui.debug.DebugSettingsManager
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
@@ -28,7 +30,7 @@ class PacketRelayManagerTest {
 
     @Before
     fun setUp() {
-        packetRelayManager = PacketRelayManager(myPeerID)
+        packetRelayManager = PacketRelayManager(myPeerID, Lazy { DebugSettingsManager.getInstance() })
         packetRelayManager.delegate = delegate
         whenever(delegate.getNetworkSize()).thenReturn(10)
         whenever(delegate.getBroadcastRecipient()).thenReturn(byteArrayOf(0,0,0,0,0,0,0,0))

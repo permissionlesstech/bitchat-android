@@ -1,5 +1,6 @@
 package com.bitchat
 
+import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.mesh.PeerManager
 import com.bitchat.android.mesh.PeerManagerDelegate
 import com.bitchat.android.model.PeerCapabilities
@@ -9,7 +10,7 @@ import org.junit.Test
 
 class PeerManagerTest {
 
-    private val peerManager = PeerManager()
+    private val peerManager = PeerManager(PeerFingerprintManager.getInstance())
     private val unknownPeer = "unknown"
     private val unknownDevice = "Unknown"
 

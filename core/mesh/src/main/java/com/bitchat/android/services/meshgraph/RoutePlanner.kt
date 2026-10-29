@@ -11,11 +11,11 @@ object RoutePlanner {
     private const val TAG = "RoutePlanner"
 
     /**
-     * Return full path [src, ..., dst] if reachable, else null.
+     * Return full path [src, ..., dst] if reachable on [meshGraph]'s current snapshot, else null.
      */
-    fun shortestPath(src: String, dst: String): List<String>? {
+    fun shortestPath(src: String, dst: String, meshGraph: MeshGraphService): List<String>? {
         if (src == dst) return listOf(src)
-        val snapshot = MeshGraphService.getInstance().graphState.value
+        val snapshot = meshGraph.graphState.value
         val neighbors = mutableMapOf<String, MutableSet<String>>()
         
         // Only consider confirmed edges for routing

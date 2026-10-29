@@ -26,14 +26,18 @@ import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
-import com.bitchat.watch.mesh.WearMeshService
+import com.bitchat.watch.mesh.WearMeshHolder
 import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.watch.ui.theme.ChatVisualTokens
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 
 @Composable
-fun VerificationCodeScreen(peerIdentity: WearPeerIdentityState, peerID: String) {
-    val mesh = WearMeshService.peek()
+fun VerificationCodeScreen(
+    peerIdentity: WearPeerIdentityState,
+    meshHolder: WearMeshHolder,
+    peerID: String,
+) {
+    val mesh = meshHolder.peek()
     val revision by peerIdentity.revision.collectAsState()
     val identity = androidx.compose.runtime.remember(peerID, revision) {
         peerIdentity.snapshot(peerID, mesh)

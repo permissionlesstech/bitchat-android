@@ -21,6 +21,7 @@ class FragmentingPacketSender(
     private val scope: CoroutineScope,
     private val fragmentManager: FragmentManager?,
     private val logTag: String,
+    private val transferProgressManager: TransferProgressManager,
     private val interFragmentDelayMs: Long = 20L
 ) {
     private val transferJobs = ConcurrentHashMap<String, Job>()
@@ -34,7 +35,7 @@ class FragmentingPacketSender(
         val packets = packetsForTransport(routed)
         if (packets == null) {
             if (transferId != null) {
-                TransferProgressManager.fail(transferId)
+                transferProgressManager.fail(transferId)
             }
             return false
         }
@@ -42,7 +43,7 @@ class FragmentingPacketSender(
 
         if (total <= 1) {
             if (transferId != null) {
-                TransferProgressManager.start(transferId, 1)
+                transferProgressManager.start(transferId, 1)
             }
             val sent = sendSingle(
                 routed.copy(
@@ -53,10 +54,10 @@ class FragmentingPacketSender(
             )
             if (transferId != null) {
                 if (sent) {
-                    TransferProgressManager.progress(transferId, 1, 1)
-                    TransferProgressManager.complete(transferId, 1)
+                    transferProgressManager.progress(transferId, 1, 1)
+                    transferProgressManager.complete(transferId, 1)
                 } else {
-                    TransferProgressManager.fail(transferId)
+                    transferProgressManager.fail(transferId)
                 }
             }
             return sent
@@ -64,7 +65,7 @@ class FragmentingPacketSender(
 
         Log.d(logTag, "Fragmenting packet type ${routed.packet.type} into $total fragments for $description")
         if (transferId != null) {
-            TransferProgressManager.start(transferId, total)
+            transferProgressManager.start(transferId, total)
         }
 
         val job = scope.launch(start = CoroutineStart.LAZY) {
@@ -92,7 +93,7 @@ class FragmentingPacketSender(
 
                 sent += 1
                 if (transferId != null) {
-                    TransferProgressManager.progress(transferId, sent, total)
+                    transferProgressManager.progress(transferId, sent, total)
                 }
                 if (sent < total) {
                     delay(interFragmentDelayMs)
@@ -100,7 +101,7 @@ class FragmentingPacketSender(
             }
 
             if (transferId != null) {
-                TransferProgressManager.complete(transferId, total)
+                transferProgressManager.complete(transferId, total)
             }
         }
 

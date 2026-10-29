@@ -26,7 +26,7 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
 import com.bitchat.watch.R
-import com.bitchat.watch.mesh.WearMeshService
+import com.bitchat.watch.mesh.WearMeshHolder
 import com.bitchat.watch.ui.theme.ChatVisualTokens
 import com.bitchat.android.ui.PeerIdentity
 import com.bitchat.android.ui.theme.LocalBitchatPalette
@@ -35,10 +35,11 @@ import com.bitchat.android.ui.theme.colorForPeer
 @Composable
 fun UserDetailScreen(
     peerIdentity: WearPeerIdentityState,
+    meshHolder: WearMeshHolder,
     peerID: String,
     onOpenVerification: () -> Unit
 ) {
-    val mesh = WearMeshService.peek()
+    val mesh = meshHolder.peek()
     val revision by peerIdentity.revision.collectAsState()
     val identity = androidx.compose.runtime.remember(peerID, revision) {
         peerIdentity.snapshot(peerID, mesh)

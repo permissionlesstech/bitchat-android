@@ -6,6 +6,8 @@ import android.util.Base64
 import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.noise.NoiseEncryptionService
 import com.bitchat.android.noise.NoiseHandshakeProcessingResult
 import com.bitchat.android.noise.AuthenticatedNoiseSession
@@ -19,6 +21,7 @@ import org.bouncycastle.crypto.signers.Ed25519Signer
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
 import androidx.core.content.edit
+import dagger.Lazy
 
 /**
  * Encryption service that now uses NoiseEncryptionService internally
@@ -27,7 +30,11 @@ import androidx.core.content.edit
  * This is the main interface for all encryption/decryption operations in bitchat.
  * It now uses the Noise protocol for secure transport encryption with proper session management.
  */
-open class EncryptionService(private val context: Context) {
+open class EncryptionService(
+    private val context: Context,
+    private val fingerprintManager: PeerFingerprintManager,
+    private val favoritesPersistenceService: Lazy<FavoritesPersistenceService>,
+) {
     
     companion object {
         private const val TAG = "EncryptionService"
@@ -37,7 +44,9 @@ open class EncryptionService(private val context: Context) {
     }
     
     // Core Noise encryption service
-    private val noiseService: NoiseEncryptionService by lazy { NoiseEncryptionService(context) }
+    private val noiseService: NoiseEncryptionService by lazy {
+        NoiseEncryptionService(context, fingerprintManager, favoritesPersistenceService)
+    }
     
     // Session tracking for established connections
     private val establishedSessions = ConcurrentHashMap<String, String>() // peerID -> fingerprint

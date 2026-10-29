@@ -44,7 +44,7 @@ import androidx.wear.compose.material3.Text
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.services.AppStateStore
-import com.bitchat.watch.mesh.WearMeshService
+import com.bitchat.watch.mesh.WearMeshHolder
 import com.bitchat.watch.ui.media.FileMessageChip
 import com.bitchat.watch.ui.media.FullScreenImageViewer
 import com.bitchat.watch.ui.media.ImageMessageItem
@@ -64,6 +64,7 @@ import java.util.Locale
 fun ChatScreen(
     appStateStore: AppStateStore,
     chatState: WearChatState,
+    meshHolder: WearMeshHolder,
     liveVoiceManager: com.bitchat.android.features.voice.LiveVoiceManager,
     voiceWaveformCache: com.bitchat.android.features.voice.VoiceWaveformCache,
     active: Boolean = true,
@@ -75,7 +76,7 @@ fun ChatScreen(
     val messages by appStateStore.publicMessages.collectAsState()
     val peers by appStateStore.peers.collectAsState()
     val unreadDms by chatState.unreadDms.collectAsState()
-    val mesh = WearMeshService.peek()
+    val mesh = meshHolder.peek()
     val myPeerID = mesh?.myPeerID ?: ""
     var viewerPath by remember { mutableStateOf<String?>(null) }
     val busyTalker by liveVoiceManager.activePublicTalker.collectAsState()

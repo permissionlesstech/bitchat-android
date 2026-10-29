@@ -12,6 +12,10 @@ import com.bitchat.android.sync.PacketIdUtil
 import com.bitchat.android.util.toHexString
 import com.bitchat.android.features.voice.LiveVoiceManager
 import com.bitchat.android.features.voice.LiveVoiceScope
+import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.meshgraph.MeshGraphService
+import dagger.Lazy
 import kotlinx.coroutines.*
 import java.util.*
 
@@ -24,7 +28,14 @@ sealed class AnnounceHandlingResult {
  * Handles processing of different message types
  * Extracted from BluetoothMeshService for better separation of concerns
  */
-class MessageHandler(private val myPeerID: String, private val appContext: android.content.Context) {
+class MessageHandler(
+    private val myPeerID: String,
+    private val appContext: android.content.Context,
+    private val liveVoiceManager: Lazy<LiveVoiceManager>,
+    private val meshGraphService: MeshGraphService,
+    private val favoritesPersistenceService: Lazy<FavoritesPersistenceService>,
+    private val contactDirectory: ContactDirectory,
+) {
     
     companion object {
         private const val TAG = "MessageHandler"
@@ -142,7 +153,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                             senderPeerID = peerID
                         )
 
-                        if (!LiveVoiceManager.getInstance(appContext).absorbFinalizedVoiceNote(message)) {
+                        if (!liveVoiceManager.get().absorbFinalizedVoiceNote(message)) {
                             delegate?.onMessageReceived(message)
                         }
 
@@ -154,7 +165,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 }
 
                 com.bitchat.android.model.NoisePayloadType.VOICE_FRAME -> {
-                    return LiveVoiceManager.getInstance(appContext).handleFrame(
+                    return liveVoiceManager.get().handleFrame(
                         peerID = peerID,
                         nickname = delegate?.getPeerNickname(peerID) ?: peerID,
                         scope = LiveVoiceScope.DIRECT_MESSAGE,
@@ -351,7 +362,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         // Update mesh graph from gossip neighbors (only if TLV present)
         try {
             val neighborsOrNull = com.bitchat.android.services.meshgraph.GossipTLV.decodeNeighborsFromAnnouncementPayload(packet.payload)
-            com.bitchat.android.services.meshgraph.MeshGraphService.getInstance()
+            meshGraphService
                 .updateFromAnnouncement(peerID, nickname, neighborsOrNull, packet.timestamp)
         } catch (_: Exception) { }
 
@@ -438,7 +449,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         if (ageMs !in -30_000L..30_000L) return false
         val peerInfo = delegate?.getPeerInfo(peerID)
         if (peerInfo == null || !peerInfo.isVerifiedNickname) return false
-        return LiveVoiceManager.getInstance(appContext).handleFrame(
+        return liveVoiceManager.get().handleFrame(
             peerID = peerID,
             nickname = delegate?.getPeerNickname(peerID) ?: peerID,
             scope = LiveVoiceScope.PUBLIC_MESH,
@@ -476,7 +487,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     senderPeerID = peerID,
                     timestamp = Date(packet.timestamp.toLong())
                 )
-                if (!LiveVoiceManager.getInstance(appContext).absorbFinalizedVoiceNote(message)) {
+                if (!liveVoiceManager.get().absorbFinalizedVoiceNote(message)) {
                     delegate?.onMessageReceived(message)
                 }
                 return
@@ -538,7 +549,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     recipientNickname = delegate?.getMyNickname()
                 )
                 Log.d(TAG, "📄 Saved incoming file to $savedPath")
-                if (!LiveVoiceManager.getInstance(appContext).absorbFinalizedVoiceNote(message)) {
+                if (!liveVoiceManager.get().absorbFinalizedVoiceNote(message)) {
                     delegate?.onMessageReceived(message)
                 }
                 return
@@ -631,13 +642,13 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
             val peerInfo = delegate?.getPeerInfo(fromPeerID)
             val noiseKey = peerInfo?.noisePublicKey
             if (noiseKey != null) {
-                com.bitchat.android.favorites.FavoritesPersistenceService.shared.updatePeerFavoritedUs(noiseKey, control.isFavorite)
+                favoritesPersistenceService.get().updatePeerFavoritedUs(noiseKey, control.isFavorite)
                 if (control.npub != null) {
-                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKey(noiseKey, control.npub)
-                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKeyForPeerID(fromPeerID, control.npub)
+                    favoritesPersistenceService.get().updateNostrPublicKey(noiseKey, control.npub)
+                    favoritesPersistenceService.get().updateNostrPublicKeyForPeerID(fromPeerID, control.npub)
                 }
 
-                val rel = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
+                val rel = favoritesPersistenceService.get().getFavoriteStatus(noiseKey)
                 val guidance = if (control.isFavorite) {
                     if (rel?.isFavorite == true) {
                         " — mutual! You can continue DMs via Nostr when out of mesh."
@@ -660,7 +671,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
 
                 // Mirror the notice into the private conversation so it's visible while chatting
                 try {
-                    val conversationID = com.bitchat.android.services.ContactDirectory
+                    val conversationID = contactDirectory
                         .canonicalConversationId(fromPeerID)
                     val sysPrivate = com.bitchat.android.model.BitchatMessage(
                         sender = "system",

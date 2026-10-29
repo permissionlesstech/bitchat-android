@@ -16,9 +16,18 @@ import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
+import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.features.voice.LiveVoiceManager
 import com.bitchat.android.service.TransportBridgeService
+import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.SeenMessageStore
+import com.bitchat.android.services.VerificationService
+import com.bitchat.android.services.meshgraph.MeshGraphService
 import com.bitchat.android.sync.GossipSyncManager
+import com.bitchat.android.ui.debug.DebugSettingsManager
 import com.bitchat.android.util.toHexString
+import dagger.Lazy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -39,6 +48,16 @@ class MeshCore(
     private val maxTtl: UByte,
     sharedGossipManager: GossipSyncManager?,
     gossipConfigProvider: GossipSyncManager.ConfigProvider,
+    peerFingerprintManager: PeerFingerprintManager,
+    debugSettingsManager: Lazy<DebugSettingsManager>,
+    liveVoiceManager: Lazy<LiveVoiceManager>,
+    private val meshGraphService: MeshGraphService,
+    favoritesPersistenceService: Lazy<FavoritesPersistenceService>,
+    contactDirectory: ContactDirectory,
+    private val appStateStore: AppStateStore,
+    private val transportBridgeService: TransportBridgeService,
+    private val verificationService: VerificationService,
+    private val seenMessageStore: Lazy<SeenMessageStore>,
     private val hooks: Hooks = Hooks()
 ) {
     data class Hooks(
@@ -54,7 +73,7 @@ class MeshCore(
         val leavePayloadProvider: (() -> ByteArray)? = null
     )
 
-    private val peerManager = PeerManager()
+    private val peerManager = PeerManager(peerFingerprintManager)
     val fragmentManager = FragmentManager()
     private val readReceiptRetrySender = RetryingControlPacketSender(scope)
     private val authenticatedPeerStateStore = SecureAuthenticatedPeerStateStore(context)
@@ -110,8 +129,15 @@ class MeshCore(
     }
     private val securityManager = SecurityManager(encryptionService, myPeerID)
     private val storeForwardManager = StoreForwardManager()
-    private val messageHandler = MessageHandler(myPeerID, context.applicationContext)
-    private val packetProcessor = PacketProcessor(myPeerID)
+    private val messageHandler = MessageHandler(
+        myPeerID,
+        context.applicationContext,
+        liveVoiceManager,
+        meshGraphService,
+        favoritesPersistenceService,
+        contactDirectory,
+    )
+    private val packetProcessor = PacketProcessor(myPeerID, debugSettingsManager)
     private data class VoiceFrameRequest(val recipientPeerID: String?, val payload: ByteArray)
     private val voiceFrameQueue = Channel<VoiceFrameRequest>(capacity = 128)
     private val directPeers = ConcurrentHashMap.newKeySet<String>()
@@ -140,7 +166,7 @@ class MeshCore(
 
                 override fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
                     transport.sendPacketToPeer(peerID, packet)
-                    TransportBridgeService.sendToPeer(transport.id, peerID, packet)
+                    transportBridgeService.sendToPeer(transport.id, peerID, packet)
                 }
 
                 override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket {
@@ -203,20 +229,20 @@ class MeshCore(
 
     private fun dispatchGlobal(routed: RoutedPacket) {
         transport.broadcastPacket(routed)
-        TransportBridgeService.broadcast(transport.id, routed)
+        transportBridgeService.broadcast(transport.id, routed)
     }
 
     private suspend fun dispatchGlobalAndReport(routed: RoutedPacket): Boolean {
         val acceptedByLocalTransport = transport.broadcastPacket(routed)
         val acceptedByBridgedTransport =
-            TransportBridgeService.broadcastAndReport(transport.id, routed)
+            transportBridgeService.broadcastAndReport(transport.id, routed)
         return acceptedByLocalTransport || acceptedByBridgedTransport
     }
 
     private fun setupDelegates() {
         peerManager.delegate = object : PeerManagerDelegate {
             override fun onPeerListUpdated(peerIDs: List<String>) {
-                try { com.bitchat.android.services.AppStateStore.setTransportPeers(transport.id, peerIDs) } catch (_: Exception) { }
+                try { appStateStore.setTransportPeers(transport.id, peerIDs) } catch (_: Exception) { }
                 delegate?.didUpdatePeerList(peerIDs)
             }
 
@@ -412,7 +438,7 @@ class MeshCore(
 
             override fun onDeliveryAckReceived(messageID: String, peerID: String) {
                 try {
-                    com.bitchat.android.services.AppStateStore.updatePrivateMessageStatus(
+                    appStateStore.updatePrivateMessageStatus(
                         messageID,
                         com.bitchat.android.model.DeliveryStatus.Delivered(peerID, java.util.Date())
                     )
@@ -422,7 +448,7 @@ class MeshCore(
 
             override fun onReadReceiptReceived(messageID: String, peerID: String) {
                 try {
-                    com.bitchat.android.services.AppStateStore.updatePrivateMessageStatus(
+                    appStateStore.updatePrivateMessageStatus(
                         messageID,
                         com.bitchat.android.model.DeliveryStatus.Read(peerID, java.util.Date())
                     )
@@ -518,7 +544,7 @@ class MeshCore(
 
             override fun sendToPeer(peerID: String, routed: RoutedPacket): Boolean {
                 val sent = transport.sendPacketToPeer(peerID, routed.packet)
-                TransportBridgeService.sendToPeer(transport.id, peerID, routed.packet)
+                transportBridgeService.sendToPeer(transport.id, peerID, routed.packet)
                 return sent
             }
 
@@ -767,8 +793,7 @@ class MeshCore(
                     onComplete = { accepted ->
                         if (accepted) {
                             try {
-                                com.bitchat.android.services.SeenMessageStore
-                                    .getInstance(context.applicationContext)
+                                seenMessageStore.get()
                                     .markReadReceiptSent(messageID)
                             } catch (_: Exception) { }
                             hooks.onReadReceiptSent?.invoke(messageID)
@@ -784,13 +809,13 @@ class MeshCore(
     fun sendVerifyChallenge(peerID: String, noiseKeyHex: String, nonceA: ByteArray) {
         val payload = NoisePayload(
             type = NoisePayloadType.VERIFY_CHALLENGE,
-            data = com.bitchat.android.services.VerificationService.buildVerifyChallenge(noiseKeyHex, nonceA)
+            data = verificationService.buildVerifyChallenge(noiseKeyHex, nonceA)
         )
         sendNoisePayloadToPeer(payload, peerID)
     }
 
     fun sendVerifyResponse(peerID: String, noiseKeyHex: String, nonceA: ByteArray) {
-        val tlv = com.bitchat.android.services.VerificationService.buildVerifyResponse(noiseKeyHex, nonceA) ?: return
+        val tlv = verificationService.buildVerifyResponse(noiseKeyHex, nonceA) ?: return
         val payload = NoisePayload(
             type = NoisePayloadType.VERIFY_RESPONSE,
             data = tlv
@@ -874,7 +899,7 @@ class MeshCore(
             if (directPeersForGossip.isNotEmpty()) {
                 tlvPayload += com.bitchat.android.services.meshgraph.GossipTLV.encodeNeighbors(directPeersForGossip)
             }
-            com.bitchat.android.services.meshgraph.MeshGraphService.getInstance()
+            meshGraphService
                 .updateFromAnnouncement(myPeerID, nickname, directPeersForGossip, System.currentTimeMillis().toULong())
         } catch (_: Exception) { }
         return tlvPayload
@@ -888,9 +913,9 @@ class MeshCore(
             val localDirect = (verifiedDirect + directPeers).toSet()
             // Publish this transport's direct peers and gossip the cross-transport union so a
             // node connected via multiple transports advertises a complete neighbor list.
-            try { com.bitchat.android.services.AppStateStore.setTransportDirectPeers(transport.id, localDirect) } catch (_: Exception) { }
+            try { appStateStore.setTransportDirectPeers(transport.id, localDirect) } catch (_: Exception) { }
             val union = try {
-                com.bitchat.android.services.AppStateStore.getDirectPeers().ifEmpty { localDirect }
+                appStateStore.getDirectPeers().ifEmpty { localDirect }
             } catch (_: Exception) { localDirect }
             union.distinct().take(10)
         } catch (_: Exception) {
@@ -1047,7 +1072,8 @@ class MeshCore(
                 val destination = recipient.toHexString()
                 val path = com.bitchat.android.services.meshgraph.RoutePlanner.shortestPath(
                     myPeerID,
-                    destination
+                    destination,
+                    meshGraphService
                 )
                 if (path != null && path.size >= 3) {
                     val intermediates = path.subList(1, path.size - 1)

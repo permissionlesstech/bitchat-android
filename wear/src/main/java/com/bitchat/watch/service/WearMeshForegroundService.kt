@@ -19,6 +19,7 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.watch.MainActivity
 import com.bitchat.watch.R
+import com.bitchat.watch.mesh.WearMeshHolder
 import com.bitchat.watch.mesh.WearMeshService
 import com.bitchat.watch.notification.WearNotificationCoordinator
 import com.bitchat.watch.notification.WearNotificationPolicy
@@ -51,12 +52,13 @@ class WearMeshForegroundService : Service() {
     @Inject lateinit var notificationCoordinator: WearNotificationCoordinator
     @Inject lateinit var appStateStore: AppStateStore
     @Inject lateinit var chatState: WearChatState
+    @Inject lateinit var meshHolder: WearMeshHolder
     private lateinit var mesh: WearMeshService
     private var peerCountJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
-        mesh = WearMeshService.getOrCreate(applicationContext)
+        mesh = meshHolder.getOrCreate()
         createChannel()
         startForeground(WearNotificationPolicy.activePeerCount(appStateStore.peers.value))
         observePeerCount()

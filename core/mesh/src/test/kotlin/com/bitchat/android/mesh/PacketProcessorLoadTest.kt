@@ -1,5 +1,7 @@
 package com.bitchat.android.mesh
 
+import dagger.Lazy
+import com.bitchat.android.ui.debug.DebugSettingsManager
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
@@ -20,7 +22,11 @@ class PacketProcessorLoadTest {
     fun `overload bounds queued packets and preserves accepted order`() = runTest {
         val handled = mutableListOf<ULong>()
         val delegate = recordingDelegate(handled)
-        val processor = PacketProcessor("1111111111111111", StandardTestDispatcher(testScheduler))
+        val processor = PacketProcessor(
+            "1111111111111111",
+            Lazy { DebugSettingsManager.getInstance() },
+            StandardTestDispatcher(testScheduler),
+        )
         processor.delegate = delegate
         try {
             repeat(2_000) { processor.processPacket(packet(it)) }
@@ -38,7 +44,11 @@ class PacketProcessorLoadTest {
     @Test
     fun `global payload budget is released after processing and shutdown rejects ingress`() = runTest {
         val handled = mutableListOf<ULong>()
-        val processor = PacketProcessor("1111111111111111", StandardTestDispatcher(testScheduler))
+        val processor = PacketProcessor(
+            "1111111111111111",
+            Lazy { DebugSettingsManager.getInstance() },
+            StandardTestDispatcher(testScheduler),
+        )
         processor.delegate = recordingDelegate(handled)
         try {
             val large = ByteArray(PacketProcessor.MAX_PENDING_PAYLOAD_BYTES / 2)
@@ -61,7 +71,11 @@ class PacketProcessorLoadTest {
     @Test
     fun `one handler failure does not kill the queue or cause concurrent fallback`() = runTest {
         val handled = mutableListOf<ULong>()
-        val processor = PacketProcessor("1111111111111111", StandardTestDispatcher(testScheduler))
+        val processor = PacketProcessor(
+            "1111111111111111",
+            Lazy { DebugSettingsManager.getInstance() },
+            StandardTestDispatcher(testScheduler),
+        )
         val delegate = recordingDelegate(handled)
         doAnswer { invocation ->
             val routed = invocation.getArgument<RoutedPacket>(0)
@@ -85,7 +99,11 @@ class PacketProcessorLoadTest {
         val handled = mutableListOf<ULong>()
         val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
         val base = recordingDelegate(handled)
-        val processor = PacketProcessor("1111111111111111", StandardTestDispatcher(testScheduler))
+        val processor = PacketProcessor(
+            "1111111111111111",
+            Lazy { DebugSettingsManager.getInstance() },
+            StandardTestDispatcher(testScheduler),
+        )
         processor.delegate = object : PacketProcessorDelegate by base {
             override suspend fun handleMessage(routed: RoutedPacket) {
                 if (routed.packet.timestamp == 0uL) gate.await()

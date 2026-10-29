@@ -16,6 +16,8 @@ import kotlinx.coroutines.launch
 import java.util.*
 import kotlinx.coroutines.Job
 import com.bitchat.android.ui.debug.DebugSettingsManager
+import com.bitchat.android.ui.debug.DebugPreferenceManager
+import dagger.Lazy
 import com.bitchat.android.ui.debug.DebugScanResult
 
 /**
@@ -27,7 +29,9 @@ class BluetoothGattClientManager(
     private val connectionTracker: BluetoothConnectionTracker,
     private val permissionManager: BluetoothPermissionManager,
     private val powerManager: PowerManager,
-    private val delegate: BluetoothConnectionManagerDelegate?
+    private val delegate: BluetoothConnectionManagerDelegate?,
+    private val debugSettingsManager: Lazy<DebugSettingsManager>,
+    private val debugPreferenceManager: DebugPreferenceManager,
 ) {
     
     companion object {
@@ -47,15 +51,15 @@ class BluetoothGattClientManager(
 
     private fun isBleTransportEnabled(): Boolean {
         return try {
-            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().bleEnabled.value
+            debugSettingsManager.get().bleEnabled.value
         } catch (_: Exception) {
-            try { com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
+            try { debugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
         }
     }
 
     private fun isClientRoleEnabled(): Boolean {
         return isBleTransportEnabled() &&
-            (try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattClientEnabled.value } catch (_: Exception) { true })
+            (try { debugSettingsManager.get().gattClientEnabled.value } catch (_: Exception) { true })
     }
     
     /**
@@ -403,7 +407,7 @@ class BluetoothGattClientManager(
 
         // Publish scan result to debug UI buffer
         try {
-            DebugSettingsManager.getInstance().addScanResult(
+            debugSettingsManager.get().addScanResult(
                 DebugScanResult(
                     deviceName = device.name,
                     deviceAddress = deviceAddress,
@@ -417,7 +421,7 @@ class BluetoothGattClientManager(
         if (rssi < powerManager.getRSSIThreshold()) {
             // Even if we skip connecting, still publish scan result to debug UI
             try {
-                DebugSettingsManager.getInstance().addScanResult(
+                debugSettingsManager.get().addScanResult(
                     DebugScanResult(
                         deviceName = device.name,
                         deviceAddress = deviceAddress,
@@ -440,7 +444,7 @@ class BluetoothGattClientManager(
         }
         
         // Check if connection limit is reached
-        val dbg = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (_: Exception) { null }
+        val dbg = try { debugSettingsManager.get() } catch (_: Exception) { null }
         val maxOverall = dbg?.maxConnectionsOverall?.value ?: powerManager.getMaxConnections()
         val maxClient = dbg?.maxClientConnections?.value ?: maxOverall
 

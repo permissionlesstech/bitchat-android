@@ -2,12 +2,10 @@ package com.bitchat.android.di
 
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.onboarding.DeviceReadiness
-import com.bitchat.android.service.MeshServiceHolder
-import com.bitchat.android.wifiaware.WifiAwareController
-import org.junit.After
+import com.bitchat.android.service.testMeshServiceHolder
+import com.bitchat.android.service.testWifiAwareController
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
@@ -18,22 +16,18 @@ import org.mockito.kotlin.whenever
  */
 class AppTransportDiagnosticsTest {
 
-    private val diagnostics = AppTransportDiagnostics(mock<DeviceReadiness>(), WifiAwareController, MeshServiceHolder)
-
-    @Before
-    fun setUp() {
-        MeshServiceHolder.clear()
-    }
-
-    @After
-    fun tearDown() {
-        MeshServiceHolder.clear()
-    }
+    // A fresh holder per test, so no clearing between tests.
+    private val meshServiceHolder = testMeshServiceHolder()
+    private val diagnostics = AppTransportDiagnostics(
+        mock<DeviceReadiness>(),
+        testWifiAwareController(meshServiceHolder),
+        meshServiceHolder,
+    )
 
     @Test
     fun noMeshRunning_openMeshReturnsNull_andCreatesNone() {
         assertNull(diagnostics.openMesh())
-        assertNull(MeshServiceHolder.meshService)
+        assertNull(meshServiceHolder.meshService)
     }
 
     @Test
@@ -44,11 +38,11 @@ class AppTransportDiagnosticsTest {
         whenever(first.myPeerID).thenReturn("0123456789abcdef")
         whenever(second.myPeerID).thenReturn("fedcba9876543210")
 
-        MeshServiceHolder.attach(first)
+        meshServiceHolder.attach(first)
         assertEquals("0123456789abcdef", diagnostics.openMesh()?.myPeerID)
 
-        MeshServiceHolder.attach(second)
+        meshServiceHolder.attach(second)
         assertEquals("fedcba9876543210", diagnostics.openMesh()?.myPeerID)
-        assertEquals(second, MeshServiceHolder.meshService)
+        assertEquals(second, meshServiceHolder.meshService)
     }
 }

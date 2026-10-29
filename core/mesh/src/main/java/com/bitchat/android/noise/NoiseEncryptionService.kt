@@ -2,12 +2,14 @@ package com.bitchat.android.noise
 
 import android.content.Context
 import android.util.Log
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.noise.southernstorm.protocol.Noise
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
+import dagger.Lazy
 
 /**
  * Main Noise encryption service - 100% compatible with iOS implementation
@@ -18,7 +20,12 @@ import java.util.concurrent.ConcurrentHashMap
  * - Channel encryption using password-derived keys
  * - Peer fingerprint mapping and identity persistence
  */
-class NoiseEncryptionService(private val context: Context) {
+class NoiseEncryptionService(
+    private val context: Context,
+    // Centralized fingerprint management - NO LOCAL STORAGE
+    private val fingerprintManager: PeerFingerprintManager,
+    private val favoritesPersistenceService: Lazy<FavoritesPersistenceService>,
+) {
     
     companion object {
         private const val TAG = "NoiseEncryptionService"
@@ -44,9 +51,6 @@ class NoiseEncryptionService(private val context: Context) {
     
     // Identity management for peer ID rotation support
     private val identityStateManager: SecureIdentityStateManager
-    
-    // Centralized fingerprint management - NO LOCAL STORAGE
-    private val fingerprintManager = PeerFingerprintManager.getInstance()
     
     // Callbacks
     var onPeerAuthenticated: ((String, String) -> Unit)? = null // (peerID, fingerprint)
@@ -421,10 +425,10 @@ class NoiseEncryptionService(private val context: Context) {
         // the static key. Announcement-time indexing was unsafe because a peer can copy another
         // party's public Noise key without possessing its private key.
         try {
-            com.bitchat.android.favorites.FavoritesPersistenceService.shared
+            favoritesPersistenceService.get()
                 .findNostrPubkey(remoteStaticKey)
                 ?.let { npub ->
-                    com.bitchat.android.favorites.FavoritesPersistenceService.shared
+                    favoritesPersistenceService.get()
                         .updateNostrPublicKeyForPeerID(peerID, npub)
                 }
         } catch (_: Exception) {

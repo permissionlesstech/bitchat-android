@@ -6,13 +6,28 @@ import com.bitchat.android.mesh.UnifiedMeshService
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.sync.GossipSyncManager
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Process-wide holder to share a single BluetoothMeshService instance
  * between the foreground service and UI (MainActivity/ViewModels).
+ *
+ * The only builder of the mesh services: [newBluetooth] is asked for a fresh
+ * [BluetoothMeshService] and [newUnified] wraps the current one. The `context` the
+ * accessors take is kept for their callers; the services are built with the
+ * application context either way.
  */
-object MeshServiceHolder {
-    private const val TAG = "MeshServiceHolder"
+@Singleton
+class MeshServiceHolder @Inject constructor(
+    private val newBluetooth: BluetoothMeshService.Factory,
+    private val newUnified: UnifiedMeshService.Factory,
+    private val transportBridgeService: TransportBridgeService,
+) {
+    private companion object {
+        const val TAG = "MeshServiceHolder"
+    }
+
     @Volatile
     var sharedGossipSyncManager: GossipSyncManager? = null
         private set
@@ -29,7 +44,7 @@ object MeshServiceHolder {
             try { previous?.stop() } catch (_: Exception) { }
         }
         sharedGossipSyncManager = mgr
-        mgr.delegate = TransportGossipDelegate(signer)
+        mgr.delegate = TransportGossipDelegate(transportBridgeService, signer)
         if (activeGossipOwners.isNotEmpty()) {
             mgr.start()
         }
@@ -53,14 +68,15 @@ object MeshServiceHolder {
     }
 
     private class TransportGossipDelegate(
+        private val transportBridgeService: TransportBridgeService,
         private val signer: (BitchatPacket) -> BitchatPacket
     ) : GossipSyncManager.Delegate {
         override fun sendPacket(packet: BitchatPacket) {
-            TransportBridgeService.broadcastFromLocal(RoutedPacket(packet))
+            transportBridgeService.broadcastFromLocal(RoutedPacket(packet))
         }
 
         override fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
-            TransportBridgeService.sendToPeerFromLocal(peerID, packet)
+            transportBridgeService.sendToPeerFromLocal(peerID, packet)
         }
 
         override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket {
@@ -91,7 +107,7 @@ object MeshServiceHolder {
                     try { existing.stopServices() } catch (e: Exception) {
                         android.util.Log.w(TAG, "Error while stopping non-reusable instance: ${e.message}")
                     }
-                    val created = BluetoothMeshService(context.applicationContext)
+                    val created = newBluetooth.create()
                     android.util.Log.i(TAG, "Created new BluetoothMeshService (replacement)")
                     meshService = created
                     unifiedMeshService = null
@@ -99,13 +115,13 @@ object MeshServiceHolder {
                 }
             } catch (e: Exception) {
                 android.util.Log.e(TAG, "Error checking service reusability; creating new instance: ${e.message}")
-                val created = BluetoothMeshService(context.applicationContext)
+                val created = newBluetooth.create()
                 meshService = created
                 unifiedMeshService = null
                 created
             }
         }
-        val created = BluetoothMeshService(context.applicationContext)
+        val created = newBluetooth.create()
         android.util.Log.i(TAG, "Created new BluetoothMeshService (no existing instance)")
         meshService = created
         unifiedMeshService = null
@@ -120,7 +136,7 @@ object MeshServiceHolder {
             existing.refreshDelegates()
             return existing
         }
-        val created = UnifiedMeshService(context.applicationContext, bluetooth)
+        val created = newUnified.create(bluetooth)
         unifiedMeshService = created
         android.util.Log.i(TAG, "Created new UnifiedMeshService")
         return created

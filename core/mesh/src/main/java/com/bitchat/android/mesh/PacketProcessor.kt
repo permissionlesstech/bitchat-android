@@ -4,6 +4,8 @@ import android.util.Log
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.model.RoutedPacket
+import com.bitchat.android.ui.debug.DebugSettingsManager
+import dagger.Lazy
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 
@@ -16,9 +18,10 @@ import kotlinx.coroutines.channels.Channel
  */
 class PacketProcessor(
     private val myPeerID: String,
+    private val debugSettingsManager: Lazy<DebugSettingsManager>,
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
-    private val debugManager by lazy { try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (e: Exception) { null } }
+    private val debugManager by lazy { try { debugSettingsManager.get() } catch (e: Exception) { null } }
     
     companion object {
         private const val TAG = "PacketProcessor"
@@ -31,7 +34,7 @@ class PacketProcessor(
     var delegate: PacketProcessorDelegate? = null
     
     // Packet relay manager for centralized relay decisions
-    private val packetRelayManager = PacketRelayManager(myPeerID)
+    private val packetRelayManager = PacketRelayManager(myPeerID, debugSettingsManager)
     
     // Coroutines
     private val processorScope = CoroutineScope(dispatcher + SupervisorJob())

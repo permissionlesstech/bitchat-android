@@ -1,5 +1,8 @@
 package com.bitchat.android.services
 
+import dagger.Lazy
+import com.bitchat.android.mesh.PeerFingerprintManager
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.crypto.EncryptionService
@@ -19,7 +22,11 @@ class VerificationServiceTest {
     @Before
     fun setup() {
         val context: Context = ApplicationProvider.getApplicationContext()
-        encryptionService = EncryptionService(context)
+        encryptionService = EncryptionService(
+            context,
+            PeerFingerprintManager.getInstance(),
+            Lazy { FavoritesPersistenceService.shared },
+        )
         VerificationService.configure(encryptionService)
     }
 
