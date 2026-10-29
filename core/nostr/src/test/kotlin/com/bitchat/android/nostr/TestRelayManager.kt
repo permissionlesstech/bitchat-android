@@ -3,6 +3,7 @@ package com.bitchat.android.nostr
 import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.geohash.LiveLocationPrivacyGate
 import com.bitchat.android.mesh.PowerManager
+import com.bitchat.android.services.TestMeshStores
 import dagger.Lazy
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.emptyFlow
@@ -20,7 +21,10 @@ internal fun newRelayManager(
     clients: NostrHttpClients = NoHttpClients,
     dispatcher: CoroutineDispatcher = UnconfinedTestDispatcher(),
 ): NostrRelayManager {
-    val powerManager by lazy { PowerManager(ApplicationProvider.getApplicationContext()) }
+    val powerManager by lazy {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        PowerManager(context, TestMeshStores(context).appStateStore)
+    }
     return NostrRelayManager(
         appContext = ApplicationProvider.getApplicationContext(),
         httpClients = clients,

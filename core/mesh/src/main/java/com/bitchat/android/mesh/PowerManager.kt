@@ -35,7 +35,10 @@ import kotlinx.coroutines.launch
  * network jobs, so changing profile never implies disconnecting a transport or suspending Tor.
  */
 @Singleton
-class PowerManager @Inject constructor(@ApplicationContext context: Context) : LifecycleEventObserver {
+class PowerManager @Inject constructor(
+    @ApplicationContext context: Context,
+    private val appStateStore: AppStateStore,
+) : LifecycleEventObserver {
 
     enum class PowerMode {
         PERFORMANCE,
@@ -141,7 +144,7 @@ class PowerManager @Inject constructor(@ApplicationContext context: Context) : L
             }
         }
         scope.launch {
-            AppStateStore.directPeers
+            appStateStore.directPeers
                 .collect { peers ->
                     hasDirectPeers = peers.isNotEmpty()
                     refreshProfile()

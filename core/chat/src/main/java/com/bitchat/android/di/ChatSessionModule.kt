@@ -184,6 +184,8 @@ object ChatSessionModule {
         @ChatSessionScope scope: CoroutineScope,
         geohashSession: Lazy<GeohashSession>,
         nostrIdentity: NostrIdentityBridge,
+        favorites: FavoritesPersistenceService,
+        contactDirectory: ContactDirectory,
         nostrTransport: Lazy<NostrTransport>,
     ): CommandProcessor = CommandProcessor(
         state,
@@ -192,7 +194,9 @@ object ChatSessionModule {
         privateChatManager,
         scope,
         routePrivateMessage = { mesh, content, peerID, recipientNickname, messageId ->
-            MessageRouter.getInstance(context, mesh, nostrIdentity) { nostrTransport.get() }
+            MessageRouter.getInstance(context, mesh, nostrIdentity, favorites, contactDirectory) {
+                nostrTransport.get()
+            }
                 .sendPrivate(content, peerID, recipientNickname, messageId)
         },
         geohashPeople = { geohashSession.get().geohashPeople.value },

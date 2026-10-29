@@ -19,7 +19,6 @@ import com.bitchat.android.testhook.TestHookDependencies
 import dagger.hilt.android.EntryPointAccessors
 import com.bitchat.android.features.voice.LiveVoiceScope
 import com.bitchat.android.navigation.openPrivateChat
-import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.testhook.ChatSessionTestAccess
 import com.bitchat.android.ui.NotificationManager
 import org.junit.Assert.assertEquals
@@ -61,7 +60,7 @@ class PrivateChatDestinationTest {
 
         rule.runOnUiThread {
             rule.activity.navigator.openPrivateChat(
-                ContactDirectory.canonicalConversationId(PEER_A),
+                contactDirectory().canonicalConversationId(PEER_A),
                 over = MeshPeerListRoute,
             )
         }
@@ -97,7 +96,7 @@ class PrivateChatDestinationTest {
 
         rule.runOnUiThread {
             rule.activity.navigator.openPrivateChat(
-                ContactDirectory.canonicalConversationId(PEER_A),
+                contactDirectory().canonicalConversationId(PEER_A),
                 over = MeshPeerListRoute,
             )
         }
@@ -416,9 +415,14 @@ class PrivateChatDestinationTest {
         TestHookDependencies::class.java,
     ).liveVoiceManager()
 
+    private fun contactDirectory() = EntryPointAccessors.fromApplication(
+        rule.activity.applicationContext,
+        TestHookDependencies::class.java,
+    ).contactDirectory()
+
     private fun openPrivateChat(peerID: String) {
         rule.runOnUiThread {
-            rule.activity.navigator.openPrivateChat(ContactDirectory.canonicalConversationId(peerID))
+            rule.activity.navigator.openPrivateChat(contactDirectory().canonicalConversationId(peerID))
         }
         rule.waitForIdle()
     }

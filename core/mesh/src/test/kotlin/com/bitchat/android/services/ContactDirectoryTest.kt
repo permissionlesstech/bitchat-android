@@ -5,7 +5,6 @@ import android.os.Build
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.PeerInfo
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Before
@@ -25,6 +24,7 @@ import org.mockito.kotlin.whenever
 class ContactDirectoryTest {
 
     private lateinit var identityManager: SecureIdentityStateManager
+    private lateinit var directory: ContactDirectory
 
     @Before
     fun setup() {
@@ -34,13 +34,8 @@ class ContactDirectoryTest {
             Context.MODE_PRIVATE
         )
         identityManager = SecureIdentityStateManager(prefs, testOnly = true)
-        ContactDirectory.initialize(context) { null }
-        ContactDirectory.identityManagerProvider = { identityManager }
-    }
-
-    @After
-    fun tearDown() {
-        ContactDirectory.identityManagerProvider = { SecureIdentityStateManager(it) }
+        directory = TestMeshStores(context, identityManagerProvider = { identityManager }).contactDirectory
+        directory.initialize(context) { null }
     }
 
     @Test
@@ -53,9 +48,9 @@ class ContactDirectoryTest {
             signingPublicKey = null, isVerifiedNickname = false, lastSeen = 0L,
         ))
         whenever(mesh.getPeerNicknames()).thenReturn(mapOf(peerID to "fixture-name"))
-        ContactDirectory.initialize(RuntimeEnvironment.getApplication()) { mesh }
+        directory.initialize(RuntimeEnvironment.getApplication()) { mesh }
 
-        val resolution = ContactDirectory.resolve(peerID)
+        val resolution = directory.resolve(peerID)
 
         assertEquals(peerID, resolution.meshPeerID)
         assertEquals("fixture-name", resolution.displayName)
@@ -67,7 +62,7 @@ class ContactDirectoryTest {
         val fingerprint = "ab".repeat(32)
         identityManager.cacheFingerprintNickname(fingerprint, "Alice")
 
-        val resolution = ContactDirectory.resolve("contact_$fingerprint")
+        val resolution = directory.resolve("contact_$fingerprint")
 
         assertEquals("Alice", resolution.displayName)
         assertNull(resolution.meshPeerID)
@@ -77,7 +72,7 @@ class ContactDirectoryTest {
     fun `offline contact without cached nickname has no display name`() {
         val fingerprint = "cd".repeat(32)
 
-        val resolution = ContactDirectory.resolve("contact_$fingerprint")
+        val resolution = directory.resolve("contact_$fingerprint")
 
         assertNull(resolution.displayName)
     }

@@ -10,6 +10,7 @@ import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ConversationRepository
+import com.bitchat.android.services.TestMeshStores
 import com.bitchat.android.services.InMemoryConversationStorageCipher
 import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.ui.ChatPrivateMessageInbox
@@ -53,12 +54,12 @@ class NostrDirectMessageHandlerTest {
     private lateinit var scope: CoroutineScope
     private lateinit var conversationRepository: ConversationRepository
     private lateinit var conversationDatabaseName: String
+    private lateinit var stores: TestMeshStores
 
     @Before
     fun setUp() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
-        AppStateStore.clear()
         conversationDatabaseName = "nostr-dm-${UUID.randomUUID()}.db"
         conversationRepository = ConversationRepository(
             context = RuntimeEnvironment.getApplication(),
@@ -66,13 +67,11 @@ class NostrDirectMessageHandlerTest {
             databaseName = conversationDatabaseName,
             storageCipher = InMemoryConversationStorageCipher()
         )
-        AppStateStore.setConversationRepositoryForTest(conversationRepository)
+        stores = TestMeshStores(RuntimeEnvironment.getApplication(), conversationRepository)
     }
 
     @After
     fun tearDown() {
-        AppStateStore.clear()
-        AppStateStore.setConversationRepositoryForTest(null)
         conversationRepository.closeForTest()
         RuntimeEnvironment.getApplication()
             .deleteDatabase(conversationDatabaseName)
@@ -83,17 +82,17 @@ class NostrDirectMessageHandlerTest {
     @Test
     fun `private messages use authenticated rumor time instead of randomized gift wrap time`() {
         val application = RuntimeEnvironment.getApplication()
-        val state = ChatState(scope, AppStateStore).apply { setNickname("recipient") }
+        val state = ChatState(scope, stores.appStateStore).apply { setNickname("recipient") }
         val dataManager = DataManager(application)
-        val messageManager = MessageManager(state, AppStateStore, ContactDirectory)
+        val messageManager = MessageManager(state, stores.appStateStore, stores.contactDirectory)
         val privateChatManager = PrivateChatManager(
             state = state,
             messageManager = messageManager,
             dataManager = dataManager,
             noiseSessionDelegate = mock<NoiseSessionDelegate>(),
-            contactDirectory = ContactDirectory,
-            appStateStore = AppStateStore,
-            favorites = Lazy { FavoritesPersistenceService.shared },
+            contactDirectory = stores.contactDirectory,
+            appStateStore = stores.appStateStore,
+            favorites = Lazy { stores.favorites },
             peerFingerprints = PeerFingerprintManager(),
         )
         val seenStore = mock<SeenMessageStore>()
@@ -104,14 +103,14 @@ class NostrDirectMessageHandlerTest {
             inbox = ChatPrivateMessageInbox(state, privateChatManager),
             updateDeliveryStatus = { _, _ -> },
             scope = scope,
-            repo = GeohashRepository(application, dataManager, scope, NostrIdentityBridge()) { state.getNicknameValue() },
+            repo = GeohashRepository(application, dataManager, scope, NostrIdentityBridge(stores.favorites)) { state.getNicknameValue() },
             dataManager = dataManager,
             nostrTransportProvider = { mock<NostrTransport>() },
             seenStoreProvider = { seenStore },
             geohashAliases = GeohashAliasRegistry,
             geohashConversations = GeohashConversationRegistry,
-            contactDirectory = ContactDirectory,
-            favorites = Lazy { FavoritesPersistenceService.shared },
+            contactDirectory = stores.contactDirectory,
+            favorites = Lazy { stores.favorites },
         )
         val sender = NostrIdentity.generate()
         val recipient = NostrIdentity.generate()
@@ -180,14 +179,14 @@ class NostrDirectMessageHandlerTest {
             inbox = refusingInbox,
             updateDeliveryStatus = { _, _ -> },
             scope = scope,
-            repo = GeohashRepository(application, dataManager, scope, NostrIdentityBridge()) { "recipient" },
+            repo = GeohashRepository(application, dataManager, scope, NostrIdentityBridge(stores.favorites)) { "recipient" },
             dataManager = dataManager,
             nostrTransportProvider = { mock<NostrTransport>() },
             seenStoreProvider = { seenStore },
             geohashAliases = GeohashAliasRegistry,
             geohashConversations = GeohashConversationRegistry,
-            contactDirectory = ContactDirectory,
-            favorites = Lazy { FavoritesPersistenceService.shared },
+            contactDirectory = stores.contactDirectory,
+            favorites = Lazy { stores.favorites },
         )
         val sender = NostrIdentity.generate()
         val recipient = NostrIdentity.generate()
@@ -220,16 +219,16 @@ class NostrDirectMessageHandlerTest {
     @Test
     fun `blocked geohash sender gets no delivery ack`() {
         val application = RuntimeEnvironment.getApplication()
-        val state = ChatState(scope, AppStateStore).apply { setNickname("recipient") }
+        val state = ChatState(scope, stores.appStateStore).apply { setNickname("recipient") }
         val dataManager = DataManager(application)
         val privateChatManager = PrivateChatManager(
             state = state,
-            messageManager = MessageManager(state, AppStateStore, ContactDirectory),
+            messageManager = MessageManager(state, stores.appStateStore, stores.contactDirectory),
             dataManager = dataManager,
             noiseSessionDelegate = mock<NoiseSessionDelegate>(),
-            contactDirectory = ContactDirectory,
-            appStateStore = AppStateStore,
-            favorites = Lazy { FavoritesPersistenceService.shared },
+            contactDirectory = stores.contactDirectory,
+            appStateStore = stores.appStateStore,
+            favorites = Lazy { stores.favorites },
             peerFingerprints = PeerFingerprintManager(),
         )
         val seenStore = mock<SeenMessageStore>()
@@ -238,14 +237,14 @@ class NostrDirectMessageHandlerTest {
             inbox = ChatPrivateMessageInbox(state, privateChatManager),
             updateDeliveryStatus = { _, _ -> },
             scope = scope,
-            repo = GeohashRepository(application, dataManager, scope, NostrIdentityBridge()) { state.getNicknameValue() },
+            repo = GeohashRepository(application, dataManager, scope, NostrIdentityBridge(stores.favorites)) { state.getNicknameValue() },
             dataManager = dataManager,
             nostrTransportProvider = { mock<NostrTransport>() },
             seenStoreProvider = { seenStore },
             geohashAliases = GeohashAliasRegistry,
             geohashConversations = GeohashConversationRegistry,
-            contactDirectory = ContactDirectory,
-            favorites = Lazy { FavoritesPersistenceService.shared },
+            contactDirectory = stores.contactDirectory,
+            favorites = Lazy { stores.favorites },
         )
         val sender = NostrIdentity.generate()
         val recipient = NostrIdentity.generate()

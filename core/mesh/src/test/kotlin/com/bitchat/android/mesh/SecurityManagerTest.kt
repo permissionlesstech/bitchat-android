@@ -1,7 +1,7 @@
 package com.bitchat.android.mesh
 
+import com.bitchat.android.services.TestMeshStores
 import dagger.Lazy
-import com.bitchat.android.favorites.FavoritesPersistenceService
 import android.os.Build
 import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.model.IdentityAnnouncement
@@ -51,7 +51,7 @@ class SecurityManagerTest {
     open class FakeEncryptionService : EncryptionService(
         RuntimeEnvironment.getApplication(),
         PeerFingerprintManager(),
-        Lazy { FavoritesPersistenceService.shared },
+        TestMeshStores(RuntimeEnvironment.getApplication()).favorites.let { Lazy { it } },
     ) {
         var shouldVerify: Boolean = true
         var lastVerifySignature: ByteArray? = null

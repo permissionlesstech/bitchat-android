@@ -67,7 +67,10 @@ sealed interface LiveVoiceEvent {
 
 /** Shared phone/Wear receiver: bounded assembly, live playback, bubble state and note absorption. */
 @Singleton
-class LiveVoiceManager @Inject constructor(@ApplicationContext private val context: Context) {
+class LiveVoiceManager @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val appStateStore: AppStateStore,
+) {
     companion object {
         private const val TAG = "LiveVoiceManager"
         private const val MAX_CONCURRENT_ASSEMBLIES = 8
@@ -258,9 +261,9 @@ class LiveVoiceManager @Inject constructor(@ApplicationContext private val conte
             isPrivate = messageScope == LiveVoiceScope.DIRECT_MESSAGE
         )
         if (messageScope == LiveVoiceScope.DIRECT_MESSAGE) {
-            AppStateStore.upsertPrivateMessage(peerID, replacement, isVisible(messageScope, peerID))
+            appStateStore.upsertPrivateMessage(peerID, replacement, isVisible(messageScope, peerID))
         } else {
-            AppStateStore.upsertPublicMessage(replacement)
+            appStateStore.upsertPublicMessage(replacement)
         }
         finished.file.delete()
         finishedBursts.remove(entry.key)
@@ -292,13 +295,13 @@ class LiveVoiceManager @Inject constructor(@ApplicationContext private val conte
             type = BitchatMessageType.Audio,
             timestamp = Date(timestampMs),
             isPrivate = key.scope == LiveVoiceScope.DIRECT_MESSAGE,
-            recipientNickname = AppStateStore.nickname.value.takeIf { key.scope == LiveVoiceScope.DIRECT_MESSAGE },
+            recipientNickname = appStateStore.nickname.value.takeIf { key.scope == LiveVoiceScope.DIRECT_MESSAGE },
             senderPeerID = key.peerID
         )
         if (key.scope == LiveVoiceScope.DIRECT_MESSAGE) {
-            AppStateStore.addPrivateMessage(key.peerID, message, isVisible(key.scope, key.peerID))
+            appStateStore.addPrivateMessage(key.peerID, message, isVisible(key.scope, key.peerID))
         } else {
-            AppStateStore.addPublicMessage(message)
+            appStateStore.addPublicMessage(message)
         }
         val player = if (canAutoplay(key)) {
             activePlayer?.stop()
@@ -376,13 +379,13 @@ class LiveVoiceManager @Inject constructor(@ApplicationContext private val conte
         if (assembly.file.renameTo(fallback)) assembly.file = fallback
         val finalizedMessage = assembly.message.copy(content = assembly.file.absolutePath)
         if (assembly.key.scope == LiveVoiceScope.DIRECT_MESSAGE) {
-            AppStateStore.upsertPrivateMessage(
+            appStateStore.upsertPrivateMessage(
                 assembly.key.peerID,
                 finalizedMessage,
                 isVisible(assembly.key.scope, assembly.key.peerID)
             )
         } else {
-            AppStateStore.upsertPublicMessage(finalizedMessage)
+            appStateStore.upsertPublicMessage(finalizedMessage)
         }
         pruneFinished()
         finishedBursts[assembly.key] = FinishedBurst(
@@ -434,9 +437,9 @@ class LiveVoiceManager @Inject constructor(@ApplicationContext private val conte
 
     private fun removeBubble(assembly: Assembly) {
         if (assembly.key.scope == LiveVoiceScope.DIRECT_MESSAGE) {
-            AppStateStore.removePrivateMessage(assembly.message.id)
+            appStateStore.removePrivateMessage(assembly.message.id)
         } else {
-            AppStateStore.removePublicMessage(assembly.message.id)
+            appStateStore.removePublicMessage(assembly.message.id)
         }
     }
 

@@ -5,12 +5,12 @@ import com.bitchat.android.model.BitchatMessage
 import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.nostr.NostrIdentityBridge
+import com.bitchat.android.services.TestMeshStores
 import com.bitchat.android.spam.SpamFilter
 import com.bitchat.android.ui.DataManager
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
@@ -21,6 +21,7 @@ import org.robolectric.RobolectricTestRunner
 class GeohashMessageHandlerSpamTest {
 
     private val application: Application = ApplicationProvider.getApplicationContext()
+    private val nostrIdentity = NostrIdentityBridge(TestMeshStores(application).favorites)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val testDispatcher = UnconfinedTestDispatcher()
@@ -34,11 +35,10 @@ class GeohashMessageHandlerSpamTest {
 
     @Before
     fun setup() {
-        com.bitchat.android.services.AppStateStore.clear()
         val dataManager = DataManager(context = application)
         handler = GeohashMessageHandler(
             application = application,
-            repo = GeohashRepository(application, dataManager, testScope, NostrIdentityBridge()) { "me" },
+            repo = GeohashRepository(application, dataManager, testScope, nostrIdentity) { "me" },
             scope = testScope,
             dataManager = dataManager,
             addChannelMessage = { channel, message ->
@@ -48,14 +48,9 @@ class GeohashMessageHandlerSpamTest {
             signatureVerificationDispatcher = testDispatcher,
             spamFilterDispatcher = testDispatcher,
             geohashAliases = GeohashAliasRegistry,
-            nostrIdentity = NostrIdentityBridge(),
+            nostrIdentity = nostrIdentity,
             spamFilter = spamFilter,
         )
-    }
-
-    @After
-    fun tearDown() {
-        com.bitchat.android.services.AppStateStore.clear()
     }
 
     private fun event(identity: NostrIdentity, content: String) = NostrEvent(

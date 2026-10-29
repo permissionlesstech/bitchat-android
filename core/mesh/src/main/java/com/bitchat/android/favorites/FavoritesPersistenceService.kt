@@ -2,12 +2,15 @@ package com.bitchat.android.favorites
 
 import android.content.Context
 import android.util.Log
+import dagger.hilt.android.qualifiers.ApplicationContext
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.services.ContactIdentityResolver
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.util.*
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Bridging Noise and Nostr favorites
@@ -74,51 +77,63 @@ interface FavoritesChangeListener {
 
 /**
  * Manages favorites with Noise↔Nostr mapping
- * Singleton pattern matching iOS implementation.
+ * One instance per process, matching iOS implementation.
+ *
+ * The constructor does no I/O. [initialize] opens the secure store and loads the saved
+ * relationships; until it has succeeded, every public method throws
+ * `IllegalStateException("FavoritesPersistenceService not initialized")`, as the old static
+ * accessor did, and a failed attempt is retried by the next call.
  */
-class FavoritesPersistenceService private constructor(private val context: Context) {
+@Singleton
+class FavoritesPersistenceService @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val appStateStore: AppStateStore,
+) {
 
-    companion object {
-        private const val TAG = "FavoritesPersistenceService"
-        private const val FAVORITES_KEY = "favorite_relationships"            // noiseHex -> relationship
-        private const val PEERID_INDEX_KEY = "favorite_peerid_index"         // peerID(16-hex) -> npub
-
-        @Volatile
-        private var INSTANCE: FavoritesPersistenceService? = null
-
-        val shared: FavoritesPersistenceService
-            get() = INSTANCE ?: throw IllegalStateException("FavoritesPersistenceService not initialized")
-
-        fun initialize(context: Context) {
-            if (INSTANCE == null) {
-                synchronized(this) {
-                    if (INSTANCE == null) {
-                        INSTANCE = FavoritesPersistenceService(context.applicationContext)
-                    }
-                }
-            }
-        }
+    private companion object {
+        const val TAG = "FavoritesPersistenceService"
+        const val FAVORITES_KEY = "favorite_relationships"            // noiseHex -> relationship
+        const val PEERID_INDEX_KEY = "favorite_peerid_index"         // peerID(16-hex) -> npub
     }
 
-    private val stateManager = SecureIdentityStateManager(context)
+    @Volatile
+    private var initialized = false
+
+    private lateinit var stateManager: SecureIdentityStateManager
     private val gson = Gson()
     private val favorites = mutableMapOf<String, FavoriteRelationship>() // noiseHex -> relationship
     private val peerIdIndex = mutableMapOf<String, String>() // peerID (lowercase 16-hex) -> npub
     private val listeners = mutableListOf<FavoritesChangeListener>()
 
-    init {
-        loadFavorites()
-        loadPeerIdIndex()
+    /**
+     * Opens the secure store and loads the saved favourites, once. If the store cannot be opened
+     * the exception propagates, nothing is marked done, and a later call tries again.
+     */
+    fun initialize() {
+        if (initialized) return
+        synchronized(this) {
+            if (initialized) return
+            stateManager = SecureIdentityStateManager(context)
+            loadFavorites()
+            loadPeerIdIndex()
+            initialized = true
+        }
+    }
+
+    private fun checkInitialized() {
+        check(initialized) { "FavoritesPersistenceService not initialized" }
     }
 
     /** Get favorite status for Noise public key */
     fun getFavoriteStatus(noisePublicKey: ByteArray): FavoriteRelationship? {
+        checkInitialized()
         val keyHex = ContactIdentityResolver.noiseKeyHex(noisePublicKey)
         return favorites[keyHex]
     }
 
     /** Get favorite status for a mesh peer ID or full Noise public key hex. */
     fun getFavoriteStatus(peerID: String): FavoriteRelationship? {
+        checkInitialized()
         val pid = peerID.trim().lowercase()
 
         if (ContactIdentityResolver.isNoiseKeyHex(pid)) {
@@ -146,6 +161,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 
     /** Update Nostr public key for a peer (indexed by Noise key) */
     fun updateNostrPublicKey(noisePublicKey: ByteArray, nostrPubkey: String) {
+        checkInitialized()
         val keyHex = ContactIdentityResolver.noiseKeyHex(noisePublicKey)
         val normalizedNpub = ContactIdentityResolver.nostrPubkeyHex(nostrPubkey)
             ?.let { ContactIdentityResolver.npubFromHex(it) }
@@ -179,6 +195,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 
     /** Update Nostr pubkey for a specific mesh peerID. */
     fun updateNostrPublicKeyForPeerID(peerID: String, nostrPubkey: String) {
+        checkInitialized()
         val pid = peerID.trim().lowercase()
         val normalizedNpub = ContactIdentityResolver.nostrPubkeyHex(nostrPubkey)
             ?.let { ContactIdentityResolver.npubFromHex(it) }
@@ -196,12 +213,14 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 
     /** Resolve Nostr pubkey via current peerID mapping or stored Noise identity. */
     fun findNostrPubkeyForPeerID(peerID: String): String? {
+        checkInitialized()
         val pid = peerID.trim().lowercase()
         return peerIdIndex[pid] ?: getFavoriteStatus(pid)?.peerNostrPublicKey
     }
 
     /** Resolve mesh peerID for a given Nostr pubkey (npub or hex). */
     fun findPeerIDForNostrPubkey(nostrPubkey: String): String? {
+        checkInitialized()
         val targetHex = ContactIdentityResolver.nostrPubkeyHex(nostrPubkey) ?: return null
 
         peerIdIndex.entries.firstOrNull { (_, stored) ->
@@ -219,6 +238,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 
     /** Update favorite status */
     fun updateFavoriteStatus(noisePublicKey: ByteArray, nickname: String, isFavorite: Boolean) {
+        checkInitialized()
         val keyHex = ContactIdentityResolver.noiseKeyHex(noisePublicKey)
 
         val existing = favorites[keyHex]
@@ -251,6 +271,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 
     /** Update peer favorited-us flag */
     fun updatePeerFavoritedUs(noisePublicKey: ByteArray, theyFavoritedUs: Boolean) {
+        checkInitialized()
         val keyHex = ContactIdentityResolver.noiseKeyHex(noisePublicKey)
         val existing = favorites[keyHex]
         val updated = existing.withPeerFavoritedUs(noisePublicKey, theyFavoritedUs)
@@ -262,11 +283,21 @@ class FavoritesPersistenceService private constructor(private val context: Conte
         Log.d(TAG, "Updated peer favorited us for ${keyHex.take(16)}...: $theyFavoritedUs")
     }
 
-    fun getMutualFavorites(): List<FavoriteRelationship> = favorites.values.filter { it.isMutual }
-    fun getOurFavorites(): List<FavoriteRelationship> = favorites.values.filter { it.isFavorite }
-    fun getAllRelationships(): List<FavoriteRelationship> = favorites.values.toList()
+    fun getMutualFavorites(): List<FavoriteRelationship> {
+        checkInitialized()
+        return favorites.values.filter { it.isMutual }
+    }
+    fun getOurFavorites(): List<FavoriteRelationship> {
+        checkInitialized()
+        return favorites.values.filter { it.isFavorite }
+    }
+    fun getAllRelationships(): List<FavoriteRelationship> {
+        checkInitialized()
+        return favorites.values.toList()
+    }
 
     fun clearAllFavorites() {
+        checkInitialized()
         favorites.clear()
         saveFavorites()
         peerIdIndex.clear()
@@ -277,6 +308,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 
     /** Find Noise key by Nostr pubkey */
     fun findNoiseKey(forNostrPubkey: String): ByteArray? {
+        checkInitialized()
         val targetHex = ContactIdentityResolver.nostrPubkeyHex(forNostrPubkey) ?: return null
         return favorites.values.firstOrNull { rel ->
             rel.peerNostrPublicKey?.let { stored -> ContactIdentityResolver.nostrPubkeyHex(stored) } == targetHex
@@ -285,6 +317,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 
     /** Find Nostr pubkey by Noise key */
     fun findNostrPubkey(forNoiseKey: ByteArray): String? {
+        checkInitialized()
         val keyHex = ContactIdentityResolver.noiseKeyHex(forNoiseKey)
         return favorites[keyHex]?.peerNostrPublicKey
     }
@@ -354,13 +387,15 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 
     // MARK: - Listeners
     fun addListener(listener: FavoritesChangeListener) {
+        checkInitialized()
         synchronized(listeners) { if (!listeners.contains(listener)) listeners.add(listener) }
     }
     fun removeListener(listener: FavoritesChangeListener) {
+        checkInitialized()
         synchronized(listeners) { listeners.remove(listener) }
     }
     private fun notifyChanged(noiseKeyHex: String) {
-        runCatching { AppStateStore.canonicalizePrivateChats() }
+        runCatching { appStateStore.canonicalizePrivateChats() }
         val snapshot = synchronized(listeners) { listeners.toList() }
         snapshot.forEach { runCatching { it.onFavoriteChanged(noiseKeyHex) } }
     }

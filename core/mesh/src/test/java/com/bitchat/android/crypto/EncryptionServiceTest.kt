@@ -1,8 +1,8 @@
 package com.bitchat.android.crypto
 
+import com.bitchat.android.services.TestMeshStores
 import dagger.Lazy
 import com.bitchat.android.mesh.PeerFingerprintManager
-import com.bitchat.android.favorites.FavoritesPersistenceService
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.noise.NoiseEncryptionService
@@ -26,7 +26,7 @@ class EncryptionServiceTest {
         encryptionService = EncryptionService(
             context,
             PeerFingerprintManager(),
-            Lazy { FavoritesPersistenceService.shared },
+            TestMeshStores(context).favorites.let { Lazy { it } },
         )
     }
 

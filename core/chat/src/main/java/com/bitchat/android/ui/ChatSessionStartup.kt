@@ -1,11 +1,11 @@
 package com.bitchat.android.ui
 
-import com.bitchat.android.di.FavoritesInitRetry
 import com.bitchat.android.mesh.TransferProgressManager
 import com.bitchat.android.services.AppStateStore
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.di.ChatSessionScope
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.noise.NoiseSession
@@ -65,7 +65,7 @@ class ChatSessionStartup @Inject constructor(
     private val appStateStore: AppStateStore,
     private val contactDirectory: ContactDirectory,
     private val transferProgress: TransferProgressManager,
-    private val favoritesInitRetry: FavoritesInitRetry,
+    private val favorites: FavoritesPersistenceService,
 ) {
 
     private companion object {
@@ -224,7 +224,7 @@ class ChatSessionStartup @Inject constructor(
         geohashSession.initialize()
 
         // Initialize favorites persistence service
-        favoritesInitRetry.run()
+        favorites.initialize()
 
         // Reflect "they favorited us" changes into reactive UI state (drives star celebrations)
         conversationDirectory.startFavoriteTracking()

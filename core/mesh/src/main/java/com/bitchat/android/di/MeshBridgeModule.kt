@@ -1,15 +1,11 @@
 package com.bitchat.android.di
 
 import android.content.Context
-import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.nostr.GeohashAliasRegistry
-import com.bitchat.android.services.AppStateStore
-import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ConversationRepository
 import com.bitchat.android.services.PrivateMessageArrivalOrder
 import dagger.Module
 import dagger.Provides
-import javax.inject.Inject
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
@@ -24,23 +20,10 @@ import dagger.hilt.components.SingletonComponent
 @InstallIn(SingletonComponent::class)
 object MeshBridgeModule {
 
-    // 10c-2a-1 bridge: deleted when FavoritesPersistenceService is flipped
-    @Provides
-    fun provideFavoritesPersistenceService(): FavoritesPersistenceService =
-        FavoritesPersistenceService.shared
-
     // 10c-2a-1 bridge: deleted when ConversationRepository is flipped
     @Provides
     fun provideConversationRepository(@ApplicationContext context: Context): ConversationRepository =
         ConversationRepository.getInstance(context)
-
-    // 10c-2a-1 bridge: deleted when AppStateStore is flipped
-    @Provides
-    fun provideAppStateStore(): AppStateStore = AppStateStore
-
-    // 10c-2a-1 bridge: deleted when ContactDirectory is flipped
-    @Provides
-    fun provideContactDirectory(): ContactDirectory = ContactDirectory
 
     // 10c-2a-1 bridge: deleted when PrivateMessageArrivalOrder is flipped
     @Provides
@@ -49,15 +32,4 @@ object MeshBridgeModule {
     // 10c-2a-1 bridge: deleted when GeohashAliasRegistry is flipped
     @Provides
     fun provideGeohashAliasRegistry(): GeohashAliasRegistry = GeohashAliasRegistry
-}
-
-/**
- * `FavoritesPersistenceService.initialize`, for the callers that must run it before the instance
- * exists: Application.onCreate's first attempt and the one retry the chat session's start-up makes.
- */
-// 10c-2a-1 bridge: deleted when FavoritesPersistenceService is flipped
-class FavoritesInitRetry @Inject constructor(@ApplicationContext private val context: Context) {
-    fun initialize() = FavoritesPersistenceService.initialize(context)
-
-    fun run() = initialize()
 }

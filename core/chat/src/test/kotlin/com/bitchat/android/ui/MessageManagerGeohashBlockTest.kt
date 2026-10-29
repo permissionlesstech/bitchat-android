@@ -1,27 +1,23 @@
 package com.bitchat.android.ui
 
 import com.bitchat.android.model.BitchatMessage
-import com.bitchat.android.services.AppStateStore
-import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.TestMeshStores
 import java.util.Date
 import kotlinx.coroutines.test.runTest
-import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Before
 import org.junit.Test
+import org.mockito.kotlin.mock
 
 class MessageManagerGeohashBlockTest {
+    private val stores = TestMeshStores(mock())
     // Synthetic channels and pubkeys; no location or relay data is involved.
     private val blocked = "a".repeat(64)
     private val other = "b".repeat(64)
 
-    @Before fun setUp() = AppStateStore.clear()
-    @After fun tearDown() = AppStateStore.clear()
-
     @Test
     fun `blocking a sender hides their existing messages in every geohash timeline`() = runTest {
-        val state = ChatState(backgroundScope, AppStateStore)
-        val manager = MessageManager(state, AppStateStore, ContactDirectory)
+        val state = ChatState(backgroundScope, stores.appStateStore)
+        val manager = MessageManager(state, stores.appStateStore, stores.contactDirectory)
         manager.addChannelMessage("geo:s00000", message("geo-1", blocked))
         manager.addChannelMessage("geo:s00000", message("geo-2", other))
         manager.addChannelMessage("geo:s00001", message("geo-3", blocked.uppercase()))
@@ -35,7 +31,7 @@ class MessageManagerGeohashBlockTest {
             "#fixture-channel" to listOf("mesh-1"),
         )
         assertEquals(expected, state.channelMessages.value.mapValues { (_, list) -> list.map { it.id } })
-        assertEquals(expected, AppStateStore.channelMessages.value.mapValues { (_, list) -> list.map { it.id } })
+        assertEquals(expected, stores.appStateStore.channelMessages.value.mapValues { (_, list) -> list.map { it.id } })
     }
 
     private fun message(id: String, pubkey: String) = BitchatMessage(

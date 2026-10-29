@@ -2,15 +2,13 @@ package com.bitchat.android.ui
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.GeohashChannel
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.model.BitchatMessage
-import com.bitchat.android.services.AppStateStore
-import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.TestMeshStores
 import dagger.Lazy
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertFalse
@@ -27,18 +25,20 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
 import java.util.Date
+import org.robolectric.RuntimeEnvironment
 
 @RunWith(RobolectricTestRunner::class)
 class CommandProcessorTest {
+    private val stores = TestMeshStores(RuntimeEnvironment.getApplication())
   private val context: Context = ApplicationProvider.getApplicationContext()
   
   @OptIn(ExperimentalCoroutinesApi::class)
   private val testDispatcher = UnconfinedTestDispatcher()
   private val testScope = TestScope(testDispatcher)
-  private val chatState = ChatState(scope = testScope, appStateStore = AppStateStore)
+  private val chatState = ChatState(scope = testScope, appStateStore = stores.appStateStore)
   private lateinit var commandProcessor: CommandProcessor
 
-  val messageManager: MessageManager = MessageManager(state = chatState, appStateStore = AppStateStore, contactDirectory = ContactDirectory)
+  val messageManager: MessageManager = MessageManager(state = chatState, appStateStore = stores.appStateStore, contactDirectory = stores.contactDirectory)
   val channelManager: ChannelManager = ChannelManager(
     state = chatState,
     messageManager = messageManager,
@@ -59,9 +59,9 @@ class CommandProcessorTest {
         messageManager = messageManager,
         dataManager = DataManager(context = context),
         noiseSessionDelegate = mock<NoiseSessionDelegate>(),
-        contactDirectory = ContactDirectory,
-        appStateStore = AppStateStore,
-        favorites = Lazy { FavoritesPersistenceService.shared },
+        contactDirectory = stores.contactDirectory,
+        appStateStore = stores.appStateStore,
+        favorites = Lazy { stores.favorites },
         peerFingerprints = PeerFingerprintManager(),
       )
     )
@@ -135,9 +135,9 @@ class CommandProcessorTest {
         dataManager = DataManager(context = context),
         noiseSessionDelegate = mock<NoiseSessionDelegate>(),
         markMessageReadLocally = locallyRead::add,
-        contactDirectory = ContactDirectory,
-        appStateStore = AppStateStore,
-        favorites = Lazy { FavoritesPersistenceService.shared },
+        contactDirectory = stores.contactDirectory,
+        appStateStore = stores.appStateStore,
+        favorites = Lazy { stores.favorites },
         peerFingerprints = PeerFingerprintManager(),
       )
     )
@@ -167,9 +167,9 @@ class CommandProcessorTest {
         messageManager = messageManager,
         dataManager = DataManager(context = context),
         noiseSessionDelegate = mock<NoiseSessionDelegate>(),
-        contactDirectory = ContactDirectory,
-        appStateStore = AppStateStore,
-        favorites = Lazy { FavoritesPersistenceService.shared },
+        contactDirectory = stores.contactDirectory,
+        appStateStore = stores.appStateStore,
+        favorites = Lazy { stores.favorites },
         peerFingerprints = PeerFingerprintManager(),
       ),
       routePrivateMessage = { _, content, recipient, _, _ -> routed += content to recipient }

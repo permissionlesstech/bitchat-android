@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import androidx.core.app.RemoteInput
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.nostr.NostrIdentityBridge
@@ -32,6 +33,7 @@ class ConversationNotificationReceiver : BroadcastReceiver() {
     interface Dependencies {
         fun nostrTransport(): NostrTransport
         fun nostrIdentity(): NostrIdentityBridge
+        fun favorites(): FavoritesPersistenceService
         fun contactDirectory(): ContactDirectory
         fun appStateStore(): AppStateStore
         fun meshServiceHolder(): MeshServiceHolder
@@ -91,6 +93,8 @@ class ConversationNotificationReceiver : BroadcastReceiver() {
                                 context.applicationContext,
                                 mesh,
                                 dependencies.nostrIdentity(),
+                                dependencies.favorites(),
+                                contactDirectory,
                             ) {
                                 dependencies.nostrTransport()
                             }

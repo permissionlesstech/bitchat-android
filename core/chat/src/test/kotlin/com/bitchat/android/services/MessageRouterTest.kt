@@ -40,7 +40,8 @@ class MessageRouterTest {
     private lateinit var mesh: MeshService
     private lateinit var router: MessageRouter
     private val nostr: NostrTransport = mock()
-    private val nostrIdentity = NostrIdentityBridge()
+    private lateinit var stores: TestMeshStores
+    private lateinit var nostrIdentity: NostrIdentityBridge
     private var fakeTime = 1_000_000L
     private val expired = mutableListOf<String>()
 
@@ -52,20 +53,21 @@ class MessageRouterTest {
             Context.MODE_PRIVATE
         )
         val identityManager = SecureIdentityStateManager(prefs, testOnly = true)
-        ContactDirectory.identityManagerProvider = { identityManager }
+        stores = TestMeshStores(context, identityManagerProvider = { identityManager })
+        nostrIdentity = NostrIdentityBridge(stores.favorites)
 
         mesh = mock()
         whenever(mesh.myPeerID).thenReturn(myPeerID)
         whenever(mesh.getPeerNicknames()).thenReturn(mapOf(peerID to "peer"))
 
-        ContactDirectory.initialize(context) { mesh }
+        stores.contactDirectory.initialize(context) { mesh }
 
         MessageRouter.disableSchedulerForTesting = true
         MessageRouter.resetForTesting()
         fakeTime = 1_000_000L
         expired.clear()
 
-        router = MessageRouter.getInstance(context, mesh, nostrIdentity) { nostr }
+        router = routerFor(context, mesh)
         router.clock = { fakeTime }
         router.onMessageExpired = { expired.add(it) }
     }
@@ -74,7 +76,6 @@ class MessageRouterTest {
     fun tearDown() {
         MessageRouter.resetForTesting()
         MessageRouter.disableSchedulerForTesting = false
-        ContactDirectory.identityManagerProvider = { SecureIdentityStateManager(it) }
     }
 
     @Test
@@ -184,13 +185,13 @@ class MessageRouterTest {
         MessageRouter.disableSchedulerForTesting = false
         MessageRouter.resetForTesting()
         val context = RuntimeEnvironment.getApplication()
-        val running = MessageRouter.getInstance(context, mesh, nostrIdentity) { nostr }
+        val running = routerFor(context, mesh)
         assertTrue(running.isSchedulerRunning)
 
         running.stopOutboxScheduler()
         assertFalse(running.isSchedulerRunning)
 
-        val rebound = MessageRouter.getInstance(context, mesh, nostrIdentity) { nostr }
+        val rebound = routerFor(context, mesh)
         assertTrue(rebound.isSchedulerRunning)
     }
 
@@ -205,7 +206,7 @@ class MessageRouterTest {
         peerReady()
 
         // What Provider<MessageRouter> does after recreateMeshServiceAfterPanic().
-        val rebound = MessageRouter.getInstance(context, replacementMesh, nostrIdentity) { nostr }
+        val rebound = routerFor(context, replacementMesh)
         assertSame(router, rebound)
 
         val result = rebound.sendPrivate("after-panic", peerID, "peer", "msg-after-panic")
@@ -241,4 +242,7 @@ class MessageRouterTest {
         isVerifiedNickname = false,
         lastSeen = System.currentTimeMillis()
     )
+
+    private fun routerFor(context: Context, mesh: MeshService): MessageRouter =
+        MessageRouter.getInstance(context, mesh, nostrIdentity, stores.favorites, stores.contactDirectory) { nostr }
 }

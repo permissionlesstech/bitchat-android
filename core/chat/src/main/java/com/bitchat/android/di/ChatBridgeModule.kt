@@ -1,6 +1,7 @@
 package com.bitchat.android.di
 
 import android.content.Context
+import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ConversationListPreferences
 import dagger.Module
 import dagger.Provides
@@ -16,6 +17,7 @@ object ChatBridgeModule {
     // 10c-2a-1 bridge: deleted when ConversationListPreferences is flipped
     @Provides
     fun provideConversationListPreferences(
-        @ApplicationContext context: Context
-    ): ConversationListPreferences = ConversationListPreferences.getInstance(context)
+        @ApplicationContext context: Context,
+        contactDirectory: ContactDirectory,
+    ): ConversationListPreferences = ConversationListPreferences.getInstance(context, contactDirectory)
 }

@@ -18,7 +18,10 @@ import javax.inject.Singleton
  * Limits to last MAX_IDS entries per set to avoid memory bloat.
  */
 @Singleton
-class SeenMessageStore @Inject constructor(@ApplicationContext private val context: Context) {
+class SeenMessageStore @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val appStateStore: AppStateStore,
+) {
     companion object {
         private const val TAG = "SeenMessageStore"
         private const val STORAGE_KEY = "seen_message_store_v1"
@@ -51,7 +54,7 @@ class SeenMessageStore @Inject constructor(@ApplicationContext private val conte
             locallyRead.add(id)
             trim(locallyRead)
         }
-        AppStateStore.markPrivateMessageRead(id)
+        appStateStore.markPrivateMessageRead(id)
         persist()
     }
 

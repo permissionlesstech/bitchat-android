@@ -1,6 +1,6 @@
 package com.bitchat.android.ui
 
-import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.TestMeshStores
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -11,6 +11,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
+import org.mockito.kotlin.mock
 
 /**
  * The order in which Back unwinds the chat screen's overlays.
@@ -22,6 +23,7 @@ import org.junit.Test
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChatStateBackNavigationTest {
+    private val stores = TestMeshStores(mock())
 
     private lateinit var scope: TestScope
     private lateinit var state: ChatState
@@ -30,7 +32,7 @@ class ChatStateBackNavigationTest {
     @Before
     fun setUp() {
         scope = TestScope(UnconfinedTestDispatcher())
-        state = ChatState(scope, AppStateStore)
+        state = ChatState(scope, stores.appStateStore)
     }
 
     @After

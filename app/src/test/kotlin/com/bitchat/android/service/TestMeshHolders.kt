@@ -4,6 +4,7 @@ import com.bitchat.android.ui.debug.DebugPreferenceManager
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.mesh.UnifiedMeshService
 import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.TestMeshStores
 import com.bitchat.android.ui.debug.DebugSettingsManager
 import com.bitchat.android.wifiaware.WifiAwareController
 import com.bitchat.android.wifiaware.WifiAwareMeshService
@@ -11,6 +12,7 @@ import dagger.Lazy
 import javax.inject.Provider
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import org.mockito.kotlin.mock
 
 /**
  * A fresh [MeshServiceHolder] per test, so no test sees another's mesh. It builds no mesh service:
@@ -31,10 +33,11 @@ fun testMeshServiceHolder(): MeshServiceHolder = MeshServiceHolder(
 fun testWifiAwareController(
     meshServiceHolder: MeshServiceHolder = testMeshServiceHolder(),
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    appStateStore: AppStateStore = TestMeshStores(mock()).appStateStore,
 ): WifiAwareController = WifiAwareController(
     newMesh = Provider<WifiAwareMeshService> { error("tests never start Wi-Fi Aware") },
     meshServiceHolder = meshServiceHolder,
     debugSettingsManager = Lazy(lazy { DebugSettingsManager(DebugPreferenceManager()) }::value),
-    appStateStore = AppStateStore,
+    appStateStore = appStateStore,
     ioDispatcher = ioDispatcher,
 )

@@ -2,12 +2,9 @@ package com.bitchat.android.services
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
-import com.bitchat.android.services.AppStateStore
-import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.spam.SpamFilter
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.DataManager
@@ -35,12 +32,13 @@ class IncomingMessageAdmissionTest {
     private val spamFilter = SpamFilter()
 
     private fun admit(message: BitchatMessage): Boolean =
-        IncomingMessageAdmission.admitToAppState(message, AppStateStore, spamFilter)
+        IncomingMessageAdmission.admitToAppState(message, stores.appStateStore, spamFilter)
 
     private lateinit var context: Context
     private lateinit var databaseName: String
     private lateinit var repository: ConversationRepository
     private val repositoriesToClose = mutableListOf<ConversationRepository>()
+    private lateinit var stores: TestMeshStores
 
     @Before
     fun setUp() {
@@ -53,16 +51,11 @@ class IncomingMessageAdmissionTest {
             storageCipher = InMemoryConversationStorageCipher()
         )
         repositoriesToClose += repository
-        AppStateStore.setConversationRepositoryForTest(repository)
-        AppStateStore.resumePrivateConversationsAfterPanic()
-        AppStateStore.clear()
+        stores = TestMeshStores(context, repository)
     }
 
     @After
     fun tearDown() {
-        AppStateStore.resumePrivateConversationsAfterPanic()
-        AppStateStore.clear()
-        AppStateStore.setConversationRepositoryForTest(null)
         repositoriesToClose.forEach(ConversationRepository::closeForTest)
         context.deleteDatabase(databaseName)
         context.deleteDatabase("failing-$databaseName")
@@ -70,14 +63,14 @@ class IncomingMessageAdmissionTest {
 
     @Test
     fun `private message rejected during panic cannot continue transport dispatch`() {
-        assertTrue(runBlocking { AppStateStore.panicClearPrivateConversations() })
+        assertTrue(runBlocking { stores.appStateStore.panicClearPrivateConversations() })
 
         assertFalse(
             admit(
                 privateMessage(id = "during-panic")
             )
         )
-        assertTrue(AppStateStore.privateMessages.value.isEmpty())
+        assertTrue(stores.appStateStore.privateMessages.value.isEmpty())
     }
 
     @Test
@@ -95,20 +88,20 @@ class IncomingMessageAdmissionTest {
         assertTrue(admit(older))
         assertTrue(admit(latest))
 
-        AppStateStore.clear()
+        stores.appStateStore.clear()
         repository.reload { snapshot ->
-            AppStateStore.restorePrivateConversations(snapshot)
+            stores.appStateStore.restorePrivateConversations(snapshot)
         }
         runBlocking { repository.awaitPendingWrites() }
         assertEquals(
             listOf(latest.id),
-            AppStateStore.privateMessages.value.getValue("peer-a").map { it.id }
+            stores.appStateStore.privateMessages.value.getValue("peer-a").map { it.id }
         )
 
         assertFalse(admit(older))
         assertEquals(
             listOf(latest.id),
-            AppStateStore.privateMessages.value.getValue("peer-a").map { it.id }
+            stores.appStateStore.privateMessages.value.getValue("peer-a").map { it.id }
         )
     }
 
@@ -121,18 +114,18 @@ class IncomingMessageAdmissionTest {
             deliveryStatus = DeliveryStatus.Sent
         )
         val latest = privateMessage(id = "latest-summary").copy(timestamp = Date(2L))
-        assertTrue(AppStateStore.addPrivateMessage("peer-a", older, forceRead = true))
+        assertTrue(stores.appStateStore.addPrivateMessage("peer-a", older, forceRead = true))
         assertTrue(admit(latest))
         runBlocking { repository.awaitPendingWrites() }
 
-        AppStateStore.releasePrivateConversationHistory("peer-a")
+        stores.appStateStore.releasePrivateConversationHistory("peer-a")
         assertEquals(
             listOf(latest.id),
-            AppStateStore.privateMessages.value.getValue("peer-a").map { it.id }
+            stores.appStateStore.privateMessages.value.getValue("peer-a").map { it.id }
         )
 
         val delivered = DeliveryStatus.Delivered(to = "alice", at = Date(3L))
-        AppStateStore.updatePrivateMessageStatus(older.id, delivered)
+        stores.appStateStore.updatePrivateMessageStatus(older.id, delivered)
         runBlocking { repository.awaitPendingWrites() }
 
         val snapshot = runBlocking {
@@ -158,21 +151,21 @@ class IncomingMessageAdmissionTest {
 
         assertTrue(admit(public))
         assertTrue(admit(channel))
-        assertTrue(AppStateStore.publicMessages.value.contains(public))
+        assertTrue(stores.appStateStore.publicMessages.value.contains(public))
     }
 
     @Test
     fun `outgoing callback runs only after local echo survives process state clear`() {
-        val state = ChatState(TestScope(), AppStateStore)
+        val state = ChatState(TestScope(), stores.appStateStore)
         state.setNickname("me")
         val manager = PrivateChatManager(
             state = state,
-            messageManager = MessageManager(state, AppStateStore, ContactDirectory),
+            messageManager = MessageManager(state, stores.appStateStore, stores.contactDirectory),
             dataManager = DataManager(context),
             noiseSessionDelegate = testNoiseDelegate(),
-            contactDirectory = ContactDirectory,
-            appStateStore = AppStateStore,
-            favorites = Lazy { FavoritesPersistenceService.shared },
+            contactDirectory = stores.contactDirectory,
+            appStateStore = stores.appStateStore,
+            favorites = Lazy { stores.favorites },
             peerFingerprints = PeerFingerprintManager(),
         )
         var callbackInvoked = false
@@ -191,7 +184,7 @@ class IncomingMessageAdmissionTest {
 
         assertTrue(sent)
         assertTrue(callbackInvoked)
-        AppStateStore.clear()
+        stores.appStateStore.clear()
         repository.reload { snapshot ->
             assertEquals(
                 "durable outgoing",
@@ -203,16 +196,16 @@ class IncomingMessageAdmissionTest {
 
     @Test
     fun `outgoing messages to different peers keep separate persisted conversations`() {
-        val state = ChatState(TestScope(), AppStateStore)
+        val state = ChatState(TestScope(), stores.appStateStore)
         state.setNickname("me")
         val manager = PrivateChatManager(
             state = state,
-            messageManager = MessageManager(state, AppStateStore, ContactDirectory),
+            messageManager = MessageManager(state, stores.appStateStore, stores.contactDirectory),
             dataManager = DataManager(context),
             noiseSessionDelegate = testNoiseDelegate(),
-            contactDirectory = ContactDirectory,
-            appStateStore = AppStateStore,
-            favorites = Lazy { FavoritesPersistenceService.shared },
+            contactDirectory = stores.contactDirectory,
+            appStateStore = stores.appStateStore,
+            favorites = Lazy { stores.favorites },
             peerFingerprints = PeerFingerprintManager(),
         )
 
@@ -271,16 +264,16 @@ class IncomingMessageAdmissionTest {
             }
         )
         repositoriesToClose += failingRepository
-        AppStateStore.setConversationRepositoryForTest(failingRepository)
-        val state = ChatState(TestScope(), AppStateStore)
+        stores = TestMeshStores(context, failingRepository)
+        val state = ChatState(TestScope(), stores.appStateStore)
         val manager = PrivateChatManager(
             state = state,
-            messageManager = MessageManager(state, AppStateStore, ContactDirectory),
+            messageManager = MessageManager(state, stores.appStateStore, stores.contactDirectory),
             dataManager = DataManager(context),
             noiseSessionDelegate = testNoiseDelegate(),
-            contactDirectory = ContactDirectory,
-            appStateStore = AppStateStore,
-            favorites = Lazy { FavoritesPersistenceService.shared },
+            contactDirectory = stores.contactDirectory,
+            appStateStore = stores.appStateStore,
+            favorites = Lazy { stores.favorites },
             peerFingerprints = PeerFingerprintManager(),
         )
         var callbackInvoked = false
@@ -316,7 +309,7 @@ class IncomingMessageAdmissionTest {
         }
 
         assertEquals(listOf(true, true, true, true, true, true, false), admitted)
-        assertFalse(AppStateStore.publicMessages.value.any { it.id == "$peer-7" })
+        assertFalse(stores.appStateStore.publicMessages.value.any { it.id == "$peer-7" })
         assertTrue(
             admit(
                 privateMessage(id = "$peer-dm").copy(senderPeerID = peer)

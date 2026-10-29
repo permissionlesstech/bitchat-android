@@ -12,6 +12,7 @@ import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.services.ConversationRepository
 import com.bitchat.android.services.InMemoryConversationStorageCipher
+import com.bitchat.android.services.TestMeshStores
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -48,11 +49,10 @@ class MediaSendingManagerMigrationTest {
     private lateinit var file: File
     private lateinit var conversationRepository: ConversationRepository
     private lateinit var conversationDatabaseName: String
+    private lateinit var stores: TestMeshStores
 
     @Before
     fun setup() {
-        state = ChatState(CoroutineScope(SupervisorJob() + Dispatchers.Unconfined), AppStateStore)
-        state.setNickname("me")
         conversationDatabaseName = "media-send-${UUID.randomUUID()}.db"
         conversationRepository = ConversationRepository(
             context = org.robolectric.RuntimeEnvironment.getApplication(),
@@ -60,16 +60,17 @@ class MediaSendingManagerMigrationTest {
             databaseName = conversationDatabaseName,
             storageCipher = InMemoryConversationStorageCipher()
         )
-        AppStateStore.clear()
-        AppStateStore.setConversationRepositoryForTest(conversationRepository)
+        stores = TestMeshStores(org.robolectric.RuntimeEnvironment.getApplication(), conversationRepository)
+        state = ChatState(CoroutineScope(SupervisorJob() + Dispatchers.Unconfined), stores.appStateStore)
+        state.setNickname("me")
         mesh = mock()
         whenever(mesh.myPeerID).thenReturn("0011223344556677")
         whenever(mesh.getPeerNicknames()).thenReturn(mapOf(peerID to "old peer"))
         manager = MediaSendingManager(
             state,
-            MessageManager(state, AppStateStore, ContactDirectory),
+            MessageManager(state, stores.appStateStore, stores.contactDirectory),
             mock(),
-            ContactDirectory,
+            stores.contactDirectory,
             CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
             mediaWorkDispatcher = Dispatchers.Unconfined,
             getMeshService = { mesh }
@@ -81,8 +82,6 @@ class MediaSendingManagerMigrationTest {
 
     @After
     fun tearDown() {
-        AppStateStore.clear()
-        AppStateStore.setConversationRepositoryForTest(null)
         conversationRepository.closeForTest()
         org.robolectric.RuntimeEnvironment.getApplication()
             .deleteDatabase(conversationDatabaseName)
@@ -121,9 +120,9 @@ class MediaSendingManagerMigrationTest {
                 }
             val asynchronousManager = MediaSendingManager(
                 state,
-                MessageManager(state, AppStateStore, ContactDirectory),
+                MessageManager(state, stores.appStateStore, stores.contactDirectory),
                 mock(),
-                ContactDirectory,
+                stores.contactDirectory,
                 CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
                 mediaWorkDispatcher = dispatcher,
                 getMeshService = { mesh }

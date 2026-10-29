@@ -1,6 +1,5 @@
 package com.bitchat.android.services
 
-import androidx.annotation.VisibleForTesting
 import android.content.Context
 import com.bitchat.android.favorites.FavoriteRelationship
 import com.bitchat.android.favorites.FavoritesPersistenceService
@@ -8,8 +7,26 @@ import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.nostr.GeohashAliasRegistry
+import dagger.Lazy
+import javax.inject.Inject
+import javax.inject.Singleton
 
-object ContactDirectory {
+/**
+ * Resolves a peer, alias or contact conversation ID to its canonical conversation.
+ *
+ * [favorites] is read at use time and every read is guarded: before the favourites are
+ * initialised a lookup simply finds no favourite. The context and mesh come later, from
+ * [initialize] (the chat session's start-up); until then cached identities and live peers are
+ * not consulted, and on the watch they never are.
+ */
+@Singleton
+class ContactDirectory(
+    private val favorites: Lazy<FavoritesPersistenceService>,
+    private val identityManagerProvider: (Context) -> SecureIdentityStateManager,
+) {
+    @Inject constructor(favorites: Lazy<FavoritesPersistenceService>) :
+        this(favorites, { SecureIdentityStateManager(it) })
+
     data class ContactResolution(
         val conversationID: String,
         val meshPeerID: String?,
@@ -26,11 +43,6 @@ object ContactDirectory {
 
     @Volatile
     private var meshProvider: (() -> MeshService?)? = null
-
-    @Volatile
-    @set:VisibleForTesting
-    var identityManagerProvider: (Context) -> SecureIdentityStateManager =
-        { SecureIdentityStateManager(it) }
 
     fun initialize(context: Context, meshProvider: () -> MeshService?) {
         appContext = context.applicationContext
@@ -89,7 +101,7 @@ object ContactDirectory {
             nostrPubkey = favorite?.peerNostrPublicKey
                 ?: liveMeshPeerID?.let {
                     runCatching {
-                        FavoritesPersistenceService.shared.findNostrPubkeyForPeerID(it)
+                        favorites.get().findNostrPubkeyForPeerID(it)
                     }.getOrNull()
                 },
             // A connected peer's current announcement is authoritative. Favorite and fingerprint
@@ -174,14 +186,14 @@ object ContactDirectory {
 
     private fun favoriteForMeshPeerID(peerID: String): FavoriteRelationship? =
         try {
-            FavoritesPersistenceService.shared.getFavoriteStatus(peerID)
+            favorites.get().getFavoriteStatus(peerID)
         } catch (_: Exception) {
             null
         }
 
     private fun findFavoriteByFingerprint(fingerprint: String): FavoriteRelationship? =
         try {
-            FavoritesPersistenceService.shared.getAllRelationships().firstOrNull {
+            favorites.get().getAllRelationships().firstOrNull {
                 ContactIdentityResolver.fingerprintHex(it.peerNoisePublicKey).equals(fingerprint, ignoreCase = true)
             }
         } catch (_: Exception) {
@@ -190,7 +202,7 @@ object ContactDirectory {
 
     private fun findFavoriteByNostrHex(pubHex: String): FavoriteRelationship? =
         try {
-            FavoritesPersistenceService.shared.getAllRelationships().firstOrNull {
+            favorites.get().getAllRelationships().firstOrNull {
                 it.peerNostrPublicKey
                     ?.let { npub -> ContactIdentityResolver.nostrPubkeyHex(npub) }
                     ?.equals(pubHex, ignoreCase = true) == true
@@ -204,7 +216,7 @@ object ContactDirectory {
         val prefix = alias.removePrefix("nostr_").removePrefix("nostr:")
         if (prefix.isBlank()) return null
         return try {
-            FavoritesPersistenceService.shared.getAllRelationships()
+            favorites.get().getAllRelationships()
                 .asSequence()
                 .mapNotNull { it.peerNostrPublicKey?.let { npub -> ContactIdentityResolver.nostrPubkeyHex(npub) } }
                 .firstOrNull { it.startsWith(prefix, ignoreCase = true) }

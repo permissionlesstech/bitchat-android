@@ -2,27 +2,16 @@ package com.bitchat.android.services
 
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
+import org.mockito.kotlin.mock
 import kotlinx.coroutines.runBlocking
 import java.util.Date
 
 class AppStateStoreTest {
-    @Before
-    fun setUp() {
-        AppStateStore.resumePrivateConversationsAfterPanic()
-        AppStateStore.clear()
-    }
-
-    @After
-    fun tearDown() {
-        AppStateStore.resumePrivateConversationsAfterPanic()
-        AppStateStore.clear()
-    }
+    private val store = TestMeshStores(mock()).appStateStore
 
     @Test
     fun `public timeline collapses request sync replay even when android message ids differ`() {
@@ -36,10 +25,10 @@ class AppStateStoreTest {
         )
         val requestSyncReplay = originalDelivery.copy(id = "different-random-id-from-replay")
 
-        AppStateStore.addPublicMessage(originalDelivery)
-        AppStateStore.addPublicMessage(requestSyncReplay)
+        store.addPublicMessage(originalDelivery)
+        store.addPublicMessage(requestSyncReplay)
 
-        assertEquals(listOf(originalDelivery), AppStateStore.publicMessages.value)
+        assertEquals(listOf(originalDelivery), store.publicMessages.value)
     }
 
     @Test
@@ -56,55 +45,55 @@ class AppStateStoreTest {
             timestamp = Date(first.timestamp.time + 1_000L)
         )
 
-        AppStateStore.addPublicMessage(first)
-        AppStateStore.addPublicMessage(second)
+        store.addPublicMessage(first)
+        store.addPublicMessage(second)
 
-        assertEquals(listOf(first, second), AppStateStore.publicMessages.value)
+        assertEquals(listOf(first, second), store.publicMessages.value)
     }
 
     @Test
     fun `peer list merges transport updates instead of overwriting`() {
-        AppStateStore.setTransportPeers("WIFI", listOf("wifi-peer"))
-        AppStateStore.setTransportPeers("BLE", emptyList())
+        store.setTransportPeers("WIFI", listOf("wifi-peer"))
+        store.setTransportPeers("BLE", emptyList())
 
-        assertEquals(listOf("wifi-peer"), AppStateStore.peers.value)
+        assertEquals(listOf("wifi-peer"), store.peers.value)
 
-        AppStateStore.setTransportPeers("BLE", listOf("ble-peer"))
+        store.setTransportPeers("BLE", listOf("ble-peer"))
 
-        assertEquals(listOf("wifi-peer", "ble-peer"), AppStateStore.peers.value)
+        assertEquals(listOf("wifi-peer", "ble-peer"), store.peers.value)
     }
 
     @Test
     fun `direct peers union across transports`() {
-        AppStateStore.setTransportDirectPeers("BLE", listOf("ble-1", "shared"))
-        AppStateStore.setTransportDirectPeers("WIFI", listOf("wifi-1", "shared"))
+        store.setTransportDirectPeers("BLE", listOf("ble-1", "shared"))
+        store.setTransportDirectPeers("WIFI", listOf("wifi-1", "shared"))
 
         assertEquals(
             setOf("ble-1", "wifi-1", "shared"),
-            AppStateStore.getDirectPeers()
+            store.getDirectPeers()
         )
         assertEquals(
             setOf("ble-1", "wifi-1", "shared"),
-            AppStateStore.directPeers.value
+            store.directPeers.value
         )
     }
 
     @Test
     fun `clearing one transport keeps the other transport direct peers`() {
-        AppStateStore.setTransportDirectPeers("BLE", listOf("ble-1"))
-        AppStateStore.setTransportDirectPeers("WIFI", listOf("wifi-1"))
+        store.setTransportDirectPeers("BLE", listOf("ble-1"))
+        store.setTransportDirectPeers("WIFI", listOf("wifi-1"))
 
-        AppStateStore.clearTransportDirectPeers("WIFI")
+        store.clearTransportDirectPeers("WIFI")
 
-        assertEquals(setOf("ble-1"), AppStateStore.getDirectPeers())
+        assertEquals(setOf("ble-1"), store.getDirectPeers())
     }
 
     @Test
     fun `latest direct peer set replaces previous set for same transport`() {
-        AppStateStore.setTransportDirectPeers("WIFI", listOf("wifi-1", "wifi-2"))
-        AppStateStore.setTransportDirectPeers("WIFI", listOf("wifi-3"))
+        store.setTransportDirectPeers("WIFI", listOf("wifi-1", "wifi-2"))
+        store.setTransportDirectPeers("WIFI", listOf("wifi-3"))
 
-        assertEquals(setOf("wifi-3"), AppStateStore.getDirectPeers())
+        assertEquals(setOf("wifi-3"), store.getDirectPeers())
     }
 
     @Test
@@ -113,14 +102,14 @@ class AppStateStoreTest {
         val noise = BitchatMessage(id = "noise-message", sender = "alice", content = "noise", timestamp = Date(2))
         val nostr = BitchatMessage(id = "nostr-message", sender = "alice", content = "nostr", timestamp = Date(3))
 
-        AppStateStore.addPrivateMessage("live-peer", live)
-        AppStateStore.addPrivateMessage("noise-hex", noise)
-        AppStateStore.addPrivateMessage("nostr_alias", nostr)
+        store.addPrivateMessage("live-peer", live)
+        store.addPrivateMessage("noise-hex", noise)
+        store.addPrivateMessage("nostr_alias", nostr)
 
-        AppStateStore.unifyPrivateChatsIntoPeer("live-peer", listOf("noise-hex", "nostr_alias"))
+        store.unifyPrivateChatsIntoPeer("live-peer", listOf("noise-hex", "nostr_alias"))
 
-        assertEquals(setOf("live-peer"), AppStateStore.privateMessages.value.keys)
-        assertEquals(listOf(live, noise, nostr), AppStateStore.privateMessages.value["live-peer"])
+        assertEquals(setOf("live-peer"), store.privateMessages.value.keys)
+        assertEquals(listOf(live, noise, nostr), store.privateMessages.value["live-peer"])
     }
 
     @Test
@@ -129,10 +118,10 @@ class AppStateStoreTest {
         val contactID = ContactIdentityResolver.contactConversationIdForNoiseKey(ByteArray(32))
         val message = BitchatMessage(id = "noise-message", sender = "alice", content = "hello", timestamp = Date(1))
 
-        AppStateStore.addPrivateMessage(noiseKeyHex, message)
+        store.addPrivateMessage(noiseKeyHex, message)
 
-        assertEquals(setOf(contactID), AppStateStore.privateMessages.value.keys)
-        assertEquals(listOf(message), AppStateStore.privateMessages.value[contactID])
+        assertEquals(setOf(contactID), store.privateMessages.value.keys)
+        assertEquals(listOf(message), store.privateMessages.value[contactID])
     }
 
     @Test
@@ -144,15 +133,15 @@ class AppStateStoreTest {
             timestamp = Date(1),
             isPrivate = true
         )
-        AppStateStore.addPrivateMessage("peer-a", message)
+        store.addPrivateMessage("peer-a", message)
 
-        AppStateStore.updatePrivateConversationDisplayNames(
+        store.updatePrivateConversationDisplayNames(
             mapOf("peer-a" to "Alice New")
         )
 
         assertEquals(
             "Alice New",
-            AppStateStore.privateConversationDisplayNames.value.getValue("peer-a")
+            store.privateConversationDisplayNames.value.getValue("peer-a")
         )
     }
 
@@ -170,7 +159,7 @@ class AppStateStoreTest {
             isPrivate = true
         )
 
-        AppStateStore.restorePrivateConversations(
+        store.restorePrivateConversations(
             PersistedConversationSnapshot(
                 chats = mapOf(noiseKeyHex to listOf(message)),
                 readMessageIDs = emptySet(),
@@ -181,11 +170,11 @@ class AppStateStoreTest {
             )
         )
 
-        assertEquals(setOf(contactID), AppStateStore.privateMessages.value.keys)
-        assertEquals(mapOf(contactID to 1), AppStateStore.unreadPrivateMessageCounts.value)
+        assertEquals(setOf(contactID), store.privateMessages.value.keys)
+        assertEquals(mapOf(contactID to 1), store.unreadPrivateMessageCounts.value)
         assertEquals(
             mapOf(contactID to "Alice Renamed"),
-            AppStateStore.privateConversationDisplayNames.value
+            store.privateConversationDisplayNames.value
         )
     }
 
@@ -206,12 +195,12 @@ class AppStateStoreTest {
             timestamp = Date(1)
         )
 
-        AppStateStore.addPrivateMessage(contactID, firstArrival)
-        AppStateStore.addPrivateMessage(noiseKeyHex, secondArrival)
+        store.addPrivateMessage(contactID, firstArrival)
+        store.addPrivateMessage(noiseKeyHex, secondArrival)
 
         assertEquals(
             listOf(firstArrival, secondArrival),
-            AppStateStore.privateMessages.value[contactID]
+            store.privateMessages.value[contactID]
         )
     }
 
@@ -225,22 +214,22 @@ class AppStateStoreTest {
             isPrivate = true,
             deliveryStatus = DeliveryStatus.Sending
         )
-        AppStateStore.addPrivateMessage("peer-a", message)
+        store.addPrivateMessage("peer-a", message)
 
-        AppStateStore.updatePrivateMessageStatus(
+        store.updatePrivateMessageStatus(
             message.id,
             DeliveryStatus.Delivered("peer-a", Date(2))
         )
-        AppStateStore.updatePrivateMessageStatus(
+        store.updatePrivateMessageStatus(
             message.id,
             DeliveryStatus.Read("peer-a", Date(3))
         )
-        AppStateStore.updatePrivateMessageStatus(
+        store.updatePrivateMessageStatus(
             message.id,
             DeliveryStatus.Delivered("peer-a", Date(4))
         )
 
-        val status = AppStateStore.privateMessages.value
+        val status = store.privateMessages.value
             .values
             .flatten()
             .single()
@@ -258,29 +247,29 @@ class AppStateStoreTest {
             isPrivate = true,
             deliveryStatus = DeliveryStatus.Sending
         )
-        AppStateStore.addPrivateMessage("peer-a", sending)
+        store.addPrivateMessage("peer-a", sending)
 
-        AppStateStore.updatePrivateMessageStatus(
+        store.updatePrivateMessageStatus(
             sending.id,
             DeliveryStatus.Failed("network unavailable")
         )
         assertTrue(
-            AppStateStore.privateMessages.value
+            store.privateMessages.value
                 .getValue("peer-a")
                 .single()
                 .deliveryStatus is DeliveryStatus.Failed
         )
 
-        AppStateStore.updatePrivateMessageStatus(
+        store.updatePrivateMessageStatus(
             sending.id,
             DeliveryStatus.Delivered("alice", Date(2))
         )
-        AppStateStore.updatePrivateMessageStatus(
+        store.updatePrivateMessageStatus(
             sending.id,
             DeliveryStatus.Failed("late timeout")
         )
         assertTrue(
-            AppStateStore.privateMessages.value
+            store.privateMessages.value
                 .getValue("peer-a")
                 .single()
                 .deliveryStatus is DeliveryStatus.Delivered
@@ -290,7 +279,7 @@ class AppStateStoreTest {
     @Test
     fun `closing a conversation releases full payload history but keeps its summary`() {
         repeat(3) { index ->
-            AppStateStore.addPrivateMessage(
+            store.addPrivateMessage(
                 "peer-a",
                 BitchatMessage(
                     id = "history-$index",
@@ -302,19 +291,19 @@ class AppStateStoreTest {
             )
         }
 
-        AppStateStore.releasePrivateConversationHistory("peer-a")
+        store.releasePrivateConversationHistory("peer-a")
 
         assertEquals(
             listOf("history-2"),
-            AppStateStore.privateMessages.value.getValue("peer-a").map { it.id }
+            store.privateMessages.value.getValue("peer-a").map { it.id }
         )
     }
 
     @Test
     fun `long lived process applies the same bounded private history policy`() {
-        AppStateStore.setNickname("me")
+        store.setNickname("me")
         repeat(ConversationDatabase.MAX_MESSAGES_PER_CONVERSATION) { index ->
-            AppStateStore.addPrivateMessage(
+            store.addPrivateMessage(
                 "peer-a",
                 BitchatMessage(
                     id = "incoming-$index",
@@ -325,7 +314,7 @@ class AppStateStoreTest {
                 )
             )
         }
-        AppStateStore.addPrivateMessage(
+        store.addPrivateMessage(
             "peer-a",
             BitchatMessage(
                 id = "latest-outgoing",
@@ -336,7 +325,7 @@ class AppStateStoreTest {
             )
         )
 
-        val retained = AppStateStore.privateMessages.value.getValue("peer-a")
+        val retained = store.privateMessages.value.getValue("peer-a")
         assertEquals(ConversationDatabase.MAX_MESSAGES_PER_CONVERSATION, retained.size)
         assertEquals("incoming-1", retained.first().id)
         assertEquals("latest-outgoing", retained.last().id)
@@ -352,11 +341,11 @@ class AppStateStoreTest {
             isPrivate = true
         )
 
-        assertTrue(AppStateStore.addPrivateMessage("peer-a", message, forceRead = true))
-        assertFalse(AppStateStore.addPrivateMessage("peer-a", message))
+        assertTrue(store.addPrivateMessage("peer-a", message, forceRead = true))
+        assertFalse(store.addPrivateMessage("peer-a", message))
 
-        assertEquals(1, AppStateStore.privateMessages.value.getValue("peer-a").size)
-        assertTrue(AppStateStore.isPrivateMessageRead(message.id))
+        assertEquals(1, store.privateMessages.value.getValue("peer-a").size)
+        assertTrue(store.isPrivateMessageRead(message.id))
     }
 
     @Test
@@ -371,21 +360,21 @@ class AppStateStoreTest {
         val duringPanic = beforePanic.copy(id = "during-panic")
         val afterPanic = beforePanic.copy(id = "after-panic")
 
-        assertTrue(AppStateStore.addPrivateMessage("peer-a", beforePanic))
-        AppStateStore.updatePrivateConversationDisplayNames(
+        assertTrue(store.addPrivateMessage("peer-a", beforePanic))
+        store.updatePrivateConversationDisplayNames(
             mapOf("peer-a" to "Alice")
         )
-        assertTrue(runBlocking { AppStateStore.panicClearPrivateConversations() })
-        assertTrue(AppStateStore.privateMessages.value.isEmpty())
-        assertTrue(AppStateStore.privateConversationDisplayNames.value.isEmpty())
-        assertFalse(AppStateStore.addPrivateMessage("peer-a", duringPanic))
+        assertTrue(runBlocking { store.panicClearPrivateConversations() })
+        assertTrue(store.privateMessages.value.isEmpty())
+        assertTrue(store.privateConversationDisplayNames.value.isEmpty())
+        assertFalse(store.addPrivateMessage("peer-a", duringPanic))
 
-        AppStateStore.resumePrivateConversationsAfterPanic()
+        store.resumePrivateConversationsAfterPanic()
 
-        assertTrue(AppStateStore.addPrivateMessage("peer-a", afterPanic))
+        assertTrue(store.addPrivateMessage("peer-a", afterPanic))
         assertEquals(
             listOf(afterPanic),
-            AppStateStore.privateMessages.value.getValue("peer-a")
+            store.privateMessages.value.getValue("peer-a")
         )
     }
 }

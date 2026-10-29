@@ -98,7 +98,9 @@ data class NostrIdentity(
  * Manages persistent storage and per-geohash identity derivation
  */
 @Singleton
-class NostrIdentityBridge @Inject constructor() {
+class NostrIdentityBridge @Inject constructor(
+    private val favorites: FavoritesPersistenceService,
+) {
     private companion object {
         const val TAG = "NostrIdentityBridge"
         const val NOSTR_PRIVATE_KEY = "nostr_private_key"
@@ -194,8 +196,8 @@ class NostrIdentityBridge @Inject constructor() {
      * Associate a Nostr identity with a Noise public key (for favorites)
      */
     fun associateNostrIdentity(nostrPubkey: String, noisePublicKey: ByteArray, context: Context) {
-        FavoritesPersistenceService.initialize(context)
-        FavoritesPersistenceService.shared.updateNostrPublicKey(noisePublicKey, nostrPubkey)
+        favorites.initialize()
+        favorites.updateNostrPublicKey(noisePublicKey, nostrPubkey)
         Log.d(TAG, "Associated Nostr pubkey ${nostrPubkey.take(16)}... with Noise key")
     }
     
@@ -203,8 +205,8 @@ class NostrIdentityBridge @Inject constructor() {
      * Get Nostr public key associated with a Noise public key
      */
     fun getNostrPublicKey(noisePublicKey: ByteArray, context: Context): String? {
-        FavoritesPersistenceService.initialize(context)
-        return FavoritesPersistenceService.shared.findNostrPubkey(noisePublicKey)
+        favorites.initialize()
+        return favorites.findNostrPubkey(noisePublicKey)
     }
     
     /**

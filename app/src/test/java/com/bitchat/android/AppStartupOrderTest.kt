@@ -91,7 +91,7 @@ class AppStartupOrderTest {
         val onCreate = applicationOnCreate()
         val steps = linkedMapOf(
             "power policy" to Regex("""powerManager\.get\(\)\.start\(\)"""),
-            "favourites" to Regex("""favoritesInit\.initialize\(\)"""),
+            "favourites" to Regex("""favoritesPersistence\.get\(\)\.initialize\(\)"""),
             "conversation persistence" to Regex("""appStateStore\.get\(\)\.initializeConversationPersistence\(this\)"""),
             "nostr identity" to Regex("""nostrIdentityBridge\.get\(\)\.getCurrentNostrIdentity\(this\)"""),
             "spam preferences" to Regex("""spamFilterPreferences\.get\(\)\.init\(this\)"""),
@@ -120,11 +120,7 @@ class AppStartupOrderTest {
         val source = File(root, "app/src/main/java/com/bitchat/android/BitchatApplication.kt").readText()
         val eager = Regex("""@Inject lateinit var (\w+): (?!Lazy<)(\w+)""").findAll(source)
             .map { it.groupValues[1] to it.groupValues[2] }.toList()
-        assertEquals(
-            "Only the init bridge may be injected eagerly (it only holds a Context): $eager",
-            listOf("favoritesInit" to "FavoritesInitRetry"),
-            eager,
-        )
+        assertEquals("Every Application field must be injected Lazy: $eager", emptyList<Pair<String, String>>(), eager)
     }
 
     private fun applicationOnCreate(): String =

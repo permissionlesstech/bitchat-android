@@ -1,7 +1,6 @@
 package com.bitchat.android
 
 import android.app.Application
-import com.bitchat.android.di.FavoritesInitRetry
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.mesh.PowerManager
@@ -38,8 +37,7 @@ class BitchatApplication : Application() {
 
     // Lazy, so each is first touched where onCreate touched it before Hilt injected them. That
     // matters most for the stores that read persisted state: Hilt injects these fields inside
-    // super.onCreate(), before the init calls below, and a bridge that reads a store before its
-    // init (the favourites, for one) would throw.
+    // super.onCreate(), before the init calls below.
     @Inject lateinit var torManager: Lazy<ArtiTorManager>
     @Inject lateinit var relayDirectory: Lazy<RelayDirectory>
     @Inject lateinit var locationNotesInitializer: Lazy<LocationNotesInitializer>
@@ -47,7 +45,6 @@ class BitchatApplication : Application() {
     @Inject lateinit var powPreferences: Lazy<PoWPreferenceManager>
     @Inject lateinit var nostrTransport: Lazy<NostrTransport>
     @Inject lateinit var powerManager: Lazy<PowerManager>
-    @Inject lateinit var favoritesInit: FavoritesInitRetry
     @Inject lateinit var favoritesPersistence: Lazy<FavoritesPersistenceService>
     @Inject lateinit var appStateStore: Lazy<AppStateStore>
     @Inject lateinit var contactDirectory: Lazy<ContactDirectory>
@@ -84,7 +81,7 @@ class BitchatApplication : Application() {
 
         // Initialize favorites persistence early so MessageRouter/NostrTransport can use it on startup
         try {
-            favoritesInit.initialize()
+            favoritesPersistence.get().initialize()
         } catch (_: Exception) { }
 
         // Restore private conversations before background transports can deliver new messages.

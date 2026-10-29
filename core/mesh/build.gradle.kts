@@ -30,4 +30,6 @@ dependencies {
     implementation(libs.androidx.security.crypto)
 
     testImplementation(libs.bundles.testing)
+    // TestMeshStores hands the contact directory its favourites as a dagger.Lazy, as Hilt does.
+    testFixturesImplementation(libs.dagger)
 }

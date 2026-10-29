@@ -1,18 +1,15 @@
 package com.bitchat.android.ui
 
 import android.os.Build
-import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.mesh.PeerInfo
 import com.bitchat.android.model.BitchatMessage
-import com.bitchat.android.services.AppStateStore
-import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
+import com.bitchat.android.services.TestMeshStores
 import dagger.Lazy
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -31,28 +28,23 @@ import java.util.Date
 @Config(sdk = [Build.VERSION_CODES.P], manifest = Config.NONE)
 @OptIn(ExperimentalCoroutinesApi::class)
 class PrivateChatManagerTest {
+    private val stores = TestMeshStores(RuntimeEnvironment.getApplication())
     private lateinit var state: ChatState
     private lateinit var manager: PrivateChatManager
 
     @Before
     fun setUp() {
-        AppStateStore.clear()
-        state = ChatState(TestScope(), AppStateStore)
+        state = ChatState(TestScope(), stores.appStateStore)
         manager = PrivateChatManager(
             state = state,
-            messageManager = MessageManager(state, AppStateStore, ContactDirectory),
+            messageManager = MessageManager(state, stores.appStateStore, stores.contactDirectory),
             dataManager = DataManager(RuntimeEnvironment.getApplication()),
             noiseSessionDelegate = mock(),
-            contactDirectory = ContactDirectory,
-            appStateStore = AppStateStore,
-            favorites = Lazy { FavoritesPersistenceService.shared },
+            contactDirectory = stores.contactDirectory,
+            appStateStore = stores.appStateStore,
+            favorites = Lazy { stores.favorites },
             peerFingerprints = PeerFingerprintManager(),
         )
-    }
-
-    @After
-    fun tearDown() {
-        AppStateStore.clear()
     }
 
     @Test
@@ -81,13 +73,13 @@ class PrivateChatManagerTest {
     fun `headless Nostr processing stores messages without retaining UI unread work`() {
         val headlessManager = PrivateChatManager(
             state = state,
-            messageManager = MessageManager(state, AppStateStore, ContactDirectory),
+            messageManager = MessageManager(state, stores.appStateStore, stores.contactDirectory),
             dataManager = DataManager(RuntimeEnvironment.getApplication()),
             noiseSessionDelegate = mock(),
             trackUnreadMessages = false,
-            contactDirectory = ContactDirectory,
-            appStateStore = AppStateStore,
-            favorites = Lazy { FavoritesPersistenceService.shared },
+            contactDirectory = stores.contactDirectory,
+            appStateStore = stores.appStateStore,
+            favorites = Lazy { stores.favorites },
             peerFingerprints = PeerFingerprintManager(),
         )
         val message = BitchatMessage(
@@ -105,7 +97,7 @@ class PrivateChatManagerTest {
             origin = PrivateMessageOrigin.NOSTR
         )
 
-        assertEquals(listOf(message), AppStateStore.privateMessages.value["nostr_background"])
+        assertEquals(listOf(message), stores.appStateStore.privateMessages.value["nostr_background"])
         assertTrue(state.getUnreadPrivateMessagesValue().isEmpty())
     }
 
@@ -191,13 +183,13 @@ class PrivateChatManagerTest {
         val meshService = mock<MeshService>()
         manager = PrivateChatManager(
             state = state,
-            messageManager = MessageManager(state, AppStateStore, ContactDirectory),
+            messageManager = MessageManager(state, stores.appStateStore, stores.contactDirectory),
             dataManager = DataManager(RuntimeEnvironment.getApplication()),
             noiseSessionDelegate = mock(),
             hasReadReceiptBeenSent = { it == oldMessage.id },
-            contactDirectory = ContactDirectory,
-            appStateStore = AppStateStore,
-            favorites = Lazy { FavoritesPersistenceService.shared },
+            contactDirectory = stores.contactDirectory,
+            appStateStore = stores.appStateStore,
+            favorites = Lazy { stores.favorites },
             peerFingerprints = PeerFingerprintManager(),
         )
         state.setNickname("bob")

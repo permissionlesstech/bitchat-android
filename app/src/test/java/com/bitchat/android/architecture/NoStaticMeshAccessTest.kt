@@ -46,18 +46,12 @@ class NoStaticMeshAccessTest {
     private val stillStatic = mapOf(
         "core/chat/src/main/java/com/bitchat/android/di/ChatBridgeModule.kt" to
             "bridge for ConversationListPreferences; deleted with the class's flip in Task 7",
-        "core/chat/src/main/java/com/bitchat/android/services/ConversationListPreferences.kt" to
-            "still-static class (getInstance); constructor-injected when flipped in Task 7",
         "core/chat/src/main/java/com/bitchat/android/services/MessageRouter.kt" to
             "deferred to 10c-2a-2: mesh-replacement machinery the identity holder replaces",
-        "core/nostr/src/main/java/com/bitchat/android/nostr/NostrIdentity.kt" to
-            "injected NostrIdentityBridge still reaching FavoritesPersistenceService; goes with its flip in Task 6b",
         "wear/src/main/java/com/bitchat/watch/di/WearBridgeModule.kt" to
             "bridge for the watch's still-static objects; deleted with their flips in Task 7",
         "wear/src/main/java/com/bitchat/watch/notification/WearNotificationCoordinator.kt" to
             "still-static class (getInstance) reaching WearChatState; constructor-injected when flipped in Task 7",
-        "wear/src/main/java/com/bitchat/watch/ui/WearPeerIdentityState.kt" to
-            "injected WearPeerIdentityState still reaching FavoritesPersistenceService; goes with its flip in Task 6b",
     )
 
     /**
@@ -68,22 +62,13 @@ class NoStaticMeshAccessTest {
      */
     private val stillStaticInMesh = mapOf(
         "core/mesh/src/main/java/com/bitchat/android/di/MeshBridgeModule.kt" to
-            "the bridges and FavoritesInitRetry; each bridge goes with its class's flip (Tasks 5 and 6)",
-        "core/mesh/src/main/java/com/bitchat/android/mesh/PowerManager.kt" to
-            "injected class still reaching the AppStateStore object; goes with AppStateStore in Task 6",
-        "core/mesh/src/main/java/com/bitchat/android/services/SeenMessageStore.kt" to
-            "injected class still reaching the AppStateStore object; goes with AppStateStore in Task 6",
-        "core/mesh/src/main/java/com/bitchat/android/features/voice/LiveVoiceManager.kt" to
-            "injected class still reaching the AppStateStore object; goes with AppStateStore in Task 6",
-        "core/mesh/src/main/java/com/bitchat/android/favorites/FavoritesPersistenceService.kt" to
-            "still-static class (shared) reaching AppStateStore; flipped in Task 7. Also reached statically by " +
-            "ContactDirectory (until its flip), MessageRouter (R14), NostrIdentityBridge and WearPeerIdentityState",
+            "the bridges; each goes with its class's flip in Task 6c",
         "core/mesh/src/main/java/com/bitchat/android/services/ContactDirectory.kt" to
-            "still-static object reaching FavoritesPersistenceService, GeohashAliasRegistry and " +
-            "PrivateMessageArrivalOrder, and reached by the AppStateStore object; flipped with it in Task 6b",
+            "injected class still reaching the GeohashAliasRegistry and PrivateMessageArrivalOrder objects; " +
+            "goes with their flips in Task 6c",
         "core/mesh/src/main/java/com/bitchat/android/services/AppStateStore.kt" to
-            "still-static object reaching ContactDirectory, PrivateMessageArrivalOrder and " +
-            "ConversationRepository; flipped last, in Task 6b",
+            "injected class still reaching ConversationRepository (getInstance) and the PrivateMessageArrivalOrder " +
+            "object; goes with their flips in Task 6c",
     )
 
     private val accessor = Regex(

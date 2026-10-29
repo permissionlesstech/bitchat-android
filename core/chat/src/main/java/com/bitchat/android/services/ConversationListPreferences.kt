@@ -22,15 +22,15 @@ class ConversationListPreferences private constructor(
     private val stateManager: SecureIdentityStateManager,
     private val canonicalize: (String) -> String
 ) {
-    private constructor(context: Context) : this(
+    private constructor(context: Context, contactDirectory: ContactDirectory) : this(
         SecureIdentityStateManager(context.applicationContext),
-        ContactDirectory::canonicalConversationId
+        contactDirectory::canonicalConversationId
     )
 
     internal constructor(
         stateManager: SecureIdentityStateManager,
         testOnly: Boolean,
-        canonicalize: (String) -> String = ContactDirectory::canonicalConversationId
+        canonicalize: (String) -> String
     ) : this(stateManager, canonicalize) {
         require(testOnly) { "Injected conversation preferences are test-only" }
     }
@@ -46,9 +46,9 @@ class ConversationListPreferences private constructor(
         @Volatile
         private var instance: ConversationListPreferences? = null
 
-        fun getInstance(context: Context): ConversationListPreferences =
+        fun getInstance(context: Context, contactDirectory: ContactDirectory): ConversationListPreferences =
             instance ?: synchronized(this) {
-                instance ?: ConversationListPreferences(context.applicationContext).also {
+                instance ?: ConversationListPreferences(context.applicationContext, contactDirectory).also {
                     instance = it
                 }
             }

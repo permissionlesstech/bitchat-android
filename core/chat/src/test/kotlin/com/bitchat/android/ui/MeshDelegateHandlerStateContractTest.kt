@@ -4,8 +4,7 @@ import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.PeerInfo
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
-import com.bitchat.android.services.AppStateStore
-import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.TestMeshStores
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -28,6 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MeshDelegateHandlerStateContractTest {
+    private val stores = TestMeshStores(mock())
     private lateinit var state: ChatState
     private lateinit var messages: MessageManager
     private lateinit var channels: ChannelManager
@@ -42,10 +42,9 @@ class MeshDelegateHandlerStateContractTest {
     @Before
     fun setUp() {
         scope = TestScope(UnconfinedTestDispatcher())
-        com.bitchat.android.services.AppStateStore.clear()
-        state = ChatState(scope, AppStateStore)
+        state = ChatState(scope, stores.appStateStore)
         state.setNickname("Résumé")
-        messages = MessageManager(state, AppStateStore, ContactDirectory)
+        messages = MessageManager(state, stores.appStateStore, stores.contactDirectory)
         channels = mock()
         privateChats = mock()
         notifications = mock()
@@ -64,15 +63,14 @@ class MeshDelegateHandlerStateContractTest {
             getMeshService = { mesh },
             markMessageReadLocally = locallyReadMessageIDs::add,
             reconciliationDispatcher = UnconfinedTestDispatcher(scope.testScheduler),
-            appStateStore = AppStateStore,
-            contactDirectory = ContactDirectory,
+            appStateStore = stores.appStateStore,
+            contactDirectory = stores.contactDirectory,
         )
     }
 
     @After
     fun tearDown() {
         scope.cancel()
-        com.bitchat.android.services.AppStateStore.clear()
     }
 
     @Test

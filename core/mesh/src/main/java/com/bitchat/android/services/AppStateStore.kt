@@ -1,21 +1,35 @@
 package com.bitchat.android.services
 
-import androidx.annotation.VisibleForTesting
 import android.content.Context
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Process-wide in-memory state store that survives Activity recreation.
  * The foreground Mesh service updates this store; UI subscribes/hydrates from it.
  */
-object AppStateStore {
-    const val MAX_PUBLIC_TIMELINE_MESSAGES = 1_000
-    const val MAX_RETAINED_CHANNEL_TIMELINES = 20
-    private const val MAX_RECENT_PUBLIC_MESSAGE_IDS = 10_000
+@Singleton
+class AppStateStore(
+    private val contactDirectory: ContactDirectory,
+    conversationRepository: ConversationRepository?,
+) {
+    /**
+     * Without a repository until [initializeConversationPersistence] hands it one. A test passes
+     * its repository to the other constructor instead, so the store writes to it from the start.
+     */
+    @Inject constructor(contactDirectory: ContactDirectory) : this(contactDirectory, null)
+
+    companion object {
+        const val MAX_PUBLIC_TIMELINE_MESSAGES = 1_000
+        const val MAX_RETAINED_CHANNEL_TIMELINES = 20
+        private const val MAX_RECENT_PUBLIC_MESSAGE_IDS = 10_000
+    }
+
     // Global de-dup set by message id to avoid duplicate keys in Compose lists
     private val seenMessageIds = mutableSetOf<String>()
     private val reservedPrivateMessageIds = mutableSetOf<String>()
@@ -51,7 +65,7 @@ object AppStateStore {
         _privateConversationDisplayNames.asStateFlow()
 
     @Volatile
-    private var conversationRepository: ConversationRepository? = null
+    private var conversationRepository: ConversationRepository? = conversationRepository
     private var privateConversationWritesSuspended = false
     private var privateConversationGeneration = 0L
 
@@ -95,11 +109,6 @@ object AppStateStore {
         repository.reload(::restorePrivateConversations)
     }
 
-    @VisibleForTesting
-    fun setConversationRepositoryForTest(repository: ConversationRepository?) {
-        conversationRepository = repository
-    }
-
     suspend fun awaitConversationPersistence() {
         conversationRepository?.awaitPendingWrites()
     }
@@ -107,7 +116,7 @@ object AppStateStore {
     suspend fun loadPrivateConversationHistory(conversationID: String): Boolean {
         val repository = conversationRepository ?: return false
         val snapshot = repository.loadConversationAndWait(
-            ContactDirectory.canonicalConversationId(conversationID)
+            contactDirectory.canonicalConversationId(conversationID)
         ) ?: return false
         restorePrivateConversations(snapshot)
         return true
@@ -119,9 +128,9 @@ object AppStateStore {
      */
     fun releasePrivateConversationHistory(conversationID: String) {
         synchronized(this) {
-            val canonicalID = ContactDirectory.canonicalConversationId(conversationID)
+            val canonicalID = contactDirectory.canonicalConversationId(conversationID)
             val matching = _privateMessages.value.entries.filter { (id, _) ->
-                ContactDirectory.canonicalConversationId(id)
+                contactDirectory.canonicalConversationId(id)
                     .equals(canonicalID, ignoreCase = true)
             }
             val latest = matching
@@ -242,10 +251,10 @@ object AppStateStore {
     fun upsertPrivateMessage(peerID: String, msg: BitchatMessage, forceRead: Boolean = false) {
         synchronized(this) {
             if (privateConversationWritesSuspended) return
-            val canonicalID = ContactDirectory.canonicalConversationId(peerID)
+            val canonicalID = contactDirectory.canonicalConversationId(peerID)
             val map = _privateMessages.value.toMutableMap()
             val matchingKey = map.keys.firstOrNull {
-                ContactDirectory.canonicalConversationId(it).equals(canonicalID, ignoreCase = true)
+                contactDirectory.canonicalConversationId(it).equals(canonicalID, ignoreCase = true)
             } ?: canonicalID
             val messages = map[matchingKey].orEmpty().toMutableList()
             val index = messages.indexOfFirst { it.id == msg.id }
@@ -256,14 +265,14 @@ object AppStateStore {
                 seenMessageIds.add(msg.id)
             }
             map[matchingKey] = messages
-            _privateMessages.value = ContactDirectory.canonicalizePrivateChats(map)
+            _privateMessages.value = contactDirectory.canonicalizePrivateChats(map)
             if (forceRead) {
                 _readPrivateMessageIDs.value = _readPrivateMessageIDs.value + msg.id
             }
             conversationRepository?.upsertMessage(
                 conversationID = canonicalID,
                 aliases = privateConversationAliases(peerID, canonicalID),
-                displayName = ContactDirectory.resolve(canonicalID).displayName,
+                displayName = contactDirectory.resolve(canonicalID).displayName,
                 message = msg,
                 isRead = forceRead
             )
@@ -327,17 +336,17 @@ object AppStateStore {
         if (seenMessageIds.contains(msg.id)) return false
         seenMessageIds.add(msg.id)
         PrivateMessageArrivalOrder.record(msg.id)
-        val conversationID = ContactDirectory.canonicalConversationId(peerID)
+        val conversationID = contactDirectory.canonicalConversationId(peerID)
         val map = _privateMessages.value.toMutableMap()
         val list = (map[conversationID] ?: emptyList()) + msg
         map[conversationID] = list
-        _privateMessages.value = ContactDirectory.canonicalizePrivateChats(map)
+        _privateMessages.value = contactDirectory.canonicalizePrivateChats(map)
 
         val isRead = forceRead ||
             msg.sender == "system" ||
             msg.sender == _nickname.value ||
             _selectedPrivateChatPeer.value
-                ?.let(ContactDirectory::canonicalConversationId)
+                ?.let(contactDirectory::canonicalConversationId)
                 ?.equals(conversationID, ignoreCase = true) == true
         if (isRead) {
             _readPrivateMessageIDs.value = _readPrivateMessageIDs.value + msg.id
@@ -347,7 +356,7 @@ object AppStateStore {
             _unreadPrivateMessageCounts.value = counts
         }
         val aliases = privateConversationAliases(peerID, conversationID)
-        val displayName = ContactDirectory.resolve(conversationID).displayName
+        val displayName = contactDirectory.resolve(conversationID).displayName
             ?: msg.sender.takeUnless {
                 it.isBlank() || it == "system" || it == _nickname.value
             }
@@ -374,16 +383,16 @@ object AppStateStore {
         msg: BitchatMessage,
         forceRead: Boolean
     ): PendingPrivateMessagePersistence {
-        val conversationID = ContactDirectory.canonicalConversationId(peerID)
+        val conversationID = contactDirectory.canonicalConversationId(peerID)
         val existingMessages = _privateMessages.value[conversationID].orEmpty()
         val isRead = forceRead ||
             msg.sender == "system" ||
             msg.sender == _nickname.value ||
             _selectedPrivateChatPeer.value
-                ?.let(ContactDirectory::canonicalConversationId)
+                ?.let(contactDirectory::canonicalConversationId)
                 ?.equals(conversationID, ignoreCase = true) == true
         val aliases = privateConversationAliases(peerID, conversationID)
-        val displayName = ContactDirectory.resolve(conversationID).displayName
+        val displayName = contactDirectory.resolve(conversationID).displayName
             ?: (existingMessages + msg)
                 .lastOrNull { candidate ->
                     candidate.sender.isNotBlank() &&
@@ -411,8 +420,8 @@ object AppStateStore {
         peerID: String,
         conversationID: String
     ): Set<String> = runCatching {
-        ContactDirectory.aliasesForConversation(peerID) +
-            ContactDirectory.aliasesForConversation(conversationID)
+        contactDirectory.aliasesForConversation(peerID) +
+            contactDirectory.aliasesForConversation(conversationID)
     }.getOrDefault(setOf(peerID, conversationID))
 
     fun hasSeenMessage(messageID: String): Boolean = synchronized(this) {
@@ -472,11 +481,11 @@ object AppStateStore {
         if (keysToMerge.isEmpty()) return
         synchronized(this) {
             if (privateConversationWritesSuspended) return
-            val targetConversationID = ContactDirectory.canonicalConversationId(targetPeerID)
+            val targetConversationID = contactDirectory.canonicalConversationId(targetPeerID)
             val persistenceAliases = (keysToMerge + targetPeerID + targetConversationID)
                 .flatMap { key ->
                     runCatching {
-                        ContactDirectory.aliasesForConversation(key).toList()
+                        contactDirectory.aliasesForConversation(key).toList()
                     }.getOrDefault(listOf(key))
                 }
                 .toSet()
@@ -487,7 +496,7 @@ object AppStateStore {
             var changed = false
 
             keysToMerge.distinct().forEach { key ->
-                val canonicalKey = ContactDirectory.canonicalConversationId(key)
+                val canonicalKey = contactDirectory.canonicalConversationId(key)
                 if (canonicalKey == targetConversationID) {
                     val messages = map.remove(key)
                     if (messages != null) {
@@ -551,14 +560,14 @@ object AppStateStore {
                 val usableName = nickname.takeUnless {
                     it.isBlank() || it.equals("Unknown", ignoreCase = true)
                 } ?: return@forEach
-                val canonicalID = ContactDirectory.canonicalConversationId(peerID)
+                val canonicalID = contactDirectory.canonicalConversationId(peerID)
                 if (canonicalID.lowercase() !in conversationIDs) {
                     return@forEach
                 }
                 updateConversationDisplayNameLocked(canonicalID, usableName)
                 val aliases = runCatching {
-                    ContactDirectory.aliasesForConversation(peerID) +
-                        ContactDirectory.aliasesForConversation(canonicalID)
+                    contactDirectory.aliasesForConversation(peerID) +
+                        contactDirectory.aliasesForConversation(canonicalID)
                 }.getOrDefault(setOf(peerID, canonicalID))
                 conversationRepository?.updateConversationIdentity(
                     conversationID = canonicalID,
@@ -597,14 +606,14 @@ object AppStateStore {
         conversationID: String,
         isRead: Boolean
     ): Boolean {
-        val canonicalID = ContactDirectory.canonicalConversationId(conversationID)
+        val canonicalID = contactDirectory.canonicalConversationId(conversationID)
         val repository = conversationRepository ?: return false
         val result = repository.setConversationReadAndWait(canonicalID, isRead)
         if (!result.success) return false
         synchronized(this) {
             val messageIDs = _privateMessages.value
                 .filterKeys { key ->
-                    ContactDirectory.canonicalConversationId(key)
+                    contactDirectory.canonicalConversationId(key)
                         .equals(canonicalID, ignoreCase = true)
                 }
                 .values
@@ -614,7 +623,7 @@ object AppStateStore {
                 _readPrivateMessageIDs.value = _readPrivateMessageIDs.value + messageIDs
                 _unreadPrivateMessageCounts.value =
                     _unreadPrivateMessageCounts.value.filterKeys { key ->
-                        !ContactDirectory.canonicalConversationId(key)
+                        !contactDirectory.canonicalConversationId(key)
                             .equals(canonicalID, ignoreCase = true)
                     }
             } else {
@@ -631,15 +640,15 @@ object AppStateStore {
 
     fun deletePrivateConversation(peerOrConversationID: String): Set<String> {
         synchronized(this) {
-            val canonicalID = ContactDirectory.canonicalConversationId(peerOrConversationID)
+            val canonicalID = contactDirectory.canonicalConversationId(peerOrConversationID)
             val matchingKeys = _privateMessages.value.keys.filterTo(linkedSetOf()) { key ->
-                ContactDirectory.canonicalConversationId(key)
+                contactDirectory.canonicalConversationId(key)
                     .equals(canonicalID, ignoreCase = true)
             }
             val aliases = (matchingKeys + peerOrConversationID + canonicalID)
                 .flatMap { key ->
                     runCatching {
-                        ContactDirectory.aliasesForConversation(key).toList()
+                        contactDirectory.aliasesForConversation(key).toList()
                     }.getOrDefault(listOf(key))
                 }
                 .toSet()
@@ -659,7 +668,7 @@ object AppStateStore {
                 _unreadPrivateMessageCounts.value - matchingKeys - canonicalID
             if (
                 _selectedPrivateChatPeer.value
-                    ?.let(ContactDirectory::canonicalConversationId)
+                    ?.let(contactDirectory::canonicalConversationId)
                     ?.equals(canonicalID, ignoreCase = true) == true
             ) {
                 _selectedPrivateChatPeer.value = null
@@ -684,7 +693,7 @@ object AppStateStore {
             val updated = _privateMessages.value.toMutableMap()
             updated.keys.toList().forEach { key ->
                 if (
-                    ContactDirectory.canonicalConversationId(key)
+                    contactDirectory.canonicalConversationId(key)
                         .equals(deletion.conversationID, ignoreCase = true)
                 ) {
                     val remaining = updated[key].orEmpty().filterNot {
@@ -707,7 +716,7 @@ object AppStateStore {
             _unreadPrivateMessageCounts.value = counts
             if (
                 _selectedPrivateChatPeer.value
-                    ?.let(ContactDirectory::canonicalConversationId)
+                    ?.let(contactDirectory::canonicalConversationId)
                     ?.equals(deletion.conversationID, ignoreCase = true) == true
             ) {
                 _selectedPrivateChatPeer.value = null
@@ -721,7 +730,7 @@ object AppStateStore {
     ): Boolean {
         val repository = conversationRepository ?: return false
         val restoredDisplayName =
-            ContactDirectory.resolve(deletion.conversationID).displayName
+            contactDirectory.resolve(deletion.conversationID).displayName
                 ?: deletion.displayName
         if (
             !repository.restoreConversationAndWait(
@@ -754,15 +763,15 @@ object AppStateStore {
     private fun buildDeletedConversationLocked(
         peerOrConversationID: String
     ): DeletedPrivateConversation {
-        val canonicalID = ContactDirectory.canonicalConversationId(peerOrConversationID)
+        val canonicalID = contactDirectory.canonicalConversationId(peerOrConversationID)
         val matchingKeys = _privateMessages.value.keys.filterTo(linkedSetOf()) { key ->
-            ContactDirectory.canonicalConversationId(key)
+            contactDirectory.canonicalConversationId(key)
                 .equals(canonicalID, ignoreCase = true)
         }
         val aliases = (matchingKeys + peerOrConversationID + canonicalID)
             .flatMap { key ->
                 runCatching {
-                    ContactDirectory.aliasesForConversation(key).toList()
+                    contactDirectory.aliasesForConversation(key).toList()
                 }.getOrDefault(listOf(key))
             }
             .toSet()
@@ -776,11 +785,11 @@ object AppStateStore {
             aliases = aliases,
             displayName = _privateConversationDisplayNames.value.entries
                 .firstOrNull { (key, _) ->
-                    ContactDirectory.canonicalConversationId(key)
+                    contactDirectory.canonicalConversationId(key)
                         .equals(canonicalID, ignoreCase = true)
                 }
                 ?.value
-                ?: ContactDirectory.resolve(canonicalID).displayName,
+                ?: contactDirectory.resolve(canonicalID).displayName,
             messages = messages,
             readMessageIDs = readIDs,
             unreadMessageCount = messages.count { message ->
@@ -812,11 +821,11 @@ object AppStateStore {
             _privateMessages.value = updated
             val retainedConversationIDs = updated.keys
                 .mapTo(mutableSetOf()) {
-                    ContactDirectory.canonicalConversationId(it).lowercase()
+                    contactDirectory.canonicalConversationId(it).lowercase()
                 }
             _privateConversationDisplayNames.value =
                 _privateConversationDisplayNames.value.filterKeys {
-                    ContactDirectory.canonicalConversationId(it).lowercase() in
+                    contactDirectory.canonicalConversationId(it).lowercase() in
                         retainedConversationIDs
                 }
             _readPrivateMessageIDs.value = _readPrivateMessageIDs.value - messageID
@@ -1003,7 +1012,7 @@ object AppStateStore {
             _unreadPrivateMessageCounts.value = unreadCounts
             _privateConversationDisplayNames.value =
                 snapshot.displayNames + _privateConversationDisplayNames.value
-            _privateMessages.value = ContactDirectory.canonicalizePrivateChats(
+            _privateMessages.value = contactDirectory.canonicalizePrivateChats(
                 merged.mapValues { (_, messages) ->
                     PrivateMessageArrivalOrder.order(messages.distinctBy { it.id })
                 }
@@ -1016,10 +1025,10 @@ object AppStateStore {
         conversationID: String,
         displayName: String
     ) {
-        val canonicalID = ContactDirectory.canonicalConversationId(conversationID)
+        val canonicalID = contactDirectory.canonicalConversationId(conversationID)
         val updated = _privateConversationDisplayNames.value
             .filterKeys { key ->
-                !ContactDirectory.canonicalConversationId(key)
+                !contactDirectory.canonicalConversationId(key)
                     .equals(canonicalID, ignoreCase = true)
             }
             .toMutableMap()
@@ -1028,10 +1037,10 @@ object AppStateStore {
     }
 
     private fun removeConversationDisplayNamesLocked(conversationID: String) {
-        val canonicalID = ContactDirectory.canonicalConversationId(conversationID)
+        val canonicalID = contactDirectory.canonicalConversationId(conversationID)
         _privateConversationDisplayNames.value =
             _privateConversationDisplayNames.value.filterKeys { key ->
-                !ContactDirectory.canonicalConversationId(key)
+                !contactDirectory.canonicalConversationId(key)
                     .equals(canonicalID, ignoreCase = true)
             }
     }
@@ -1042,7 +1051,7 @@ object AppStateStore {
      * cannot leave a stale alias behind.
      */
     private fun canonicalizePrivateConversationStateLocked() {
-        val canonicalChats = ContactDirectory.canonicalizePrivateChats(_privateMessages.value)
+        val canonicalChats = contactDirectory.canonicalizePrivateChats(_privateMessages.value)
         if (canonicalChats != _privateMessages.value) {
             _privateMessages.value = canonicalChats
         }
@@ -1050,7 +1059,7 @@ object AppStateStore {
         val canonicalUnreadCounts = linkedMapOf<String, Int>()
         _unreadPrivateMessageCounts.value.forEach { (conversationID, count) ->
             if (count <= 0) return@forEach
-            val canonicalID = ContactDirectory.canonicalConversationId(conversationID)
+            val canonicalID = contactDirectory.canonicalConversationId(conversationID)
             canonicalUnreadCounts[canonicalID] =
                 (canonicalUnreadCounts[canonicalID] ?: 0) + count
         }
@@ -1062,7 +1071,7 @@ object AppStateStore {
         _privateConversationDisplayNames.value.forEach { (conversationID, displayName) ->
             if (displayName.isBlank()) return@forEach
             canonicalDisplayNames[
-                ContactDirectory.canonicalConversationId(conversationID)
+                contactDirectory.canonicalConversationId(conversationID)
             ] = displayName
         }
         if (canonicalDisplayNames != _privateConversationDisplayNames.value) {
@@ -1070,7 +1079,7 @@ object AppStateStore {
         }
 
         _selectedPrivateChatPeer.value?.let { selected ->
-            val canonicalSelected = ContactDirectory.canonicalConversationId(selected)
+            val canonicalSelected = contactDirectory.canonicalConversationId(selected)
             if (canonicalSelected != selected) {
                 _selectedPrivateChatPeer.value = canonicalSelected
             }
@@ -1081,7 +1090,7 @@ object AppStateStore {
         val chats = _privateMessages.value.toMutableMap()
         val removedIDs = linkedSetOf<String>()
         val recentKey = chats.keys.firstOrNull { key ->
-            ContactDirectory.canonicalConversationId(key)
+            contactDirectory.canonicalConversationId(key)
                 .equals(recentConversationID, ignoreCase = true)
         }
         if (recentKey != null) {

@@ -1,5 +1,6 @@
 package com.bitchat.android.mesh
 
+import com.bitchat.android.services.TestMeshStores
 import dagger.Lazy
 import com.bitchat.android.ui.debug.DebugSettingsManager
 import com.bitchat.android.ui.debug.DebugPreferenceManager
@@ -26,7 +27,10 @@ class BluetoothConnectionManagerTest {
             "0011223344556677",
             BluetoothPermissionManager(RuntimeEnvironment.getApplication(), requireLocation = true),
             null,
-            PowerManager(RuntimeEnvironment.getApplication()),
+            PowerManager(
+                RuntimeEnvironment.getApplication(),
+                TestMeshStores(RuntimeEnvironment.getApplication()).appStateStore,
+            ),
             Lazy(lazy { DebugSettingsManager(DebugPreferenceManager()) }::value),
             DebugPreferenceManager(),
             TransferProgressManager(Dispatchers.IO),

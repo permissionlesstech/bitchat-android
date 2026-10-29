@@ -1,9 +1,11 @@
 package com.bitchat.android.di
 
 import android.content.Context
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.nostr.NostrTransport
+import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.MessageRouter
 import dagger.Lazy
 import dagger.Module
@@ -42,6 +44,9 @@ object ServicesModule {
         @ApplicationContext context: Context,
         mesh: MeshService,
         nostrIdentity: NostrIdentityBridge,
+        favorites: FavoritesPersistenceService,
+        contactDirectory: ContactDirectory,
         nostrTransport: Lazy<NostrTransport>,
-    ): MessageRouter = MessageRouter.getInstance(context, mesh, nostrIdentity) { nostrTransport.get() }
+    ): MessageRouter =
+        MessageRouter.getInstance(context, mesh, nostrIdentity, favorites, contactDirectory) { nostrTransport.get() }
 }

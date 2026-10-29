@@ -3,7 +3,6 @@ package com.bitchat.android.services
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.identity.SecureIdentityStateManager
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -18,17 +17,14 @@ import java.util.UUID
 class ConversationListPreferencesTest {
     private lateinit var context: Context
     private lateinit var preferencesName: String
+    private lateinit var contactDirectory: ContactDirectory
 
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
         preferencesName = "conversation-list-${UUID.randomUUID()}"
-        ContactDirectory.initialize(context) { null }
-    }
-
-    @After
-    fun tearDown() {
-        ContactDirectory.initialize(context) { null }
+        contactDirectory = TestMeshStores(context).contactDirectory
+        contactDirectory.initialize(context) { null }
     }
 
     @Test
@@ -97,7 +93,7 @@ class ConversationListPreferencesTest {
     }
 
     private fun preferences(
-        canonicalize: (String) -> String = ContactDirectory::canonicalConversationId
+        canonicalize: (String) -> String = contactDirectory::canonicalConversationId
     ): ConversationListPreferences {
         val sharedPreferences =
             context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)

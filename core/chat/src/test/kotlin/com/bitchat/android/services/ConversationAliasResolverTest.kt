@@ -10,22 +10,22 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import java.util.Date
+import org.mockito.kotlin.mock
 
 class ConversationAliasResolverTest {
+    private val stores = TestMeshStores(mock())
     private lateinit var scope: CoroutineScope
     private lateinit var state: ChatState
 
     @Before
     fun setUp() {
-        AppStateStore.clear()
         scope = CoroutineScope(SupervisorJob())
-        state = ChatState(scope, AppStateStore)
+        state = ChatState(scope, stores.appStateStore)
     }
 
     @After
     fun tearDown() {
         scope.cancel()
-        AppStateStore.clear()
     }
 
     @Test
@@ -48,9 +48,9 @@ class ConversationAliasResolverTest {
             content = "third arrival through alias A",
             timestamp = Date(200)
         )
-        AppStateStore.addPrivateMessage("target-peer", firstArrival)
-        AppStateStore.addPrivateMessage("source-alias", secondArrival)
-        AppStateStore.addPrivateMessage("target-peer", thirdArrival)
+        stores.appStateStore.addPrivateMessage("target-peer", firstArrival)
+        stores.appStateStore.addPrivateMessage("source-alias", secondArrival)
+        stores.appStateStore.addPrivateMessage("target-peer", thirdArrival)
         state.setPrivateChats(
             linkedMapOf(
                 "target-peer" to listOf(firstArrival, thirdArrival),
@@ -62,8 +62,8 @@ class ConversationAliasResolverTest {
             state = state,
             targetPeerID = "target-peer",
             keysToMerge = listOf("source-alias"),
-            contactDirectory = ContactDirectory,
-            appStateStore = AppStateStore,
+            contactDirectory = stores.contactDirectory,
+            appStateStore = stores.appStateStore,
         )
 
         assertEquals(
@@ -72,7 +72,7 @@ class ConversationAliasResolverTest {
         )
         assertEquals(
             listOf(firstArrival, secondArrival, thirdArrival),
-            AppStateStore.privateMessages.value["target-peer"]
+            stores.appStateStore.privateMessages.value["target-peer"]
         )
     }
 }

@@ -44,7 +44,9 @@ fun favoriteIndicator(
  * state whenever either side changes the relationship.
  */
 @Singleton
-class WearPeerIdentityState @Inject constructor() : FavoritesChangeListener {
+class WearPeerIdentityState @Inject constructor(
+    private val favorites: FavoritesPersistenceService,
+) : FavoritesChangeListener {
     private val _revision = MutableStateFlow(0L)
     val revision: StateFlow<Long> = _revision.asStateFlow()
 
@@ -57,9 +59,9 @@ class WearPeerIdentityState @Inject constructor() : FavoritesChangeListener {
         if (initialized) return
         synchronized(this) {
             if (initialized) return
-            FavoritesPersistenceService.initialize(context.applicationContext)
+            favorites.initialize()
             identityManager = SecureIdentityStateManager(context.applicationContext)
-            FavoritesPersistenceService.shared.addListener(this)
+            favorites.addListener(this)
             initialized = true
         }
         publishChange()
@@ -97,7 +99,7 @@ class WearPeerIdentityState @Inject constructor() : FavoritesChangeListener {
             ?: peerInfo.nickname.takeIf(String::isNotBlank)
             ?: peerID.take(8)
 
-        FavoritesPersistenceService.shared.updateFavoriteStatus(
+        favorites.updateFavoriteStatus(
             noisePublicKey = noisePublicKey,
             nickname = nickname,
             isFavorite = isFavorite
@@ -132,9 +134,9 @@ class WearPeerIdentityState @Inject constructor() : FavoritesChangeListener {
         peerID: String,
         mesh: WearMeshService?
     ): FavoriteRelationship? {
-        FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.let { return it }
+        favorites.getFavoriteStatus(peerID)?.let { return it }
         val noisePublicKey = mesh?.getPeerInfo(peerID)?.noisePublicKey ?: return null
-        return FavoritesPersistenceService.shared.getFavoriteStatus(noisePublicKey)
+        return favorites.getFavoriteStatus(noisePublicKey)
     }
 
     private fun publishChange() {

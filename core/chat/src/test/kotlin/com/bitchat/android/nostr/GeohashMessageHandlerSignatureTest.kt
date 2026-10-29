@@ -4,8 +4,7 @@ import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.nostr.NostrIdentityBridge
-import com.bitchat.android.services.AppStateStore
-import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.TestMeshStores
 import com.bitchat.android.spam.SpamFilter
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.DataManager
@@ -20,6 +19,7 @@ import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 
 /**
  * Regression coverage for GH-733: geohash events (kind 20000/20001) were accepted from the
@@ -27,6 +27,7 @@ import org.robolectric.RobolectricTestRunner
  */
 @RunWith(RobolectricTestRunner::class)
 class GeohashMessageHandlerSignatureTest {
+    private val stores = TestMeshStores(RuntimeEnvironment.getApplication())
 
     private val application: Application = ApplicationProvider.getApplicationContext()
 
@@ -44,11 +45,10 @@ class GeohashMessageHandlerSignatureTest {
 
     @Before
     fun setup() {
-        com.bitchat.android.services.AppStateStore.clear()
-        chatState = ChatState(scope = testScope, appStateStore = AppStateStore)
+        chatState = ChatState(scope = testScope, appStateStore = stores.appStateStore)
         dataManager = DataManager(context = application)
-        messageManager = MessageManager(state = chatState, appStateStore = AppStateStore, contactDirectory = ContactDirectory)
-        repo = GeohashRepository(application, dataManager, testScope, NostrIdentityBridge()) { chatState.getNicknameValue() }
+        messageManager = MessageManager(state = chatState, appStateStore = stores.appStateStore, contactDirectory = stores.contactDirectory)
+        repo = GeohashRepository(application, dataManager, testScope, NostrIdentityBridge(stores.favorites)) { chatState.getNicknameValue() }
         handler = GeohashMessageHandler(
             application = application,
             repo = repo,
@@ -58,14 +58,13 @@ class GeohashMessageHandlerSignatureTest {
             powPreferences = PoWPreferenceManager(application),
             signatureVerificationDispatcher = testDispatcher,
             geohashAliases = GeohashAliasRegistry,
-            nostrIdentity = NostrIdentityBridge(),
+            nostrIdentity = NostrIdentityBridge(stores.favorites),
             spamFilter = SpamFilter(),
         )
     }
 
     @After
     fun tearDown() {
-        com.bitchat.android.services.AppStateStore.clear()
     }
 
     private fun buildSignedEvent(identity: NostrIdentity, content: String): NostrEvent {

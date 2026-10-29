@@ -59,7 +59,7 @@ object TestHookDriver {
     // Looked up by each command from the application, so the objects are the graph's.
     private lateinit var graph: TestHookDependencies
     private val appStateStore get() = graph.appStateStore()
-    private val favoritesInit get() = graph.favoritesInit()
+    private val contactDirectory get() = graph.contactDirectory()
     private val favorites get() = graph.favorites()
     private val liveVoiceManager get() = graph.liveVoiceManager()
     private val meshServiceHolder get() = graph.meshServiceHolder()
@@ -314,7 +314,7 @@ object TestHookDriver {
             ?: return err("favorite_set", "peer is not known")
         val noisePublicKey = peerInfo.noisePublicKey
             ?: return err("favorite_set", "peer Noise key is unavailable")
-        favoritesInit.initialize()
+        favorites.initialize()
         favorites.updateFavoriteStatus(
             noisePublicKey = noisePublicKey,
             nickname = peerInfo.nickname,
@@ -326,7 +326,7 @@ object TestHookDriver {
 
     private fun favoriteStatus(context: Context, peerID: String): JSONObject {
         val mesh = mesh(context)
-        favoritesInit.initialize()
+        favorites.initialize()
         val relationship = favorites.getFavoriteStatus(peerID)
             ?: mesh.getPeerInfo(peerID)?.noisePublicKey?.let {
                 favorites.getFavoriteStatus(it)
@@ -391,7 +391,7 @@ object TestHookDriver {
         val encoded = packet.encode() ?: return err("file_send", "failed to TLV-encode packet")
         val transferId = sha256Hex(encoded)
         val recipient = peerID?.let {
-            PrivateMediaRecipientResolver.resolve(it, mesh, ContactDirectory)
+            PrivateMediaRecipientResolver.resolve(it, mesh, contactDirectory)
                 ?: return err("file_send", "no active mesh route for private conversation: $it")
         }
 
@@ -514,7 +514,7 @@ object TestHookDriver {
         val mesh = mesh(context)
         LiveVoicePreferences.setEnabled(context, true)
         val recipient = requestedPeer?.let {
-            PrivateMediaRecipientResolver.resolve(it, mesh, ContactDirectory)
+            PrivateMediaRecipientResolver.resolve(it, mesh, contactDirectory)
                 ?: return err("ptt_send", "no active mesh route for private conversation")
         }
         if (recipient != null && !mesh.hasEstablishedSession(recipient.meshPeerID)) {

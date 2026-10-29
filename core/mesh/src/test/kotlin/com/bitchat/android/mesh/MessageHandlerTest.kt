@@ -1,9 +1,8 @@
 package com.bitchat.android.mesh
 
+import com.bitchat.android.services.TestMeshStores
 import dagger.Lazy
-import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.features.voice.LiveVoiceManager
-import com.bitchat.android.favorites.FavoritesPersistenceService
 import android.os.Build
 import com.bitchat.android.model.IdentityAnnouncement
 import com.bitchat.android.model.AuthenticatedPeerState
@@ -58,13 +57,14 @@ class MessageHandlerTest {
     @Before
     fun setup() {
         val app = RuntimeEnvironment.getApplication()
+        val stores = TestMeshStores(app)
         handler = MessageHandler(
             myPeerID,
             app,
-            Lazy(lazy { LiveVoiceManager(app) }::value),
+            Lazy(lazy { LiveVoiceManager(app, stores.appStateStore) }::value),
             MeshGraphService(),
-            Lazy { FavoritesPersistenceService.shared },
-            ContactDirectory,
+            Lazy { stores.favorites },
+            stores.contactDirectory,
         )
         delegate = mock()
         handler.delegate = delegate

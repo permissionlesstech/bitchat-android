@@ -1,30 +1,27 @@
 package com.bitchat.android.ui
 
 import com.bitchat.android.model.BitchatMessage
-import com.bitchat.android.services.AppStateStore
-import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.TestMeshStores
 import java.util.Date
 import kotlinx.coroutines.test.runTest
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
+import org.mockito.kotlin.mock
 
 class MessageManagerPublicRetentionTest {
-    @Before fun setUp() = AppStateStore.clear()
-    @After fun tearDown() = AppStateStore.clear()
+    private val stores = TestMeshStores(mock())
 
     @Test
     fun `clear and leave do not resurrect retained messages on the next append`() = runTest {
-        val state = ChatState(backgroundScope, AppStateStore)
-        val manager = MessageManager(state, AppStateStore, ContactDirectory)
+        val state = ChatState(backgroundScope, stores.appStateStore)
+        val manager = MessageManager(state, stores.appStateStore, stores.contactDirectory)
         manager.addMessage(message(0))
         manager.addChannelMessage("fixture-channel", message(1))
         manager.clearMessages()
         manager.addMessage(message(2))
         assertEquals(listOf("fixture-2"), state.messages.value.map { it.id })
-        assertTrue(AppStateStore.channelMessages.value.isEmpty())
+        assertTrue(stores.appStateStore.channelMessages.value.isEmpty())
 
         manager.addChannelMessage("fixture-channel", message(3))
         manager.clearChannelMessages("fixture-channel")

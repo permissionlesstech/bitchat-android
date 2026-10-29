@@ -3,7 +3,7 @@ package com.bitchat.android.nostr
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.nostr.NostrIdentityBridge
-import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.TestMeshStores
 import com.bitchat.android.ui.DataManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -30,9 +30,10 @@ class GeohashNicknameLookupTest {
 
     @Before
     fun setUp() {
-        AppStateStore.clear()
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
-        repo = GeohashRepository(application, DataManager(application), scope, NostrIdentityBridge(), store) { "me" }
+        repo = GeohashRepository(
+            application, DataManager(application), scope, NostrIdentityBridge(TestMeshStores(application).favorites), store
+        ) { "me" }
         store.cacheNickname(firstAlice, "fixture-alice")
         store.cacheNickname(secondAlice, "fixture-alice")
         store.cacheNickname(bob, "fixture-bob")
@@ -41,7 +42,6 @@ class GeohashNicknameLookupTest {
     @After
     fun tearDown() {
         scope.cancel()
-        AppStateStore.clear()
     }
 
     @Test
