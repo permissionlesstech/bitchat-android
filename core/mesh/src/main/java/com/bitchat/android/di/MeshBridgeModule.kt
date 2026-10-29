@@ -3,7 +3,6 @@ package com.bitchat.android.di
 import android.content.Context
 import com.bitchat.android.features.voice.VoiceWaveformCache
 import com.bitchat.android.favorites.FavoritesPersistenceService
-import com.bitchat.android.mesh.TransferProgressManager
 import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.services.AppStateStore
@@ -68,10 +67,6 @@ object MeshBridgeModule {
     // 10c-2a-1 bridge: deleted when SpamFilterPreferences is flipped
     @Provides
     fun provideSpamFilterPreferences(): SpamFilterPreferences = SpamFilterPreferences
-
-    // 10c-2a-1 bridge: deleted when TransferProgressManager is flipped
-    @Provides
-    fun provideTransferProgressManager(): TransferProgressManager = TransferProgressManager
 
     // 10c-2a-1 bridge: deleted when DebugPreferenceManager is flipped
     @Provides

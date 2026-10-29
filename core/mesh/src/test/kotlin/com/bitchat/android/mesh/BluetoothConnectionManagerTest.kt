@@ -6,6 +6,7 @@ import com.bitchat.android.ui.debug.DebugPreferenceManager
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
+import kotlinx.coroutines.Dispatchers
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Before
@@ -28,7 +29,7 @@ class BluetoothConnectionManagerTest {
             PowerManager(RuntimeEnvironment.getApplication()),
             Lazy(lazy { DebugSettingsManager() }::value),
             DebugPreferenceManager,
-            TransferProgressManager,
+            TransferProgressManager(Dispatchers.IO),
         )
     }
 

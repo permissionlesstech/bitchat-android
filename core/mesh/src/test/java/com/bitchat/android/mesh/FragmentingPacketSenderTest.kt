@@ -41,14 +41,15 @@ class FragmentingPacketSenderTest {
     @Test
     fun `oversized packet exceeding receiver fragment cap is rejected with fail event`() = runBlocking {
         val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-        val sender = FragmentingPacketSender(scope, FragmentManager(), "test", TransferProgressManager)
+        val progress = TransferProgressManager(Dispatchers.IO)
+        val sender = FragmentingPacketSender(scope, FragmentManager(), "test", progress)
         // ~256 * 469 bytes fit; 1 MiB clearly exceeds MAX_FRAGMENTS_PER_ID
         val packet = packetWithPayload(1024 * 1024)
         var sent = false
 
         val failed = java.util.concurrent.ConcurrentLinkedQueue<String>()
         val collectJob = launch(Dispatchers.Default) {
-            TransferProgressManager.events.collect { event ->
+            progress.events.collect { event ->
                 if (event.failed) failed.add(event.transferId)
             }
         }
@@ -69,7 +70,7 @@ class FragmentingPacketSenderTest {
     @Test
     fun `packet within fragment cap is accepted`() = runBlocking {
         val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-        val sender = FragmentingPacketSender(scope, FragmentManager(), "test", TransferProgressManager, interFragmentDelayMs = 0L)
+        val sender = FragmentingPacketSender(scope, FragmentManager(), "test", TransferProgressManager(Dispatchers.IO), interFragmentDelayMs = 0L)
         val packet = packetWithPayload(10_000)
         var writes = 0
 

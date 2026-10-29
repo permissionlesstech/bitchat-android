@@ -1,7 +1,10 @@
 package com.bitchat.android.mesh
 
+import com.bitchat.android.di.IoDispatcher
+import javax.inject.Inject
+import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -15,8 +18,11 @@ data class TransferProgressEvent(
     val failed: Boolean = false
 )
 
-object TransferProgressManager {
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+@Singleton
+class TransferProgressManager @Inject constructor(
+    @IoDispatcher ioDispatcher: CoroutineDispatcher,
+) {
+    private val scope = CoroutineScope(ioDispatcher + SupervisorJob())
     private val _events = MutableSharedFlow<TransferProgressEvent>(replay = 0, extraBufferCapacity = 32)
     val events: SharedFlow<TransferProgressEvent> = _events
 
