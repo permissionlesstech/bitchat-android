@@ -80,10 +80,10 @@ class NoStaticMeshAccessTest {
             "ContactDirectory (until its flip), MessageRouter (R14), NostrIdentityBridge and WearPeerIdentityState",
         "core/mesh/src/main/java/com/bitchat/android/services/ContactDirectory.kt" to
             "still-static object reaching FavoritesPersistenceService, GeohashAliasRegistry and " +
-            "PrivateMessageArrivalOrder; flipped in Task 6",
+            "PrivateMessageArrivalOrder, and reached by the AppStateStore object; flipped with it in Task 6b",
         "core/mesh/src/main/java/com/bitchat/android/services/AppStateStore.kt" to
             "still-static object reaching ContactDirectory, PrivateMessageArrivalOrder and " +
-            "ConversationRepository; flipped last in Task 6",
+            "ConversationRepository; flipped last, in Task 6b",
     )
 
     private val accessor = Regex(
