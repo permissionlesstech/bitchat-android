@@ -13,6 +13,8 @@ import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import org.junit.After
+import com.bitchat.android.services.AppStateStore
 import org.junit.Before
 import org.junit.Ignore
 import org.junit.Test
@@ -45,6 +47,7 @@ class CommandProcessorTest {
 
   @Before
   fun setup() {
+    AppStateStore.clear()
     commandProcessor = CommandProcessor(
       state = chatState,
       messageManager = messageManager,
@@ -56,6 +59,93 @@ class CommandProcessorTest {
         noiseSessionDelegate = mock<NoiseSessionDelegate>()
       )
     )
+  }
+
+  @After
+  fun tearDown() {
+    AppStateStore.clear()
+  }
+
+  @Test
+  fun `clear geohash removes only selected history from state and store`() {
+    val selected = "s000"
+    val other = "s001"
+    val message = BitchatMessage(sender = "synthetic", content = "history", timestamp = Date(1))
+    messageManager.addMessage(message.copy(id = "public"))
+    messageManager.addChannelMessage("geo:$selected", message.copy(id = "selected"))
+    messageManager.addChannelMessage("geo:$other", message.copy(id = "other"))
+    chatState.setSelectedLocationChannel(
+      ChannelID.Location(GeohashChannel(GeohashChannelLevel.PROVINCE, selected))
+    )
+    // A stale classic channel must not override the currently visible geohash.
+    chatState.setCurrentChannel("#previous")
+
+    execute("/clear")
+
+    assertTrue(chatState.getChannelMessagesValue()["geo:$selected"].orEmpty().isEmpty())
+    assertTrue(AppStateStore.channelMessages.value["geo:$selected"].orEmpty().isEmpty())
+    assertEquals(1, chatState.getMessagesValue().size)
+    assertEquals(1, AppStateStore.publicMessages.value.size)
+    assertEquals(1, chatState.getChannelMessagesValue()["geo:$other"]?.size)
+    assertEquals(1, AppStateStore.channelMessages.value["geo:$other"]?.size)
+  }
+
+  @Test
+  fun `clear mesh preserves joined channels and prevents snapshot resurrection`() {
+    val message = BitchatMessage(sender = "synthetic", content = "history", timestamp = Date(1))
+    messageManager.addMessage(message.copy(id = "mesh"))
+    messageManager.addChannelMessage("#kept", message.copy(id = "kept"))
+
+    execute("/clear")
+
+    assertTrue(chatState.getMessagesValue().isEmpty())
+    assertTrue(AppStateStore.publicMessages.value.isEmpty())
+    assertEquals(1, chatState.getChannelMessagesValue()["#kept"]?.size)
+    assertEquals(1, AppStateStore.channelMessages.value["#kept"]?.size)
+  }
+
+  @Test
+  fun `command feedback stays in selected classic channel`() {
+    chatState.setCurrentChannel("#synthetic")
+    execute("/channels")
+    execute("/unknown")
+    execute("/msg")
+    execute("/unblock")
+    assertEquals(4, chatState.getChannelMessagesValue()["#synthetic"]?.size)
+    assertTrue(chatState.getMessagesValue().isEmpty())
+  }
+
+  @Test
+  fun `command feedback stays in selected geohash`() {
+    chatState.setSelectedLocationChannel(
+      ChannelID.Location(GeohashChannel(GeohashChannelLevel.PROVINCE, "s000"))
+    )
+    execute("/w")
+    execute("/unknown")
+    assertEquals(2, chatState.getChannelMessagesValue()["geo:s000"]?.size)
+    assertTrue(chatState.getMessagesValue().isEmpty())
+  }
+
+  @Test
+  fun `command feedback stays in selected private chat without marking unread`() {
+    val peer = "0102030405060708"
+    chatState.setSelectedPrivateChatPeer(peer)
+    execute("/unknown")
+    assertEquals(1, chatState.getPrivateChatsValue()[peer]?.size)
+    assertTrue(chatState.getUnreadPrivateMessagesValue().isEmpty())
+    assertTrue(chatState.getMessagesValue().isEmpty())
+  }
+
+  @Test
+  fun `join help includes optional password in usage and suggestions`() {
+    execute("/join")
+    assertEquals("usage: /join <channel> [password]", chatState.getMessagesValue().single().content)
+    commandProcessor.updateCommandSuggestions("/j")
+    assertEquals("<channel> [password]", chatState.getCommandSuggestionsValue().first().syntax)
+  }
+
+  private fun execute(command: String) {
+    commandProcessor.processCommand(command, meshService, "self", { _, _, _ -> })
   }
 
   @Ignore // Temporarily disabled due to Mockito final class issues
