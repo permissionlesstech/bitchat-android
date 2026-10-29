@@ -47,7 +47,7 @@ class GeohashMessageHandlerSpamTest {
             powPreferences = PoWPreferenceManager(application),
             signatureVerificationDispatcher = testDispatcher,
             spamFilterDispatcher = testDispatcher,
-            geohashAliases = GeohashAliasRegistry,
+            geohashAliases = GeohashAliasRegistry(),
             nostrIdentity = nostrIdentity,
             spamFilter = spamFilter,
         )

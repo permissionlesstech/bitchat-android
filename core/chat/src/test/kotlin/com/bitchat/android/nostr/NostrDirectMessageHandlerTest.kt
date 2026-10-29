@@ -4,7 +4,6 @@ import android.os.Build
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.model.BitchatMessage
-import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.nostr.GeohashConversationRegistry
 import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.services.AppStateStore
@@ -107,7 +106,7 @@ class NostrDirectMessageHandlerTest {
             dataManager = dataManager,
             nostrTransportProvider = { mock<NostrTransport>() },
             seenStoreProvider = { seenStore },
-            geohashAliases = GeohashAliasRegistry,
+            geohashAliases = stores.geohashAliases,
             geohashConversations = GeohashConversationRegistry,
             contactDirectory = stores.contactDirectory,
             favorites = Lazy { stores.favorites },
@@ -183,7 +182,7 @@ class NostrDirectMessageHandlerTest {
             dataManager = dataManager,
             nostrTransportProvider = { mock<NostrTransport>() },
             seenStoreProvider = { seenStore },
-            geohashAliases = GeohashAliasRegistry,
+            geohashAliases = stores.geohashAliases,
             geohashConversations = GeohashConversationRegistry,
             contactDirectory = stores.contactDirectory,
             favorites = Lazy { stores.favorites },
@@ -241,7 +240,7 @@ class NostrDirectMessageHandlerTest {
             dataManager = dataManager,
             nostrTransportProvider = { mock<NostrTransport>() },
             seenStoreProvider = { seenStore },
-            geohashAliases = GeohashAliasRegistry,
+            geohashAliases = stores.geohashAliases,
             geohashConversations = GeohashConversationRegistry,
             contactDirectory = stores.contactDirectory,
             favorites = Lazy { stores.favorites },

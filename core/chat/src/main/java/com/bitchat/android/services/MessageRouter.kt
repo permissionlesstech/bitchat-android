@@ -6,6 +6,7 @@ import com.bitchat.android.favorites.FavoriteControlMessage
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.ReadReceipt
+import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.nostr.NostrTransport
 import com.bitchat.android.util.AppConstants
@@ -27,6 +28,7 @@ class MessageRouter private constructor(
     private val nostrIdentity: NostrIdentityBridge,
     private val favorites: FavoritesPersistenceService,
     private val contactDirectory: ContactDirectory,
+    private val geohashAliases: GeohashAliasRegistry,
     private val nostr: NostrTransport
 ) {
     enum class RouteResult {
@@ -69,12 +71,19 @@ class MessageRouter private constructor(
             nostrIdentity: NostrIdentityBridge,
             favorites: FavoritesPersistenceService,
             contactDirectory: ContactDirectory,
+            geohashAliases: GeohashAliasRegistry,
             nostr: () -> NostrTransport,
         ): MessageRouter {
             val instance = INSTANCE ?: synchronized(this) {
                 INSTANCE ?: run {
                     MessageRouter(
-                        context.applicationContext, mesh, nostrIdentity, favorites, contactDirectory, nostr()
+                        context.applicationContext,
+                        mesh,
+                        nostrIdentity,
+                        favorites,
+                        contactDirectory,
+                        geohashAliases,
+                        nostr(),
                     ).also { instance ->
                         // Register for favorites changes to flush outbox
                         try {
@@ -140,9 +149,9 @@ class MessageRouter private constructor(
         val meshTarget = resolution.meshPeerID ?: toPeerID.takeIf { ContactIdentityResolver.isMeshPeerId(it) }
         val nostrTarget = resolution.noiseKeyHex ?: toPeerID
 
-        if (com.bitchat.android.nostr.GeohashAliasRegistry.contains(toPeerID)) {
+        if (geohashAliases.contains(toPeerID)) {
             Log.d(TAG, "Routing PM via Nostr (geohash) to alias ${toPeerID.take(12)}… id=${messageID.take(8)}…")
-            val recipientHex = com.bitchat.android.nostr.GeohashAliasRegistry.get(toPeerID)
+            val recipientHex = geohashAliases.get(toPeerID)
             if (recipientHex != null) {
                 val sourceGeohash = com.bitchat.android.nostr.GeohashConversationRegistry.get(toPeerID)
                 nostr.sendPrivateMessageGeohash(content, recipientHex, messageID, sourceGeohash)
@@ -185,8 +194,8 @@ class MessageRouter private constructor(
     fun sendDeliveryAck(messageID: String, toPeerID: String) {
         // Mesh delivery ACKs are sent by the receiver automatically.
         // Only route via Nostr when mesh path isn't available or when this is a geohash alias
-        if (com.bitchat.android.nostr.GeohashAliasRegistry.contains(toPeerID)) {
-            val recipientHex = com.bitchat.android.nostr.GeohashAliasRegistry.get(toPeerID)
+        if (geohashAliases.contains(toPeerID)) {
+            val recipientHex = geohashAliases.get(toPeerID)
             if (recipientHex != null) {
                 nostr.sendDeliveryAckGeohash(messageID, recipientHex, try { nostrIdentity.getCurrentNostrIdentity(context)!! } catch (_: Exception) { return })
                 return

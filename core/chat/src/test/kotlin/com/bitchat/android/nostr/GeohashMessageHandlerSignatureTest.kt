@@ -2,7 +2,6 @@ package com.bitchat.android.nostr
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
-import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.services.TestMeshStores
 import com.bitchat.android.spam.SpamFilter
@@ -57,7 +56,7 @@ class GeohashMessageHandlerSignatureTest {
             addChannelMessage = messageManager::addChannelMessage,
             powPreferences = PoWPreferenceManager(application),
             signatureVerificationDispatcher = testDispatcher,
-            geohashAliases = GeohashAliasRegistry,
+            geohashAliases = stores.geohashAliases,
             nostrIdentity = NostrIdentityBridge(stores.favorites),
             spamFilter = SpamFilter(),
         )

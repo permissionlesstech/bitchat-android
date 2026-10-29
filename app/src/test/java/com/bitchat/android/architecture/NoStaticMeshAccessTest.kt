@@ -9,8 +9,8 @@ import org.junit.Test
  * into the graph), so callers take them by injection and never reach one through its class name.
  * Read from the sources of the modules that use them, comments and string text dropped.
  *
- * Inside `:core:mesh` the hand-built mesh parts take them by constructor too; only the classes
- * that are still static themselves reach one ([stillStaticInMesh]).
+ * Inside `:core:mesh` every class takes them by constructor too, with no exemptions: every mesh
+ * singleton there is injected.
  */
 class NoStaticMeshAccessTest {
 
@@ -54,17 +54,6 @@ class NoStaticMeshAccessTest {
             "still-static class (getInstance) reaching WearChatState; constructor-injected when flipped in Task 7",
     )
 
-    /**
-     * `:core:mesh` files that are themselves still-static Scope classes (or their bridges), so they
-     * cannot take constructor injection yet (R7). The reason names what each still reaches, which
-     * is the consumers-first order Tasks 5 and 6 flip in, and the task that empties the entry.
-     * A class's reaches of itself, in its own file, are never counted.
-     */
-    private val stillStaticInMesh = mapOf(
-        "core/mesh/src/main/java/com/bitchat/android/services/ContactDirectory.kt" to
-            "injected class still reaching the GeohashAliasRegistry object; goes with its flip in Task 6c",
-    )
-
     private val accessor = Regex(
         """(?<![\w@])(${(accessorClasses - allowedClasses.keys).joinToString("|")})\s*(?:\.|::)\s*""" +
             """(getInstance|tryGetInstance|shared|initialize|getOrCreate|peek)\b"""
@@ -92,9 +81,8 @@ class NoStaticMeshAccessTest {
 
     @Test
     fun noStaticMeshAccessInsideMesh() {
-        val offenders = mainSources(listOf("core/mesh")).filter { (file, _) ->
-            file.relativeTo(root).invariantSeparatorsPath !in stillStaticInMesh
-        }.flatMap { (file, code) -> reachesOfOthers(file, code) }
+        val offenders = mainSources(listOf("core/mesh"))
+            .flatMap { (file, code) -> reachesOfOthers(file, code) }
         assertTrue(
             "Hand-built mesh parts must take the singletons by constructor, not reach them " +
                 "statically:\n" + offenders.joinToString("\n"),
@@ -137,16 +125,7 @@ class NoStaticMeshAccessTest {
                 else -> "$path: no longer reaches a static; drop it from stillStatic"
             }
         }
-        val inside = stillStaticInMesh.keys.mapNotNull { path ->
-            val file = File(root, path)
-            when {
-                !file.isFile -> "$path: no such file"
-                reachesOfOthers(file, codeOnly(file.readText())).isNotEmpty() -> null
-                else -> "$path: no longer reaches another static; drop it from stillStaticInMesh"
-            }
-        }
-        val problems = outside + inside
-        assertTrue(problems.joinToString("\n"), problems.isEmpty())
+        assertTrue(outside.joinToString("\n"), outside.isEmpty())
     }
 
     /** Every Kotlin file under `<module>/src/main` below [trees], paired with its code. */

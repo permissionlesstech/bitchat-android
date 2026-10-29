@@ -7,6 +7,7 @@ import androidx.core.app.RemoteInput
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
+import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.nostr.NostrTransport
 import com.bitchat.android.services.AppStateStore
@@ -34,6 +35,7 @@ class ConversationNotificationReceiver : BroadcastReceiver() {
         fun nostrTransport(): NostrTransport
         fun nostrIdentity(): NostrIdentityBridge
         fun favorites(): FavoritesPersistenceService
+        fun geohashAliases(): GeohashAliasRegistry
         fun contactDirectory(): ContactDirectory
         fun appStateStore(): AppStateStore
         fun meshServiceHolder(): MeshServiceHolder
@@ -95,6 +97,7 @@ class ConversationNotificationReceiver : BroadcastReceiver() {
                                 dependencies.nostrIdentity(),
                                 dependencies.favorites(),
                                 contactDirectory,
+                                dependencies.geohashAliases(),
                             ) {
                                 dependencies.nostrTransport()
                             }

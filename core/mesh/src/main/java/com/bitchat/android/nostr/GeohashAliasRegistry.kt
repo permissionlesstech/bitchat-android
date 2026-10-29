@@ -3,15 +3,21 @@ package com.bitchat.android.nostr
 import android.content.Context
 import android.content.SharedPreferences
 import java.util.concurrent.ConcurrentHashMap
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * GeohashAliasRegistry
  * - Global, thread-safe registry for alias->Nostr pubkey mappings (e.g., nostr_<pub16> -> pubkeyHex)
  * - Persisted to SharedPreferences to survive app restarts.
  */
-object GeohashAliasRegistry {
+@Singleton
+class GeohashAliasRegistry @Inject constructor() {
+    private companion object {
+        const val PREFS_NAME = "geohash_alias_registry"
+    }
+
     private val map: MutableMap<String, String> = ConcurrentHashMap()
-    private const val PREFS_NAME = "geohash_alias_registry"
     private var prefs: SharedPreferences? = null
 
     fun initialize(context: Context) {

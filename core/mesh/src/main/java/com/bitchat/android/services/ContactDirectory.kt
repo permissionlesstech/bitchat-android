@@ -23,12 +23,14 @@ import javax.inject.Singleton
 class ContactDirectory(
     private val favorites: Lazy<FavoritesPersistenceService>,
     private val arrivalOrder: PrivateMessageArrivalOrder,
+    private val geohashAliases: GeohashAliasRegistry,
     private val identityManagerProvider: (Context) -> SecureIdentityStateManager,
 ) {
     @Inject constructor(
         favorites: Lazy<FavoritesPersistenceService>,
         arrivalOrder: PrivateMessageArrivalOrder,
-    ) : this(favorites, arrivalOrder, { SecureIdentityStateManager(it) })
+        geohashAliases: GeohashAliasRegistry,
+    ) : this(favorites, arrivalOrder, geohashAliases, { SecureIdentityStateManager(it) })
 
     data class ContactResolution(
         val conversationID: String,
@@ -215,7 +217,7 @@ class ContactDirectory(
         }
 
     private fun nostrPubkeyHexForAlias(alias: String): String? {
-        GeohashAliasRegistry.get(alias)?.let { return it.lowercase() }
+        geohashAliases.get(alias)?.let { return it.lowercase() }
         val prefix = alias.removePrefix("nostr_").removePrefix("nostr:")
         if (prefix.isBlank()) return null
         return try {

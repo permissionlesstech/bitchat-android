@@ -3,6 +3,7 @@ package com.bitchat.android.services
 import android.content.Context
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.identity.SecureIdentityStateManager
+import com.bitchat.android.nostr.GeohashAliasRegistry
 import dagger.Lazy
 
 /**
@@ -17,10 +18,11 @@ class TestMeshStores(
     context: Context,
     conversationRepository: ConversationRepository? = null,
     identityManagerProvider: (Context) -> SecureIdentityStateManager = { SecureIdentityStateManager(it) },
+    val geohashAliases: GeohashAliasRegistry = GeohashAliasRegistry(),
 ) {
     val arrivalOrder: PrivateMessageArrivalOrder = PrivateMessageArrivalOrder()
     val contactDirectory: ContactDirectory =
-        ContactDirectory(Lazy { favorites }, arrivalOrder, identityManagerProvider)
+        ContactDirectory(Lazy { favorites }, arrivalOrder, geohashAliases, identityManagerProvider)
     val appStateStore: AppStateStore = AppStateStore(
         contactDirectory,
         arrivalOrder,

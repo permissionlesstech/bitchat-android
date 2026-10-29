@@ -186,6 +186,7 @@ object ChatSessionModule {
         nostrIdentity: NostrIdentityBridge,
         favorites: FavoritesPersistenceService,
         contactDirectory: ContactDirectory,
+        geohashAliases: GeohashAliasRegistry,
         nostrTransport: Lazy<NostrTransport>,
     ): CommandProcessor = CommandProcessor(
         state,
@@ -194,7 +195,7 @@ object ChatSessionModule {
         privateChatManager,
         scope,
         routePrivateMessage = { mesh, content, peerID, recipientNickname, messageId ->
-            MessageRouter.getInstance(context, mesh, nostrIdentity, favorites, contactDirectory) {
+            MessageRouter.getInstance(context, mesh, nostrIdentity, favorites, contactDirectory, geohashAliases) {
                 nostrTransport.get()
             }
                 .sendPrivate(content, peerID, recipientNickname, messageId)

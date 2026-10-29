@@ -244,5 +244,7 @@ class MessageRouterTest {
     )
 
     private fun routerFor(context: Context, mesh: MeshService): MessageRouter =
-        MessageRouter.getInstance(context, mesh, nostrIdentity, stores.favorites, stores.contactDirectory) { nostr }
+        MessageRouter.getInstance(
+            context, mesh, nostrIdentity, stores.favorites, stores.contactDirectory, stores.geohashAliases
+        ) { nostr }
 }

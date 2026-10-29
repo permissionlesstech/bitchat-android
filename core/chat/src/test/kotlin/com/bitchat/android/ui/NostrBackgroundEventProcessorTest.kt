@@ -3,7 +3,6 @@ package com.bitchat.android.ui
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.mesh.PeerFingerprintManager
-import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.nostr.GeohashConversationRegistry
 import com.bitchat.android.nostr.GeohashParticipantStore
 import com.bitchat.android.nostr.NostrEvent
@@ -63,7 +62,7 @@ class NostrBackgroundEventProcessorTest {
             contactDirectory = stores.contactDirectory,
             favorites = Lazy { stores.favorites },
             peerFingerprints = PeerFingerprintManager(),
-            geohashAliases = GeohashAliasRegistry,
+            geohashAliases = stores.geohashAliases,
             geohashConversations = GeohashConversationRegistry,
             nostrIdentity = NostrIdentityBridge(stores.favorites),
             spamFilter = spamFilter,

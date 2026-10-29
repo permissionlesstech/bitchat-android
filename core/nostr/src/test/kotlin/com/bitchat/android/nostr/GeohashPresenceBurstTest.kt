@@ -35,7 +35,7 @@ class GeohashPresenceBurstTest {
     private val handler = GeohashMessageHandler(
         application, repo, scope, dataManager, { _, _ -> }, PoWPreferenceManager(application),
         signatureVerificationDispatcher = dispatcher,
-        geohashAliases = GeohashAliasRegistry,
+        geohashAliases = GeohashAliasRegistry(),
         nostrIdentity = nostrIdentity,
         spamFilter = SpamFilter(),
     )
