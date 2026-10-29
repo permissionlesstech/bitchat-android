@@ -94,7 +94,7 @@ class NostrDirectMessageHandlerTest {
             contactDirectory = ContactDirectory,
             appStateStore = AppStateStore,
             favorites = Lazy { FavoritesPersistenceService.shared },
-            peerFingerprints = PeerFingerprintManager.getInstance(),
+            peerFingerprints = PeerFingerprintManager(),
         )
         val seenStore = mock<SeenMessageStore>()
         whenever(seenStore.hasDelivered(any())).thenReturn(true)
@@ -230,7 +230,7 @@ class NostrDirectMessageHandlerTest {
             contactDirectory = ContactDirectory,
             appStateStore = AppStateStore,
             favorites = Lazy { FavoritesPersistenceService.shared },
-            peerFingerprints = PeerFingerprintManager.getInstance(),
+            peerFingerprints = PeerFingerprintManager(),
         )
         val seenStore = mock<SeenMessageStore>()
         val handler = NostrDirectMessageHandler(

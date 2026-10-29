@@ -4,8 +4,6 @@ import android.content.Context
 import com.bitchat.android.features.voice.LiveVoiceManager
 import com.bitchat.android.features.voice.VoiceWaveformCache
 import com.bitchat.android.favorites.FavoritesPersistenceService
-import com.bitchat.android.mesh.PeerFingerprintManager
-import com.bitchat.android.mesh.PowerManager
 import com.bitchat.android.mesh.TransferProgressManager
 import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.service.TransportBridgeService
@@ -19,7 +17,6 @@ import com.bitchat.android.services.meshgraph.MeshGraphService
 import com.bitchat.android.spam.SpamFilter
 import com.bitchat.android.spam.SpamFilterPreferences
 import com.bitchat.android.ui.debug.DebugPreferenceManager
-import com.bitchat.android.ui.debug.DebugSettingsManager
 import dagger.Module
 import dagger.Provides
 import javax.inject.Inject
@@ -36,20 +33,6 @@ import dagger.hilt.components.SingletonComponent
 @Module
 @InstallIn(SingletonComponent::class)
 object MeshBridgeModule {
-
-    // 10c-2a-1 bridge: deleted when PowerManager is flipped
-    @Provides
-    fun providePowerManager(@ApplicationContext context: Context): PowerManager =
-        PowerManager.getInstance(context)
-
-    // 10c-2a-1 bridge: deleted when PeerFingerprintManager is flipped
-    @Provides
-    fun providePeerFingerprintManager(): PeerFingerprintManager =
-        PeerFingerprintManager.getInstance()
-
-    // 10c-2a-1 bridge: deleted when DebugSettingsManager is flipped
-    @Provides
-    fun provideDebugSettingsManager(): DebugSettingsManager = DebugSettingsManager.getInstance()
 
     // 10c-2a-1 bridge: deleted when SpamFilter is flipped
     @Provides

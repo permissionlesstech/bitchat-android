@@ -67,7 +67,7 @@ class PacketProcessorAnnounceSideEffectTest {
     }
 
     private fun processor(delegate: RecordingDelegate): PacketProcessor =
-        PacketProcessor(MY_PEER_ID, Lazy { DebugSettingsManager.getInstance() }).also {
+        PacketProcessor(MY_PEER_ID, Lazy(lazy { DebugSettingsManager() }::value)).also {
             it.delegate = delegate
             processors += it
         }

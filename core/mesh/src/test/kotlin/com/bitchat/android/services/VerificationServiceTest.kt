@@ -24,7 +24,7 @@ class VerificationServiceTest {
         val context: Context = ApplicationProvider.getApplicationContext()
         encryptionService = EncryptionService(
             context,
-            PeerFingerprintManager.getInstance(),
+            PeerFingerprintManager(),
             Lazy { FavoritesPersistenceService.shared },
         )
         VerificationService.configure(encryptionService)

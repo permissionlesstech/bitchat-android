@@ -24,7 +24,7 @@ class PacketProcessorLoadTest {
         val delegate = recordingDelegate(handled)
         val processor = PacketProcessor(
             "1111111111111111",
-            Lazy { DebugSettingsManager.getInstance() },
+            Lazy(lazy { DebugSettingsManager() }::value),
             StandardTestDispatcher(testScheduler),
         )
         processor.delegate = delegate
@@ -46,7 +46,7 @@ class PacketProcessorLoadTest {
         val handled = mutableListOf<ULong>()
         val processor = PacketProcessor(
             "1111111111111111",
-            Lazy { DebugSettingsManager.getInstance() },
+            Lazy(lazy { DebugSettingsManager() }::value),
             StandardTestDispatcher(testScheduler),
         )
         processor.delegate = recordingDelegate(handled)
@@ -73,7 +73,7 @@ class PacketProcessorLoadTest {
         val handled = mutableListOf<ULong>()
         val processor = PacketProcessor(
             "1111111111111111",
-            Lazy { DebugSettingsManager.getInstance() },
+            Lazy(lazy { DebugSettingsManager() }::value),
             StandardTestDispatcher(testScheduler),
         )
         val delegate = recordingDelegate(handled)
@@ -101,7 +101,7 @@ class PacketProcessorLoadTest {
         val base = recordingDelegate(handled)
         val processor = PacketProcessor(
             "1111111111111111",
-            Lazy { DebugSettingsManager.getInstance() },
+            Lazy(lazy { DebugSettingsManager() }::value),
             StandardTestDispatcher(testScheduler),
         )
         processor.delegate = object : PacketProcessorDelegate by base {

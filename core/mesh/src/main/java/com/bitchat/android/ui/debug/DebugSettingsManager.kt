@@ -7,25 +7,17 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import java.util.Date
 import java.util.concurrent.ConcurrentLinkedQueue
+import javax.inject.Inject
+import javax.inject.Singleton
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.util.toHexString
 
 /**
  * Debug settings manager for controlling debug features and collecting debug data
  */
-class DebugSettingsManager private constructor() {
+@Singleton
+class DebugSettingsManager @Inject constructor() {
     // NOTE: This singleton is referenced from mesh layer. Keep in ui.debug but avoid Compose deps.
-    
-    companion object {
-        @Volatile
-        private var INSTANCE: DebugSettingsManager? = null
-        
-        fun getInstance(): DebugSettingsManager {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: DebugSettingsManager().also { INSTANCE = it }
-            }
-        }
-    }
     
     /** Applies the transport master toggles; registered by the phone, absent on the watch. */
     @Volatile

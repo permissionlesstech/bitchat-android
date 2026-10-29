@@ -62,7 +62,7 @@ class CommandProcessorTest {
         contactDirectory = ContactDirectory,
         appStateStore = AppStateStore,
         favorites = Lazy { FavoritesPersistenceService.shared },
-        peerFingerprints = PeerFingerprintManager.getInstance(),
+        peerFingerprints = PeerFingerprintManager(),
       )
     )
   }
@@ -138,7 +138,7 @@ class CommandProcessorTest {
         contactDirectory = ContactDirectory,
         appStateStore = AppStateStore,
         favorites = Lazy { FavoritesPersistenceService.shared },
-        peerFingerprints = PeerFingerprintManager.getInstance(),
+        peerFingerprints = PeerFingerprintManager(),
       )
     )
 
@@ -170,7 +170,7 @@ class CommandProcessorTest {
         contactDirectory = ContactDirectory,
         appStateStore = AppStateStore,
         favorites = Lazy { FavoritesPersistenceService.shared },
-        peerFingerprints = PeerFingerprintManager.getInstance(),
+        peerFingerprints = PeerFingerprintManager(),
       ),
       routePrivateMessage = { _, content, recipient, _, _ -> routed += content to recipient }
     )

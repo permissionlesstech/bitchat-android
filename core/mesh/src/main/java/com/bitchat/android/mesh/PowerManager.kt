@@ -16,6 +16,9 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.util.AppConstants
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,7 +34,8 @@ import kotlinx.coroutines.launch
  * The manager deliberately exposes policy only. Consumers retain ownership of their hardware and
  * network jobs, so changing profile never implies disconnecting a transport or suspending Tor.
  */
-class PowerManager private constructor(context: Context) : LifecycleEventObserver {
+@Singleton
+class PowerManager @Inject constructor(@ApplicationContext context: Context) : LifecycleEventObserver {
 
     enum class PowerMode {
         PERFORMANCE,
@@ -78,14 +82,6 @@ class PowerManager private constructor(context: Context) : LifecycleEventObserve
 
     companion object {
         private const val TAG = "PowerManager"
-
-        @Volatile
-        private var INSTANCE: PowerManager? = null
-
-        fun getInstance(context: Context): PowerManager =
-            INSTANCE ?: synchronized(this) {
-                INSTANCE ?: PowerManager(context.applicationContext).also { INSTANCE = it }
-            }
     }
 
     private val appContext = context.applicationContext

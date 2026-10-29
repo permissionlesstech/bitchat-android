@@ -70,9 +70,9 @@ class NoStaticMeshAccessTest {
         "core/mesh/src/main/java/com/bitchat/android/di/MeshBridgeModule.kt" to
             "the bridges and FavoritesInitRetry; each bridge goes with its class's flip (Tasks 5 and 6)",
         "core/mesh/src/main/java/com/bitchat/android/mesh/PowerManager.kt" to
-            "still-static class (getInstance) reaching AppStateStore; flipped in Task 5",
+            "injected class still reaching the AppStateStore object; goes with AppStateStore in Task 6",
         "core/mesh/src/main/java/com/bitchat/android/ui/debug/DebugSettingsManager.kt" to
-            "still-static class (getInstance) reaching DebugPreferenceManager; flipped in Task 5",
+            "injected class still reaching the DebugPreferenceManager object; goes with it in Task 6",
         "core/mesh/src/main/java/com/bitchat/android/services/SeenMessageStore.kt" to
             "still-static class (getInstance) reaching AppStateStore; flipped in Task 5",
         "core/mesh/src/main/java/com/bitchat/android/features/voice/LiveVoiceManager.kt" to

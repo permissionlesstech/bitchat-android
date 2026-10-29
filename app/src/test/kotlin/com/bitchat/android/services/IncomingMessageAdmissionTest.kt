@@ -171,7 +171,7 @@ class IncomingMessageAdmissionTest {
             contactDirectory = ContactDirectory,
             appStateStore = AppStateStore,
             favorites = Lazy { FavoritesPersistenceService.shared },
-            peerFingerprints = PeerFingerprintManager.getInstance(),
+            peerFingerprints = PeerFingerprintManager(),
         )
         var callbackInvoked = false
 
@@ -211,7 +211,7 @@ class IncomingMessageAdmissionTest {
             contactDirectory = ContactDirectory,
             appStateStore = AppStateStore,
             favorites = Lazy { FavoritesPersistenceService.shared },
-            peerFingerprints = PeerFingerprintManager.getInstance(),
+            peerFingerprints = PeerFingerprintManager(),
         )
 
         runBlocking {
@@ -279,7 +279,7 @@ class IncomingMessageAdmissionTest {
             contactDirectory = ContactDirectory,
             appStateStore = AppStateStore,
             favorites = Lazy { FavoritesPersistenceService.shared },
-            peerFingerprints = PeerFingerprintManager.getInstance(),
+            peerFingerprints = PeerFingerprintManager(),
         )
         var callbackInvoked = false
 

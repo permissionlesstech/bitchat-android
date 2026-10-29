@@ -25,7 +25,7 @@ class EncryptionServiceTest {
         context = ApplicationProvider.getApplicationContext()
         encryptionService = EncryptionService(
             context,
-            PeerFingerprintManager.getInstance(),
+            PeerFingerprintManager(),
             Lazy { FavoritesPersistenceService.shared },
         )
     }

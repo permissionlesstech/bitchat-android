@@ -25,8 +25,8 @@ class BluetoothConnectionManagerTest {
             "0011223344556677",
             BluetoothPermissionManager(RuntimeEnvironment.getApplication(), requireLocation = true),
             null,
-            PowerManager.getInstance(RuntimeEnvironment.getApplication()),
-            Lazy { DebugSettingsManager.getInstance() },
+            PowerManager(RuntimeEnvironment.getApplication()),
+            Lazy(lazy { DebugSettingsManager() }::value),
             DebugPreferenceManager,
             TransferProgressManager,
         )

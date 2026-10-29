@@ -19,12 +19,15 @@ internal object NoHttpClients : NostrHttpClients {
 internal fun newRelayManager(
     clients: NostrHttpClients = NoHttpClients,
     dispatcher: CoroutineDispatcher = UnconfinedTestDispatcher(),
-) = NostrRelayManager(
-    appContext = ApplicationProvider.getApplicationContext(),
-    httpClients = clients,
-    relayDirectory = RelayDirectory(NoHttpClients, dispatcher),
-    liveLocationGate = LiveLocationPrivacyGate(),
-    eventDeduplicator = NostrEventDeduplicator(),
-    ioDispatcher = dispatcher,
-    powerManagerSource = Lazy { PowerManager.getInstance(ApplicationProvider.getApplicationContext()) },
-)
+): NostrRelayManager {
+    val powerManager by lazy { PowerManager(ApplicationProvider.getApplicationContext()) }
+    return NostrRelayManager(
+        appContext = ApplicationProvider.getApplicationContext(),
+        httpClients = clients,
+        relayDirectory = RelayDirectory(NoHttpClients, dispatcher),
+        liveLocationGate = LiveLocationPrivacyGate(),
+        eventDeduplicator = NostrEventDeduplicator(),
+        ioDispatcher = dispatcher,
+        powerManagerSource = Lazy { powerManager },
+    )
+}

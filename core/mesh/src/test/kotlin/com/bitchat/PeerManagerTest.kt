@@ -10,7 +10,7 @@ import org.junit.Test
 
 class PeerManagerTest {
 
-    private val peerManager = PeerManager(PeerFingerprintManager.getInstance())
+    private val peerManager = PeerManager(PeerFingerprintManager())
     private val unknownPeer = "unknown"
     private val unknownDevice = "Unknown"
 

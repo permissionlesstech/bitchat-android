@@ -33,7 +33,7 @@ fun testWifiAwareController(
 ): WifiAwareController = WifiAwareController(
     newMesh = Provider<WifiAwareMeshService> { error("tests never start Wi-Fi Aware") },
     meshServiceHolder = meshServiceHolder,
-    debugSettingsManager = Lazy { DebugSettingsManager.getInstance() },
+    debugSettingsManager = Lazy(lazy { DebugSettingsManager() }::value),
     appStateStore = AppStateStore,
     ioDispatcher = ioDispatcher,
 )

@@ -30,7 +30,7 @@ class PacketRelayManagerTest {
 
     @Before
     fun setUp() {
-        packetRelayManager = PacketRelayManager(myPeerID, Lazy { DebugSettingsManager.getInstance() })
+        packetRelayManager = PacketRelayManager(myPeerID, Lazy(lazy { DebugSettingsManager() }::value))
         packetRelayManager.delegate = delegate
         whenever(delegate.getNetworkSize()).thenReturn(10)
         whenever(delegate.getBroadcastRecipient()).thenReturn(byteArrayOf(0,0,0,0,0,0,0,0))

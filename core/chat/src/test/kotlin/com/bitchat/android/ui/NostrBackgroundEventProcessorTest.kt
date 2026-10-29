@@ -65,7 +65,7 @@ class NostrBackgroundEventProcessorTest {
             appStateStore = AppStateStore,
             contactDirectory = ContactDirectory,
             favorites = Lazy { FavoritesPersistenceService.shared },
-            peerFingerprints = PeerFingerprintManager.getInstance(),
+            peerFingerprints = PeerFingerprintManager(),
             geohashAliases = GeohashAliasRegistry,
             geohashConversations = GeohashConversationRegistry,
             nostrIdentity = NostrIdentityBridge,

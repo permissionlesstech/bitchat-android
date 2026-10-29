@@ -50,7 +50,7 @@ class SecurityManagerTest {
     // Fake implementation to bypass initialization issues in tests
     open class FakeEncryptionService : EncryptionService(
         RuntimeEnvironment.getApplication(),
-        PeerFingerprintManager.getInstance(),
+        PeerFingerprintManager(),
         Lazy { FavoritesPersistenceService.shared },
     ) {
         var shouldVerify: Boolean = true

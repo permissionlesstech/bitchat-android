@@ -183,7 +183,7 @@ class AuthenticatedPeerStateCoordinatorTest {
 
     @Test
     fun `copied-static preannounce Ed key is replaced by authenticated proof`() {
-        val peerManager = PeerManager(PeerFingerprintManager.getInstance())
+        val peerManager = PeerManager(PeerFingerprintManager())
         val attackerEd = ByteArray(32) { 0x11 }
         val victimEd = ByteArray(32) { 0x22 }
         peerManager.updatePeerInfoFromVerifiedAnnouncement(

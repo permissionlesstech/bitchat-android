@@ -46,7 +46,7 @@ class PrivateChatManagerTest {
             contactDirectory = ContactDirectory,
             appStateStore = AppStateStore,
             favorites = Lazy { FavoritesPersistenceService.shared },
-            peerFingerprints = PeerFingerprintManager.getInstance(),
+            peerFingerprints = PeerFingerprintManager(),
         )
     }
 
@@ -88,7 +88,7 @@ class PrivateChatManagerTest {
             contactDirectory = ContactDirectory,
             appStateStore = AppStateStore,
             favorites = Lazy { FavoritesPersistenceService.shared },
-            peerFingerprints = PeerFingerprintManager.getInstance(),
+            peerFingerprints = PeerFingerprintManager(),
         )
         val message = BitchatMessage(
             id = "background-nostr-message",
@@ -198,7 +198,7 @@ class PrivateChatManagerTest {
             contactDirectory = ContactDirectory,
             appStateStore = AppStateStore,
             favorites = Lazy { FavoritesPersistenceService.shared },
-            peerFingerprints = PeerFingerprintManager.getInstance(),
+            peerFingerprints = PeerFingerprintManager(),
         )
         state.setNickname("bob")
         state.setPrivateChats(mapOf(conversationID to listOf(oldMessage, unreadMessage)))
