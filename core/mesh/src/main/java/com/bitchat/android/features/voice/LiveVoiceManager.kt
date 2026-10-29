@@ -1,11 +1,11 @@
 package com.bitchat.android.features.voice
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.services.AppStateStore
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -23,6 +23,8 @@ import java.io.FileOutputStream
 import java.util.Date
 import java.util.TreeMap
 import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
 
 enum class LiveVoiceScope { DIRECT_MESSAGE, PUBLIC_MESH }
 
@@ -64,7 +66,8 @@ sealed interface LiveVoiceEvent {
 }
 
 /** Shared phone/Wear receiver: bounded assembly, live playback, bubble state and note absorption. */
-class LiveVoiceManager private constructor(private val context: Context) {
+@Singleton
+class LiveVoiceManager @Inject constructor(@ApplicationContext private val context: Context) {
     companion object {
         private const val TAG = "LiveVoiceManager"
         private const val MAX_CONCURRENT_ASSEMBLIES = 8
@@ -75,14 +78,6 @@ class LiveVoiceManager private constructor(private val context: Context) {
         private const val IDLE_TIMEOUT_MS = 3_000L
         private const val FINISHED_TTL_MS = 10 * 60 * 1_000L
         private const val FINISHED_CAP = 32
-
-        // The manager constructor immediately narrows this to context.applicationContext.
-        @SuppressLint("StaticFieldLeak")
-        @Volatile private var instance: LiveVoiceManager? = null
-
-        fun getInstance(context: Context): LiveVoiceManager = instance ?: synchronized(this) {
-            instance ?: LiveVoiceManager(context.applicationContext).also { instance = it }
-        }
 
         fun burstIDFromVoiceFileName(fileName: String): String? {
             if (!fileName.startsWith("voice_")) return null

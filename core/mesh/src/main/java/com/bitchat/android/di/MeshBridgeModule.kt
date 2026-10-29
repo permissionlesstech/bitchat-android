@@ -1,7 +1,6 @@
 package com.bitchat.android.di
 
 import android.content.Context
-import com.bitchat.android.features.voice.LiveVoiceManager
 import com.bitchat.android.features.voice.VoiceWaveformCache
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.mesh.TransferProgressManager
@@ -11,9 +10,7 @@ import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ConversationRepository
 import com.bitchat.android.services.PrivateMessageArrivalOrder
-import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.services.VerificationService
-import com.bitchat.android.services.meshgraph.MeshGraphService
 import com.bitchat.android.spam.SpamFilter
 import com.bitchat.android.spam.SpamFilterPreferences
 import com.bitchat.android.ui.debug.DebugPreferenceManager
@@ -43,24 +40,10 @@ object MeshBridgeModule {
     fun provideFavoritesPersistenceService(): FavoritesPersistenceService =
         FavoritesPersistenceService.shared
 
-    // 10c-2a-1 bridge: deleted when LiveVoiceManager is flipped
-    @Provides
-    fun provideLiveVoiceManager(@ApplicationContext context: Context): LiveVoiceManager =
-        LiveVoiceManager.getInstance(context)
-
-    // 10c-2a-1 bridge: deleted when SeenMessageStore is flipped
-    @Provides
-    fun provideSeenMessageStore(@ApplicationContext context: Context): SeenMessageStore =
-        SeenMessageStore.getInstance(context)
-
     // 10c-2a-1 bridge: deleted when ConversationRepository is flipped
     @Provides
     fun provideConversationRepository(@ApplicationContext context: Context): ConversationRepository =
         ConversationRepository.getInstance(context)
-
-    // 10c-2a-1 bridge: deleted when MeshGraphService is flipped
-    @Provides
-    fun provideMeshGraphService(): MeshGraphService = MeshGraphService.getInstance()
 
     // 10c-2a-1 bridge: deleted when AppStateStore is flipped
     @Provides

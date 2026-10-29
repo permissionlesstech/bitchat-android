@@ -21,7 +21,6 @@ import com.bitchat.android.protocol.SpecialRecipients
 import com.bitchat.android.services.meshgraph.MeshGraphService
 import com.bitchat.android.util.AppConstants
 import kotlinx.coroutines.runBlocking
-import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -58,13 +57,12 @@ class MessageHandlerTest {
 
     @Before
     fun setup() {
-        MeshGraphService.resetForTesting()
         val app = RuntimeEnvironment.getApplication()
         handler = MessageHandler(
             myPeerID,
             app,
-            Lazy { LiveVoiceManager.getInstance(app) },
-            MeshGraphService.getInstance(),
+            Lazy(lazy { LiveVoiceManager(app) }::value),
+            MeshGraphService(),
             Lazy { FavoritesPersistenceService.shared },
             ContactDirectory,
         )
@@ -78,11 +76,6 @@ class MessageHandlerTest {
                 any(), any(), any(), any(), any(), anyOrNull()
             )
         ).thenReturn(true)
-    }
-
-    @After
-    fun tearDown() {
-        MeshGraphService.resetForTesting()
     }
 
     @Test

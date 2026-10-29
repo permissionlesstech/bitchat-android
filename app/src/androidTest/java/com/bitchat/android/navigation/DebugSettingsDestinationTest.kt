@@ -13,7 +13,8 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.bitchat.android.MainActivity
 import com.bitchat.android.R
-import com.bitchat.android.services.meshgraph.MeshGraphService
+import com.bitchat.android.testhook.TestHookDependencies
+import dagger.hilt.android.EntryPointAccessors
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -117,7 +118,10 @@ class DebugSettingsDestinationTest {
      */
     @Test
     fun theScreenGoesIdleWithAMeshGraphShowing() {
-        val graph = MeshGraphService.getInstance()
+        val graph = EntryPointAccessors.fromApplication(
+            rule.activity.applicationContext,
+            TestHookDependencies::class.java,
+        ).meshGraphService()
         graph.updateFromAnnouncement(
             "0123456789abcdef", "alice", listOf("fedcba9876543210"),
             System.currentTimeMillis().toULong(),

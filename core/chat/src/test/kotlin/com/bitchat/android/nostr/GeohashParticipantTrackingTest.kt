@@ -73,7 +73,7 @@ class GeohashParticipantTrackingTest {
             geohashConversations = GeohashConversationRegistry,
             nostrIdentity = NostrIdentityBridge,
             spamFilter = SpamFilter.shared,
-            seenMessageStore = Lazy { SeenMessageStore.getInstance(application) },
+            seenMessageStore = Lazy(lazy { SeenMessageStore(application) }::value),
         )
     }
 

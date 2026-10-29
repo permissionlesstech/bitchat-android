@@ -15,7 +15,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.bitchat.android.MainActivity
 import com.bitchat.android.AppPhase
 import com.bitchat.android.R
-import com.bitchat.android.features.voice.LiveVoiceManager
+import com.bitchat.android.testhook.TestHookDependencies
+import dagger.hilt.android.EntryPointAccessors
 import com.bitchat.android.features.voice.LiveVoiceScope
 import com.bitchat.android.navigation.openPrivateChat
 import com.bitchat.android.services.ContactDirectory
@@ -410,7 +411,10 @@ class PrivateChatDestinationTest {
 
     private fun session() = ChatSessionTestAccess.of(rule.activity)
 
-    private fun liveVoice() = LiveVoiceManager.getInstance(rule.activity)
+    private fun liveVoice() = EntryPointAccessors.fromApplication(
+        rule.activity.applicationContext,
+        TestHookDependencies::class.java,
+    ).liveVoiceManager()
 
     private fun openPrivateChat(peerID: String) {
         rule.runOnUiThread {

@@ -7,6 +7,7 @@ import com.bitchat.android.mesh.TransferProgressManager
 import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.meshgraph.MeshGraphService
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
@@ -22,6 +23,7 @@ interface TestHookDependencies {
     fun favoritesInit(): FavoritesInitRetry
     fun favorites(): FavoritesPersistenceService
     fun liveVoiceManager(): LiveVoiceManager
+    fun meshGraphService(): MeshGraphService
     fun meshServiceHolder(): MeshServiceHolder
     fun transferProgressManager(): TransferProgressManager
     fun transportBridgeService(): TransportBridgeService

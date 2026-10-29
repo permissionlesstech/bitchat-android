@@ -10,9 +10,7 @@ class MeshGraphServiceTest {
 
     @Before
     fun setUp() {
-        // Use the test-only API to reset the singleton state safely
-        MeshGraphService.resetForTesting()
-        service = MeshGraphService.getInstance()
+        service = MeshGraphService()
     }
 
     @Test

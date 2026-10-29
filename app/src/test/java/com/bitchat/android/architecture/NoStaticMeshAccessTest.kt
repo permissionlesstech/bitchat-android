@@ -74,9 +74,9 @@ class NoStaticMeshAccessTest {
         "core/mesh/src/main/java/com/bitchat/android/ui/debug/DebugSettingsManager.kt" to
             "injected class still reaching the DebugPreferenceManager object; goes with it in Task 6",
         "core/mesh/src/main/java/com/bitchat/android/services/SeenMessageStore.kt" to
-            "still-static class (getInstance) reaching AppStateStore; flipped in Task 5",
+            "injected class still reaching the AppStateStore object; goes with AppStateStore in Task 6",
         "core/mesh/src/main/java/com/bitchat/android/features/voice/LiveVoiceManager.kt" to
-            "still-static class (getInstance) reaching AppStateStore; flipped in Task 5",
+            "injected class still reaching the AppStateStore object; goes with AppStateStore in Task 6",
         "core/mesh/src/main/java/com/bitchat/android/favorites/FavoritesPersistenceService.kt" to
             "still-static class (shared) reaching AppStateStore; flipped in Task 5",
         "core/mesh/src/main/java/com/bitchat/android/spam/SpamFilterPreferences.kt" to

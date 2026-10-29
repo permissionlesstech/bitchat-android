@@ -4,12 +4,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.concurrent.ConcurrentHashMap
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Maintains an internal graph of the mesh based on gossip.
  * Nodes are peers (peerID), edges are direct connections.
  */
-class MeshGraphService private constructor() {
+@Singleton
+class MeshGraphService @Inject constructor() {
     data class GraphNode(val peerID: String, val nickname: String?)
     data class GraphEdge(val a: String, val b: String, val isConfirmed: Boolean, val confirmedBy: String? = null)
     data class GraphSnapshot(val nodes: List<GraphNode>, val edges: List<GraphEdge>)
@@ -114,19 +117,5 @@ class MeshGraphService private constructor() {
 
         val sortedEdges = edges.sortedWith(compareBy({ it.a }, { it.b }))
         _graphState.value = GraphSnapshot(nodeList, sortedEdges)
-    }
-
-    companion object {
-        @Volatile private var INSTANCE: MeshGraphService? = null
-        fun getInstance(): MeshGraphService = INSTANCE ?: synchronized(this) {
-            INSTANCE ?: MeshGraphService().also { INSTANCE = it }
-        }
-
-        @org.jetbrains.annotations.TestOnly
-        fun resetForTesting() {
-            synchronized(this) {
-                INSTANCE = null
-            }
-        }
     }
 }

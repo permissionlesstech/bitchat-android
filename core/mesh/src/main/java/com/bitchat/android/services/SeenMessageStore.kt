@@ -1,11 +1,13 @@
 package com.bitchat.android.services
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Persistent store for message IDs we've already acknowledged as delivered, read locally, or
@@ -15,20 +17,12 @@ import com.google.gson.annotations.SerializedName
  * Transport delivery is best-effort and retryable, while local read state drives unread UI.
  * Limits to last MAX_IDS entries per set to avoid memory bloat.
  */
-class SeenMessageStore private constructor(private val context: Context) {
+@Singleton
+class SeenMessageStore @Inject constructor(@ApplicationContext private val context: Context) {
     companion object {
         private const val TAG = "SeenMessageStore"
         private const val STORAGE_KEY = "seen_message_store_v1"
         private const val MAX_IDS = com.bitchat.android.util.AppConstants.Services.SEEN_MESSAGE_MAX_IDS
-
-        // The constructor always receives applicationContext, so process lifetime is intentional.
-        @SuppressLint("StaticFieldLeak")
-        @Volatile private var INSTANCE: SeenMessageStore? = null
-        fun getInstance(appContext: Context): SeenMessageStore {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: SeenMessageStore(appContext.applicationContext).also { INSTANCE = it }
-            }
-        }
     }
 
     private val gson = Gson()
