@@ -11,12 +11,11 @@ import okhttp3.Callback
 import okhttp3.Request
 import okhttp3.Response
 import java.util.Locale
-import javax.inject.Provider
 import kotlin.coroutines.resume
 
 class OpenStreetMapGeocoderProvider(
-    // Asked for at each request rather than when the geocoder is built.
-    private val clients: Provider<NostrHttpClients>,
+    // Asked for a client at each request, so a Tor mode change applies to the next lookup.
+    private val clients: NostrHttpClients,
     private val liveLocationGate: LiveLocationPrivacyGate
 ) : GeocoderProvider {
     private val TAG = "OSMGeocoderProvider"
@@ -36,7 +35,7 @@ class OpenStreetMapGeocoderProvider(
                 .url(url)
                 .header("User-Agent", userAgent)
                 .build()
-            val call = clients.get().httpClient().newCall(request)
+            val call = clients.httpClient().newCall(request)
 
             continuation.invokeOnCancellation { call.cancel() }
             val enqueueRequest = {

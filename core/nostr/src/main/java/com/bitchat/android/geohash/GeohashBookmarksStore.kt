@@ -18,7 +18,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.Locale
 import javax.inject.Inject
-import javax.inject.Provider
 import javax.inject.Singleton
 
 /**
@@ -30,8 +29,7 @@ import javax.inject.Singleton
 class GeohashBookmarksStore @Inject constructor(
     @ApplicationContext private val context: Context,
     private val liveLocationGate: LiveLocationPrivacyGate,
-    // A provider: the geocoder asks for the clients on each lookup.
-    private val httpClients: Provider<NostrHttpClients>,
+    private val httpClients: NostrHttpClients,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
 

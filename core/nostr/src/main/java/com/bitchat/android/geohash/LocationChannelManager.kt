@@ -16,7 +16,6 @@ import com.bitchat.android.nostr.NostrHttpClients
 import com.bitchat.android.nostr.NostrIdentityBridge
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
-import javax.inject.Provider
 import javax.inject.Singleton
 import kotlinx.coroutines.*
 import com.google.gson.Gson
@@ -35,8 +34,7 @@ import kotlinx.coroutines.flow.stateIn
 class LocationChannelManager @Inject constructor(
     @ApplicationContext private val context: Context,
     @get:VisibleForTesting val liveLocationGate: LiveLocationPrivacyGate,
-    // A provider: the geocoder asks for the clients on each lookup.
-    httpClients: Provider<NostrHttpClients>,
+    httpClients: NostrHttpClients,
     @MainImmediateDispatcher mainImmediateDispatcher: CoroutineDispatcher,
     private val nostrIdentity: NostrIdentityBridge,
 ) {
