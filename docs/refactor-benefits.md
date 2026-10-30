@@ -96,6 +96,8 @@ kept out of the refactor so it changes no behaviour it did not have to. Details 
 | Unit tests (10b) | 1200 | 1336 |
 | Device tests (10b) | chat 1, location 2 | chat 6, location 4 |
 | Tor and Nostr singletons (10c-1) | `getInstance()`, `.shared` and `object` holders; tests reset them by hand | Injected classes. Tests build fresh instances: the relay route-change and lifecycle smoke tests no longer call `NostrRelayManager.disconnect()` or `NostrNetwork.uninstallForTesting()` in teardown; the clients-binding, snapshot and location-notes send tests no longer reset global state; five PoW-dependent tests no longer share the process object |
+| Mesh, app and Wear singletons (10c-2a-1) | About 30 `getInstance()`, `.shared` and `object` holders; tests reset them by hand, and a test could pass or fail depending on what ran before it | Injected classes. Tests build their own instances: `AppStateStore.clear()` calls in tests went from 33 to 3 (the three left test clearing itself or simulate a restart); `MeshGraphService.resetForTesting`, the conversation-repository and identity-manager test setters, and the Wi-Fi Aware and transport-diagnostics resets are gone; `GeohashParticipantTrackingTest`, which failed when run alone, builds its own spam filter and passes alone |
+| Wear DI (10c-2a-1) | Hand-built objects and static holders | A Hilt app like the phone. Its mesh is still created only after permissions are granted, through `WearMeshHolder`, so identity keys are never generated early |
 | Module rules | Unwritten | `FeatureDependencyRulesTest` fails when a feature depends on another feature, an `:api` module grows dependencies, or `:core:tor` gains one |
 | Watch crypto | Tink 1.8.0 | Tink 1.23.0, the phone's version |
 | Watch theme | Its own copy of the palette, peer-color hash and fonts | The shared `:core:designsystem` base |
@@ -105,6 +107,13 @@ Safety rails added on the way:
   a build with no binding does not compile.
 - `NoStaticTorNostrAccessTest` fails the build when code reaches a Tor or Nostr singleton statically
   instead of by injection.
+- `NoStaticMeshAccessTest` does the same for the mesh, app and Wear singletons, and fails on any new
+  static holder, on one of those classes turning back into an `object`, on hand-building a shared store, and on anything but
+  `WearMeshHolder` taking the watch's mesh. `MessageRouter` is its one exemption, until the
+  identity scope replaces it (10c-2a-1).
+- `MeshSingletonIdentityTest` (device) shows that the mesh and the panic wipe hold the same single
+  instance of each shared store as the rest of the app, so a second `AppStateStore` or favourites
+  store cannot silently drop messages or favourites (10c-2a-1).
 - A Tor route change reaches the relays through a required member of that port, so a missing
   wiring cannot fail open.
 - Onboarding's location and Bluetooth receivers register as not exported.

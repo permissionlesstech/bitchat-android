@@ -567,7 +567,7 @@ or 9.
 
 Phase 9 moved to section 3 when it finished. What it left open is in section 5.
 
-### Phase 10: MVI on every screen (10a, 10b and 10c-1 done; the rest of 10c to come)
+### Phase 10: MVI on every screen (10a, 10b, 10c-1 and 10c-2a-1 done; the rest of 10c to come)
 
 #### MVI shape
 
@@ -788,7 +788,7 @@ Owed: the Mesh Lab and the second-phone pass wait for 10c. Phase 10 is complete 
 
 #### What Phase 10c-1 changed
 
-- `:core:tor` and `:core:nostr` use Hilt. `ArtiTorManager`, `OkHttpProvider`, `NostrRelayManager`, `NostrClient`, `NostrTransport`, `LocationChannelManager`, `GeohashBookmarksStore`, `LocationNotesManager`, `NearbyNotesController`, `RelayDirectory`, `LiveLocationPrivacyGate`, `PoWPreferenceManager`, `NostrEventDeduplicator`, `NostrBackgroundRuntime` and `LocationNotesInitializer` are injected singletons. `GeohashActivityMonitor` is injected and unscoped. Their `getInstance()` / `.shared` accessors, `NostrNetwork`, `NostrTestManager` and both bridge modules are gone.
+- `:core:tor` and `:core:nostr` use Hilt. `ArtiTorManager`, `OkHttpProvider`, `NostrRelayManager`, `NostrClient`, `NostrTransport`, `LocationChannelManager`, `GeohashBookmarksStore`, `LocationNotesManager`, `NearbyNotesController`, `RelayDirectory`, `LiveLocationPrivacyGate`, `PoWPreferenceManager`, `NostrEventDeduplicator`, `NostrBackgroundRuntime` and `LocationNotesInitializer` are injected singletons (`NostrClient`, which nothing injected, was deleted in 10c-2a-1). `GeohashActivityMonitor` is injected and unscoped. Their `getInstance()` / `.shared` accessors, `NostrNetwork`, `NostrTestManager` and both bridge modules are gone.
 - Outside callers in `:app`, `:core:chat` and the features inject them (`Lazy` where the first use must stay late).
 - Tests that needed global teardown now build fresh instances (see `docs/refactor-benefits.md`).
 - Behaviour is unchanged. No persisted key, log line, dispatcher or start-up order moved.
@@ -797,12 +797,12 @@ Owed: the Mesh Lab and the second-phone pass wait for 10c. Phase 10 is complete 
 
 #### Follow-ups from Phase 10c-1
 
-For 10c-2:
+For 10c-2 (10c-2a-1 converted or deleted every class named here except `MessageRouter`; `PoWPreferenceManager` keeps its `load()`):
 - Stateful singletons outside this run's list stay static: `GeohashConversationRegistry`, `NostrIdentityBridge`, `TorPreferenceManager`. `ArtiNative` is a JNI binding.
 - `MessageRouter` is still a static `getInstance`.
 - `PowerManager.getInstance` is static and now reached by the relay-manager JVM tests, shared across Robolectric tests. Inject it.
 - `PoWPreferenceManager` keeps its explicit `load()`.
-- `NostrClient` is an injected singleton that nothing injects (dead, as `NostrTestManager` was). Delete or use it.
+- `NostrClient` was an injected singleton that nothing injected. Deleted in 10c-2a-1.
 - `Provider<NostrHttpClients>` in `LocationChannelManager`, `GeohashBookmarksStore`, `GeocoderFactory` and `OpenStreetMapGeocoderProvider` is a leftover of `NostrNetwork.clients()`. Simplify it.
 
 Deferred from reviews, none blocking:
@@ -811,6 +811,61 @@ Deferred from reviews, none blocking:
 - `MainActivity` injects `NearbyNotesController` eagerly (no side effects; `Lazy` would be exact).
 - `resetNetworkConnections` is `internal` for a test; `@VisibleForTesting` is not on it.
 - The `javax-inject` version entry in `libs.versions.toml` sits apart from the Hilt group.
+
+### Phase 10c-2a-1: the mesh, the app and Wear on Hilt
+
+#### Phase 10c-2a-1 decisions
+
+| Decision | Why | Alternatives rejected | Cost / what to watch |
+|---|---|---|---|
+| (D) 10c-2a is split. 10c-2a-1 moves every remaining static singleton in `:core:mesh`, `:app`, `:core:chat`, `:core:nostr`, `:core:tor` and Wear onto Hilt, with no behaviour change. 10c-2a-2 adds the identity scope. (2026-10-29) | Converting about 35 classes and introducing a new component in one run would put two kinds of risk in one diff. The scope work needs every class injectable first. | One 10c-2a run. | One more review and phone check. The identity scope waits for 10c-2a-2. |
+| (P) Bridge first, then flip, as in 10c-1. Each class's static accessor and its bridge go in the same commit that gives it an `@Inject` constructor. Consumers flip before the class they reach, so no commit needs a temporary setter. | One instance per class at every commit. | Leaf classes first, with setters. | Commit order follows the reach graph, not the plan's grouping. |
+| (P) Each init call stays where it was. A class whose constructor did no I/O keeps an explicit call at the old place: `SpamFilterPreferences.init`, `DebugPreferenceManager.init`, `GeohashAliasRegistry.initialize`, `GeohashConversationRegistry.initialize`, `WifiAwareController.initialize`, `AppStateStore.initializeConversationPersistence` and `MeshServicePreferences.init` in `BitchatApplication.onCreate` (the last also in `BootCompletedReceiver`), `ContactDirectory.initialize` in the chat session's start-up, `TorPreferenceManager.init` inside `ArtiTorManager.init`, and `WearPeerIdentityState.initialize` in the watch's `onCreate`. A class whose constructor did the work (`PowerManager`, `DebugSettingsManager`, `LiveVoiceManager`, `SeenMessageStore`, `ConversationListPreferences`, `WearNotificationCoordinator`) is first resolved where `getInstance` was first called, through `Lazy` where that moment is late. | A preference read late or early changes behaviour: the spam filter off for the first messages, or the wrong debug toggles. | Loading every class at construction. | `AppStartupOrderTest` and the new `WearStartupOrderTest` pin the order in source. Every Application field is `Lazy`. |
+| (P) The watch's mesh is still created after permissions are granted. `WearMeshService` is `@Inject` and unscoped, and only `WearMeshHolder` (`getOrCreate()`, `peek()`) takes it. | Creating the mesh generates the identity keys, so injecting it anywhere else would create keys when the activity starts. | A `@Singleton` mesh. | `WearMeshHolderTest` pins `peek()` null before creation. A scan rule fails if anything else takes `WearMeshService`. |
+| (R) `BluetoothMeshService` is built through a no-argument assisted factory, and `UnifiedMeshService` through one that takes the Bluetooth mesh. Only `MeshServiceHolder` takes them. The unscoped `BluetoothMeshService` binding in `MeshModule` is gone. | The holder taking a `Provider<BluetoothMeshService>` while that binding asked the holder is a cycle. It compiles and recurses at run time. | Keeping the binding. | Nothing can inject `BluetoothMeshService` directly; trying fails to compile. |
+| (R) `FavoritesPersistenceService`, `AppStateStore` and `ContactDirectory` flip in one commit. | Their static reads form a cycle (favourites → app state → contact directory → favourites), so no consumer-first order exists. Handing the directory favourites later through `initialize` would file favourites under raw peer IDs before the chat session starts, and always on the watch. | Splitting the commit. | One large commit that bisects as a unit. `FavoriteConversationCanonicalizationTest` was written green on the static form first, then kept green. |
+| (R) Favourites keep their pre-init contract. The constructor does no I/O, and `initialize()` does what the old constructor did: it is synchronized and idempotent, and it is retried after a failure. Every public method throws the same "not initialized" until then. The callers that initialised or retried before still do, at the same moments. | Consumers relied on that throw inside their own `try`. Initialising in the constructor would move Keystore work into the first injection. | Loading at construction. | The separate retry helper is gone. |
+| (P) `MessageRouter` stays static until 10c-2a-2. Its `getInstance` takes each singleton it used to reach as a parameter, eight in all, passed by its three callers. | It is the mesh-replacement machinery the identity holder replaces. Converting it now would mean converting it twice. The parameters let its dependencies flip. | Converting it now. | The scan's only exemption. The signature shrinks when it moves. |
+| (P) The dispatcher `@Provides` module moved from `:core:nostr` to `:core:mesh`. | Wear does not depend on `:core:nostr`, and the mesh services now take their dispatchers by qualifier. | A second module in Wear. | None. |
+| (P) Wear composables take their dependencies as parameters from `MainActivity`, which field-injects them. | It keeps the composables free of the graph. | An entry point in each composable. | `MainActivity` holds every field the screens need. |
+| (R) `LocationChannelManager`, `GeohashBookmarksStore`, `GeocoderFactory` and `OpenStreetMapGeocoderProvider` take a plain `NostrHttpClients`, not a `Provider` of it. | The binding is a singleton, so the `Provider` always returned the same object. Each lookup still asks it for the current client, so a Tor mode change still applies to the next request. | Keeping the `Provider`. | Tor routing is unchanged, and the port still fails closed: there is no default binding. |
+| (P) `MessageRetentionService` (all commented out) and `NostrClient` (injected nowhere) are deleted. | Dead code. | Converting them. | None. |
+| The documented lock command now also resolves Wear's instrumented-test classpaths and `:core:mesh`'s release test-fixture classpath. | No task in the old command resolved them, so with Hilt in Wear, strict locking failed `:wear:compileDebugAndroidTestKotlin` and `:core:mesh:compileReleaseTestFixturesKotlin`. | Leaving them unlocked. | No new artifact or version. CI was not affected. See `docs/reproducible-builds.md`. |
+| `NoStaticMeshAccessTest` reads every module's main and debug sources. It fails on a reach through a class name, a static holder, a converted class turned back into an `object`, mutable state in one's companion, an import alias or typealias, a hand-built shared store, and anything but `WearMeshHolder` taking the watch mesh. App's unit-test tasks declare the scanned trees as inputs. | It must fail on any static singleton. Without the inputs, a source-only change in another module left a stale up-to-date result locally. | Separate tests per module. | It is a text scan, not a type check. Companion state is found by file name. `src/androidTest` is not scanned: two screen tests build a `SpamFilter()` double there. |
+
+#### What Phase 10c-2a-1 changed
+
+- Wear is a Hilt app: `@HiltAndroidApp` on `BitchatWatchApplication`, and `@AndroidEntryPoint` on `MainActivity` and `WearMeshForegroundService`.
+- These became injected `@Singleton`s, in their old packages and modules: `PowerManager`, `PeerFingerprintManager`, `DebugSettingsManager`, `SpamFilter`, `SpamFilterPreferences`, `FavoritesPersistenceService`, `LiveVoiceManager`, `SeenMessageStore`, `ConversationRepository`, `MeshGraphService`, `AppStateStore`, `ContactDirectory`, `TransportBridgeService`, `PrivateMessageArrivalOrder`, `VoiceWaveformCache`, `TransferProgressManager`, `DebugPreferenceManager`, `GeohashAliasRegistry`, `VerificationService`, `WifiAwareController`, `MeshServiceHolder`, `MeshServicePreferences`, `MeshTransportToggles`, `ConversationListPreferences`, `NostrIdentityBridge`, `GeohashConversationRegistry`, `TorPreferenceManager`, `WearChatState`, `WearPeerIdentityState` and `WearNotificationCoordinator`. `WearMeshHolder` is new.
+- The mesh services (`BluetoothMeshService`, `UnifiedMeshService`, `WifiAwareMeshService`, `WearMeshService`) are injectable and unscoped, and still created only by their holders. The hand-built mesh parts take the singletons by constructor from whoever builds them.
+- Every project `getInstance()` and `.shared` accessor is gone except `MessageRouter`'s, and so is every bridge module. The stateful `object`s left are outside this phase's scope: the theme and chat UI-mode preferences in `:core:designsystem:phone`.
+- Behaviour is unchanged: no persisted key, log line, dispatcher, thread or start-up step moved. The panic wipe keeps its steps and their order, and now resets the injected instances.
+- Tests that reset static state now build their own instances (see `docs/refactor-benefits.md`). `MeshSingletonIdentityTest` (device) shows the mesh and the panic wipe hold the graph's one instance of each shared store.
+- Every class is classified identity or process in the local planning inventory, for 10c-2a-2.
+- Tests: JVM 1410 to 1429 (3 skipped). Device: app 68 to 71 (the three identity tests); chat 6, settings 5, location 4, share 3 unchanged. The Mesh Lab was not run.
+
+#### Follow-ups from Phase 10c-2a-1
+
+For 10c-2a-2:
+- `MessageRouter` and its unscoped `Provider`, `ChatSessionMesh.replace`, `SessionMeshSource` and `PanicClear`'s mesh rebuild become the identity holder pattern. `MeshServiceHolder` becomes the identity scope's mesh factory, and `WearMeshHolder` the watch's.
+- `WearMeshService` implements the `MeshService` role interfaces.
+- Process-wide classes that read identity state must follow the current identity: `PowerManager` (direct peers), `WearNotificationCoordinator` (the watch's chat state). The spam filter's settings are pushed into it once at start-up and must reach a rebuilt filter.
+- `NostrRelayManager` stays process-wide; its identity-tied subscriptions must drop when an identity ends.
+
+Left as they are (no behaviour change in this phase):
+- The watch never initialises `ContactDirectory`, `DebugPreferenceManager` or `VerificationService`.
+- The Bluetooth and Wi-Fi Aware meshes each build their own `NotificationManager` (beside the chat session's) and their own `EncryptionService` over the same stored keys.
+- `MessageSendingTest.aCommandRunsInsteadOfBeingSent` (device) is flaky on the unchanged base: it waits 5 s for a system message. Gates count it green only when a rerun passes.
+- `DebugSettingsManager`'s debug buffers hold peer IDs and nicknames; the 10c-3 wipe list must include them.
+
+Resolved during the phase: `GeohashParticipantTrackingTest` failed when run alone, most likely because it leaned on spam-filter state that an earlier test left in the shared instance. It now builds its own `SpamFilter` and passes alone.
+
+Deferred from reviews, none blocking:
+- The scan finds a class's companion by file name, so a companion added to a class in a file of another name is not checked. It does not read `src/androidTest`.
+- `BluetoothMeshService` and `PanicClear` expose their constructor parameters as public `@VisibleForTesting` properties for the identity test.
+- `MeshServiceHolder.getOrCreate(context)` keeps an unused `context` parameter.
+
+Owed: the Mesh Lab on physical devices, for 10c-1 and this phase.
 
 ### Phase 11: Wear shares UI with the phone (not started)
 
