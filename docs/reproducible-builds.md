@@ -249,9 +249,15 @@ metadata:
 
 ```bash
 ./gradlew testDebugUnitTest lintDebug resolveIdeRuntimeClasspathCopyLocks \
+  assembleDebugAndroidTest :core:mesh:compileReleaseTestFixturesKotlin \
   --write-locks \
   --write-verification-metadata sha256
 ```
+
+`assembleDebugAndroidTest` and `compileReleaseTestFixturesKotlin` resolve the
+instrumented-test and release test-fixture classpaths (KSP processor
+configurations among them), which no other task in the list resolves; without
+them those configurations stay unlocked and strict locking fails later.
 
 `resolveIdeRuntimeClasspathCopyLocks` records the transient runtime classpath
 copies that Android Studio resolves during model import. Their selected versions
