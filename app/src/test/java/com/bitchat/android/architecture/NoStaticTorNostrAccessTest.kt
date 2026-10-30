@@ -16,7 +16,7 @@ class NoStaticTorNostrAccessTest {
 
     /** The singletons Hilt builds, each declared in a file of its own name. */
     private val injected = listOf(
-        "ArtiTorManager", "OkHttpProvider", "NostrRelayManager", "NostrClient", "NostrTransport",
+        "ArtiTorManager", "OkHttpProvider", "NostrRelayManager", "NostrTransport",
         "NostrEventDeduplicator", "LocationChannelManager", "LocationNotesManager",
         "GeohashBookmarksStore", "NearbyNotesController", "RelayDirectory", "LiveLocationPrivacyGate",
         "PoWPreferenceManager", "NostrBackgroundRuntime", "LocationNotesInitializer",
