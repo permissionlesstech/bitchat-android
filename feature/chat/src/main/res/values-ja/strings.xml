@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="channels">チャンネル</string>
+    <string name="no_one_connected">接続中のユーザーはいません</string>
+    <string name="your_network">あなたのネットワーク</string>
+
+    <!-- お気に入り アクセシビリティ -->
+    <string name="cd_add_favorite">お気に入りに追加</string>
+    <string name="cd_remove_favorite">お気に入りから削除</string>
+    <!-- チャットヘッダー &amp; アクセシビリティ -->
+    <string name="cd_nostr_reachable">Nostr 経由で到達可能</string>
+    <string name="cd_unread_private_messages">未読のプライベートメッセージ</string>
+    <string name="cd_open_location_channels">位置情報とチャンネルの設定を開く</string>
+    <string name="cd_connected_peers">接続中のピア</string>
+    <string name="cd_geohash_participants">Geohash 参加者</string>
+    <string name="cd_ready_for_handshake">ハンドシェイク準備完了</string>
+    <string name="cd_handshake_in_progress">ハンドシェイク中</string>
+    <string name="cd_encrypted">エンドツーエンド暗号化</string>
+    <string name="cd_handshake_failed">ハンドシェイク失敗</string>
+
+    <!-- ファイルビューア ダイアログ -->
+    <string name="file_viewer_title">📎 ファイルを受信</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="file_viewer_size">📏 サイズ: %1$s</string>
+    <string name="file_viewer_type">🏷️ 種類: %1$s</string>
+    <string name="file_viewer_open_save">📂 開く / 保存</string>
+    <string name="close_with_emoji">❌ 閉じる</string>
+    <string name="pick_image">画像を選択</string>
+
+    <string name="cancel_lower">キャンセル</string>
+
+    <string name="cd_unread_message">未読メッセージ</string>
+    <string name="cd_reachable_via_nostr">Nostr 経由で到達可能</string>
+    <string name="cd_offline_favorite">お気に入り (オフライン)</string>
+    <string name="cd_scroll_to_bottom">一番下へスクロール</string>
+    <string name="cd_file">ファイル</string>
+    <string name="cd_image">画像</string>
+    <string name="cd_cancel">キャンセル</string>
+    <string name="cd_link">リンク</string>
+    <string name="cd_pick_media">メディアを選択</string>
+    <string name="cd_pick_file">ファイルを選択</string>
+    <string name="cd_save_current_image">現在の画像を保存</string>
+    <string name="cd_close">閉じる</string>
+    <string name="cd_image_index_of">画像 %1$d / %2$d</string>
+    <string name="cd_record_voice">ボイスメモを録音</string>
+    <string name="image_unavailable">画像は利用できません</string>
+    <string name="toast_image_saved">画像を「ダウンロード」に保存しました</string>
+    <string name="toast_failed_to_save_image">画像を保存できませんでした</string>
+    <string name="file_unavailable">[ファイルは利用できません]</string>
+    <!-- ユーザーアクション シート -->
+    <string name="choose_action_message_or_user">このメッセージまたはユーザーの操作を選択</string>
+    <string name="choose_action_user">このユーザーの操作を選択</string>
+    <string name="action_copy_message_title">メッセージをコピー</string>
+    <string name="action_copy_message_subtitle">このメッセージをクリップボードにコピー</string>
+    <string name="action_slap_title">%1$s を平手打ち</string>
+    <string name="action_slap_subtitle">冗談の平手打ちを送る</string>
+    <string name="action_hug_title">%1$s をハグ</string>
+    <string name="action_hug_subtitle">フレンドリーなハグを送る</string>
+    <string name="action_block_title">%1$s をブロック</string>
+    <string name="action_block_subtitle">このユーザーからのすべてのメッセージをブロック</string>
+
+    <string name="mesh_label">mesh</string>
+    <string name="nobody_around">誰もいません…</string>
+    <string name="you_suffix"> (あなた)</string>
+    <string name="type_a_message_placeholder">メッセージを入力…</string>
+    <string name="mention">メンション</string>
+    <string name="media_type_image">画像</string>
+    <string name="media_type_file">ファイル</string>
+
+    <!-- 通知テキストヘルパー -->
+    <string name="notification_sent_image">📷 画像を送信しました</string>
+    <string name="notification_sent_voice">🎤 ボイスメモを送信しました</string>
+    <string name="notification_sent_file">📎 ファイルを送信しました</string>
+
+    <!-- パスワード ダイアログ -->
+    <string name="pwd_prompt_title">チャンネルのパスワードを入力</string>
+    <string name="pwd_prompt_message">チャンネル %1$s はパスワードで保護されています。参加するにはパスワードを入力してください。</string>
+    <string name="pwd_label">パスワード</string>
+    <string name="join">参加</string>
+  <string name="verify_title">検証</string>
+  <string name="verify_my_qr_title">私を検証するためにスキャン</string>
+  <string name="verify_scan_prompt_friend">他人のQRをスキャン</string>
+  <string name="verify_remove">検証を削除</string>
+  <string name="verify_qr_unavailable">QR利用不可</string>
+  <string name="verify_camera_permission">QRスキャンにカメラ権限が必要です</string>
+  <string name="verify_request_camera">カメラを有効化</string>
+  <string name="security_verification_title">セキュリティ検証</string>
+  <string name="fingerprint_their">相手の指紋</string>
+  <string name="fingerprint_yours">あなたの指紋</string>
+  <string name="fingerprint_pending">ハンドシェイク保留中</string>
+  <string name="fingerprint_status_verified">暗号化＆検証済み</string>
+  <string name="fingerprint_status_encrypted">暗号化済み</string>
+  <string name="fingerprint_status_handshaking">ハンドシェイク中</string>
+  <string name="fingerprint_status_failed">ハンドシェイク失敗</string>
+  <string name="fingerprint_status_uninitialized">未暗号化</string>
+  <string name="fingerprint_verified_message">この人物の身元を検証しました。</string>
+  <string name="fingerprint_not_verified_label">未検証</string>
+  <string name="fingerprint_not_verified_message_fmt">安全な経路で %1$s と指紋を比較してください。</string>
+  <string name="fingerprint_mark_verified">検証済みにする</string>
+  <string name="fingerprint_start_handshake">ハンドシェイク開始</string>
+  <string name="fingerprint_copy">コピー</string>
+    <string name="cd_open_about">このアプリについてを開く</string>
+</resources>

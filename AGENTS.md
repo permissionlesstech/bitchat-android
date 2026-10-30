@@ -59,10 +59,71 @@ BLE/Wi-Fi mesh, protocol, Noise/crypto, identity, Nostr, geohash, and media.
 and JVM tests in `src/test/`. Specifications are in `docs/`; tooling is in
 `tools/`.
 
-`app/` is the source of truth for shared mesh/protocol code.
-`syncSharedAppSources` generates `wear/build/sharedSrc` from the include list
-in `wear/build.gradle.kts`. Extend that list; never copy shared
-Kotlin into `wear/src/` or edit generated `build/` content.
+`core/mesh/` holds the mesh transport stack both clients run: protocol,
+Noise/crypto, identity, gossip sync, private conversation storage and voice
+frames.
+
+`core/nostr/` holds Nostr relays, gift-wrapped private messages, geohash
+channels and location. It never touches the chat session: private messages land
+in a `PrivateMessageInbox` the session implements, and HTTP clients come from a
+`NostrHttpClients` the app binds, which fails closed (there is no default binding)
+so relay traffic cannot bypass Tor.
+
+`core/chat/` holds the chat session behind the chat screens: `ChatState`, the
+managers, private conversations, notifications and QR verification, in the
+Activity-retained scope. It takes what is the app's own through ports the app
+binds (`NotificationTargets`, `SessionMeshSource`, `WifiAwarePeers`). Screens and
+their ViewModels live in the `feature/` modules.
+
+`core/domain/` holds the domain models that Android library modules
+need (Gradle forbids a library module depending on an application module).
+`:app` and `:wear` depend on both. Where the clients differ, `:core:mesh`
+takes the policy from its caller (Bluetooth permissions) or a hook the app
+registers (`TransportToggles`), never a same-name class per client. Shared
+test doubles, including the JVM `android.util` shims, live in
+`core/mesh/src/testFixtures/`.
+
+`core/navigation/` holds the Navigator, the NavDisplay host and the Hilt
+module that binds them. Routes live in the `feature/*/api` modules. The `core/`
+modules keep the package names they had inside `app/`, so moving a file between
+them needs no import changes.
+
+`core/designsystem/` is the base both clients share: palette, motion, peer colors
+and the font, on Compose foundation/ui only, with no Material3 and no other
+project module. `core/designsystem/phone/` adds the phone's Material3 theme,
+generic components and the resources shared between `:app` and the features.
+
+`core/readiness/` reads what the device and the stored onboarding choices say
+about readiness (Bluetooth, location services, battery optimization, runtime
+permissions, first launch, the skip preferences) through `DeviceReadiness`, and
+decides the next onboarding step (`nextStep`). It depends only on `:core:mesh`
+and `:core:domain`, so both the app's startup gate and the onboarding feature
+build on it.
+
+`core/tor/` holds Arti and the Tor HTTP stack. It depends on no other project
+module. It signals route changes through `ArtiTorManager.routeChanges`, which the
+app wires into the `NostrHttpClients` port, so relays reset on a route change.
+
+`feature/share`, `feature/settings`, `feature/location`, `feature/chat` and
+`feature/onboarding` hold the phone screens, each with an `:api` module for its
+routes (and, for chat, `openPrivateChat`; for onboarding, the `OnboardingHost`
+port the app binds to its startup gate). A feature registers its Nav3 destinations as Hilt
+`@IntoSet EntryProviderInstaller`s. A feature depends only on another feature's
+`:api`, never on the feature. An `:api` module depends only on
+`:core:navigation` and `:core:domain` among project modules; external Compose
+runtime/ui libraries are allowed. `FeatureDependencyRulesTest` enforces this,
+that `:core:tor` has no project dependencies and that `:core:readiness` depends
+on no feature and not on `:app`. `:app` keeps `MainActivity`, the startup gate
+(`AppStartupGate`), the application class, the mesh, Wi-Fi Aware and foreground
+service, the DI modules that bind ports, the debug hooks (`ReadinessOverride`
+among them) and the instrumented tests of app wiring (navigation, DI, insets); a
+feature's screen tests live in its own `src/androidTest`. `MainActivity` registers
+no destinations inline.
+
+`build-logic/` holds the Gradle convention plugins (`bitchat.android.*`)
+applied by library modules. It is an included build; it does not appear in
+`settings.gradle.kts` as a project. A convention plugin must pin every build
+setting `app/build.gradle.kts` pins, `buildToolsVersion` included.
 
 ## Build, Test & Development Commands
 

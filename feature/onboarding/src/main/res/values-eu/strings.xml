@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="battery_optimization_not_required">Bateria-optimizazioa ez da beharrezkoa</string>
+    <string name="battery_optimization_not_supported_message">Zure gailuak ez du bateria-optimizazioko ezarpenik behar. bitchat normal ibiliko da.</string>
+    <string name="battery_optimization_success_message">bitchat atzeko planoan modu fidagarrian ibil daiteke</string>
+    <string name="battery_optimization_skip">Saltatu oraingoz</string>
+    <string name="skip">Saltatu</string>
+
+    <string name="cd_privacy_protected">Pribatutasuna babestuta</string>
+    <string name="cd_location_services">Kokapen-zerbitzuak</string>
+    <string name="cd_privacy">Pribatutasuna</string>
+    <string name="cd_error">Errorea</string>
+    <string name="cd_battery_optimization">Bateria-optimizazioa</string>
+    <string name="cd_benefits">Abantailak</string>
+    <string name="cd_checking_battery_optimization">Bateria-optimizazioa egiaztatzen</string>
+    <string name="cd_not_supported_battery_optimization">Bateria-optimizazioa ez da onartzen</string>
+    <string name="cd_bluetooth">Bluetooth</string>
+    <!-- Onboarding screens -->
+    <string name="location_services_required">Kokapen-zerbitzuak behar dira</string>
+    <string name="privacy_first">Pribatutasuna lehenik</string>
+    <string name="location_explanation">bitchat-ek EZ du zure kokapenaren jarraipenik egiten.\n\nKokapen-zerbitzuak beharrezkoak dira Bluetooth bidez eskaneatzeko eta Geohash txaterako.</string>
+    <string name="location_needs_for">bitchat-ek kokapen-zerbitzuak behar ditu honetarako:</string>
+    <string name="location_needs_bullets">• Bluetooth gailuak eskaneatzeko\n• Mesh sarean inguruko erabiltzaileak aurkitzeko\n• Geohash txaterako\n• Ez da jarraipenik ez kokapen-bilketarik egiten</string>
+    <string name="background_location_required_title">Atzeko planoko kokapena gomendatzen da</string>
+    <string name="background_location_required_subtitle">Aukerakoa, mesh sarearen fidagarritasuna hobetzen du</string>
+    <string name="background_location_explanation">Android-ek atzeko planoko kokapena gomendatzen du, bitchat-ek inguruko gailuak eskanea ditzan aplikazioa irekita ez dagoenean. Horri esker, mesh sarea bizirik mantentzen da gailua berrabiarazi ondoren.</string>
+    <string name="background_location_settings_tip">Ezarpenak irekitzean, aukeratu \"Baimendu beti\".</string>
+    <string name="background_location_needs_for">bitchat-ek atzeko planoko kokapena erabiltzen du honetarako:</string>
+    <string name="background_location_needs_bullets">- Inguruko gailuak eskaneatzeko aplikazioa itxita dagoenean\n- Berrabiarazi ondoren berriro konektatzeko\n- Mesh sarea atzeko planoan martxan mantentzeko</string>
+    <string name="background_location_privacy_note">Ez dugu INOIZ zure kokapena biltzen edo gordetzen. Zure pribatutasuna seguru dago.</string>
+    <string name="grant_background_location">Baimendu atzeko planoko kokapena</string>
+    <string name="open_location_settings">Ireki kokapen-ezarpenak</string>
+    <string name="check_again">Egiaztatu berriro</string>
+    <string name="location_services_unavailable">Kokapen-zerbitzuak ez daude erabilgarri</string>
+    <string name="location_unavailable_explanation">Kokapen-zerbitzuak ez daude erabilgarri gailu honetan. Ezohikoa da, kokapen-zerbitzuak Android gailuetan estandarrak baitira.\n\nbitchat-ek kokapen-zerbitzuak behar ditu Bluetooth bidezko eskaneatzeak behar bezala funtziona dezan (Android-en eskakizuna). Hori gabe, aplikazioak ezin ditu inguruko erabiltzaileak aurkitu.</string>
+    <string name="checking_location_services">Kokapen-zerbitzuak egiaztatzen...</string>
+    <string name="bluetooth_needs_for">bitchat-ek Bluetooth behar du honetarako:</string>
+    <string name="bluetooth_needs_bullets">• Inguruko erabiltzaileak aurkitzeko\n• Mesh sareko konexioak sortzeko\n• Mezuak bidali eta jasotzeko\n• Internetik eta zerbitzaririk gabe funtzionatzeko</string>
+    <string name="enable_bluetooth">Gaitu Bluetooth</string>
+    <string name="bluetooth_not_supported">Bluetooth ez da onartzen</string>
+    <string name="bluetooth_unsupported_explanation">Gailu honek ez du Bluetooth Low Energy (BLE) onartzen, eta bitchat-ek hori behar du funtzionatzeko.\n\nbitchat-ek BLE behar du mesh sareak sortzeko eta inguruko gailuekin internetik gabe komunikatzeko.</string>
+    <string name="checking_bluetooth_status">Bluetooth-en egoera egiaztatzen...</string>
+    <string name="battery_optimization_detected_title">Bateria-optimizazioa detektatu da</string>
+    <string name="battery_optimization_enabled_title">Bateria-optimizazioa gaituta</string>
+    <string name="battery_optimization_explanation_short">bitchat-ek atzeko planoan ibili behar du mesh sareko konexioei eusteko. Bateria-optimizazioak konexio horiek eten ditzake.</string>
+    <string name="benefits_of_disabling">Desgaitzearen abantailak</string>
+    <string name="battery_benefits_short">• Mezuen entrega fidagarria\n• Mesh sareko konexioari eusten zaio\n• Konexio-etenak saihesten dira</string>
+    <string name="disable_battery_optimization">Desgaitu bateria-optimizazioa</string>
+    <string name="battery_optimization_disabled_title">Bateria-optimizazioa desgaituta</string>
+    <string name="continue_btn">Jarraitu</string>
+    <string name="initializing_mesh_network">Mesh sarea abiarazten</string>
+    <string name="setting_up_bluetooth">Bluetooth mesh sarea konfiguratzen...</string>
+    <string name="should_take_seconds">Segundo batzuk besterik ez ditu beharko</string>
+    <string name="setup_not_complete">Konfigurazioa ez da osatu</string>
+    <string name="try_again">Saiatu berriro</string>
+    <string name="privacy_protected">Zure pribatutasuna babestuta dago</string>
+    <string name="privacy_bullets">• Ez da jarraipenik ez datu-bilketarik egiten\n• Bluetooth mesh txatak guztiz lineaz kanpokoak dira\n• Geohash txatek internet erabiltzen dute</string>
+    <string name="permissions_header">Baimenak</string>
+    <string name="grant_permissions">Eman baimenak</string>
+    <string name="perm_background_location_desc">Gomendatua inguruko gailuak eskaneatzeko aplikazioa atzeko planoan dagoenean</string>
+    <string name="perm_background_location_system">Baimendu atzeko planoko kokapenerako sarbidea</string>
+    <string name="bluetooth_recommended">Bluetooth gomendatzen da</string>
+</resources>

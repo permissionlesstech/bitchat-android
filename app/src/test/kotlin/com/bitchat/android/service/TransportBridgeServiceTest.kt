@@ -5,7 +5,6 @@ import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import kotlinx.coroutines.test.runTest
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -19,17 +18,13 @@ import java.util.UUID
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [Build.VERSION_CODES.P], manifest = Config.NONE)
 class TransportBridgeServiceTest {
+    private val bridge = TransportBridgeService()
     private val targetId = "test-${UUID.randomUUID()}"
-
-    @After
-    fun tearDown() {
-        TransportBridgeService.unregister(targetId)
-    }
 
     @Test
     fun `bridged prepared plan retains exact payloads with decremented TTL`() {
         var captured: RoutedPacket? = null
-        TransportBridgeService.register(
+        bridge.register(
             targetId,
             object : TransportBridgeService.TransportLayer {
                 override fun send(packet: RoutedPacket) {
@@ -57,7 +52,7 @@ class TransportBridgeServiceTest {
             packet.copy(type = MessageType.FRAGMENT.value, payload = byteArrayOf(11))
         )
 
-        TransportBridgeService.broadcast(
+        bridge.broadcast(
             sourceId = "source-${UUID.randomUUID()}",
             packet = RoutedPacket(packet, preparedPackets = prepared)
         )
@@ -77,7 +72,7 @@ class TransportBridgeServiceTest {
     fun `rejected bridge send remains eligible after transport reconnects`() = runTest {
         var transportConnected = false
         var attempts = 0
-        TransportBridgeService.register(
+        bridge.register(
             targetId,
             object : TransportBridgeService.TransportLayer {
                 override fun send(packet: RoutedPacket) = Unit
@@ -101,11 +96,11 @@ class TransportBridgeServiceTest {
         val sourceId = "source-${UUID.randomUUID()}"
 
         assertFalse(
-            TransportBridgeService.broadcastAndReport(sourceId, RoutedPacket(packet))
+            bridge.broadcastAndReport(sourceId, RoutedPacket(packet))
         )
         transportConnected = true
         assertTrue(
-            TransportBridgeService.broadcastAndReport(sourceId, RoutedPacket(packet))
+            bridge.broadcastAndReport(sourceId, RoutedPacket(packet))
         )
         assertEquals(2, attempts)
     }

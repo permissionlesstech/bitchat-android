@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+  <string name="verify_mutual_match_title">Weryfikacja wzajemna</string>
+  <string name="verify_mutual_match_body">Ty i %1$s zweryfikowaliście się nawzajem</string>
+  <string name="verify_mutual_system_message">wzajemna weryfikacja z %1$s</string>
+  <string name="verify_success_title">Zweryfikowano</string>
+  <string name="verify_success_body">Zweryfikowałeś %1$s</string>
+  <string name="verify_success_system_message">zweryfikowano %1$s</string>
+    <string name="notification_messages_from_people">%1$d wiadomości od %2$d osób</string>
+    <string name="notification_more_conversations">i jeszcze %1$d rozmów</string>
+    <string name="notification_new_messages">Nowe wiadomości</string>
+    <string name="notification_new_location_messages">Nowe wiadomości lokalizacyjne</string>
+    <string name="notification_mentions_in">Wzmianka w %1$s</string>
+    <string name="notification_mentions_in_more">Wzmianka w %1$s (+%2$d więcej)</string>
+    <string name="notification_mentions_in_plural">%1$d wzmianek w %2$s</string>
+    <string name="notification_new_activity_in">Nowa aktywność w %1$s</string>
+    <string name="notification_messages_in">Wiadomości w %1$s</string>
+    <string name="notification_joined_conversation">%1$s dołączył(a) do rozmowy</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat - %1$d wzmianek</string>
+    <string name="notification_geohash_summary_title">bitchat - czaty lokalizacyjne</string>
+    <string name="notification_geohash_summary_text">%1$d wiadomości z %2$d lokalizacji</string>
+    <string name="notification_mesh_mention_title_singular">Wzmianka w czacie Mesh</string>
+    <string name="notification_mesh_mention_title_plural">%1$d wzmianek w czacie Mesh</string>
+    <string name="notification_more_locations">i jeszcze %1$d lokalizacji</string>
+    <plurals name="notification_and_more">
+        <item quantity="one">i jeszcze %1$d</item>
+        <item quantity="few">i jeszcze %1$d</item>
+        <item quantity="many">i jeszcze %1$d</item>
+        <item quantity="other">i jeszcze %1$d</item>
+    </plurals>
+</resources>

@@ -35,20 +35,28 @@ import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.watch.R
-import com.bitchat.watch.mesh.WearMeshService
+import com.bitchat.watch.mesh.WearMeshHolder
 import com.bitchat.watch.ui.theme.ChatVisualTokens
-import com.bitchat.watch.ui.theme.LocalBitchatPalette
-import com.bitchat.watch.ui.theme.colorForPeer
+import com.bitchat.android.ui.PeerIdentity
+import com.bitchat.android.ui.theme.LocalBitchatPalette
+import com.bitchat.android.ui.theme.colorForPeer
 
 @Composable
-fun PeopleScreen(onOpenDm: (String) -> Unit, onEditNickname: () -> Unit) {
-    val peers by AppStateStore.peers.collectAsState()
-    val unread by WearChatState.unreadDms.collectAsState()
-    val mesh = WearMeshService.peek()
+fun PeopleScreen(
+    appStateStore: AppStateStore,
+    chatState: WearChatState,
+    peerIdentity: WearPeerIdentityState,
+    meshHolder: WearMeshHolder,
+    onOpenDm: (String) -> Unit,
+    onEditNickname: () -> Unit,
+) {
+    val peers by appStateStore.peers.collectAsState()
+    val unread by chatState.unreadDms.collectAsState()
+    val mesh = meshHolder.peek()
     val listState = rememberScalingLazyListState()
     val palette = LocalBitchatPalette.current
     val nicknames = mesh?.getPeerNicknames() ?: emptyMap()
-    val identityRevision by WearPeerIdentityState.revision.collectAsState()
+    val identityRevision by peerIdentity.revision.collectAsState()
 
     // Peers with unread messages float to the top so they are easy to see and reach.
     val sortedPeers = androidx.compose.runtime.remember(
@@ -108,7 +116,7 @@ fun PeopleScreen(onOpenDm: (String) -> Unit, onEditNickname: () -> Unit) {
             }
             items(sortedPeers, key = { it }) { peerID ->
                 val nick = nicknames[peerID] ?: peerID.take(8)
-                val identity = WearPeerIdentityState.snapshot(peerID, mesh)
+                val identity = peerIdentity.snapshot(peerID, mesh)
                 PersonRow(
                     nickname = nick,
                     peerID = peerID,
@@ -188,7 +196,7 @@ private fun PersonRow(
                 Text(
                     text = nickname,
                     style = ChatVisualTokens.SenderStyle,
-                    color = colorForPeer(nickname + peerID, palette),
+                    color = colorForPeer(PeerIdentity.mesh(peerID).stableKey, palette),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)

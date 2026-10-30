@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TODO: Chinese (Traditional) translations -->
+    <!-- Machine-translated (Claude) — pending native-speaker review. Also corrected Simplified->Traditional script errors in verify_*/fingerprint_* strings. -->
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d 則筆記</item>
+    <item quantity="other">#%1$s ± 1 • %2$d 則筆記</item>
+  </plurals>
+  <string name="location_notes_description">為此位置新增簡短永久備註，供其他訪客查看。</string>
+  <string name="location_notes_relays_unavailable">地理中繼無法使用；筆記已暫停</string>
+  <string name="location_notes_no_relays_title">附近沒有地理中繼</string>
+  <string name="location_notes_no_relays_desc">筆記依賴地理中繼。請檢查連線後重試。</string>
+  <string name="loading_location_notes">正在載入筆記…</string>
+  <string name="location_notes_empty_title">尚無筆記</string>
+  <string name="location_notes_empty_desc">成為第一個為此地點新增筆記的人。</string>
+  <string name="dismiss">關閉</string>
+  <string name="location_notes_input_placeholder">為此地點新增一則筆記</string>
+  <string name="retry">重試</string>
+  <string name="cd_add_bookmark">新增書籤</string>
+  <string name="about_network">網路</string>
+  <string name="cd_open_map">開啟地圖</string>
+  <string name="cd_remove_bookmark">移除書籤</string>
+  <string name="cd_decrease_precision">降低精確度</string>
+  <string name="cd_increase_precision">提高精確度</string>
+  <string name="location_bluetooth_subtitle">#藍牙 • %1$s</string>
+  <string name="location_channels_title">#位置頻道</string>
+  <string name="location_channels_desc">使用地理雜湊頻道與你附近的人聊天。僅分享粗略的地理雜湊，絕不分享精確的 GPS 位置。請勿對此畫面截圖或分享，以保護你的隱私。</string>
+  <string name="location_permission_denied">位置權限已遭拒。請至設定中啟用以使用位置頻道。</string>
+  <string name="finding_nearby_channels">正在尋找附近的頻道…</string>
+  <string name="bookmarked">已加入書籤</string>
+  <string name="geohash_placeholder">地理雜湊</string>
+  <string name="invalid_geohash">無效的地理雜湊</string>
+  <string name="teleport">傳送</string>
+  <string name="disable_location_services">停用位置服務</string>
+  <string name="enable_location_services">啟用位置服務</string>
+  <string name="location_level_block">街區</string>
+  <string name="location_level_neighborhood">鄰里</string>
+  <string name="location_level_city">城市</string>
+  <string name="location_level_province">省份</string>
+  <string name="location_level_region">地區</string>
+  <string name="hash_symbol">#</string>
+  <plurals name="people_count">
+    <item quantity="other">%1$d 人</item>
+  </plurals>
+    <string name="globe_live">即時</string>
+    <string name="globe_connecting">連線中</string>
+    <string name="globe_offline">離線</string>
+    <string name="globe_hint_drag">旋轉</string>
+    <string name="globe_hint_pinch">縮放</string>
+    <string name="globe_hint_tap">點一下圓點</string>
+    <string name="globe_no_activity">最近沒有活動</string>
+    <string name="cd_show_whole_globe">顯示整個地球</string>
+    <string name="cd_globe_activity">%1$d 個活躍聊天，%2$d 人在線上</string>
+    <string name="cd_channel_activity">%1$d 人，過去一小時 %2$d 則訊息</string>
+    <string name="join">加入</string>
+    <string name="cd_close">關閉</string>
+</resources>

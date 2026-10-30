@@ -1,0 +1,465 @@
+package com.bitchat.android.nostr
+
+import com.bitchat.android.favorites.FavoritesPersistenceService
+import android.content.Context
+import android.util.Log
+import com.bitchat.android.favorites.FavoriteControlMessage
+import com.bitchat.android.model.ReadReceipt
+import com.bitchat.android.model.NoisePayloadType
+import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.ContactIdentityResolver
+import com.bitchat.android.di.IoDispatcher
+import com.bitchat.android.geohash.LocationChannelManager
+import dagger.Lazy
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.*
+import java.util.*
+import java.util.concurrent.ConcurrentLinkedQueue
+import javax.inject.Inject
+import javax.inject.Singleton
+
+/**
+ * Nostr transport for offline private messages and receipts.
+ */
+@Singleton
+class NostrTransport @Inject constructor(
+    @ApplicationContext private val context: Context,
+    // Lazy: each is first touched by the send that needs it, as before.
+    private val relayManager: Lazy<NostrRelayManager>,
+    private val locationChannels: Lazy<LocationChannelManager>,
+    @IoDispatcher ioDispatcher: CoroutineDispatcher,
+    private val nostrIdentity: NostrIdentityBridge,
+    private val contactDirectory: ContactDirectory,
+    private val favorites: Lazy<FavoritesPersistenceService>,
+) {
+    
+    companion object {
+        private const val TAG = "NostrTransport"
+        private const val READ_ACK_INTERVAL = com.bitchat.android.util.AppConstants.Nostr.READ_ACK_INTERVAL_MS // ~3 per second (0.35s interval like iOS)
+    }
+
+    // BLE short peer ID embedded in favorites (recipient-addressed) envelopes.
+    // Geohash envelopes never carry it (see NostrEmbeddedBitChat).
+    var senderPeerID: String = ""
+    
+    // Throttle READ receipts to avoid relay rate limits (like iOS)
+    private data class QueuedRead(
+        val receipt: ReadReceipt,
+        val peerID: String
+    )
+    
+    private val readQueue = ConcurrentLinkedQueue<QueuedRead>()
+    private var isSendingReadAcks = false
+    private val transportScope = CoroutineScope(ioDispatcher + SupervisorJob())
+    
+    // MARK: - Transport Interface Methods
+    
+    val myPeerID: String get() = senderPeerID
+    
+    fun sendPrivateMessage(
+        content: String,
+        to: String,
+        recipientNickname: String,
+        messageID: String
+    ) {
+        transportScope.launch {
+            try {
+                val recipientNostrPubkey = resolveNostrPublicKey(to)
+                
+                if (recipientNostrPubkey == null) {
+                    Log.w(TAG, "No Nostr public key found for peerID: $to")
+                    return@launch
+                }
+                
+                val senderIdentity = nostrIdentity.getCurrentNostrIdentity(context)
+                if (senderIdentity == null) {
+                    Log.e(TAG, "No Nostr identity available")
+                    return@launch
+                }
+                
+                val recipientHex = ContactIdentityResolver.nostrPubkeyHex(recipientNostrPubkey)
+                if (recipientHex == null) {
+                    Log.e(TAG, "NostrTransport: recipient key is not a valid Nostr pubkey")
+                    return@launch
+                }
+
+                val recipientPeerIDForEmbed = try {
+                    favorites.get()
+                        .findPeerIDForNostrPubkey(recipientNostrPubkey)
+                } catch (_: Exception) { null }
+                if (recipientPeerIDForEmbed.isNullOrBlank()) {
+                    Log.e(TAG, "NostrTransport: no peerID stored for recipient npub; cannot embed PM")
+                    return@launch
+                }
+                val embedded = NostrEmbeddedBitChat.encodePMForNostr(
+                    content = content,
+                    messageID = messageID,
+                    recipientPeerID = recipientPeerIDForEmbed,
+                    senderPeerID = senderPeerID
+                )
+                
+                
+                if (embedded == null) {
+                    Log.e(TAG, "NostrTransport: failed to embed PM packet")
+                    return@launch
+                }
+                
+                val giftWraps = NostrProtocol.createPrivateMessage(
+                    content = embedded,
+                    recipientPubkey = recipientHex,
+                    senderIdentity = senderIdentity
+                )
+                
+                giftWraps.forEach { event ->
+                    relayManager.get().registerPendingGiftWrap(event.id)
+                    relayManager.get().sendEvent(event)
+                }
+
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send private message via Nostr: ${e.message}")
+            }
+        }
+    }
+    
+    fun sendReadReceipt(receipt: ReadReceipt, to: String) {
+        // Enqueue and process with throttling to avoid relay rate limits
+        readQueue.offer(QueuedRead(receipt, to))
+        processReadQueueIfNeeded()
+    }
+    
+    private fun processReadQueueIfNeeded() {
+        if (isSendingReadAcks) return
+        if (readQueue.isEmpty()) return
+        
+        isSendingReadAcks = true
+        sendNextReadAck()
+    }
+    
+    private fun sendNextReadAck() {
+        val item = readQueue.poll()
+        if (item == null) {
+            isSendingReadAcks = false
+            return
+        }
+        
+        transportScope.launch {
+            try {
+                val recipientNostrPubkey = resolveNostrPublicKey(item.peerID)
+                
+                if (recipientNostrPubkey == null) {
+                    Log.w(TAG, "No Nostr public key found for read receipt to: ${item.peerID}")
+                    scheduleNextReadAck()
+                    return@launch
+                }
+                
+                val senderIdentity = nostrIdentity.getCurrentNostrIdentity(context)
+                if (senderIdentity == null) {
+                    Log.e(TAG, "No Nostr identity available for read receipt")
+                    scheduleNextReadAck()
+                    return@launch
+                }
+                
+                val recipientHex = ContactIdentityResolver.nostrPubkeyHex(recipientNostrPubkey)
+                if (recipientHex == null) {
+                    scheduleNextReadAck()
+                    return@launch
+                }
+                
+                val ack = NostrEmbeddedBitChat.encodeAckForNostr(
+                    type = NoisePayloadType.READ_RECEIPT,
+                    messageID = item.receipt.originalMessageID,
+                    recipientPeerID = item.peerID,
+                    senderPeerID = senderPeerID
+                )
+                
+                if (ack == null) {
+                    Log.e(TAG, "NostrTransport: failed to embed READ ack")
+                    scheduleNextReadAck()
+                    return@launch
+                }
+                
+                val giftWraps = NostrProtocol.createPrivateMessage(
+                    content = ack,
+                    recipientPubkey = recipientHex,
+                    senderIdentity = senderIdentity
+                )
+                
+                giftWraps.forEach { event ->
+                    relayManager.get().registerPendingGiftWrap(event.id)
+                    relayManager.get().sendEvent(event)
+                }
+
+                scheduleNextReadAck()
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send read receipt via Nostr: ${e.message}")
+                scheduleNextReadAck()
+            }
+        }
+    }
+    
+    private fun scheduleNextReadAck() {
+        transportScope.launch {
+            delay(READ_ACK_INTERVAL)
+            isSendingReadAcks = false
+            processReadQueueIfNeeded()
+        }
+    }
+    
+    fun sendFavoriteNotification(to: String, isFavorite: Boolean) {
+        transportScope.launch {
+            try {
+                val recipientNostrPubkey = resolveNostrPublicKey(to)
+                
+                if (recipientNostrPubkey == null) {
+                    Log.w(TAG, "No Nostr public key found for favorite notification to: $to")
+                    return@launch
+                }
+                
+                val senderIdentity = nostrIdentity.getCurrentNostrIdentity(context)
+                if (senderIdentity == null) {
+                    Log.e(TAG, "No Nostr identity available for favorite notification")
+                    return@launch
+                }
+                
+                val content = FavoriteControlMessage.encode(isFavorite, senderIdentity.npub)
+
+                val recipientHex = ContactIdentityResolver.nostrPubkeyHex(recipientNostrPubkey)
+                if (recipientHex == null) {
+                    return@launch
+                }
+                
+                val embedded = NostrEmbeddedBitChat.encodePMForNostr(
+                    content = content,
+                    messageID = UUID.randomUUID().toString(),
+                    recipientPeerID = to,
+                    senderPeerID = senderPeerID
+                )
+                
+                if (embedded == null) {
+                    Log.e(TAG, "NostrTransport: failed to embed favorite notification")
+                    return@launch
+                }
+                
+                val giftWraps = NostrProtocol.createPrivateMessage(
+                    content = embedded,
+                    recipientPubkey = recipientHex,
+                    senderIdentity = senderIdentity
+                )
+                
+                giftWraps.forEach { event ->
+                    relayManager.get().registerPendingGiftWrap(event.id)
+                    relayManager.get().sendEvent(event)
+                }
+
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send favorite notification via Nostr: ${e.message}")
+            }
+        }
+    }
+    
+    fun sendDeliveryAck(messageID: String, to: String) {
+        transportScope.launch {
+            try {
+                val recipientNostrPubkey = resolveNostrPublicKey(to)
+                
+                if (recipientNostrPubkey == null) {
+                    Log.w(TAG, "No Nostr public key found for delivery ack to: $to")
+                    return@launch
+                }
+                
+                val senderIdentity = nostrIdentity.getCurrentNostrIdentity(context)
+                if (senderIdentity == null) {
+                    Log.e(TAG, "No Nostr identity available for delivery ack")
+                    return@launch
+                }
+                
+                val recipientHex = ContactIdentityResolver.nostrPubkeyHex(recipientNostrPubkey)
+                if (recipientHex == null) {
+                    return@launch
+                }
+
+                val ack = NostrEmbeddedBitChat.encodeAckForNostr(
+                    type = NoisePayloadType.DELIVERED,
+                    messageID = messageID,
+                    recipientPeerID = to,
+                    senderPeerID = senderPeerID
+                )
+                
+                if (ack == null) {
+                    Log.e(TAG, "NostrTransport: failed to embed DELIVERED ack")
+                    return@launch
+                }
+                
+                val giftWraps = NostrProtocol.createPrivateMessage(
+                    content = ack,
+                    recipientPubkey = recipientHex,
+                    senderIdentity = senderIdentity
+                )
+                
+                giftWraps.forEach { event ->
+                    relayManager.get().registerPendingGiftWrap(event.id)
+                    relayManager.get().sendEvent(event)
+                }
+
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send delivery ack via Nostr: ${e.message}")
+            }
+        }
+    }
+    
+    // MARK: - Geohash ACK helpers (for per-geohash identity DMs)
+    
+    fun sendDeliveryAckGeohash(
+        messageID: String,
+        toRecipientHex: String,
+        fromIdentity: NostrIdentity
+    ) {
+        transportScope.launch {
+            try {
+                val embedded = NostrEmbeddedBitChat.encodeAckForNostrNoRecipient(
+                    type = NoisePayloadType.DELIVERED,
+                    messageID = messageID
+                )
+                
+                if (embedded == null) return@launch
+                
+                val giftWraps = NostrProtocol.createPrivateMessage(
+                    content = embedded,
+                    recipientPubkey = toRecipientHex,
+                    senderIdentity = fromIdentity
+                )
+                
+                // Register pending gift wrap for deduplication and send all
+                giftWraps.forEach { event ->
+                    relayManager.get().registerPendingGiftWrap(event.id)
+                    relayManager.get().sendEvent(event)
+                }
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send geohash delivery ack: ${e.message}")
+            }
+        }
+    }
+    
+    fun sendReadReceiptGeohash(
+        messageID: String,
+        toRecipientHex: String,
+        fromIdentity: NostrIdentity
+    ) {
+        transportScope.launch {
+            try {
+                val embedded = NostrEmbeddedBitChat.encodeAckForNostrNoRecipient(
+                    type = NoisePayloadType.READ_RECEIPT,
+                    messageID = messageID
+                )
+                
+                if (embedded == null) return@launch
+                
+                val giftWraps = NostrProtocol.createPrivateMessage(
+                    content = embedded,
+                    recipientPubkey = toRecipientHex,
+                    senderIdentity = fromIdentity
+                )
+                
+                // Register pending gift wrap for deduplication and send all
+                giftWraps.forEach { event ->
+                    relayManager.get().registerPendingGiftWrap(event.id)
+                    relayManager.get().sendEvent(event)
+                }
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send geohash read receipt: ${e.message}")
+            }
+        }
+    }
+    
+    // MARK: - Geohash DMs (per-geohash identity)
+    
+    fun sendPrivateMessageGeohash(
+        content: String,
+        toRecipientHex: String,
+        messageID: String,
+        sourceGeohash: String? = null
+    ) {
+        // Use provided geohash or derive from current location
+        val geohash = sourceGeohash ?: run {
+            val selected = try {
+                locationChannels.get().selectedChannel.value
+            } catch (_: Exception) { null }
+            if (selected !is com.bitchat.android.geohash.ChannelID.Location) {
+                Log.w(TAG, "NostrTransport: cannot send geohash PM - not in a location channel and no geohash provided")
+                return
+            }
+            selected.channel.geohash
+        }
+        
+        val fromIdentity = try {
+            nostrIdentity.deriveIdentity(geohash, context)
+        } catch (e: Exception) {
+            Log.e(TAG, "NostrTransport: cannot derive geohash identity for $geohash: ${e.message}")
+            return
+        }
+        
+        transportScope.launch {
+            try {
+                if (toRecipientHex.isEmpty()) return@launch
+
+                // Build embedded BitChat packet without recipient peer ID
+                val embedded = NostrEmbeddedBitChat.encodePMForNostrNoRecipient(
+                    content = content,
+                    messageID = messageID
+                ) ?: run {
+                    Log.e(TAG, "NostrTransport: failed to embed geohash PM packet")
+                    return@launch
+                }
+
+                val giftWraps = NostrProtocol.createPrivateMessage(
+                    content = embedded,
+                    recipientPubkey = toRecipientHex,
+                    senderIdentity = fromIdentity
+                )
+
+                giftWraps.forEach { event ->
+                    relayManager.get().registerPendingGiftWrap(event.id)
+                    relayManager.get().sendEvent(event)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send geohash private message: ${e.message}")
+            }
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    /**
+     * Resolve Nostr public key for a peer ID
+     */
+    private fun resolveNostrPublicKey(peerID: String): String? {
+        try {
+            contactDirectory.resolve(peerID).nostrPubkey?.let { return it }
+
+            favorites.get().findNostrPubkeyForPeerID(peerID)?.let { return it }
+
+            if (ContactIdentityResolver.isNoiseKeyHex(peerID)) {
+                val noiseKey = ContactIdentityResolver.bytesFromHex(peerID) ?: return null
+                val favoriteStatus = favorites.get().getFavoriteStatus(noiseKey)
+                if (favoriteStatus?.peerNostrPublicKey != null) return favoriteStatus.peerNostrPublicKey
+            }
+
+            if (ContactIdentityResolver.isMeshPeerId(peerID)) {
+                val fallbackStatus = favorites.get().getFavoriteStatus(peerID)
+                return fallbackStatus?.peerNostrPublicKey
+            }
+            
+            return null
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to resolve Nostr public key for $peerID: ${e.message}")
+            return null
+        }
+    }
+    
+    fun cleanup() {
+        transportScope.cancel()
+    }
+}

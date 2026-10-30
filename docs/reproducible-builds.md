@@ -52,6 +52,22 @@ The authoritative pins are:
 - `settings-gradle.lockfile`
 - `app/gradle.lockfile`
 - `wear/gradle.lockfile`
+- `core/domain/gradle.lockfile`
+- `core/navigation/gradle.lockfile`
+- `core/mesh/gradle.lockfile`
+- `core/nostr/gradle.lockfile`
+- `core/chat/gradle.lockfile`
+- `core/tor/gradle.lockfile`
+- `core/designsystem/gradle.lockfile`
+- `core/designsystem/phone/gradle.lockfile`
+- `feature/share/gradle.lockfile`
+- `feature/share/api/gradle.lockfile`
+- `feature/location/gradle.lockfile`
+- `feature/location/api/gradle.lockfile`
+- `feature/settings/gradle.lockfile`
+- `feature/settings/api/gradle.lockfile`
+- `feature/chat/gradle.lockfile`
+- `feature/chat/api/gradle.lockfile`
 - `gradle/verification-metadata.xml`
 - `tools/reproducible-builds/TOOLCHAIN.env`
 - `tools/arti-build/TOOLCHAIN.env`
@@ -233,9 +249,15 @@ metadata:
 
 ```bash
 ./gradlew testDebugUnitTest lintDebug resolveIdeRuntimeClasspathCopyLocks \
+  assembleDebugAndroidTest :core:mesh:compileReleaseTestFixturesKotlin \
   --write-locks \
   --write-verification-metadata sha256
 ```
+
+`assembleDebugAndroidTest` and `compileReleaseTestFixturesKotlin` resolve the
+instrumented-test and release test-fixture classpaths (KSP processor
+configurations among them), which no other task in the list resolves; without
+them those configurations stay unlocked and strict locking fails later.
 
 `resolveIdeRuntimeClasspathCopyLocks` records the transient runtime classpath
 copies that Android Studio resolves during model import. Their selected versions

@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="channels">चैनल</string>
+    <string name="no_one_connected">कोई कनेक्टेड नहीं</string>
+    <string name="your_network">आपका नेटवर्क</string>
+
+    <!-- पसंद (एक्सेसिबिलिटी) -->
+    <string name="cd_add_favorite">पसंदीदा में जोड़ें</string>
+    <string name="cd_remove_favorite">पसंदीदा से हटाएँ</string>
+    <!-- चैट हेडर &amp; एक्सेसिबिलिटी -->
+    <string name="cd_nostr_reachable">Nostr के माध्यम से उपलब्ध</string>
+    <string name="cd_unread_private_messages">अपठित निजी संदेश</string>
+    <string name="cd_open_location_channels">स्थान और चैनल सेटिंग खोलें</string>
+    <string name="cd_connected_peers">कनेक्टेड पीयर्स</string>
+    <string name="cd_geohash_participants">geohash प्रतिभागी</string>
+    <string name="cd_ready_for_handshake">हैंडशेक के लिए तैयार</string>
+    <string name="cd_handshake_in_progress">हैंडशेक जारी है</string>
+    <string name="cd_encrypted">एंड‑टू‑एंड एन्क्रिप्टेड</string>
+    <string name="cd_handshake_failed">हैंडशेक विफल</string>
+
+    <!-- फ़ाइल व्यूअर संवाद -->
+    <string name="file_viewer_title">📎 फ़ाइल प्राप्त</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="file_viewer_size">📏 आकार: %1$s</string>
+    <string name="file_viewer_type">🏷️ प्रकार: %1$s</string>
+    <string name="file_viewer_open_save">📂 खोलें / सहेजें</string>
+    <string name="close_with_emoji">❌ बंद करें</string>
+    <string name="pick_image">छवि चुनें</string>
+
+    <string name="cancel_lower">रद्द करें</string>
+
+    <string name="cd_unread_message">अपठित संदेश</string>
+    <string name="cd_reachable_via_nostr">Nostr के माध्यम से उपलब्ध</string>
+    <string name="cd_offline_favorite">पसंदीदा (ऑफ़लाइन)</string>
+    <string name="cd_scroll_to_bottom">नीचे स्क्रॉल करें</string>
+    <string name="cd_file">फ़ाइल</string>
+    <string name="cd_image">छवि</string>
+    <string name="cd_cancel">रद्द करें</string>
+    <string name="cd_link">लिंक</string>
+    <string name="cd_pick_media">मीडिया चुनें</string>
+    <string name="cd_pick_file">फ़ाइल चुनें</string>
+    <string name="cd_save_current_image">वर्तमान छवि सहेजें</string>
+    <string name="cd_close">बंद करें</string>
+    <string name="cd_image_index_of">छवि %1$d / %2$d</string>
+    <string name="cd_record_voice">वॉइस नोट रिकॉर्ड करें</string>
+    <string name="image_unavailable">छवि उपलब्ध नहीं</string>
+    <string name="toast_image_saved">छवि "Downloads" में सहेजी गई</string>
+    <string name="toast_failed_to_save_image">छवि सहेजी नहीं जा सकी</string>
+    <string name="file_unavailable">[फ़ाइल उपलब्ध नहीं]</string>
+    <!-- उपयोगकर्ता क्रिया शीट -->
+    <string name="choose_action_message_or_user">इस संदेश या उपयोगकर्ता के लिए क्रिया चुनें</string>
+    <string name="choose_action_user">इस उपयोगकर्ता के लिए क्रिया चुनें</string>
+    <string name="action_copy_message_title">संदेश कॉपी करें</string>
+    <string name="action_copy_message_subtitle">इस संदेश को क्लिपबोर्ड में कॉपी करें</string>
+    <string name="action_slap_title">%1$s को थप्पड़</string>
+    <string name="action_slap_subtitle">मज़ाकिया थप्पड़ भेजें</string>
+    <string name="action_hug_title">%1$s को गले लगाएँ</string>
+    <string name="action_hug_subtitle">दोस्ताना आलिंगन भेजें</string>
+    <string name="action_block_title">%1$s को ब्लॉक करें</string>
+    <string name="action_block_subtitle">इस उपयोगकर्ता के सभी संदेश ब्लॉक करें</string>
+
+    <string name="mesh_label">mesh</string>
+    <string name="nobody_around">आस‑पास कोई नहीं…</string>
+    <string name="you_suffix"> (आप)</string>
+    <string name="type_a_message_placeholder">संदेश लिखें…</string>
+    <string name="mention">उल्लेख</string>
+    <string name="media_type_image">छवि</string>
+    <string name="media_type_file">फ़ाइल</string>
+
+    <!-- अधिसूचना पाठ सहायक -->
+    <string name="notification_sent_image">📷 छवि भेजी</string>
+    <string name="notification_sent_voice">🎤 वॉइस नोट भेजा</string>
+    <string name="notification_sent_file">📎 फ़ाइल भेजी</string>
+
+    <!-- पासवर्ड संवाद -->
+    <string name="pwd_prompt_title">चैनल पासवर्ड दर्ज करें</string>
+    <string name="pwd_prompt_message">चैनल %1$s पासवर्ड द्वारा सुरक्षित है। शामिल होने के लिए पासवर्ड दर्ज करें।</string>
+    <string name="pwd_label">पासवर्ड</string>
+    <string name="join">शामिल हों</string>
+  <string name="verify_title">verify</string>
+  <string name="verify_my_qr_title">scan to verify me</string>
+  <string name="verify_scan_prompt_friend">scan someone elses qr</string>
+  <string name="verify_remove">remove verification</string>
+  <string name="verify_qr_unavailable">qr unavailable</string>
+  <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
+  <string name="verify_request_camera">enable camera</string>
+  <string name="security_verification_title">security verification</string>
+  <string name="fingerprint_their">their fingerprint</string>
+  <string name="fingerprint_yours">your fingerprint</string>
+  <string name="fingerprint_pending">handshake pending</string>
+  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
+  <string name="fingerprint_status_encrypted">encrypted</string>
+  <string name="fingerprint_status_handshaking">handshaking</string>
+  <string name="fingerprint_status_failed">handshake failed</string>
+  <string name="fingerprint_status_uninitialized">not encrypted</string>
+  <string name="fingerprint_verified_message">you have verified this persons identity.</string>
+  <string name="fingerprint_not_verified_label">not verified</string>
+  <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
+  <string name="fingerprint_mark_verified">mark as verified</string>
+  <string name="fingerprint_start_handshake">start handshake</string>
+  <string name="fingerprint_copy">copy</string>
+    <string name="cd_open_about">परिचय खोलें</string>
+</resources>

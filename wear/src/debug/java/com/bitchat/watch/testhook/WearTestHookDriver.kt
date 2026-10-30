@@ -13,11 +13,10 @@ import com.bitchat.android.features.voice.LiveVoiceCapture
 import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.noise.NoiseSession
 import com.bitchat.android.protocol.BitchatPacket
-import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.watch.mesh.WearMeshService
 import com.bitchat.watch.service.WearMeshForegroundService
-import com.bitchat.watch.ui.WearPeerIdentityState
+import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.mapNotNull
@@ -40,7 +39,16 @@ object WearTestHookDriver {
     private const val DEFAULT_HANDSHAKE_TIMEOUT_MS = 30_000L
     private const val DEFAULT_RECV_TIMEOUT_MS = 60_000L
 
+    // Looked up by each command from the application, so the objects are the graph's.
+    private lateinit var graph: WearTestHookDependencies
+    private val appStateStore get() = graph.appStateStore()
+    private val peerIdentity get() = graph.peerIdentity()
+    private val liveVoiceManager get() = graph.liveVoiceManager()
+    private val transportBridgeService get() = graph.transportBridgeService()
+    private val meshHolder get() = graph.meshHolder()
+
     suspend fun execute(context: Context, cmd: String, intent: Intent): JSONObject {
+        graph = EntryPointAccessors.fromApplication(context.applicationContext, WearTestHookDependencies::class.java)
         Log.d(TAG, "execute cmd=$cmd")
         val result = when (cmd) {
             "ping" -> ok(cmd).put("pong", true).put("package", context.packageName)
@@ -78,11 +86,12 @@ object WearTestHookDriver {
             "clear_results" -> clearResults(context)
             "ui_demo_seed" -> WearUiDemoSeeder.seed(
                 context,
+                graph,
                 withMedia = intent.getBooleanExtra("media", true),
                 unread = intent.getBooleanExtra("unread", true)
             )
-            "ui_demo_peers" -> WearUiDemoSeeder.refreshPeers(context)
-            "ui_demo_clear_peers" -> WearUiDemoSeeder.clearPeers()
+            "ui_demo_peers" -> WearUiDemoSeeder.refreshPeers(context, graph)
+            "ui_demo_clear_peers" -> WearUiDemoSeeder.clearPeers(graph)
             else -> err(cmd, "unknown command: $cmd")
         }
         return result.put("cmd", cmd)
@@ -91,7 +100,7 @@ object WearTestHookDriver {
     // MARK: - Lifecycle
 
     private fun start(context: Context): JSONObject {
-        val mesh = mesh(context)
+        val mesh = mesh()
         try {
             context.startForegroundService(Intent(context, WearMeshForegroundService::class.java))
         } catch (e: Exception) {
@@ -105,7 +114,7 @@ object WearTestHookDriver {
 
     private fun stop(context: Context): JSONObject {
         try {
-            WearMeshService.peek()?.stopServices()
+            meshHolder.peek()?.stopServices()
         } catch (e: Exception) {
             Log.w(TAG, "stopServices failed: ${e.message}")
         }
@@ -116,7 +125,7 @@ object WearTestHookDriver {
     // MARK: - Identity
 
     private fun whoami(context: Context): JSONObject {
-        val mesh = mesh(context)
+        val mesh = mesh()
         return ok("whoami")
             .put("peer_id", mesh.myPeerID)
             .put("identity_fingerprint", mesh.getIdentityFingerprint())
@@ -125,8 +134,8 @@ object WearTestHookDriver {
     }
 
     private fun setNickname(context: Context, name: String): JSONObject {
-        mesh(context).setNickname(name)
-        AppStateStore.setNickname(name)
+        mesh().setNickname(name)
+        appStateStore.setNickname(name)
         return ok("set_nickname").put("nickname", name)
     }
 
@@ -135,24 +144,24 @@ object WearTestHookDriver {
     private suspend fun scan(context: Context, intent: Intent): JSONObject {
         val timeoutMs = intent.getLongExtra("timeout_ms", DEFAULT_SCAN_TIMEOUT_MS)
         val minPeers = intent.getIntExtra("min_peers", 1)
-        val mesh = mesh(context)
+        val mesh = mesh()
         val found = withTimeoutOrNull(timeoutMs) {
-            AppStateStore.peers.first { it.size >= minPeers }
+            appStateStore.peers.first { it.size >= minPeers }
         }
-        val peerIds = found ?: AppStateStore.peers.value
+        val peerIds = found ?: appStateStore.peers.value
         return ok("scan")
             .put("reached_min_peers", found != null)
             .put("peers", peerInfosJson(mesh, peerIds))
     }
 
     private fun peers(context: Context): JSONObject {
-        val mesh = mesh(context)
-        return ok("peers").put("peers", peerInfosJson(mesh, AppStateStore.peers.value))
+        val mesh = mesh()
+        return ok("peers").put("peers", peerInfosJson(mesh, appStateStore.peers.value))
     }
 
     private suspend fun connect(peerID: String, intent: Intent): JSONObject {
         val timeoutMs = intent.getLongExtra("timeout_ms", DEFAULT_CONNECT_TIMEOUT_MS)
-        val mesh = WearMeshService.peek() ?: return err("connect", "mesh service not running")
+        val mesh = meshHolder.peek() ?: return err("connect", "mesh service not running")
         // The address↔peer mapping is learned from direct-link announces and can lag
         // peer-list discovery (especially right after a restart); poll while announcing.
         val deadline = System.currentTimeMillis() + timeoutMs / 2
@@ -168,7 +177,7 @@ object WearTestHookDriver {
         val accepted = mesh.connectToPeer(peerID)
         if (!accepted) return err("connect", "connectToAddress($address) rejected")
         val direct = withTimeoutOrNull(timeoutMs) {
-            AppStateStore.directPeers.first { it.contains(peerID) }
+            appStateStore.directPeers.first { it.contains(peerID) }
         }
         return ok("connect")
             .put("peer", peerID)
@@ -180,7 +189,7 @@ object WearTestHookDriver {
 
     private suspend fun handshake(context: Context, peerID: String, intent: Intent): JSONObject {
         val timeoutMs = intent.getLongExtra("timeout_ms", DEFAULT_HANDSHAKE_TIMEOUT_MS)
-        val mesh = mesh(context)
+        val mesh = mesh()
         val deadline = System.currentTimeMillis() + timeoutMs
         if (!mesh.hasEstablishedSession(peerID)) {
             mesh.initiateNoiseHandshake(peerID)
@@ -205,7 +214,7 @@ object WearTestHookDriver {
     }
 
     private fun session(context: Context, peerID: String): JSONObject {
-        val mesh = mesh(context)
+        val mesh = mesh()
         return ok("session")
             .put("peer", peerID)
             .put("state", mesh.getSessionState(peerID).toString())
@@ -216,17 +225,17 @@ object WearTestHookDriver {
     // MARK: - Messaging
 
     private fun announce(context: Context): JSONObject {
-        mesh(context).sendBroadcastAnnounce()
+        mesh().sendBroadcastAnnounce()
         return ok("announce")
     }
 
     private fun broadcastMsg(context: Context, content: String): JSONObject {
-        mesh(context).sendChannelMessage(content, emptyList(), null)
+        mesh().sendChannelMessage(content, emptyList(), null)
         return ok("broadcast_msg").put("content", content)
     }
 
     private fun dmSend(context: Context, peerID: String, content: String, msgID: String?): JSONObject {
-        val mesh = mesh(context)
+        val mesh = mesh()
         val nickname = mesh.getPeerNicknames()[peerID] ?: peerID
         val id = msgID ?: "testhook-${System.currentTimeMillis()}"
         mesh.sendPrivateMessageWithId(content, peerID, nickname, id)
@@ -237,14 +246,14 @@ object WearTestHookDriver {
         val timeoutMs = intent.getLongExtra("timeout_ms", DEFAULT_RECV_TIMEOUT_MS)
         val fromPeer = intent.getStringExtra("peer")
         val contains = intent.getStringExtra("contains")
-        val mesh = mesh(context)
-        val matcher = ArrivedMessageMatcher(AppStateStore.privateMessages.value.values.flatten()) { msg ->
+        val mesh = mesh()
+        val matcher = ArrivedMessageMatcher(appStateStore.privateMessages.value.values.flatten()) { msg ->
             msg.senderPeerID != mesh.myPeerID &&
                 (fromPeer == null || msg.senderPeerID == fromPeer) &&
                 (contains == null || msg.content.contains(contains))
         }
         val msg = withTimeoutOrNull(timeoutMs) {
-            AppStateStore.privateMessages
+            appStateStore.privateMessages
                 .mapNotNull { conversations -> matcher.firstArrived(conversations.values.flatten()) }
                 .first()
         } ?: return err("dm_recv", "timeout after ${timeoutMs}ms")
@@ -258,13 +267,13 @@ object WearTestHookDriver {
     private suspend fun msgRecv(context: Context, intent: Intent): JSONObject {
         val timeoutMs = intent.getLongExtra("timeout_ms", DEFAULT_RECV_TIMEOUT_MS)
         val contains = intent.getStringExtra("contains")
-        val mesh = mesh(context)
-        val matcher = ArrivedMessageMatcher(AppStateStore.publicMessages.value) { msg ->
+        val mesh = mesh()
+        val matcher = ArrivedMessageMatcher(appStateStore.publicMessages.value) { msg ->
             msg.senderPeerID != mesh.myPeerID &&
                 (contains == null || msg.content.contains(contains))
         }
         val found = withTimeoutOrNull(timeoutMs) {
-            AppStateStore.publicMessages.mapNotNull(matcher::firstArrived).first()
+            appStateStore.publicMessages.mapNotNull(matcher::firstArrived).first()
         } ?: return err("msg_recv", "timeout after ${timeoutMs}ms")
         return ok("msg_recv")
             .put("from", found.senderPeerID)
@@ -276,18 +285,18 @@ object WearTestHookDriver {
     // MARK: - Favorite and verification state
 
     private fun favoriteSet(context: Context, peerID: String, enabled: Boolean): JSONObject {
-        val mesh = mesh(context)
-        WearPeerIdentityState.initialize(context)
-        if (!WearPeerIdentityState.setFavorite(peerID, enabled, mesh)) {
+        val mesh = mesh()
+        peerIdentity.initialize(context)
+        if (!peerIdentity.setFavorite(peerID, enabled, mesh)) {
             return err("favorite_set", "peer Noise identity is unavailable")
         }
         return favoriteStatus(context, peerID)
     }
 
     private fun favoriteStatus(context: Context, peerID: String): JSONObject {
-        val mesh = mesh(context)
-        WearPeerIdentityState.initialize(context)
-        val identity = WearPeerIdentityState.snapshot(peerID, mesh)
+        val mesh = mesh()
+        peerIdentity.initialize(context)
+        val identity = peerIdentity.snapshot(peerID, mesh)
         return ok("favorite_status")
             .put("peer", peerID)
             .put("is_favorite", identity.isFavorite)
@@ -304,18 +313,18 @@ object WearTestHookDriver {
     }
 
     private fun verificationSet(context: Context, peerID: String, enabled: Boolean): JSONObject {
-        val mesh = mesh(context)
-        WearPeerIdentityState.initialize(context)
-        if (!WearPeerIdentityState.setVerified(peerID, enabled, mesh)) {
+        val mesh = mesh()
+        peerIdentity.initialize(context)
+        if (!peerIdentity.setVerified(peerID, enabled, mesh)) {
             return err("verification_set", "peer fingerprint is unavailable")
         }
         return verificationStatus(context, peerID)
     }
 
     private fun verificationStatus(context: Context, peerID: String): JSONObject {
-        val mesh = mesh(context)
-        WearPeerIdentityState.initialize(context)
-        val identity = WearPeerIdentityState.snapshot(peerID, mesh)
+        val mesh = mesh()
+        peerIdentity.initialize(context)
+        val identity = peerIdentity.snapshot(peerID, mesh)
         return ok("verification_status")
             .put("peer", peerID)
             .put("fingerprint", identity.fingerprint ?: JSONObject.NULL)
@@ -333,7 +342,7 @@ object WearTestHookDriver {
             ?: return err("raw_send", "invalid type hex: $typeStr")
         val payload = hexToBytes(payloadHex)
             ?: return err("raw_send", "invalid payload_hex")
-        val mesh = mesh(context)
+        val mesh = mesh()
         val packet = BitchatPacket(
             type = type,
             ttl = ttl.toUByte(),
@@ -341,9 +350,9 @@ object WearTestHookDriver {
             payload = payload
         )
         if (peerID != null) {
-            TransportBridgeService.sendToPeerFromLocal(peerID, packet)
+            transportBridgeService.sendToPeerFromLocal(peerID, packet)
         } else {
-            TransportBridgeService.broadcastFromLocal(RoutedPacket(packet))
+            transportBridgeService.broadcastFromLocal(RoutedPacket(packet))
         }
         return ok("raw_send")
             .put("type", typeStr)
@@ -400,7 +409,7 @@ object WearTestHookDriver {
         var finished: LiveVoiceEvent.Finished? = null
         var liveSnapshot: File? = null
         val absorbed = withTimeoutOrNull(timeoutMs) {
-            LiveVoiceManager.getInstance(context).events.first { event ->
+            liveVoiceManager.events.first { event ->
                 val matches = event.scope == expectedScope &&
                     (fromPeer == null || event.peerID == fromPeer)
                 if (matches && event is LiveVoiceEvent.Finished) {
@@ -444,7 +453,7 @@ object WearTestHookDriver {
     private suspend fun pttSend(context: Context, intent: Intent): JSONObject {
         val peerID = intent.getStringExtra("peer")
         val durationMs = intent.getIntExtra("duration_ms", 1_500).toLong().coerceIn(700L, 10_000L)
-        val mesh = mesh(context)
+        val mesh = mesh()
         LiveVoicePreferences.setEnabled(context, true)
         if (peerID != null && !mesh.hasEstablishedSession(peerID)) {
             val handshake = handshake(context, peerID, intent)
@@ -489,17 +498,17 @@ object WearTestHookDriver {
     // MARK: - State
 
     private fun state(context: Context): JSONObject {
-        val mesh = mesh(context)
-        val peersJson = peerInfosJson(mesh, AppStateStore.peers.value)
+        val mesh = mesh()
+        val peersJson = peerInfosJson(mesh, appStateStore.peers.value)
         val sessions = JSONObject()
-        AppStateStore.peers.value.forEach { peerID ->
+        appStateStore.peers.value.forEach { peerID ->
             sessions.put(peerID, mesh.getSessionState(peerID).toString())
         }
         return ok("state")
             .put("peer_id", mesh.myPeerID)
             .put("nickname", mesh.nickname)
             .put("peers", peersJson)
-            .put("direct_peers", JSONArray(AppStateStore.directPeers.value.toList()))
+            .put("direct_peers", JSONArray(appStateStore.directPeers.value.toList()))
             .put("sessions", sessions)
             .put("device_map", JSONObject(mesh.getDeviceAddressToPeerMapping() as Map<*, *>))
             .put("debug_status", mesh.getDebugStatus())
@@ -513,7 +522,7 @@ object WearTestHookDriver {
 
     // MARK: - Helpers
 
-    private fun mesh(context: Context): WearMeshService = WearMeshService.getOrCreate(context)
+    private fun mesh(): WearMeshService = meshHolder.getOrCreate()
 
     private fun peerInfosJson(mesh: WearMeshService, peerIds: List<String>): JSONArray {
         val nicknames = mesh.getPeerNicknames()
@@ -525,7 +534,7 @@ object WearTestHookDriver {
                 .put("id", id)
                 .put("nickname", nicknames[id] ?: info?.nickname)
                 .put("rssi", rssi[id])
-                .put("direct", AppStateStore.directPeers.value.contains(id))
+                .put("direct", appStateStore.directPeers.value.contains(id))
                 .put("connected", info?.isConnected)
                 .put("last_seen", info?.lastSeen)
                 .put("session", mesh.getSessionState(id).toString())

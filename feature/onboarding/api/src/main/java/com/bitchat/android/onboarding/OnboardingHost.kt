@@ -1,0 +1,32 @@
+package com.bitchat.android.onboarding
+
+import kotlinx.coroutines.flow.StateFlow
+
+/** What onboarding tells the app, and the app's init failure it shows. */
+interface OnboardingHost {
+
+    /** Why the app's initialization failed, or null. Onboarding shows it as its error step. */
+    val initError: StateFlow<String?>
+
+    /** Onboarding is satisfied: the app initializes. */
+    fun onboardingFinished()
+
+    /**
+     * Try again on the error step: back to checking, then the checks. Returns
+     * once they have decided: true when onboarding is still needed, and is
+     * still on screen to show their step. It holds the caller for the gate's
+     * 500 ms check, so a caller that serializes its work holds that queue too.
+     */
+    suspend fun retry(): Boolean
+
+    /**
+     * True once after Bluetooth turning off while the app was ready sent it back
+     * to onboarding. Onboarding then opens on the Bluetooth step whatever the
+     * session skip and the debug switch say, as it always has (T12), if
+     * Bluetooth is still off by then.
+     */
+    fun takeBluetoothTurnedOff(): Boolean
+
+    /** Location services came on during onboarding: the app starts Wi-Fi Aware if it can. */
+    fun locationServicesEnabled()
+}

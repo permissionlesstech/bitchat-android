@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retry">Повторить</string>
+    <string name="cd_add_bookmark">Добавить закладку</string>
+
+    <string name="about_network">сеть</string>
+    <string name="cd_open_map">Открыть карту</string>
+    <string name="cd_remove_bookmark">Удалить закладку</string>
+    <string name="cd_decrease_precision">Уменьшить точность</string>
+    <string name="cd_increase_precision">Увеличить точность</string>
+    <string name="location_channels_title">#каналы локации</string>
+    <string name="location_channels_desc">общайся с людьми рядом через каналы geohash. делится только грубый geohash, никогда точный gps. не делай скриншоты и не делись экраном для защиты приватности.</string>
+    <string name="location_permission_denied">доступ к локации запрещён. включите в настройках для использования каналов.</string>
+    <string name="finding_nearby_channels">поиск близких каналов…</string>
+    <string name="bookmarked">в закладках</string>
+    <string name="geohash_placeholder">geohash</string>
+    <string name="invalid_geohash">некорректный geohash</string>
+    <string name="teleport">телепорт</string>
+    <string name="disable_location_services">отключить службы локации</string>
+    <string name="enable_location_services">включить службы локации</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+    <string name="location_level_block">квартал</string>
+    <string name="location_level_neighborhood">район</string>
+    <string name="location_level_city">город</string>
+    <string name="location_level_province">область</string>
+    <string name="location_level_region">регион</string>
+
+    <string name="hash_symbol">#</string>
+    <plurals name="people_count">
+        <item quantity="one">1 человек</item>
+        <item quantity="other">%d человек</item>
+    </plurals>
+
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d заметка</item>
+    <item quantity="other">#%1$s ± 1 • %2$d заметок</item>
+  </plurals>
+  <string name="location_notes_description">добавьте короткие постоянные заметки к этому месту, чтобы другие посетители могли их найти.</string>
+  <string name="location_notes_relays_unavailable">гео-релей недоступны; заметки приостановлены</string>
+  <string name="location_notes_no_relays_title">рядом нет гео-релеев</string>
+  <string name="location_notes_no_relays_desc">заметки зависят от гео-релеев. проверьте подключение и повторите попытку.</string>
+  <string name="loading_location_notes">загрузка заметок…</string>
+  <string name="location_notes_empty_title">заметок пока нет</string>
+  <string name="location_notes_empty_desc">станьте первым, кто добавит заметку для этого места.</string>
+  <string name="dismiss">закрыть</string>
+  <string name="location_notes_input_placeholder">добавьте заметку для этого места</string>
+  <string name="nearby_notes_reveal">проверить, есть ли здесь заметки</string>
+    <string name="globe_live">в эфире</string>
+    <string name="globe_connecting">подключение</string>
+    <string name="globe_offline">офлайн</string>
+    <string name="globe_hint_drag">вращать</string>
+    <string name="globe_hint_pinch">масштаб</string>
+    <string name="globe_hint_tap">нажмите на точку</string>
+    <string name="globe_no_activity">нет недавней активности</string>
+    <string name="cd_show_whole_globe">Показать весь глобус</string>
+    <string name="cd_globe_activity">Активных чатов: %1$d, людей онлайн: %2$d</string>
+    <string name="cd_channel_activity">Людей: %1$d, сообщений за последний час: %2$d</string>
+    <string name="join">Войти</string>
+</resources>

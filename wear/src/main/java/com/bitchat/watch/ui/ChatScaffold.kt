@@ -50,9 +50,9 @@ import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.lazy.rememberTransformationSpec
 import androidx.wear.compose.material3.lazy.transformedHeight
 import com.bitchat.android.model.BitchatMessage
-import com.bitchat.watch.ui.theme.BitchatMotion
+import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.watch.ui.theme.ChatVisualTokens
-import com.bitchat.watch.ui.theme.LocalBitchatPalette
+import com.bitchat.android.ui.theme.LocalBitchatPalette
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 
@@ -74,6 +74,8 @@ fun ChatScaffold(
     myPeerID: String,
     emptyText: String,
     voice: VoiceNoteController,
+    liveVoiceManager: com.bitchat.android.features.voice.LiveVoiceManager,
+    voiceWaveformCache: com.bitchat.android.features.voice.VoiceWaveformCache,
     onOpenImage: (String) -> Unit,
     header: @Composable (expanded: Boolean) -> Unit,
     actionBar: @Composable () -> Unit
@@ -163,6 +165,8 @@ fun ChatScaffold(
         myPeerID = myPeerID,
         emptyText = emptyText,
         voice = voice,
+        liveVoiceManager = liveVoiceManager,
+        voiceWaveformCache = voiceWaveformCache,
         onOpenImage = onOpenImage,
         columnState = columnState,
         controlsVisible = scrollIntent.controlsVisible,
@@ -233,6 +237,8 @@ private fun ChatBody(
     myPeerID: String,
     emptyText: String,
     voice: VoiceNoteController,
+    liveVoiceManager: com.bitchat.android.features.voice.LiveVoiceManager,
+    voiceWaveformCache: com.bitchat.android.features.voice.VoiceWaveformCache,
     onOpenImage: (String) -> Unit,
     columnState: TransformingLazyColumnState,
     controlsVisible: Boolean,
@@ -400,6 +406,8 @@ private fun ChatBody(
                     MessageItem(
                         message = message,
                         myPeerID = myPeerID,
+                        liveVoiceManager = liveVoiceManager,
+                        voiceWaveformCache = voiceWaveformCache,
                         onOpenImage = onOpenImage,
                         animateAppear = animateAppear,
                         modifier = Modifier

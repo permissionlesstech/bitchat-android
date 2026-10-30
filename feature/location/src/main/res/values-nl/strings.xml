@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retry">Opnieuw proberen</string>
+    <string name="cd_add_bookmark">Bladwijzer toevoegen</string>
+
+    <string name="about_network">netwerk</string>
+    <string name="cd_open_map">Kaart openen</string>
+    <string name="cd_remove_bookmark">Bladwijzer verwijderen</string>
+    <string name="cd_decrease_precision">Precisie verlagen</string>
+    <string name="cd_increase_precision">Precisie verhogen</string>
+    <!-- Locatiekanalen sheet -->
+    <string name="location_channels_title">#locatiekanalen</string>
+    <string name="location_channels_desc">chat met mensen in uw buurt via geohash-kanalen. alleen een grove geohash wordt gedeeld, nooit exacte GPS. maak geen screenshot of deel dit scherm niet om uw privacy te beschermen.</string>
+    <string name="location_permission_denied">locatietoestemming geweigerd. schakel in instellingen in om locatiekanalen te gebruiken.</string>
+    <string name="finding_nearby_channels">nabije kanalen zoeken…</string>
+    <string name="bookmarked">bladwijzer toegevoegd</string>
+    <string name="geohash_placeholder">geohash</string>
+    <string name="invalid_geohash">ongeldige geohash</string>
+    <string name="teleport">teleporteren</string>
+    <string name="disable_location_services">locatiediensten uitschakelen</string>
+    <string name="enable_location_services">locatiediensten inschakelen</string>
+    <string name="location_level_block">blok</string>
+    <string name="location_level_neighborhood">buurt</string>
+    <string name="location_level_city">stad</string>
+    <string name="location_level_province">provincie</string>
+    <string name="location_level_region">regio</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <string name="hash_symbol">#</string>
+    <plurals name="people_count">
+        <item quantity="one">1 persoon</item>
+        <item quantity="other">%d personen</item>
+    </plurals>
+
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d notitie</item>
+    <item quantity="other">#%1$s ± 1 • %2$d notities</item>
+  </plurals>
+  <string name="location_notes_description">voeg korte permanente notities toe aan deze locatie zodat andere bezoekers ze kunnen vinden.</string>
+  <string name="location_notes_relays_unavailable">geo-relays niet beschikbaar; notities gepauzeerd</string>
+  <string name="location_notes_no_relays_title">geen geo-relays in de buurt</string>
+  <string name="location_notes_no_relays_desc">notities zijn afhankelijk van geo-relays. controleer de verbinding en probeer opnieuw.</string>
+  <string name="loading_location_notes">notities laden…</string>
+  <string name="location_notes_empty_title">nog geen notities</string>
+  <string name="location_notes_empty_desc">wees de eerste die een notitie voor deze plek toevoegt.</string>
+  <string name="dismiss">sluiten</string>
+  <string name="location_notes_input_placeholder">voeg een notitie toe voor deze plek</string>
+  <string name="nearby_notes_reveal">kijk of hier notities zijn achtergelaten</string>
+    <string name="globe_live">live</string>
+    <string name="globe_connecting">verbinden</string>
+    <string name="globe_offline">offline</string>
+    <string name="globe_hint_drag">draaien</string>
+    <string name="globe_hint_pinch">zoomen</string>
+    <string name="globe_hint_tap">tik op een stip</string>
+    <string name="globe_no_activity">geen recente activiteit</string>
+    <string name="cd_show_whole_globe">Hele wereldbol tonen</string>
+    <string name="cd_globe_activity">%1$d actieve chats, %2$d mensen online</string>
+    <string name="cd_channel_activity">%1$d mensen, %2$d berichten in het afgelopen uur</string>
+    <string name="join">Deelnemen</string>
+    <string name="cd_close">Sluiten</string>
+</resources>
