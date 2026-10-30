@@ -14,7 +14,7 @@ class OkHttpProviderTest {
 
     @Before
     fun setUp() {
-        okHttp = OkHttpProvider(ArtiTorManager(Lazy { okHttp }, TorPreferenceManager))
+        okHttp = OkHttpProvider(ArtiTorManager(Lazy { okHttp }, TorPreferenceManager()))
     }
 
     @Test

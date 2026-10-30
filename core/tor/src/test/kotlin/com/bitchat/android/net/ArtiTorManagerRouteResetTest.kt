@@ -12,7 +12,7 @@ class ArtiTorManagerRouteResetTest {
     @Test
     fun artiRouteChange_resetsOkHttpClientsBeforeReturning() {
         lateinit var okHttp: OkHttpProvider
-        val tor = ArtiTorManager(Lazy { okHttp }, TorPreferenceManager)
+        val tor = ArtiTorManager(Lazy { okHttp }, TorPreferenceManager())
         okHttp = OkHttpProvider(tor)
         val cachedHttp = okHttp.routedHttpClient()
         val cachedWebSocket = okHttp.webSocketClient()
