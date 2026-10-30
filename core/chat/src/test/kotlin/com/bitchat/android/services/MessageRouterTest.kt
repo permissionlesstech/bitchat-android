@@ -5,6 +5,7 @@ import android.os.Build
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.PeerInfo
+import com.bitchat.android.nostr.GeohashConversationRegistry
 import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.nostr.NostrTransport
 import org.junit.After
@@ -245,6 +246,7 @@ class MessageRouterTest {
 
     private fun routerFor(context: Context, mesh: MeshService): MessageRouter =
         MessageRouter.getInstance(
-            context, mesh, nostrIdentity, stores.favorites, stores.contactDirectory, stores.geohashAliases
+            context, mesh, nostrIdentity, stores.favorites, stores.contactDirectory, stores.geohashAliases,
+            GeohashConversationRegistry(),
         ) { nostr }
 }

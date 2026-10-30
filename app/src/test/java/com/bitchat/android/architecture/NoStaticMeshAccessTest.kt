@@ -44,8 +44,6 @@ class NoStaticMeshAccessTest {
      * (R7). Each is emptied by the task that flips the class named in the reason.
      */
     private val stillStatic = mapOf(
-        "core/chat/src/main/java/com/bitchat/android/services/MessageRouter.kt" to
-            "deferred to 10c-2a-2: mesh-replacement machinery the identity holder replaces",
         "wear/src/main/java/com/bitchat/watch/di/WearBridgeModule.kt" to
             "bridge for the watch's still-static objects; deleted with their flips in Task 7",
         "wear/src/main/java/com/bitchat/watch/notification/WearNotificationCoordinator.kt" to

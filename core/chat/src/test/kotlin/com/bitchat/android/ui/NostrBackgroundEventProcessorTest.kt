@@ -63,7 +63,7 @@ class NostrBackgroundEventProcessorTest {
             favorites = Lazy { stores.favorites },
             peerFingerprints = PeerFingerprintManager(),
             geohashAliases = stores.geohashAliases,
-            geohashConversations = GeohashConversationRegistry,
+            geohashConversations = GeohashConversationRegistry(),
             nostrIdentity = NostrIdentityBridge(stores.favorites),
             spamFilter = spamFilter,
             seenMessageStore = Lazy(lazy { SeenMessageStore(application, stores.appStateStore) }::value),

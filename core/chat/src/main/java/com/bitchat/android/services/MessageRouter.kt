@@ -7,6 +7,7 @@ import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.ReadReceipt
 import com.bitchat.android.nostr.GeohashAliasRegistry
+import com.bitchat.android.nostr.GeohashConversationRegistry
 import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.nostr.NostrTransport
 import com.bitchat.android.util.AppConstants
@@ -29,6 +30,7 @@ class MessageRouter private constructor(
     private val favorites: FavoritesPersistenceService,
     private val contactDirectory: ContactDirectory,
     private val geohashAliases: GeohashAliasRegistry,
+    private val geohashConversations: GeohashConversationRegistry,
     private val nostr: NostrTransport
 ) {
     enum class RouteResult {
@@ -72,6 +74,7 @@ class MessageRouter private constructor(
             favorites: FavoritesPersistenceService,
             contactDirectory: ContactDirectory,
             geohashAliases: GeohashAliasRegistry,
+            geohashConversations: GeohashConversationRegistry,
             nostr: () -> NostrTransport,
         ): MessageRouter {
             val instance = INSTANCE ?: synchronized(this) {
@@ -83,6 +86,7 @@ class MessageRouter private constructor(
                         favorites,
                         contactDirectory,
                         geohashAliases,
+                        geohashConversations,
                         nostr(),
                     ).also { instance ->
                         // Register for favorites changes to flush outbox
@@ -153,7 +157,7 @@ class MessageRouter private constructor(
             Log.d(TAG, "Routing PM via Nostr (geohash) to alias ${toPeerID.take(12)}… id=${messageID.take(8)}…")
             val recipientHex = geohashAliases.get(toPeerID)
             if (recipientHex != null) {
-                val sourceGeohash = com.bitchat.android.nostr.GeohashConversationRegistry.get(toPeerID)
+                val sourceGeohash = geohashConversations.get(toPeerID)
                 nostr.sendPrivateMessageGeohash(content, recipientHex, messageID, sourceGeohash)
                 return RouteResult.NOSTR
             }

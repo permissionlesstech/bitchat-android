@@ -4,6 +4,7 @@ import android.content.Context
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.nostr.GeohashAliasRegistry
+import com.bitchat.android.nostr.GeohashConversationRegistry
 import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.nostr.NostrTransport
 import com.bitchat.android.services.ContactDirectory
@@ -48,8 +49,9 @@ object ServicesModule {
         favorites: FavoritesPersistenceService,
         contactDirectory: ContactDirectory,
         geohashAliases: GeohashAliasRegistry,
+        geohashConversations: GeohashConversationRegistry,
         nostrTransport: Lazy<NostrTransport>,
     ): MessageRouter = MessageRouter.getInstance(
-        context, mesh, nostrIdentity, favorites, contactDirectory, geohashAliases
+        context, mesh, nostrIdentity, favorites, contactDirectory, geohashAliases, geohashConversations
     ) { nostrTransport.get() }
 }

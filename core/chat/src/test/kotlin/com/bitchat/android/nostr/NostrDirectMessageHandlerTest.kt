@@ -107,7 +107,7 @@ class NostrDirectMessageHandlerTest {
             nostrTransportProvider = { mock<NostrTransport>() },
             seenStoreProvider = { seenStore },
             geohashAliases = stores.geohashAliases,
-            geohashConversations = GeohashConversationRegistry,
+            geohashConversations = GeohashConversationRegistry(),
             contactDirectory = stores.contactDirectory,
             favorites = Lazy { stores.favorites },
         )
@@ -183,7 +183,7 @@ class NostrDirectMessageHandlerTest {
             nostrTransportProvider = { mock<NostrTransport>() },
             seenStoreProvider = { seenStore },
             geohashAliases = stores.geohashAliases,
-            geohashConversations = GeohashConversationRegistry,
+            geohashConversations = GeohashConversationRegistry(),
             contactDirectory = stores.contactDirectory,
             favorites = Lazy { stores.favorites },
         )
@@ -241,7 +241,7 @@ class NostrDirectMessageHandlerTest {
             nostrTransportProvider = { mock<NostrTransport>() },
             seenStoreProvider = { seenStore },
             geohashAliases = stores.geohashAliases,
-            geohashConversations = GeohashConversationRegistry,
+            geohashConversations = GeohashConversationRegistry(),
             contactDirectory = stores.contactDirectory,
             favorites = Lazy { stores.favorites },
         )
