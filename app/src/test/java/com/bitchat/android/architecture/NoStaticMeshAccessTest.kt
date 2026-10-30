@@ -89,6 +89,18 @@ class NoStaticMeshAccessTest {
         assertTrue("Scope classes must be injected classes, not objects:\n" + offenders.joinToString("\n"), offenders.isEmpty())
     }
 
+    /**
+     * A Scope class's companion holds no mutable state: a companion is reachable through the bare
+     * class name, so state there would be a static store beside the injected instance.
+     */
+    @Test
+    fun noScopeClassCompanionHoldsState() {
+        val offenders = mainSources()
+            .filter { (file, _) -> file.nameWithoutExtension in scopeClasses }
+            .flatMap { (file, code) -> companionState(file, code) }
+        assertTrue("Scope class companions must hold no state:\n" + offenders.joinToString("\n"), offenders.isEmpty())
+    }
+
     /** Hand-building a shared store gives the caller a second one the rest of the app never sees. */
     @Test
     fun onlyTheGraphBuildsTheSharedStores() {
@@ -188,6 +200,7 @@ class NoStaticMeshAccessTest {
         assertEquals(listOf("AppStateStore(", "::SpamFilter"), constructorCalls(file, code).map { it.substringAfter(": ") })
         assertEquals(3, wearMeshInjections(file, code).size)
         assertEquals(1, importAlias.findAll(code).count())
+        assertEquals(listOf("var"), companionState(file, code).map { it.substringAfter(": ") })
     }
 
     private fun reaches(file: File, code: String): List<String> =
@@ -232,6 +245,16 @@ class NoStaticMeshAccessTest {
         val accessor = Regex("""\bfun\s+\w+\s*\(\s*\)\s*:\s*$type\??[ \t]*(?=\n|}|$)""").findAll(code).map { it.range.first }
         return (wrapped + field + parameters + accessor).toSortedSet()
             .map { "${location(file, code, it)}: takes WearMeshService" }
+    }
+
+    /** Mutable state declared directly in a `companion object` body in [code]. */
+    private fun companionState(file: File, code: String): List<String> {
+        val state = Regex("""\b(?:var|lateinit)\b|\bMutable[A-Z]\w*|\bConcurrentHashMap\b|\bmutable(?:List|Map|Set)Of\b""")
+        return objectBodies(code)
+            .filter { (start, _) -> Regex("""companion\s+object\b[^{]*\{$""").containsMatchIn(code.substring(0, start)) }
+            .flatMap { (start, body) ->
+                state.findAll(body).map { "${location(file, code, start + it.range.first)}: ${it.value}" }.toList()
+            }
     }
 
     /** The text between the `(` at [open] and its matching `)`. */
