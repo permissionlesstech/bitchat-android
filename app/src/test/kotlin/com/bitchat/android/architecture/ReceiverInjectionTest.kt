@@ -15,7 +15,7 @@ class ReceiverInjectionTest {
     private val root = generateSequence(File("").absoluteFile) { it.parentFile }
         .first { File(it, "settings.gradle.kts").isFile }
 
-    /** The types that come from the graph (or are bridged into it until their flip). */
+    /** The types that come from the graph. */
     private val injectedTypes = listOf(
         "PowerManager", "PeerFingerprintManager", "DebugSettingsManager", "SpamFilter",
         "FavoritesPersistenceService", "LiveVoiceManager", "SeenMessageStore", "ConversationRepository",
