@@ -64,6 +64,10 @@ class NoStaticMeshAccessTest {
         RegexOption.MULTILINE,
     )
 
+    private val typeAlias = Regex(
+        """\btypealias\s+\w+[^=\n]*=[^\n]*\b(${(scopeClasses + allowedClasses.keys).joinToString("|")})\b"""
+    )
+
     @Test
     fun noScopeClassIsReachedThroughItsName() {
         val offenders = mainSources().flatMap { (file, code) -> reaches(file, code) }
@@ -104,8 +108,7 @@ class NoStaticMeshAccessTest {
     /** Hand-building a shared store gives the caller a second one the rest of the app never sees. */
     @Test
     fun onlyTheGraphBuildsTheSharedStores() {
-        val offenders = mainSources().filterNot { (file, _) -> "/di/" in file.invariantSeparatorsPath }
-            .flatMap { (file, code) -> constructorCalls(file, code) }
+        val offenders = mainSources().flatMap { (file, code) -> constructorCalls(file, code) }
         assertTrue(
             "Only Hilt builds the shared stores; take them by injection:\n" + offenders.joinToString("\n"),
             offenders.isEmpty()
@@ -139,6 +142,18 @@ class NoStaticMeshAccessTest {
             importAlias.findAll(code).map { "${location(file, code, it.range.first)}: ${it.value.trim()}" }
         }
         assertTrue("Scope classes must not be imported under an alias:\n" + offenders.joinToString("\n"), offenders.isEmpty())
+    }
+
+    /**
+     * No typealias names a Scope class: `Store(...)` or `@Inject constructor(m: Mesh)` through an
+     * alias would build a second store or take the watch mesh unseen by the rules above.
+     */
+    @Test
+    fun noScopeClassHasATypealias() {
+        val offenders = mainSources().flatMap { (file, code) ->
+            typeAlias.findAll(code).map { "${location(file, code, it.range.first)}: ${it.value.trim()}" }
+        }
+        assertTrue("Scope classes must not be given a typealias:\n" + offenders.joinToString("\n"), offenders.isEmpty())
     }
 
     /** The scan itself: each form of static reach it is meant to see is seen, and allowed forms are not. */
@@ -175,6 +190,9 @@ class NoStaticMeshAccessTest {
         val code = codeOnly(
             """
             import com.bitchat.android.services.AppStateStore as Store
+            typealias Store = AppStateStore
+            typealias Meshes = List<com.bitchat.watch.mesh.WearMeshService>
+            typealias Peers = List<String>
             class Thing @Inject constructor(
                 private val mesh: Provider<WearMeshService>,
             ) {
@@ -193,13 +211,16 @@ class NoStaticMeshAccessTest {
             @Singleton
             class AppStateStore(private val directory: ContactDirectory)
             interface Access { fun wearMesh(): WearMeshService }
+            class Other @AssistedInject constructor(@Assisted id: String, mesh: com.bitchat.watch.mesh.WearMeshService)
+            class Late @Inject constructor(mesh: Provider<com.bitchat.watch.mesh.WearMeshService>)
             """.trimIndent()
         )
         val file = File(root, "Sample.kt")
         assertEquals(4, holders(file, code).size)
         assertEquals(listOf("AppStateStore(", "::SpamFilter"), constructorCalls(file, code).map { it.substringAfter(": ") })
-        assertEquals(3, wearMeshInjections(file, code).size)
+        assertEquals(5, wearMeshInjections(file, code).size)
         assertEquals(1, importAlias.findAll(code).count())
+        assertEquals(listOf("AppStateStore", "WearMeshService"), typeAlias.findAll(code).map { it.groupValues[1] }.toList())
         assertEquals(listOf("var"), companionState(file, code).map { it.substringAfter(": ") })
     }
 
@@ -236,10 +257,10 @@ class NoStaticMeshAccessTest {
      * abstract function returning it).
      */
     private fun wearMeshInjections(file: File, code: String): List<String> {
-        val type = """WearMeshService\b"""
+        val type = """\b(?:[\w.]+\.)?WearMeshService\b"""
         val wrapped = Regex("""\b(?:Provider|Lazy)\s*<\s*$type""").findAll(code).map { it.range.first }
         val field = Regex("""@Inject\s+(?:lateinit\s+)?(?:var|val)\s+\w+\s*:\s*$type""").findAll(code).map { it.range.first }
-        val parameters = Regex("""@Inject\s+(?:\w+\s+)?constructor\s*\(|@Provides\b[^(]*\(""").findAll(code)
+        val parameters = Regex("""@(?:Assisted)?Inject\s+(?:\w+\s+)?constructor\s*\(|@Provides\b[^(]*\(""").findAll(code)
             .filter { Regex(""":\s*$type""").containsMatchIn(parenthesised(code, it.range.last)) }
             .map { it.range.first }
         val accessor = Regex("""\bfun\s+\w+\s*\(\s*\)\s*:\s*$type\??[ \t]*(?=\n|}|$)""").findAll(code).map { it.range.first }

@@ -133,6 +133,23 @@ composeCompiler {
     includeComposeMappingFile.set(false)
 }
 
+// The architecture scans (NoStaticMeshAccessTest and its neighbours) read every module's sources
+// and build files as text at run time, which Gradle cannot see. Declaring them as inputs makes a
+// source-only change in another module rerun the unit tests instead of leaving a stale green.
+val architectureScanSources = files(
+    listOf("app", "wear", "core", "feature").map { dir ->
+        fileTree(rootDir.resolve(dir)) {
+            include("**/src/**", "**/build.gradle.kts")
+            exclude("**/build", "**/build/**")
+        }
+    }
+)
+tasks.withType<Test>().configureEach {
+    inputs.files(architectureScanSources)
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+        .withPropertyName("architectureScanSources")
+}
+
 kotlin {
     jvmToolchain(21)
     compilerOptions {
