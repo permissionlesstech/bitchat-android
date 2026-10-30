@@ -4,6 +4,7 @@ import com.bitchat.android.di.IoDispatcher
 import kotlinx.coroutines.CoroutineDispatcher
 import android.content.Context
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.AuthenticatedPeerState
@@ -64,20 +65,20 @@ import kotlin.random.Random
  */
 class BluetoothMeshService @AssistedInject constructor(
     @ApplicationContext private val context: Context,
-    private val appStateStore: AppStateStore,
-    private val transportBridgeService: TransportBridgeService,
+    @get:VisibleForTesting val appStateStore: AppStateStore,
+    @get:VisibleForTesting val transportBridgeService: TransportBridgeService,
     private val verificationService: VerificationService,
     private val meshServiceHolder: MeshServiceHolder,
     private val meshGraphService: MeshGraphService,
     private val debugSettingsManager: Lazy<DebugSettingsManager>,
     private val debugPreferenceManager: DebugPreferenceManager,
-    private val seenMessageStore: Lazy<SeenMessageStore>,
+    @get:VisibleForTesting val seenMessageStore: Lazy<SeenMessageStore>,
     private val geohashAliasRegistry: GeohashAliasRegistry,
-    private val spamFilter: SpamFilter,
-    contactDirectory: ContactDirectory,
+    @get:VisibleForTesting val spamFilter: SpamFilter,
+    @get:VisibleForTesting val contactDirectory: ContactDirectory,
     conversationListPreferences: ConversationListPreferences,
     peerFingerprintManager: PeerFingerprintManager,
-    favoritesPersistenceService: Lazy<FavoritesPersistenceService>,
+    @get:VisibleForTesting val favoritesPersistenceService: Lazy<FavoritesPersistenceService>,
     liveVoiceManager: Lazy<LiveVoiceManager>,
     powerManager: PowerManager,
     transferProgressManager: TransferProgressManager,

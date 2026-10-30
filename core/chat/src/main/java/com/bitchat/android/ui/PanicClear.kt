@@ -4,6 +4,7 @@ import com.bitchat.android.spam.SpamFilter
 import com.bitchat.android.services.AppStateStore
 import android.content.Context
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import com.bitchat.android.di.ChatSessionScope
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.geohash.GeohashBookmarksStore
@@ -44,12 +45,12 @@ class PanicClear @Inject constructor(
     private val notificationManager: NotificationManager,
     private val geohashSession: GeohashSession,
     private val conversationListPreferences: ConversationListPreferences,
-    private val seenMessageStoreLazy: Lazy<SeenMessageStore>,
+    @get:VisibleForTesting val seenMessageStoreLazy: Lazy<SeenMessageStore>,
     private val locationChannelManagerLazy: Lazy<LocationChannelManager>,
     private val geohashBookmarksStoreLazy: Lazy<GeohashBookmarksStore>,
-    private val appStateStore: AppStateStore,
-    private val spamFilter: SpamFilter,
-    private val favorites: Lazy<FavoritesPersistenceService>,
+    @get:VisibleForTesting val appStateStore: AppStateStore,
+    @get:VisibleForTesting val spamFilter: SpamFilter,
+    @get:VisibleForTesting val favorites: Lazy<FavoritesPersistenceService>,
     @ChatSessionScope private val scope: CoroutineScope,
 ) {
 
