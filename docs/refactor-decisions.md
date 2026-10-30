@@ -471,6 +471,14 @@ merge first, expect a Back-handling conflict in `MainActivity`. Keep this branch
   relay before the live channel does. The fix for the second part is small (focus only after the
   user moves the globe); the first needs per-owner relay tracking. Not fixed here, to keep the
   refactor behaviour-preserving.
+- Reverse geocoding bypasses Tor on devices with Google Play Services (issue #1023).
+  `GeocoderFactory` picks the platform `Geocoder` whenever one is present, ignoring the Tor
+  setting. Play Services then sends the lookup from its own process over the real network: the
+  exact coordinates (the raw live fix, or a bookmark's cell centre), the package name
+  `com.bitchat.droid`, and the device's Google Services Android ID in the `x-goog-spatula` header.
+  Confirmed on a rooted emulator by intercepting only the geocoding host, with synthetic bookmarks
+  and no device location. The fix is to use OpenStreetMap over Tor when Tor is on, and to geocode
+  the cell centre, never the raw fix. Left for a separate change.
 - The iOS client files Nostr private messages in a separate thread.
 - `FragmentManagerTest > test reassembly` flakes. Root cause not established. Candidates: an
   unseeded `Random`, and a cleanup loop that nothing cancels.
