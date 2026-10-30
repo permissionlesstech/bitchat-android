@@ -43,11 +43,7 @@ class NoStaticMeshAccessTest {
      * Files that are themselves still-static Scope classes and so cannot take constructor injection
      * (R7). Each is emptied by the task that flips the class named in the reason.
      */
-    private val stillStatic = mapOf(
-        "wear/src/main/java/com/bitchat/watch/di/WearBridgeModule.kt" to
-            "bridge for the watch's still-static objects; deleted with their flips in Task 7",
-        "wear/src/main/java/com/bitchat/watch/notification/WearNotificationCoordinator.kt" to
-            "still-static class (getInstance) reaching WearChatState; constructor-injected when flipped in Task 7",
+    private val stillStatic = mapOf<String, String>(
     )
 
     private val accessor = Regex(
