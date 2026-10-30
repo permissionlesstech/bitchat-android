@@ -2,6 +2,9 @@ package com.bitchat.android.services
 
 import android.content.Context
 import com.bitchat.android.identity.SecureIdentityStateManager
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,15 +17,12 @@ import org.json.JSONObject
  * Message history remains in SQLite; these compact sets and drafts belong in the app's existing
  * Keystore-backed preference store. Panic clearing the identity store also removes these values.
  */
-// Public rather than internal so it can be provided into the injection graph:
-// a @Provides returning an internal Kotlin type hits name mangling in Dagger's
-// generated Java. :app is an application module with no consumers, so widening
-// this changes nothing semantically.
+@Singleton
 class ConversationListPreferences private constructor(
     private val stateManager: SecureIdentityStateManager,
     private val canonicalize: (String) -> String
 ) {
-    private constructor(context: Context, contactDirectory: ContactDirectory) : this(
+    @Inject constructor(@ApplicationContext context: Context, contactDirectory: ContactDirectory) : this(
         SecureIdentityStateManager(context.applicationContext),
         contactDirectory::canonicalConversationId
     )
@@ -35,23 +35,13 @@ class ConversationListPreferences private constructor(
         require(testOnly) { "Injected conversation preferences are test-only" }
     }
 
-    companion object {
-        private const val PINNED_KEY = "conversation_pinned_v1"
-        private const val MUTED_KEY = "conversation_muted_v1"
-        private const val DRAFTS_KEY = "conversation_drafts_v1"
-        private const val MAX_DRAFT_CHARS = 8_000
-        private const val MAX_DRAFTS = 50
-        private const val MAX_DRAFT_CHARS_TOTAL = 128_000
-
-        @Volatile
-        private var instance: ConversationListPreferences? = null
-
-        fun getInstance(context: Context, contactDirectory: ContactDirectory): ConversationListPreferences =
-            instance ?: synchronized(this) {
-                instance ?: ConversationListPreferences(context.applicationContext, contactDirectory).also {
-                    instance = it
-                }
-            }
+    private companion object {
+        const val PINNED_KEY = "conversation_pinned_v1"
+        const val MUTED_KEY = "conversation_muted_v1"
+        const val DRAFTS_KEY = "conversation_drafts_v1"
+        const val MAX_DRAFT_CHARS = 8_000
+        const val MAX_DRAFTS = 50
+        const val MAX_DRAFT_CHARS_TOTAL = 128_000
     }
 
     private val _pinned = MutableStateFlow(loadSet(PINNED_KEY))
