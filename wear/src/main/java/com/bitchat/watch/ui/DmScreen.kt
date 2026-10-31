@@ -78,7 +78,7 @@ fun DmScreen(
             } else null
             com.bitchat.android.features.voice.VoiceRecorder(context, target)
         }
-    ) { path -> mesh?.let { sendVoiceNote(appStateStore, it, peerID, path) } }
+    ) { path -> mesh?.let { sendVoiceNote(appStateStore, it, it.nickname, peerID, path, it::sendFilePrivateEncrypted) } }
 
     val nickname = mesh?.getPeerNickname(peerID) ?: peerID.take(8)
     val identityRevision by peerIdentity.revision.collectAsState()

@@ -1,22 +1,28 @@
 package com.bitchat.watch.ui
 
+import com.bitchat.android.mesh.MeshMessaging
+import com.bitchat.android.mesh.MeshPeers
 import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.services.AppStateStore
-import com.bitchat.watch.mesh.WearMeshService
 import java.io.File
 import java.util.Date
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-internal fun sendPublicMessage(appStateStore: AppStateStore, mesh: WearMeshService, content: String) {
-    mesh.sendMessage(content)
+internal fun <M> sendPublicMessage(
+    appStateStore: AppStateStore,
+    mesh: M,
+    nickname: String,
+    content: String
+) where M : MeshMessaging, M : MeshPeers {
+    mesh.sendMessage(content, emptyList(), null)
     appStateStore.addPublicMessage(
         BitchatMessage(
-            sender = mesh.nickname,
+            sender = nickname,
             content = content,
             timestamp = Date(),
             senderPeerID = mesh.myPeerID,
@@ -30,25 +36,26 @@ internal fun sendPublicMessage(appStateStore: AppStateStore, mesh: WearMeshServi
  * off the Noise handshake), so when no session exists we must not echo "Sent": the echo
  * stays "Sending" while a retry loop waits for the session and completes the send.
  */
-internal fun sendPrivateMessage(
+internal fun <M> sendPrivateMessage(
     appStateStore: AppStateStore,
-    mesh: WearMeshService,
+    mesh: M,
+    nickname: String,
     peerID: String,
     recipientNickname: String,
     content: String,
     scope: CoroutineScope
-) {
+) where M : MeshMessaging, M : MeshPeers {
     val established = mesh.hasEstablishedSession(peerID)
     val messageID = java.util.UUID.randomUUID().toString()
     if (established) {
-        mesh.sendPrivateMessageWithId(content, peerID, recipientNickname, messageID)
+        mesh.sendPrivateMessage(content, peerID, recipientNickname, messageID)
     } else {
         mesh.initiateNoiseHandshake(peerID)
         scope.launch {
             val deadline = System.currentTimeMillis() + 15_000
             while (System.currentTimeMillis() < deadline) {
                 if (mesh.hasEstablishedSession(peerID)) {
-                    mesh.sendPrivateMessageWithId(content, peerID, recipientNickname, messageID)
+                    mesh.sendPrivateMessage(content, peerID, recipientNickname, messageID)
                     appStateStore.updatePrivateMessageStatus(messageID, DeliveryStatus.Sent)
                     return@launch
                 }
@@ -62,7 +69,7 @@ internal fun sendPrivateMessage(
         peerID,
         BitchatMessage(
             id = messageID,
-            sender = mesh.nickname,
+            sender = nickname,
             content = content,
             timestamp = Date(),
             isPrivate = true,
@@ -75,9 +82,16 @@ internal fun sendPrivateMessage(
 
 /**
  * Send a recorded voice note. Global chat: broadcast file packet. DM thread: Noise-encrypted
- * private file transfer. Local echo renders immediately (content = local path, type = Audio).
+ * private file transfer ([sendFilePrivateEncrypted], which only the watch has). Local echo renders immediately (content = local path, type = Audio).
  */
-internal fun sendVoiceNote(appStateStore: AppStateStore, mesh: WearMeshService, peerID: String?, path: String) {
+internal fun <M> sendVoiceNote(
+    appStateStore: AppStateStore,
+    mesh: M,
+    nickname: String,
+    peerID: String?,
+    path: String,
+    sendFilePrivateEncrypted: (recipientPeerID: String, file: BitchatFilePacket) -> Unit
+) where M : MeshMessaging, M : MeshPeers {
     val file = File(path)
     if (!file.isFile) return
     val packet = BitchatFilePacket(
@@ -89,10 +103,10 @@ internal fun sendVoiceNote(appStateStore: AppStateStore, mesh: WearMeshService, 
     if (peerID == null) {
         mesh.sendFileBroadcast(packet)
     } else {
-        mesh.sendFilePrivateEncrypted(peerID, packet)
+        sendFilePrivateEncrypted(peerID, packet)
     }
     val echo = BitchatMessage(
-        sender = mesh.nickname,
+        sender = nickname,
         content = path,
         type = BitchatMessageType.Audio,
         timestamp = Date(),

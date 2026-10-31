@@ -116,5 +116,6 @@ dependencies {
 
     // Testing
     testImplementation(libs.bundles.testing)
+    testImplementation(testFixtures(project(":core:mesh")))
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

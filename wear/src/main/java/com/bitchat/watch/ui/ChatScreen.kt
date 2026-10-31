@@ -91,7 +91,7 @@ fun ChatScreen(
             } else null
             com.bitchat.android.features.voice.VoiceRecorder(context, target)
         }
-    ) { path -> mesh?.let { sendVoiceNote(appStateStore, it, null, path) } }
+    ) { path -> mesh?.let { sendVoiceNote(appStateStore, it, it.nickname, null, path, it::sendFilePrivateEncrypted) } }
 
     // Push-to-talk drags and the image viewer own the whole screen; the home pager must not
     // turn them into a page swipe.

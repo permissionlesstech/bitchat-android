@@ -674,10 +674,10 @@ private fun WearScreenContent(
                 onSend = { text ->
                     mesh?.let { m ->
                         if (screen.peerID == null) {
-                            sendPublicMessage(appStateStore, m, text)
+                            sendPublicMessage(appStateStore, m, m.nickname, text)
                         } else {
                             val nick = m.getPeerNickname(screen.peerID) ?: screen.peerID
-                            sendPrivateMessage(appStateStore, m, screen.peerID, nick, text, sendScope)
+                            sendPrivateMessage(appStateStore, m, m.nickname, screen.peerID, nick, text, sendScope)
                         }
                     }
                     onBack()

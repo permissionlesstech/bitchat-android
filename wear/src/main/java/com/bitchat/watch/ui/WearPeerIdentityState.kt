@@ -5,6 +5,7 @@ import com.bitchat.android.favorites.FavoriteRelationship
 import com.bitchat.android.favorites.FavoritesChangeListener
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.identity.SecureIdentityStateManager
+import com.bitchat.android.mesh.MeshPeers
 import com.bitchat.watch.mesh.WearMeshService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -67,7 +68,7 @@ class WearPeerIdentityState @Inject constructor(
         publishChange()
     }
 
-    fun snapshot(peerID: String, mesh: WearMeshService?): WearPeerIdentitySnapshot {
+    fun snapshot(peerID: String, mesh: MeshPeers?): WearPeerIdentitySnapshot {
         check(initialized) { "WearPeerIdentityState must be initialized by the application" }
         val relationship = relationship(peerID, mesh)
         val fingerprint = mesh?.getPeerFingerprint(peerID)
@@ -87,6 +88,7 @@ class WearPeerIdentityState @Inject constructor(
         )
     }
 
+    /** Needs the watch's own nickname lookup and its session-waiting favorite notification, so it takes the whole service. */
     fun setFavorite(
         peerID: String,
         isFavorite: Boolean,
@@ -111,7 +113,7 @@ class WearPeerIdentityState @Inject constructor(
     fun setVerified(
         peerID: String,
         verified: Boolean,
-        mesh: WearMeshService?
+        mesh: MeshPeers?
     ): Boolean {
         check(initialized) { "WearPeerIdentityState must be initialized by the application" }
         val fingerprint = snapshot(peerID, mesh).fingerprint ?: return false
@@ -120,7 +122,7 @@ class WearPeerIdentityState @Inject constructor(
         return true
     }
 
-    fun myFingerprint(mesh: WearMeshService?): String? = mesh?.getIdentityFingerprint()
+    fun myFingerprint(mesh: MeshPeers?): String? = mesh?.getIdentityFingerprint()
 
     override fun onFavoriteChanged(noiseKeyHex: String) {
         publishChange()
@@ -132,7 +134,7 @@ class WearPeerIdentityState @Inject constructor(
 
     private fun relationship(
         peerID: String,
-        mesh: WearMeshService?
+        mesh: MeshPeers?
     ): FavoriteRelationship? {
         favorites.getFavoriteStatus(peerID)?.let { return it }
         val noisePublicKey = mesh?.getPeerInfo(peerID)?.noisePublicKey ?: return null

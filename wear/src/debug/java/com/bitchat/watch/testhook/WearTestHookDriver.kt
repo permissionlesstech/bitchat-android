@@ -230,7 +230,7 @@ object WearTestHookDriver {
     }
 
     private fun broadcastMsg(context: Context, content: String): JSONObject {
-        mesh().sendChannelMessage(content, emptyList(), null)
+        mesh().sendMessage(content, emptyList(), null)
         return ok("broadcast_msg").put("content", content)
     }
 
@@ -238,7 +238,7 @@ object WearTestHookDriver {
         val mesh = mesh()
         val nickname = mesh.getPeerNicknames()[peerID] ?: peerID
         val id = msgID ?: "testhook-${System.currentTimeMillis()}"
-        mesh.sendPrivateMessageWithId(content, peerID, nickname, id)
+        mesh.sendPrivateMessage(content, peerID, nickname, id)
         return ok("dm_send").put("peer", peerID).put("msg_id", id)
     }
 

@@ -14,6 +14,10 @@ import com.bitchat.android.mesh.BluetoothConnectionManagerDelegate
 import com.bitchat.android.mesh.BluetoothPermissionManager
 import com.bitchat.android.mesh.DirectLinkAnnouncementPolicy
 import com.bitchat.android.mesh.MeshCore
+import com.bitchat.android.mesh.MeshDiagnostics
+import com.bitchat.android.mesh.MeshLifecycle
+import com.bitchat.android.mesh.MeshMessaging
+import com.bitchat.android.mesh.MeshPeers
 import com.bitchat.android.mesh.MeshTransport
 import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.mesh.PowerManager
@@ -64,7 +68,7 @@ class WearMeshService @Inject constructor(
     verificationService: VerificationService,
     seenMessageStore: Lazy<SeenMessageStore>,
     @IoDispatcher ioDispatcher: CoroutineDispatcher,
-) {
+) : MeshLifecycle, MeshPeers, MeshMessaging, MeshDiagnostics {
 
     companion object {
         private const val TAG = "WearMeshService"
@@ -77,7 +81,7 @@ class WearMeshService @Inject constructor(
     // The watch declares Bluetooth permissions only; see BluetoothPermissionManager.
     private val permissionManager = BluetoothPermissionManager(context, requireLocation = false)
 
-    val myPeerID: String = encryptionService.getIdentityFingerprint().take(16)
+    override val myPeerID: String = encryptionService.getIdentityFingerprint().take(16)
     private val serviceScope = CoroutineScope(ioDispatcher + SupervisorJob())
 
     private val bleTransport = BleTransport()
@@ -257,9 +261,9 @@ class WearMeshService @Inject constructor(
 
     /**
      * Proactively establish a Noise session with peers we have no session for (throttled to
-     * one attempt per peer per 60 s). Peers may hold a stale session after we restart — the
-     * protocol has no decrypt-failure kick path, so our fresh handshake replaces it and
-     * restores encrypted DM/file delivery.
+     * one attempt per peer per 60 s). Peers may hold a stale session after we restart. Older
+     * peers do not start a handshake when a packet fails to decrypt, so our fresh handshake
+     * replaces the stale session and restores encrypted DM/file delivery.
      */
     private val handshakeAttempts = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
@@ -308,7 +312,7 @@ class WearMeshService @Inject constructor(
         !message.isPrivate
     }
 
-    fun startServices() {
+    override fun startServices() {
         if (isActive) {
             Log.w(TAG, "Mesh already active, ignoring duplicate start")
             return
@@ -336,7 +340,7 @@ class WearMeshService @Inject constructor(
         }
     }
 
-    fun stopServices() {
+    override fun stopServices() {
         if (!isActive) return
         isActive = false
         meshCore.stopCore()
@@ -354,14 +358,6 @@ class WearMeshService @Inject constructor(
         if (isActive) {
             serviceScope.launch { meshCore.sendBroadcastAnnounce() }
         }
-    }
-
-    fun sendMessage(content: String, mentions: List<String> = emptyList()) {
-        meshCore.sendMessage(content, mentions, null)
-    }
-
-    fun sendPrivateMessage(content: String, recipientPeerID: String, recipientNickname: String) {
-        meshCore.sendPrivateMessage(content, recipientPeerID, recipientNickname)
     }
 
     /**
@@ -390,25 +386,25 @@ class WearMeshService @Inject constructor(
         }
     }
 
-    fun initiateNoiseHandshake(peerID: String) = meshCore.initiateNoiseHandshake(peerID)
+    override fun initiateNoiseHandshake(peerID: String) = meshCore.initiateNoiseHandshake(peerID)
 
-    fun hasEstablishedSession(peerID: String): Boolean = meshCore.hasEstablishedSession(peerID)
+    override fun hasEstablishedSession(peerID: String): Boolean = meshCore.hasEstablishedSession(peerID)
 
-    fun getSessionState(peerID: String) = meshCore.getSessionState(peerID)
+    override fun getSessionState(peerID: String) = meshCore.getSessionState(peerID)
 
-    fun getPeerInfo(peerID: String) = meshCore.getPeerInfo(peerID)
+    override fun getPeerInfo(peerID: String) = meshCore.getPeerInfo(peerID)
 
-    fun getIdentityFingerprint(): String = encryptionService.getIdentityFingerprint()
+    override fun getIdentityFingerprint(): String = encryptionService.getIdentityFingerprint()
 
-    fun getStaticNoisePublicKey(): ByteArray? = meshCore.getStaticNoisePublicKey()
+    override fun getStaticNoisePublicKey(): ByteArray? = meshCore.getStaticNoisePublicKey()
 
-    fun sendBroadcastAnnounce() = meshCore.sendBroadcastAnnounce()
+    override fun sendBroadcastAnnounce() = meshCore.sendBroadcastAnnounce()
 
-    fun sendChannelMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null) {
+    override fun sendMessage(content: String, mentions: List<String>, channel: String?) {
         meshCore.sendMessage(content, mentions, channel)
     }
 
-    fun sendPrivateMessageWithId(
+    override fun sendPrivateMessage(
         content: String,
         recipientPeerID: String,
         recipientNickname: String,
@@ -417,20 +413,20 @@ class WearMeshService @Inject constructor(
         meshCore.sendPrivateMessage(content, recipientPeerID, recipientNickname, messageID)
     }
 
-    fun getDeviceAddressForPeer(peerID: String): String? = meshCore.getDeviceAddressForPeer(peerID)
+    override fun getDeviceAddressForPeer(peerID: String): String? = meshCore.getDeviceAddressForPeer(peerID)
 
-    fun getDeviceAddressToPeerMapping(): Map<String, String> = meshCore.getDeviceAddressToPeerMapping()
+    override fun getDeviceAddressToPeerMapping(): Map<String, String> = meshCore.getDeviceAddressToPeerMapping()
 
     fun connectToPeer(peerID: String): Boolean {
         val address = getDeviceAddressForPeer(peerID) ?: return false
         return connectionManager.connectToAddress(address)
     }
 
-    fun sendFileBroadcast(file: com.bitchat.android.model.BitchatFilePacket) {
+    override fun sendFileBroadcast(file: com.bitchat.android.model.BitchatFilePacket) {
         meshCore.sendFileBroadcast(file)
     }
 
-    fun sendVoiceFrame(recipientPeerID: String?, payload: ByteArray) {
+    override fun sendVoiceFrame(recipientPeerID: String?, payload: ByteArray) {
         meshCore.sendVoiceFrame(recipientPeerID, payload)
     }
 
@@ -473,15 +469,19 @@ class WearMeshService @Inject constructor(
         }
     }
 
-    fun getPeerFingerprint(peerID: String): String? = meshCore.getPeerFingerprint(peerID)
+    override fun getActivePeerCount(): Int = meshCore.getActivePeerCount()
 
-    fun getPeerNicknames(): Map<String, String> = meshCore.getPeerNicknames()
+    override fun sendAnnouncementToPeer(peerID: String) = meshCore.sendAnnouncementToPeer(peerID)
 
-    fun getPeerRSSI(): Map<String, Int> = meshCore.getPeerRSSI()
+    override fun getPeerFingerprint(peerID: String): String? = meshCore.getPeerFingerprint(peerID)
+
+    override fun getPeerNicknames(): Map<String, String> = meshCore.getPeerNicknames()
+
+    override fun getPeerRSSI(): Map<String, Int> = meshCore.getPeerRSSI()
 
     fun getPeerNickname(peerID: String): String? = meshCore.getPeerNickname(peerID)
 
-    fun getDebugStatus(): String = meshCore.getDebugStatus(
+    override fun getDebugStatus(): String = meshCore.getDebugStatus(
         transportInfo = connectionManager.getDebugInfo(),
         deviceMap = connectionManager.addressPeerMap.toMap(),
         title = "Wear BLE Mesh Debug Status"
