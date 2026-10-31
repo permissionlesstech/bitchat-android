@@ -1006,28 +1006,6 @@ class BluetoothMeshService @AssistedInject constructor(
         }
     }
 
-    /** Safe non-interactive entry point: encrypted sends commit; legacy sends require UI consent. */
-    fun sendFilePrivate(recipientPeerID: String, file: com.bitchat.android.model.BitchatFilePacket) {
-        val payload = file.encode() ?: return
-        when (val prepared = prepareFilePrivate(
-            recipientPeerID,
-            file,
-            sha256Hex(payload),
-            allowLegacyFallback = false
-        )) {
-            is PrivateMediaPreparation.Ready -> prepared.transfer.commit()
-            is PrivateMediaPreparation.RequiresLegacyConsent ->
-                Log.w(TAG, "Private media requires explicit one-shot legacy consent")
-            PrivateMediaPreparation.NeedsHandshake -> {
-                Log.d(TAG, "Private media needs a Noise handshake; initiating without sending")
-                initiateNoiseHandshake(recipientPeerID)
-            }
-            PrivateMediaPreparation.AwaitingPeerState -> Unit
-            is PrivateMediaPreparation.Rejected ->
-                Log.w(TAG, "Private media blocked: ${prepared.reason}")
-        }
-    }
-
     fun sendVoiceFrame(recipientPeerID: String?, payload: ByteArray) {
         if (payload.isEmpty()) return
         voiceFrameQueue.trySend(VoiceFrameRequest(recipientPeerID, payload.copyOf()))
@@ -1512,19 +1490,6 @@ class BluetoothMeshService @AssistedInject constructor(
     }
 
     /**
-     * Update peer information with verification data
-     */
-    fun updatePeerInfo(
-        peerID: String,
-        nickname: String,
-        noisePublicKey: ByteArray,
-        signingPublicKey: ByteArray,
-        isVerified: Boolean
-    ): Boolean {
-        return peerManager.updatePeerInfo(peerID, nickname, noisePublicKey, signingPublicKey, isVerified)
-    }
-    
-    /**
      * Get our identity fingerprint
      */
     fun getIdentityFingerprint(): String {
@@ -1533,22 +1498,6 @@ class BluetoothMeshService @AssistedInject constructor(
 
     fun getStaticNoisePublicKey(): ByteArray? {
         return encryptionService.getStaticPublicKey()
-    }
-    
-    /**
-     * Check if encryption icon should be shown for a peer
-     */
-    fun shouldShowEncryptionIcon(peerID: String): Boolean {
-        return encryptionService.hasEstablishedSession(peerID)
-    }
-    
-    /**
-     * Get all peers with established encrypted sessions
-     */
-    fun getEncryptedPeers(): List<String> {
-        // SIMPLIFIED: Return empty list for now since we don't have direct access to sessionManager
-        // This method is not critical for the session retention fix
-        return emptyList()
     }
     
     /**
@@ -1565,13 +1514,6 @@ class BluetoothMeshService @AssistedInject constructor(
         return connectionManager.addressPeerMap.toMap()
     }
     
-    /**
-     * Print device addresses for all connected peers
-     */
-    fun printDeviceAddressesForPeers(): String {
-        return peerManager.getDebugInfoWithDeviceAddresses(connectionManager.addressPeerMap)
-    }
-
     /**
      * Get debug status information
      */

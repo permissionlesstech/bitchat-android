@@ -1463,17 +1463,6 @@ class WifiAwareMeshService @Inject constructor(
         meshCore.sendFileBroadcast(file)
     }
 
-    /**
-     * Sends a file privately to a specific peer. If no Noise session is established,
-     * a handshake will be initiated and the send is deferred/aborted for now.
-     *
-     * @param recipientPeerID Target peer.
-     * @param file            Encoded metadata and chunks descriptor of the file to send.
-     */
-    override fun sendFilePrivate(recipientPeerID: String, file: BitchatFilePacket) {
-        meshCore.sendFilePrivate(recipientPeerID, file)
-    }
-
     override fun sendVoiceFrame(recipientPeerID: String?, payload: ByteArray) {
         meshCore.sendVoiceFrame(recipientPeerID, payload)
     }
@@ -1549,39 +1538,11 @@ class WifiAwareMeshService @Inject constructor(
     override fun getPeerInfo(peerID: String): PeerInfo? = meshCore.getPeerInfo(peerID)
 
     /**
-     * Updates local metadata for a peer and returns whether the change was applied.
-     *
-     * @param peerID           Target peer id.
-     * @param nickname         Display name.
-     * @param noisePublicKey   Peer’s Noise static public key.
-     * @param signingPublicKey Peer’s Ed25519 signing public key.
-     * @param isVerified       Whether this identity is verified by the user.
-     * @return true if the record was updated or created, false otherwise.
-     */
-    override fun updatePeerInfo(
-        peerID: String,
-        nickname: String,
-        noisePublicKey: ByteArray,
-        signingPublicKey: ByteArray,
-        isVerified: Boolean
-    ): Boolean = meshCore.updatePeerInfo(peerID, nickname, noisePublicKey, signingPublicKey, isVerified)
-
-    /**
      * @return the local device’s long-term identity fingerprint (hex).
      */
     override fun getIdentityFingerprint(): String = meshCore.getIdentityFingerprint()
 
     override fun getStaticNoisePublicKey(): ByteArray? = meshCore.getStaticNoisePublicKey()
-
-    /**
-     * @return true if the UI should show an “encrypted” indicator for this peer.
-     */
-    override fun shouldShowEncryptionIcon(peerID: String) = meshCore.shouldShowEncryptionIcon(peerID)
-
-    /**
-     * @return a snapshot list of peers with established Noise sessions.
-     */
-    override fun getEncryptedPeers(): List<String> = meshCore.getEncryptedPeers()
 
     /**
      * @return the current IPv4/IPv6 address of a connected peer, if any.
@@ -1631,12 +1592,6 @@ class WifiAwareMeshService @Inject constructor(
             )
         } catch (_: Exception) { }
     }
-
-    /**
-     * Utility for logs/UI: pretty-prints one peer-to-address mapping per line.
-     */
-    override fun printDeviceAddressesForPeers(): String =
-        getDeviceAddressToPeerMapping().entries.joinToString("\n") { "${it.key} -> ${it.value}" }
 
     /**
      * @return A detailed string containing the debug status of all mesh components.

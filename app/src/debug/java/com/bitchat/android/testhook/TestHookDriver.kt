@@ -15,6 +15,7 @@ import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.PrivateMediaPreparation
 import com.bitchat.android.mesh.TransferProgressManager
+import com.bitchat.android.mesh.UnifiedMeshService
 import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.noise.NoiseSession
@@ -692,7 +693,7 @@ object TestHookDriver {
 
     // MARK: - Helpers
 
-    private fun mesh(context: Context): MeshService = meshServiceHolder.getUnifiedOrCreate(context)
+    private fun mesh(context: Context): UnifiedMeshService = meshServiceHolder.getUnifiedOrCreate(context)
 
     private fun peerInfosJson(mesh: MeshService, peerIds: List<String>): JSONArray {
         val nicknames = mesh.getPeerNicknames()

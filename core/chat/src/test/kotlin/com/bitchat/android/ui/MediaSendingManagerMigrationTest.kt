@@ -100,7 +100,6 @@ class MediaSendingManagerMigrationTest {
         assertTrue(messages.single().content.contains("too many fragments"))
         assertTrue(messages.none { it.type == com.bitchat.android.model.BitchatMessageType.Image })
         assertEquals(null, manager.legacyPrivateMediaConsent.value)
-        verify(mesh, never()).sendFilePrivate(any(), any())
     }
 
     @Test
@@ -153,7 +152,6 @@ class MediaSendingManagerMigrationTest {
         assertEquals(1, messages.size)
         assertTrue(messages.single().content.contains("previously pinned"))
         assertTrue(messages.none { it.type == com.bitchat.android.model.BitchatMessageType.Image })
-        verify(mesh, never()).sendFilePrivate(any(), any())
     }
 
     @Test
@@ -184,7 +182,6 @@ class MediaSendingManagerMigrationTest {
         assertEquals(1, commits.get())
         assertEquals(1, state.privateChats.value[peerID]?.size)
         verify(mesh, times(2)).prepareFilePrivate(eq(peerID), any(), any(), eq(false))
-        verify(mesh, never()).sendFilePrivate(any(), any())
     }
 
     @Test

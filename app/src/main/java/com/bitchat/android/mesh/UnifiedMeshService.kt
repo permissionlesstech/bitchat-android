@@ -146,7 +146,7 @@ class UnifiedMeshService @AssistedInject constructor(
         }
     }
 
-    override fun sendFavoriteNotification(peerID: String, isFavorite: Boolean) {
+    fun sendFavoriteNotification(peerID: String, isFavorite: Boolean) {
         val myNpub = try {
             nostrIdentityBridge.getCurrentNostrIdentity(context)?.npub
         } catch (_: Exception) {
@@ -177,16 +177,6 @@ class UnifiedMeshService @AssistedInject constructor(
         when {
             isBleEnabled() -> bluetooth.sendFileBroadcast(file)
             else -> wifiService()?.sendFileBroadcast(file)
-        }
-    }
-
-    override fun sendFilePrivate(recipientPeerID: String, file: BitchatFilePacket) {
-        when {
-            isBleReady(recipientPeerID) -> bluetooth.sendFilePrivate(recipientPeerID, file)
-            isWifiReady(recipientPeerID) -> wifiService()?.sendFilePrivate(recipientPeerID, file)
-            isBleConnected(recipientPeerID) || (isBleEnabled() && !isWifiConnected(recipientPeerID)) ->
-                bluetooth.sendFilePrivate(recipientPeerID, file)
-            else -> wifiService()?.sendFilePrivate(recipientPeerID, file)
         }
     }
 
@@ -324,42 +314,10 @@ class UnifiedMeshService @AssistedInject constructor(
         }
     }
 
-    override fun updatePeerInfo(
-        peerID: String,
-        nickname: String,
-        noisePublicKey: ByteArray,
-        signingPublicKey: ByteArray,
-        isVerified: Boolean
-    ): Boolean {
-        val bleUpdated = try {
-            bluetooth.updatePeerInfo(peerID, nickname, noisePublicKey, signingPublicKey, isVerified)
-        } catch (_: Exception) {
-            false
-        }
-        val wifiUpdated = try {
-            wifiService()?.updatePeerInfo(peerID, nickname, noisePublicKey, signingPublicKey, isVerified) == true
-        } catch (_: Exception) {
-            false
-        }
-        return bleUpdated || wifiUpdated
-    }
-
     override fun getIdentityFingerprint(): String = bluetooth.getIdentityFingerprint()
 
     override fun getStaticNoisePublicKey(): ByteArray? {
         return bluetooth.getStaticNoisePublicKey() ?: wifiService()?.getStaticNoisePublicKey()
-    }
-
-    override fun shouldShowEncryptionIcon(peerID: String): Boolean {
-        return hasEstablishedSession(peerID)
-    }
-
-    override fun getEncryptedPeers(): List<String> {
-        val encrypted = linkedSetOf<String>()
-        try { encrypted.addAll(bluetooth.getEncryptedPeers()) } catch (_: Exception) { }
-        try { encrypted.addAll(wifiService()?.getEncryptedPeers().orEmpty()) } catch (_: Exception) { }
-        mergedPeerIDs().filterTo(encrypted) { hasEstablishedSession(it) }
-        return encrypted.toList()
     }
 
     override fun getDeviceAddressForPeer(peerID: String): String? {
@@ -372,16 +330,6 @@ class UnifiedMeshService @AssistedInject constructor(
         try { merged.putAll(wifiService()?.getDeviceAddressToPeerMapping().orEmpty()) } catch (_: Exception) { }
         try { merged.putAll(bluetooth.getDeviceAddressToPeerMapping()) } catch (_: Exception) { }
         return merged
-    }
-
-    override fun printDeviceAddressesForPeers(): String {
-        return buildString {
-            appendLine(bluetooth.printDeviceAddressesForPeers())
-            wifiService()?.let {
-                appendLine()
-                appendLine(it.printDeviceAddressesForPeers())
-            }
-        }
     }
 
     override fun getDebugStatus(): String {
