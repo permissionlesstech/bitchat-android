@@ -261,9 +261,9 @@ class WearMeshService @Inject constructor(
 
     /**
      * Proactively establish a Noise session with peers we have no session for (throttled to
-     * one attempt per peer per 60 s). Peers may hold a stale session after we restart. Older
-     * peers do not start a handshake when a packet fails to decrypt, so our fresh handshake
-     * replaces the stale session and restores encrypted DM/file delivery.
+     * one attempt per peer per 60 s). Peers may hold a stale session after we restart — the
+     * protocol has no decrypt-failure kick path, so our fresh handshake replaces it and
+     * restores encrypted DM/file delivery.
      */
     private val handshakeAttempts = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
