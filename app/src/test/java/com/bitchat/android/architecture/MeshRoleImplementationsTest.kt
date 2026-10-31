@@ -73,9 +73,12 @@ class MeshRoleImplementationsTest {
 
     @Test
     fun theStubCheckSeesEachFormOfStub() {
-        listOf("{ }", "{\n }", "= Unit", "{ Log.d(TAG, \"x\") }", "{ Log.w(TAG, \"a\"); Log.d(TAG, \"b\") }")
+        listOf("{ }", "{\n }", "= Unit", "{ Log.d(TAG, \"x\") }", "{ Log.w(TAG, \"a\"); Log.d(TAG, \"b\") }",
+            "{ Log.d(TAG, \"x \${f(g(h(1)))}\") }", "{ return null }", "= null", "= true", "{ false }", "= 0", "= \"\"",
+            "= emptyList()", "= emptyMap<String, Int>()", "{ return emptySet() }", "= 42")
             .forEach { assertTrue("not seen as a stub: $it", isStub(it)) }
-        listOf("{ core.stop() }", "= core.stop()", "{ Log.d(TAG, \"x\"); core.stop() }")
+        listOf("{ core.stop() }", "= core.stop()", "{ Log.d(TAG, \"x\"); core.stop() }",
+            "= core.activeCount()", "{ return core.has(f(1)) }", "= listOf(1)")
             .forEach { assertTrue("seen as a stub: $it", !isStub(it)) }
     }
 
@@ -117,7 +120,7 @@ class MeshRoleImplementationsTest {
                     c == '(' -> paren++
                     c == ')' -> paren--
                     angle == 0 && paren == 0 && (c == '{' || c == '=') -> { hasBody = true; break }
-                    angle == 0 && paren == 0 && c == '\n' && !continuesType(body, j) -> break
+                    angle == 0 && paren == 0 && c == '\n' -> break
                 }
                 j++
             }
@@ -125,9 +128,6 @@ class MeshRoleImplementationsTest {
         }
         return members
     }
-
-    /** True when the line after [newline] continues the type (a leading `->`, `,` or `?`)... never in this file, kept simple. */
-    private fun continuesType(text: String, newline: Int): Boolean = false
 
     private fun depthAt(text: String, offset: Int): Int {
         var depth = 0
@@ -168,12 +168,35 @@ class MeshRoleImplementationsTest {
         return text.substring(i)
     }
 
-    /** An empty body, `= Unit`, or a body of only `Log.*(...)` calls. */
+    /**
+     * An empty body, `= Unit`, a body of only `Log.*(...)` calls (arguments nested to any depth), or one
+     * that only returns a literal or an empty collection: a constant answer that does no work.
+     */
     private fun isStub(body: String): Boolean {
         val inner = body.trim().removePrefix("{").removeSuffix("}").removePrefix("=").trim()
         if (inner.isEmpty() || inner == "Unit") return true
-        val withoutLogs = inner.replace(Regex("""Log\.\w+\((?:[^()]|\([^()]*\))*\)"""), "")
-        return withoutLogs.replace(";", "").isBlank()
+        val withoutLogs = removeLogCalls(inner).replace(";", "").trim()
+        if (withoutLogs.isEmpty()) return true
+        val value = withoutLogs.removePrefix("return").trim()
+        return constantValue.matches(value)
+    }
+
+    private val constantValue = Regex(
+        """null|true|false|-?\d+[LlUuFf]*|-?\d+\.\d+[Ff]?|"[^"]*"|empty(?:List|Map|Set)(?:<[^()]*>)?\(\)"""
+    )
+
+    /** [text] without its `Log.x(...)` calls, matching parentheses to any depth. */
+    private fun removeLogCalls(text: String): String {
+        val out = StringBuilder()
+        var i = 0
+        val start = Regex("""Log\.\w+\(""")
+        while (i < text.length) {
+            val match = start.find(text, i)
+            if (match == null) { out.append(text, i, text.length); break }
+            out.append(text, i, match.range.first)
+            i = skipParens(text, match.range.last)
+        }
+        return out.toString()
     }
 
     private fun code(file: File): String {
