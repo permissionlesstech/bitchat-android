@@ -30,6 +30,7 @@ class BluetoothConnectionManagerTest {
             PowerManager(
                 RuntimeEnvironment.getApplication(),
                 TestMeshStores(RuntimeEnvironment.getApplication()).appStateStore,
+                Dispatchers.Default,
             ),
             Lazy(lazy { DebugSettingsManager(DebugPreferenceManager()) }::value),
             DebugPreferenceManager(),

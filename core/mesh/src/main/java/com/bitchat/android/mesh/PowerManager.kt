@@ -14,13 +14,14 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import com.bitchat.android.di.DefaultDispatcher
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.util.AppConstants
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +39,7 @@ import kotlinx.coroutines.launch
 class PowerManager @Inject constructor(
     @ApplicationContext context: Context,
     private val appStateStore: AppStateStore,
+    @DefaultDispatcher defaultDispatcher: CoroutineDispatcher,
 ) : LifecycleEventObserver {
 
     enum class PowerMode {
@@ -88,7 +90,7 @@ class PowerManager @Inject constructor(
     }
 
     private val appContext = context.applicationContext
-    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private val scope = CoroutineScope(defaultDispatcher + SupervisorJob())
 
     @Volatile private var batteryLevel = 100
     @Volatile private var isCharging = false

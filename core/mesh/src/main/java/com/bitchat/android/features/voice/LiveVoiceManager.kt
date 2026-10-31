@@ -2,12 +2,13 @@ package com.bitchat.android.features.voice
 
 import android.content.Context
 import android.util.Log
+import com.bitchat.android.di.IoDispatcher
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.services.AppStateStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
@@ -70,6 +71,7 @@ sealed interface LiveVoiceEvent {
 class LiveVoiceManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val appStateStore: AppStateStore,
+    @IoDispatcher ioDispatcher: CoroutineDispatcher,
 ) {
     companion object {
         private const val TAG = "LiveVoiceManager"
@@ -129,7 +131,7 @@ class LiveVoiceManager @Inject constructor(
         val bytes: Int
     )
 
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val scope = CoroutineScope(ioDispatcher + SupervisorJob())
     private val assemblies = linkedMapOf<AssemblyKey, Assembly>()
     private val finishedBursts = linkedMapOf<AssemblyKey, FinishedBurst>()
     private val _liveMessageIDs = MutableStateFlow<Set<String>>(emptySet())

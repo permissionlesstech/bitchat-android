@@ -19,6 +19,7 @@ import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
 import com.bitchat.android.services.meshgraph.MeshGraphService
 import com.bitchat.android.util.AppConstants
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -61,7 +62,7 @@ class MessageHandlerTest {
         handler = MessageHandler(
             myPeerID,
             app,
-            Lazy(lazy { LiveVoiceManager(app, stores.appStateStore) }::value),
+            Lazy(lazy { LiveVoiceManager(app, stores.appStateStore, Dispatchers.IO) }::value),
             MeshGraphService(),
             Lazy { stores.favorites },
             stores.contactDirectory,
