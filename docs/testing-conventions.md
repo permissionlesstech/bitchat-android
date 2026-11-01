@@ -88,3 +88,39 @@ bridges, and vendored Noise code are excluded from first-party coverage metrics.
 - A temporary quarantine must include an issue and removal condition.
 - Unexpected skips fail review. Existing skips must be restored or replaced by
   equivalent coverage.
+
+## Signing-key storage tests
+
+`EncryptionServiceInstrumentedTest` contains five Android tests that check signing-key
+storage and reset using Android Keystore and encrypted preferences, alongside the
+existing JVM reset test. These Android tests delete saved signing keys and write synthetic
+test keys. Use a disposable emulator or a lab installation with no user data:
+
+```sh
+./gradlew :app:connectedDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=com.bitchat.android.crypto.EncryptionServiceInstrumentedTest \
+  -Pandroid.testInstrumentationRunnerArguments.signingStorageDisposableData=true
+```
+
+Always pass `signingStorageDisposableData=true` when running this class, including
+as part of the full Android test suite. The default debug `PerformanceTestRunner`
+starts the minimal Application needed by these tests.
+
+The Android tests check that reset replaces the old signing key and that another
+encryption service in the same running app loads the replacement. Because Android
+can reuse preference data held in memory, these tests check same-process loading
+only. They do not restart the app process or exercise the full panic flow.
+
+The three JVM test classes below contain five tests in total:
+
+| Test | Checks |
+|---|---|
+| `EncryptionServiceLegacyCommitFailureRobolectricTest` | A simulated failure to save removal of the legacy signing key makes reset return false without changing the signing key held in memory. |
+| `EncryptionServiceStorageFailureRobolectricTest` | A simulated failure to save removal of the encrypted signing key makes reset return false. After a simulated error while saving a replacement, another encryption service in the same running app does not load the old signing key. |
+| `EncryptionServiceMigrationCleanupRobolectricTest` | Migration from legacy-only storage preserves the signing identity and removes the legacy key. A simulated cleanup failure after copying the key to encrypted storage leaves the legacy copy behind; reset deletes the legacy copy and creates a new signing identity. |
+
+These JVM tests simulate storage failures within one process; they do not
+reproduce physical disk failures, app-process restarts or installed-app upgrades.
+The replacement-save error test checks that the old signing identity does not
+return and that the recreated service can sign successfully. The test does not
+require reset to report success or preserve a replacement key that failed to save.
