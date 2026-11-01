@@ -8,6 +8,7 @@ import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.sync.Mutex
 
 /**
  * Gossip-based synchronization manager using on-demand GCS filters.
@@ -47,6 +48,8 @@ class GossipSyncManager(
     // - announcements: only keep latest per sender peerID
     private val latestAnnouncementByPeer = ConcurrentHashMap<String, Pair<String, BitchatPacket>>()
 
+    private val responseMutex = Mutex()
+    private var responseJob: Job? = null
     private var periodicJob: Job? = null
     private var cleanupJob: Job? = null
     fun start() {
@@ -74,13 +77,16 @@ class GossipSyncManager(
         }
     }
 
+    @Synchronized
     fun stop() {
+        responseJob?.cancel(); responseJob = null
         periodicJob?.cancel(); periodicJob = null
         cleanupJob?.cancel(); cleanupJob = null
     }
 
     @Synchronized
     fun clear() {
+        responseJob?.cancel(); responseJob = null
         synchronized(messages) {
             messages.clear()
         }
@@ -174,6 +180,7 @@ class GossipSyncManager(
         delegate?.sendPacketToPeer(peerID, signed)
     }
 
+    @Synchronized
     fun handleRequestSync(fromPeerID: String, request: RequestSyncPacket) {
         // Decode GCS into sorted set for membership checks
         val sorted = GCSFilter.decodeToSortedSet(request.p, request.m, request.data)
@@ -183,26 +190,26 @@ class GossipSyncManager(
             return GCSFilter.contains(sorted, nonZeroV)
         }
 
-        // 1) Announcements: send latest per peerID if remote doesn't have them
-        for ((_, pair) in latestAnnouncementByPeer.entries) {
-            val (id, pkt) = pair
-            val idBytes = hexToBytes(id)
-            if (!mightContain(idBytes)) {
-                // Send original packet unchanged to requester only (keep local TTL)
-                val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
-                delegate?.sendPacketToPeer(fromPeerID, toSend)
-                Log.d(TAG, "Sent sync announce: Type ${toSend.type} from ${toSend.senderID.toHexString()} to $fromPeerID packet id ${idBytes.toHexString()}")
-            }
-        }
-
-        // 2) Broadcast messages: send all they lack
-        val toSendMsgs = synchronized(messages) { messages.values.toList() }
-        for (pkt in toSendMsgs) {
-            val idBytes = PacketIdUtil.computeIdBytes(pkt)
-            if (!mightContain(idBytes)) {
-                val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
-                delegate?.sendPacketToPeer(fromPeerID, toSend)
-                Log.d(TAG, "Sent sync message: Type ${toSend.type} to $fromPeerID packet id ${idBytes.toHexString()}")
+        // The same bounded window is advertised and offered. Otherwise every request
+        // incorrectly treats older packets omitted from the filter as missing forever.
+        if (!responseMutex.tryLock()) return
+        responseJob = scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            try {
+                val missing = buildSyncSnapshot().packets
+                    .filter { (id, _) -> !mightContain(hexToBytes(id)) }
+                    .sortedWith(compareBy<Pair<String, BitchatPacket>> {
+                        if (it.second.type == MessageType.ANNOUNCE.value) 0 else 1
+                    }.thenBy { it.second.timestamp }.thenBy { it.first })
+                missing.forEachIndexed { index, (_, packet) ->
+                    if (index > 0) delay(20L)
+                    ensureActive()
+                    delegate?.sendPacketToPeer(
+                        fromPeerID,
+                        packet.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
+                    )
+                }
+            } finally {
+                responseMutex.unlock()
             }
         }
     }
@@ -232,34 +239,47 @@ class GossipSyncManager(
         return out
     }
 
-    private fun buildGcsPayload(): ByteArray {
-        // Collect candidates: latest announcement per peer + recent broadcast messages
-        val list = ArrayList<BitchatPacket>()
-        // announcements
-        for ((_, pair) in latestAnnouncementByPeer) {
-            list.add(pair.second)
-        }
-        // messages
-        synchronized(messages) {
-            list.addAll(messages.values)
-        }
-        // sort by timestamp desc, then take up to min(seenCapacity, fit capacity)
-        list.sortByDescending { it.timestamp.toLong() }
+    private data class SyncSnapshot(
+        val packets: List<Pair<String, BitchatPacket>>,
+        val filter: GCSFilter.Params
+    )
 
+    private fun buildSyncSnapshot(): SyncSnapshot {
+        val announcements = latestAnnouncementByPeer.toMap()
+        val candidates = announcements.values.toMutableList()
+        synchronized(messages) {
+            candidates.addAll(messages.entries.map { it.key to it.value })
+        }
+        // Stable tie-breaking makes equal caches advertise the same window on different nodes.
+        candidates.sortWith(compareByDescending<Pair<String, BitchatPacket>> { it.second.timestamp }
+            .thenBy { it.first })
         val maxBytes = try { configProvider.gcsMaxBytes() } catch (_: Exception) { defaultMaxBytes }
         val fpr = try { configProvider.gcsTargetFpr() } catch (_: Exception) { defaultFpr }
-        val p = GCSFilter.deriveP(fpr)
-        val nMax = GCSFilter.estimateMaxElementsForSize(maxBytes, p)
         val cap = configProvider.seenCapacity().coerceAtLeast(1)
-        val takeN = minOf(nMax, cap, list.size)
-        if (takeN <= 0) {
-            val p0 = GCSFilter.deriveP(fpr)
-            return RequestSyncPacket(p = p0, m = 1, data = ByteArray(0)).encode()
+        val limit = minOf(cap, GCSFilter.estimateMaxElementsForSize(maxBytes, GCSFilter.deriveP(fpr)))
+        val selectedById = linkedMapOf<String, BitchatPacket>()
+        for ((id, packet) in candidates) {
+            if (id in selectedById) continue
+            val announcement = if (packet.type == MessageType.MESSAGE.value) {
+                val sender = packet.senderID.joinToString("") { "%02x".format(it) }
+                announcements[sender]?.takeUnless { it.first in selectedById }
+            } else null
+            val required = if (announcement == null) 1 else 2
+            if (selectedById.size + required > limit) continue
+            // Keep every prefix dependency-closed: filter encoding may trim its tail.
+            if (announcement != null) selectedById[announcement.first] = announcement.second
+            selectedById[id] = packet
         }
-        val ids = list.take(takeN).map { pkt -> PacketIdUtil.computeIdBytes(pkt) }
-        val params = GCSFilter.buildFilter(ids, maxBytes, fpr)
-        val mVal = if (params.m <= 0L) 1 else params.m
-        return RequestSyncPacket(p = params.p, m = mVal, data = params.data).encode()
+        val selected = selectedById.entries.map { it.key to it.value }
+        val filter = GCSFilter.buildFilter(selected.map { hexToBytes(it.first) }, maxBytes, fpr)
+        // buildFilter can trim further to meet its byte budget. Offer exactly what it encoded.
+        val encodedCount = (filter.m ushr filter.p).toInt().coerceIn(0, selected.size)
+        return SyncSnapshot(selected.take(encodedCount), filter)
+    }
+
+    private fun buildGcsPayload(): ByteArray {
+        val params = buildSyncSnapshot().filter
+        return RequestSyncPacket(p = params.p, m = params.m.coerceAtLeast(1), data = params.data).encode()
     }
 
     // Periodically remove stale announcements and all their messages

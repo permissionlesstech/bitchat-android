@@ -47,6 +47,16 @@ class PacketRelayManagerTest {
     }
 
     @Test
+    fun `low TTL relay obtains network size once`() = runTest {
+        val packet = createPacket(null).copy(ttl = 3u)
+
+        packetRelayManager.handlePacketRelay(RoutedPacket(packet, otherPeerID))
+
+        verify(delegate).getNetworkSize()
+        verify(delegate).broadcastPacket(any())
+    }
+
+    @Test
     fun `packet with duplicate hops is dropped`() = runTest {
         val route = listOf(
             hexStringToPeerBytes(nextHopPeerID),

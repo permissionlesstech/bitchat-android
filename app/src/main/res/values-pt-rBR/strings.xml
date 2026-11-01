@@ -628,4 +628,17 @@
     <string name="tor_not_available_in_this_build">Tor não disponível nesta compilação</string>
     <string name="checking">Verificando...</string>
     <string name="apk_not_ready_please_prepare_it_first">APK não está pronto. Prepare-o primeiro.</string>
+
+    <string name="about_spam_filter_title">Filtro de spam</string>
+    <string name="about_spam_filter_desc">Ocultar mensagens públicas de pessoas que enviam mensagens rápido demais, se repetem ou enviam links em excesso.</string>
+    <string name="globe_live">ao vivo</string>
+    <string name="globe_connecting">conectando</string>
+    <string name="globe_offline">offline</string>
+    <string name="globe_hint_drag">girar</string>
+    <string name="globe_hint_pinch">zoom</string>
+    <string name="globe_hint_tap">toque em um ponto</string>
+    <string name="globe_no_activity">sem atividade recente</string>
+    <string name="cd_show_whole_globe">Mostrar o globo inteiro</string>
+    <string name="cd_globe_activity">%1$d chats ativos, %2$d pessoas online</string>
+    <string name="cd_channel_activity">%1$d pessoas, %2$d mensagens na última hora</string>
 </resources>

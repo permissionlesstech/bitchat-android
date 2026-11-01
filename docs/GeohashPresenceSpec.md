@@ -85,6 +85,10 @@ The presentation of the participant count depends on the geohash precision level
     *   Filters channels by `precision <= 5` before broadcasting.
 *   **`GeohashMessageHandler`**:
     *   Refactored `onEvent` to update participant counts for both Kind 20000 and 20001.
+*   **`GeohashParticipantStore`**:
+    *   The process-owned chat handler and foreground presence handler share one in-memory store of last-seen timestamps, nicknames, and teleport markers.
+    *   The UI observes this store, including when recreated, so chat-only participants appear without waiting for a heartbeat. Heartbeats retain nicknames learned from chat.
+    *   Both sources use the same five-minute expiry window; replayed older events cannot shorten it and future timestamps are capped to the local clock. Clearing participant state clears both sources.
 *   **`LocationChannelsSheet`**:
     *   Implements the `[? people]` display logic for high-precision, zero-count channels.
 
