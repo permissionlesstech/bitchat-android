@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- সম্পর্কে শিট -->
+    <string name="about_offline_mesh_title">অফলাইন মেশ চ্যাট</string>
+    <string name="about_offline_mesh_desc">ইন্টারনেট বা সার্ভার ছাড়াই Bluetooth LE এর মাধ্যমে সরাসরি যোগাযোগ করুন। পরিসর বাড়ানোর জন্য কাছাকাছি ডিভাইসের মাধ্যমে বার্তা রিলে করা হয়।</string>
+    <string name="about_online_geohash_title">অনলাইন জিওহ্যাশ চ্যানেল</string>
+    <string name="about_online_geohash_desc">জিওহ্যাশ-ভিত্তিক চ্যানেলের মাধ্যমে আপনার এলাকার মানুষদের সাথে সংযুক্ত হন। পাবলিক ইন্টারনেট রিলেগুলির মাধ্যমে মেশ বিস্তৃত করুন।</string>
+    <string name="about_e2e_title">এন্ড-টু-এন্ড এনক্রিপশন</string>
+    <string name="about_e2e_desc">ব্যক্তিগত বার্তাগুলি এনক্রিপ্ট করা। চ্যানেল বার্তাগুলি পাবলিক।</string>
+    <string name="about_system">সিস্টেম</string>
+    <string name="about_light">হালকা</string>
+    <string name="about_dark">অন্ধকার</string>
+    <string name="about_pow">প্রুফ অফ ওয়ার্ক</string>
+    <string name="about_pow_tip">স্প্যাম কঠিন করতে জিওহ্যাশ বার্তায় প্রুফ অফ ওয়ার্ক যোগ করুন।</string>
+    <string name="about_pow_desc_none">কোন প্রুফ অফ ওয়ার্ক প্রয়োজন নেই</string>
+    <string name="about_pow_desc_very_low">খুব কম – ন্যূনতম স্প্যাম সুরক্ষা</string>
+    <string name="about_pow_desc_low">কম – মৌলিক স্প্যাম সুরক্ষা</string>
+    <string name="about_pow_desc_medium">মাঝারি – ভাল স্প্যাম সুরক্ষা</string>
+    <string name="about_pow_desc_high">উচ্চ – শক্তিশালী স্প্যাম সুরক্ষা</string>
+    <string name="about_pow_desc_very_high">খুব উচ্চ – বিলম্ব ঘটাতে পারে</string>
+    <string name="about_pow_desc_extreme">চরম – উল্লেখযোগ্য কম্পিউটিং পাওয়ার প্রয়োজন</string>
+    <string name="about_tor_route">আরো গোপনীয়তার জন্য Tor এর মাধ্যমে ইন্টারনেট ট্রাফিক রুট করুন।</string>
+    <string name="about_debug_settings">ডিবাগ সেটিংস</string>
+    <string name="about_footer">ওপেন সোর্স • গোপনীয়তা প্রথম • বিকেন্দ্রীভূত</string>
+    <string name="unknown">অজানা</string>
+
+    <!-- ডিবাগ / ডায়াগনস্টিক -->
+    <string name="debug_tools">ডিবাগ টুল</string>
+    <string name="debug_tools_desc">ডায়াগনস্টিক এবং নিয়ন্ত্রণের জন্য ডেভেলপার টুল</string>
+    <string name="debug_verbose_logging">বিস্তারিত লগিং</string>
+    <string name="debug_verbose_hint">পিয়ার জয়েন/লিভ, সংযোগ দিক, প্যাকেট ফরওয়ার্ডিং এবং রিলে লগ করে</string>
+    <string name="debug_bluetooth_roles">ব্লুটুথ ভূমিকা</string>
+    <string name="debug_gatt_server">GATT সার্ভার</string>
+    <string name="debug_connections_fmt">সংযোগ: %1$d / %2$d</string>
+    <string name="debug_max_server">সর্বোচ্চ সার্ভার</string>
+    <string name="debug_gatt_client">GATT ক্লায়েন্ট</string>
+    <string name="debug_max_client">সর্বোচ্চ ক্লায়েন্ট</string>
+    <string name="debug_overall_connections_fmt">সংযোগ: %1$d / %2$d</string>
+    <string name="debug_max_overall">সর্বোচ্চ সামগ্রিক</string>
+    <string name="debug_packet_relay">প্যাকেট রিলে</string>
+    <string name="debug_roles_hint">ভূমিকা চালু/বন্ধ করুন এবং নিষ্ক্রিয় করার সময় সমস্ত সংযোগ বন্ধ করুন</string>
+    <string name="debug_max_packets_per_sync_fmt">প্রতি সিঙ্কে সর্বোচ্চ প্যাকেট: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">সর্বোচ্চ GCS ফিল্টার আকার: %1$d বাইট (128–1024)</string>
+    <string name="debug_target_fpr_fmt">লক্ষ্য FPR: %1$.2f%%</string>
+    <string name="debug_connected_devices">সংযুক্ত ডিভাইস</string>
+    <string name="debug_our_device_id_fmt">আমাদের ডিভাইস ID: %1$s</string>
+    <string name="debug_none">কোনটি নেই</string>
+    <string name="debug_disconnect">সংযোগ বিচ্ছিন্ন করুন</string>
+    <string name="debug_recent_scan_results">সাম্প্রতিক স্ক্যান করা ডিভাইস</string>
+    <string name="debug_connect">সংযোগ করুন</string>
+    <string name="debug_debug_console">ডিবাগ কনসোল</string>
+    <string name="debug_clear">সাফ করুন</string>
+    <string name="debug_derived_p_fmt">উৎপন্ন P: %1$s • আনুমানিক সর্বোচ্চ উপাদান: %2$s</string>
+    <string name="debug_direct_suffix"> • সরাসরি</string>
+    <string name="debug_role_server">সার্ভার হিসেবে (আমরা হোস্ট করি)</string>
+    <string name="debug_role_client">ক্লায়েন্ট হিসেবে (আমরা সংযোগ করি)</string>
+
+    <string name="version_prefix">v%1$s</string>
+    <string name="about_language">ভাষা</string>
+    <string name="about_app_language">অ্যাপের ভাষা</string>
+    <string name="about_system_default">সিস্টেম ডিফল্ট</string>
+    <string name="about_select_language">ভাষা নির্বাচন করুন</string>
+    <string name="about_spam_filter_title">স্প্যাম ফিল্টার</string>
+    <string name="about_spam_filter_desc">যারা খুব দ্রুত বার্তা পাঠান, একই কথা বারবার বলেন বা অতিরিক্ত লিঙ্ক পাঠান, তাঁদের প্রকাশ্য বার্তা লুকান।</string>
+</resources>

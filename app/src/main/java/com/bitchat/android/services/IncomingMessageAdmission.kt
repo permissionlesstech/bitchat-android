@@ -11,9 +11,18 @@ import kotlinx.coroutines.runBlocking
  * is wiping state must not continue to UI delegates, unread tracking, haptics, or notifications.
  * Public and channel messages retain their existing best-effort behavior if state reflection fails,
  * and are refused (no timeline row, no UI callback) when the spam filter hides them.
+ *
+ * Stateless: the state it writes and the filter it asks are the caller's, passed in.
  */
 internal object IncomingMessageAdmission {
-    fun admitToAppState(message: BitchatMessage): Boolean = try {
+    fun admitToAppState(
+        message: BitchatMessage,
+        appStateStore: AppStateStore,
+        spamFilter: SpamFilter,
+    ): Boolean = try {
+        // Read once into a local: BitchatMessage lives in :core:domain, and Kotlin
+        // will not smart-cast a property declared in another module.
+        val channel = message.channel
         when {
             message.isPrivate -> {
                 val peerID = message.senderPeerID?.takeIf(String::isNotBlank)
@@ -22,19 +31,19 @@ internal object IncomingMessageAdmission {
                 // serialized SQLite transaction so a notification can never advertise a message
                 // that an immediate process death would lose.
                 runBlocking {
-                    AppStateStore.addPrivateMessageDurably(peerID, message)
+                    appStateStore.addPrivateMessageDurably(peerID, message)
                 }
             }
 
-            isHiddenAsSpam(message) -> false
+            isHiddenAsSpam(message, spamFilter) -> false
 
-            message.channel != null -> {
-                AppStateStore.addChannelMessage(message.channel, message)
+            channel != null -> {
+                appStateStore.addChannelMessage(channel, message)
                 true
             }
 
             else -> {
-                AppStateStore.addPublicMessage(message)
+                appStateStore.addPublicMessage(message)
                 true
             }
         }
@@ -44,8 +53,8 @@ internal object IncomingMessageAdmission {
         !message.isPrivate
     }
 
-    private fun isHiddenAsSpam(message: BitchatMessage): Boolean {
+    private fun isHiddenAsSpam(message: BitchatMessage, spamFilter: SpamFilter): Boolean {
         if (SpamFilter.isLocalNotice(message)) return false
-        return SpamFilter.shared.shouldHide(message, SpamFilter.meshSenderKey(message))
+        return spamFilter.shouldHide(message, SpamFilter.meshSenderKey(message))
     }
 }

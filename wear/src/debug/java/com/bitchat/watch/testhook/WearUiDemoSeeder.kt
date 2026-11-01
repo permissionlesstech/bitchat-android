@@ -12,7 +12,6 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.watch.mesh.WearMeshService
-import com.bitchat.watch.ui.WearChatState
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -45,8 +44,15 @@ internal object WearUiDemoSeeder {
         "f00d00000000f00d" to "kiwi_long_nickname"
     )
 
-    fun seed(context: Context, withMedia: Boolean, unread: Boolean): JSONObject {
-        val mesh = WearMeshService.getOrCreate(context)
+    fun seed(
+        context: Context,
+        graph: WearTestHookDependencies,
+        withMedia: Boolean,
+        unread: Boolean,
+    ): JSONObject {
+        val appStateStore = graph.appStateStore()
+        val chatState = graph.chatState()
+        val mesh = graph.meshHolder().getOrCreate()
         val me = mesh.myPeerID
         val demoPrefs = context.getSharedPreferences(DEMO_PREFS, Context.MODE_PRIVATE)
         val seededBefore = demoPrefs.getBoolean(KEY_SEEDED, false)
@@ -59,15 +65,15 @@ internal object WearUiDemoSeeder {
         if (mesh.nickname != DEMO_SELF_NICKNAME) mesh.setNickname(DEMO_SELF_NICKNAME)
         val myNick = DEMO_SELF_NICKNAME
         addPeersToMesh(mesh)
-        AppStateStore.setTransportPeers(TRANSPORT_ID, peers.keys.toList())
+        appStateStore.setTransportPeers(TRANSPORT_ID, peers.keys.toList())
 
         val base = System.currentTimeMillis() - 30 * 60_000L
         var minute = 0
         fun at() = Date(base + (minute++) * 60_000L)
-        fun pub(peer: String, text: String) = AppStateStore.addPublicMessage(
+        fun pub(peer: String, text: String) = appStateStore.addPublicMessage(
             BitchatMessage(sender = peers.getValue(peer), senderPeerID = peer, content = text, timestamp = at())
         )
-        fun mine(text: String) = AppStateStore.addPublicMessage(
+        fun mine(text: String) = appStateStore.addPublicMessage(
             BitchatMessage(sender = myNick, senderPeerID = me, content = text, timestamp = at())
         )
 
@@ -76,7 +82,7 @@ internal object WearUiDemoSeeder {
         mine("on my way over")
         pub("5a705100000005a7", "mesh is looking healthy today, 5 hops end to end")
         if (withMedia) {
-            AppStateStore.addPublicMessage(
+            appStateStore.addPublicMessage(
                 BitchatMessage(
                     sender = peers.getValue("c0ffee00000c0ffe"),
                     senderPeerID = "c0ffee00000c0ffe",
@@ -85,11 +91,11 @@ internal object WearUiDemoSeeder {
                     timestamp = at()
                 )
             )
-            AppStateStore.addPublicMessage(
+            appStateStore.addPublicMessage(
                 BitchatMessage(
                     sender = peers.getValue("a11ce0000000a11c"),
                     senderPeerID = "a11ce0000000a11c",
-                    content = demoVoice(context).absolutePath,
+                    content = demoVoice(context, graph.voiceWaveformCache()).absolutePath,
                     type = BitchatMessageType.Audio,
                     timestamp = at()
                 )
@@ -99,7 +105,7 @@ internal object WearUiDemoSeeder {
         mine("see you all at 6")
 
         val alice = "a11ce0000000a11c"
-        fun dm(fromMe: Boolean, text: String) = AppStateStore.addPrivateMessage(
+        fun dm(fromMe: Boolean, text: String) = appStateStore.addPrivateMessage(
             alice,
             BitchatMessage(
                 sender = if (fromMe) myNick else peers.getValue(alice),
@@ -116,8 +122,8 @@ internal object WearUiDemoSeeder {
         dm(false, "great, bring the spare battery")
 
         if (unread) {
-            repeat(2) { WearChatState.onPrivateMessageArrived("b0b0000000000b0b") }
-            WearChatState.onPrivateMessageArrived("5a705100000005a7")
+            repeat(2) { chatState.onPrivateMessageArrived("b0b0000000000b0b") }
+            chatState.onPrivateMessageArrived("5a705100000005a7")
         }
         return JSONObject().put("status", "ok").put("peers", peers.size)
     }
@@ -134,14 +140,14 @@ internal object WearUiDemoSeeder {
     ): Boolean = nickname == "watch-${myPeerID.take(4)}" ||
         (seededBefore && nickname == DEMO_SELF_NICKNAME)
 
-    fun refreshPeers(context: Context): JSONObject {
-        addPeersToMesh(WearMeshService.getOrCreate(context))
-        AppStateStore.setTransportPeers(TRANSPORT_ID, peers.keys.toList())
+    fun refreshPeers(context: Context, graph: WearTestHookDependencies): JSONObject {
+        addPeersToMesh(graph.meshHolder().getOrCreate())
+        graph.appStateStore().setTransportPeers(TRANSPORT_ID, peers.keys.toList())
         return JSONObject().put("status", "ok")
     }
 
-    fun clearPeers(): JSONObject {
-        AppStateStore.clearTransportPeers(TRANSPORT_ID)
+    fun clearPeers(graph: WearTestHookDependencies): JSONObject {
+        graph.appStateStore().clearTransportPeers(TRANSPORT_ID)
         return JSONObject().put("status", "ok")
     }
 
@@ -174,7 +180,7 @@ internal object WearUiDemoSeeder {
         return file
     }
 
-    private fun demoVoice(context: Context): File {
+    private fun demoVoice(context: Context, voiceWaveformCache: VoiceWaveformCache): File {
         val file = File(context.cacheDir, "ui_demo/voice.wav")
         val sampleRate = 16_000
         val samples = sampleRate * 4
@@ -196,7 +202,7 @@ internal object WearUiDemoSeeder {
                 out.write(pcm.array())
             }
         }
-        VoiceWaveformCache.put(file.absolutePath, FloatArray(120) { i ->
+        voiceWaveformCache.put(file.absolutePath, FloatArray(120) { i ->
             val t = i / 120.0 * 4
             (0.25 + 0.75 * sin(PI * t * 1.7).let { it * it }).toFloat()
         })

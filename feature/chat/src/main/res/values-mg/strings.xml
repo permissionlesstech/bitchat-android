@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="channels">Fantsona</string>
+    <string name="no_one_connected">Tsy misy olona mifandray</string>
+    <string name="your_network">Tambazotry</string>
+
+    <!-- Fahafinaretana momba ny ankafizina -->
+    <string name="cd_add_favorite">Hampidirina amin\'ny ankafizina</string>
+    <string name="cd_remove_favorite">Hanesorana amin\'ny ankafizina</string>
+    <!-- Lohan\'ny resaka &amp; fahafaha-miditra -->
+    <string name="cd_nostr_reachable">Azo tratrarina amin\'ny alalan\'ny Nostr</string>
+    <string name="cd_unread_private_messages">Hafatra manokana tsy voavaky</string>
+    <string name="cd_open_location_channels">Sokafy ny fikirana toerana sy fantsona</string>
+    <string name="cd_connected_peers">Mpiara-miasa mifandray</string>
+    <string name="cd_geohash_participants">Mpandray anjara Geohash</string>
+    <string name="cd_ready_for_handshake">Vonona ho amin\'ny fifampiraharahana</string>
+    <string name="cd_handshake_in_progress">Fifampiraharahana mandeha eo</string>
+    <string name="cd_encrypted">Voafono farany amin\'ny farany</string>
+    <string name="cd_handshake_failed">Tsy nahomby ny fifampiraharahana</string>
+
+    <!-- Fifanakalozan-dresaka momba ny rakitra -->
+    <string name="file_viewer_title">📎 Rakitra Voaray</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="file_viewer_size">📏 Habeny: %1$s</string>
+    <string name="file_viewer_type">🏷️ Karazana: %1$s</string>
+    <string name="file_viewer_open_save">📂 Hanokatra / Hitahiry</string>
+    <string name="close_with_emoji">❌ Hanakatona</string>
+    <string name="pick_image">Hifidy sary</string>
+
+    <string name="cancel_lower">hanafoana</string>
+
+    <string name="cd_unread_message">Hafatra tsy voavaky</string>
+    <string name="cd_reachable_via_nostr">Azo tratrarina amin\'ny alalan\'ny Nostr</string>
+    <string name="cd_offline_favorite">Ankafizina tsy an-tserasera</string>
+    <string name="cd_scroll_to_bottom">Hidina any ambany</string>
+    <string name="cd_file">Rakitra</string>
+    <string name="cd_image">Sary</string>
+    <string name="cd_cancel">Hanafoana</string>
+    <string name="cd_link">Rohy</string>
+    <string name="cd_pick_media">Hifidy media</string>
+    <string name="cd_pick_file">Hifidy rakitra</string>
+    <string name="cd_save_current_image">Hitahiry ny sary ankehitriny</string>
+    <string name="cd_close">Hanakatona</string>
+    <string name="cd_image_index_of">Sary %1$d amin\'ny %2$d</string>
+    <string name="cd_record_voice">Handrakitra feo</string>
+    <string name="image_unavailable">Tsy misy sary</string>
+    <string name="toast_image_saved">Sary voatahiry ao amin\'ny Downloads</string>
+    <string name="toast_failed_to_save_image">Tsy afaka mitahiry sary</string>
+    <string name="file_unavailable">[rakitra tsy misy]</string>
+    <!-- Takelaka hetsika mpampiasa -->
+    <string name="choose_action_message_or_user">safidio hetsika ho an\'ity hafatra na mpampiasa ity</string>
+    <string name="choose_action_user">safidio hetsika ho an\'ity mpampiasa ity</string>
+    <string name="action_copy_message_title">adikao ny hafatra</string>
+    <string name="action_copy_message_subtitle">adikao ity hafatra ity any amin\'ny clipboard</string>
+    <string name="action_slap_title">kapohina %1$s</string>
+    <string name="action_slap_subtitle">handefasa hafatra kapohana an-dalao</string>
+    <string name="action_hug_title">honofinofy %1$s</string>
+    <string name="action_hug_subtitle">handefasa hafatra honofinofy sariaka</string>
+    <string name="action_block_title">hanorina %1$s</string>
+    <string name="action_block_subtitle">hanorina ny hafatra rehetra avy amin\'ity mpampiasa ity</string>
+
+    <string name="mesh_label">mesh</string>
+    <string name="at_symbol">@</string>
+    <string name="channel_count_prefix"> · ⧉ </string>
+    <string name="nobody_around">tsy misy olona manodidina...</string>
+    <string name="you_suffix"> (ianao)</string>
+    <string name="type_a_message_placeholder">soraty hafatra...</string>
+    <string name="mention_suggestion_at">@%1$s</string>
+    <string name="mention">hanonona</string>
+    <string name="image_counter">%1$d / %2$d</string>
+    <string name="at_nickname">@%1$s</string>
+    <string name="underscore">_</string>
+    <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
+    <string name="progress_filled">█</string>
+    <string name="progress_empty">░</string>
+    <string name="media_type_image">Sary</string>
+    <string name="media_type_file">Rakitra</string>
+
+    <!-- Mpanampy lahatsoratra fampandrenesana -->
+    <string name="notification_sent_image">📷 nandefasa sary</string>
+    <string name="notification_sent_voice">🎤 nandefasa hafatra feo</string>
+    <string name="notification_sent_file">📎 nandefasa rakitra</string>
+    <!-- Fifanakalozan-dresaka fangatahana teny miafina -->
+    <string name="pwd_prompt_title">Ampidiro ny Teny Miafina Fantsona</string>
+    <string name="pwd_prompt_message">Voaaro amin\'ny teny miafina ny fantsona %1$s. Ampidiro ny teny miafina mba hidirana.</string>
+    <string name="pwd_label">Teny miafina</string>
+    <string name="join">Hiditra</string>
+  <string name="verify_title">verify</string>
+  <string name="verify_my_qr_title">scan to verify me</string>
+  <string name="verify_scan_prompt_friend">scan someone elses qr</string>
+  <string name="verify_remove">remove verification</string>
+  <string name="verify_qr_unavailable">qr unavailable</string>
+  <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
+  <string name="verify_request_camera">enable camera</string>
+  <string name="security_verification_title">security verification</string>
+  <string name="fingerprint_their">their fingerprint</string>
+  <string name="fingerprint_yours">your fingerprint</string>
+  <string name="fingerprint_pending">handshake pending</string>
+  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
+  <string name="fingerprint_status_encrypted">encrypted</string>
+  <string name="fingerprint_status_handshaking">handshaking</string>
+  <string name="fingerprint_status_failed">handshake failed</string>
+  <string name="fingerprint_status_uninitialized">not encrypted</string>
+  <string name="fingerprint_verified_message">you have verified this persons identity.</string>
+  <string name="fingerprint_not_verified_label">not verified</string>
+  <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
+  <string name="fingerprint_mark_verified">mark as verified</string>
+  <string name="fingerprint_start_handshake">start handshake</string>
+  <string name="fingerprint_copy">copy</string>
+    <string name="cd_open_about">Sokafy ny momba</string>
+</resources>

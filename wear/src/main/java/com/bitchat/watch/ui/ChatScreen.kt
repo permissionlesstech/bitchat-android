@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.wear.compose.foundation.rotary.RotaryScrollableDefaults
 import androidx.wear.compose.foundation.rotary.rotaryScrollable
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -43,15 +44,17 @@ import androidx.wear.compose.material3.Text
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.services.AppStateStore
-import com.bitchat.watch.mesh.WearMeshService
+import com.bitchat.watch.mesh.WearMeshHolder
 import com.bitchat.watch.ui.media.FileMessageChip
 import com.bitchat.watch.ui.media.FullScreenImageViewer
 import com.bitchat.watch.ui.media.ImageMessageItem
 import com.bitchat.watch.ui.media.VoiceNoteItem
-import com.bitchat.watch.ui.theme.BitchatMotion
+import com.bitchat.android.ui.peerIdentityForMessage
+import com.bitchat.android.ui.theme.BitchatMotion
+import com.bitchat.android.ui.theme.BitchatPalette
 import com.bitchat.watch.ui.theme.ChatVisualTokens
-import com.bitchat.watch.ui.theme.LocalBitchatPalette
-import com.bitchat.watch.ui.theme.colorForPeer
+import com.bitchat.android.ui.theme.LocalBitchatPalette
+import com.bitchat.android.ui.theme.colorForPeer
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -59,21 +62,23 @@ import java.util.Locale
 
 @Composable
 fun ChatScreen(
+    appStateStore: AppStateStore,
+    chatState: WearChatState,
+    meshHolder: WearMeshHolder,
+    liveVoiceManager: com.bitchat.android.features.voice.LiveVoiceManager,
+    voiceWaveformCache: com.bitchat.android.features.voice.VoiceWaveformCache,
     active: Boolean = true,
     onOpenPeople: () -> Unit,
     onOpenTextInput: () -> Unit,
     onHorizontalGestureActive: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
-    val messages by AppStateStore.publicMessages.collectAsState()
-    val peers by AppStateStore.peers.collectAsState()
-    val unreadDms by WearChatState.unreadDms.collectAsState()
-    val mesh = WearMeshService.peek()
+    val messages by appStateStore.publicMessages.collectAsState()
+    val peers by appStateStore.peers.collectAsState()
+    val unreadDms by chatState.unreadDms.collectAsState()
+    val mesh = meshHolder.peek()
     val myPeerID = mesh?.myPeerID ?: ""
     var viewerPath by remember { mutableStateOf<String?>(null) }
-    val liveVoiceManager = remember(context) {
-        com.bitchat.android.features.voice.LiveVoiceManager.getInstance(context)
-    }
     val busyTalker by liveVoiceManager.activePublicTalker.collectAsState()
     val voice = rememberVoiceNoteController(
         recorderFactory = {
@@ -86,7 +91,7 @@ fun ChatScreen(
             } else null
             com.bitchat.android.features.voice.VoiceRecorder(context, target)
         }
-    ) { path -> mesh?.let { sendVoiceNote(it, null, path) } }
+    ) { path -> mesh?.let { sendVoiceNote(appStateStore, it, null, path) } }
 
     // Push-to-talk drags and the image viewer own the whole screen; the home pager must not
     // turn them into a page swipe.
@@ -107,6 +112,8 @@ fun ChatScreen(
         myPeerID = myPeerID,
         emptyText = "No messages yet\nSay hi to the mesh",
         voice = voice,
+        liveVoiceManager = liveVoiceManager,
+        voiceWaveformCache = voiceWaveformCache,
         onOpenImage = { viewerPath = it },
         header = { expanded ->
             ChatHeader(
@@ -209,20 +216,34 @@ private fun ChatHeader(
     }
 }
 
+/**
+ * The sender's name color: orange for this watch, otherwise the peer's identity color, keyed the
+ * same way as on the phone and iOS so a nickname change never recolors a peer.
+ */
+internal fun messageSenderColor(
+    message: BitchatMessage,
+    myPeerID: String,
+    palette: BitchatPalette,
+): Color =
+    if (message.senderPeerID == myPeerID) {
+        palette.accentOrange
+    } else {
+        colorForPeer(peerIdentityForMessage(message).stableKey, palette)
+    }
+
 @Composable
 fun MessageItem(
     message: BitchatMessage,
     myPeerID: String,
+    liveVoiceManager: com.bitchat.android.features.voice.LiveVoiceManager,
+    voiceWaveformCache: com.bitchat.android.features.voice.VoiceWaveformCache,
     onOpenImage: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     animateAppear: Boolean = true
 ) {
     val palette = LocalBitchatPalette.current
     val isSelf = message.senderPeerID == myPeerID
-    val senderColor = when {
-        isSelf -> palette.accentOrange
-        else -> colorForPeer(message.sender + (message.senderPeerID ?: ""), palette)
-    }
+    val senderColor = messageSenderColor(message, myPeerID, palette)
 
     // Snappy appear animation for new messages (BitchatMotion.EMPHASIZED_MS)
     var appeared by remember { mutableStateOf(!animateAppear) }
@@ -269,6 +290,8 @@ fun MessageItem(
             )
             BitchatMessageType.Audio -> VoiceNoteItem(
                 path = message.content.trim(),
+                liveVoiceManager = liveVoiceManager,
+                voiceWaveformCache = voiceWaveformCache,
                 messageID = message.id
             )
             BitchatMessageType.File -> {

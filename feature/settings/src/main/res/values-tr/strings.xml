@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="about_offline_mesh_title">Çevrimdışı Mesh Sohbeti</string>
+    <string name="about_offline_mesh_desc">İnternet/ sunucu olmadan doğrudan Bluetooth LE ile iletişim kur. Mesajlar yakındaki cihazlarca aktarılır.</string>
+    <string name="about_online_geohash_title">Çevrimiçi Geohash Kanalları</string>
+    <string name="about_online_geohash_desc">Geohash tabanlı kanallarla yakınındaki insanlarla bağlantı kur. Herkese açık internet röleleriyle mesh’i genişlet.</string>
+    <string name="about_e2e_title">Uçtan Uca Şifreleme</string>
+    <string name="about_e2e_desc">Özel mesajlar şifrelidir. Kanal mesajları herkese açıktır.</string>
+    <string name="about_system">sistem</string>
+    <string name="about_light">açık</string>
+    <string name="about_dark">koyu</string>
+    <string name="about_pow">proof of work</string>
+    <string name="about_pow_tip">geohash mesajlarına spam’e karşı proof of work ekle.</string>
+    <string name="about_pow_desc_none">proof of work gerekmez</string>
+    <string name="about_pow_desc_very_low">çok düşük – en az koruma</string>
+    <string name="about_pow_desc_low">düşük – temel koruma</string>
+    <string name="about_pow_desc_medium">orta – iyi koruma</string>
+    <string name="about_pow_desc_high">yüksek – güçlü koruma</string>
+    <string name="about_pow_desc_very_high">çok yüksek – gecikme olabilir</string>
+    <string name="about_pow_desc_extreme">aşırı – ciddi hesaplama gerekir</string>
+    <string name="about_tor_route">Daha fazla gizlilik için interneti Tor üzerinden yönlendir.</string>
+    <string name="about_debug_settings">Hata ayıklama ayarları</string>
+    <string name="about_footer">Open Source • Privacy First • Merkezsiz</string>
+    <string name="unknown">bilinmiyor</string>
+
+    <string name="debug_tools">hata ayıklama araçları</string>
+    <string name="debug_verbose_logging">ayrıntılı günlük</string>
+    <string name="debug_bluetooth_roles">Bluetooth rolleri</string>
+    <string name="debug_gatt_server">GATT sunucu</string>
+    <string name="debug_connections_fmt">bağlantı: %1$d / %2$d</string>
+    <string name="debug_max_server">maks sunucu</string>
+    <string name="debug_gatt_client">GATT istemci</string>
+    <string name="debug_max_client">maks istemci</string>
+    <string name="debug_overall_connections_fmt">bağlantı: %1$d / %2$d</string>
+    <string name="debug_max_overall">maks toplam</string>
+    <string name="debug_packet_relay">paket rölesi</string>
+    <string name="debug_max_packets_per_sync_fmt">senk. başına maks paket: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">maks GCS filtre boyutu: %1$d bayt (128–1024)</string>
+    <string name="debug_target_fpr_fmt">hedef FPR: %1$.2f%%</string>
+    <string name="debug_connected_devices">bağlı cihazlar</string>
+    <string name="debug_our_device_id_fmt">cihaz kimliğimiz: %1$s</string>
+    <string name="debug_none">yok</string>
+    <string name="debug_disconnect">bağlantıyı kes</string>
+    <string name="debug_recent_scan_results">son tarama sonuçları</string>
+    <string name="debug_connect">bağlan</string>
+    <string name="debug_debug_console">hata ayıklama konsolu</string>
+    <string name="debug_clear">temizle</string>
+    <string name="debug_derived_p_fmt">türetilen P: %1$s • tahm. maks öge: %2$s</string>
+    <string name="debug_direct_suffix"> • doğrudan</string>
+    <string name="debug_question_mark">?</string>
+    <string name="debug_role_server">sunucu olarak (barındırıyoruz)</string>
+    <string name="debug_role_client">istemci olarak (bağlanıyoruz)</string>
+
+    <string name="version_prefix">v%1$s</string>
+    <string name="about_language">Dil</string>
+    <string name="about_app_language">Uygulama dili</string>
+    <string name="about_system_default">Sistem varsayılanı</string>
+    <string name="about_select_language">Dil seçin</string>
+    <string name="about_spam_filter_title">Spam filtresi</string>
+    <string name="about_spam_filter_desc">Çok hızlı mesaj gönderen, kendini tekrarlayan veya çok fazla bağlantı paylaşan kişilerin herkese açık mesajlarını gizle.</string>
+</resources>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="send_message">Bidali</string>
+    <string name="back">Atzera</string>
+    <string name="cd_favorite">Gogokoa</string>
+    <string name="cd_favorited_you">Gogoko egin zaitu</string>
+    <string name="cd_location_notes">Kokapeneko oharrak</string>
+    <string name="cd_teleported">Teleportatua</string>
+    <!-- About sheet -->
+    <string name="about_tagline">Ondokoen txata</string>
+
+    <string name="close_plain">Itxi</string>
+    <string name="nearby_notes_one">Ohar 1 utzi dute hemen — sakatu irakurtzeko</string>
+    <string name="nearby_notes_many">%d ohar utzi dituzte hemen — sakatu irakurtzeko</string>
+    <string name="fingerprint_verified_label">Egiaztatua</string>
+    <string name="open_settings">Ireki ezarpenak</string>
+    <string name="cancel">Utzi</string>
+    <string name="tor_not_available_in_this_build">Tor ez dago erabilgarri konpilazio honetan</string>
+    <string name="app_name">bitchat</string>
+</resources>

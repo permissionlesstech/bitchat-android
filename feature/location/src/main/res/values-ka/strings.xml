@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retry">კვლავ ცდა</string>
+    <string name="cd_add_bookmark">სანიშნეს დამატება</string>
+
+    <string name="about_network">ქსელი</string>
+    <string name="cd_open_map">რუკის გახსნა</string>
+    <string name="cd_remove_bookmark">სანიშნეს წაშლა</string>
+    <string name="cd_decrease_precision">სიზუსტის შემცირება</string>
+    <string name="cd_increase_precision">სიზუსტის გაზრდა</string>
+    <!-- geohash არხების შიტი -->
+    <string name="location_channels_title">#მდებარეობის არხები</string>
+    <string name="location_channels_desc">ესაუბრეთ თქვენს ახლოს მყოფ ადამიანებს geohash არხებით. იზიარება მხოლოდApprox geohash, არასოდეს ზუსტი GPS მონაცემები. თქვენი კონფიდენციალურობის დასაცავად ნუ გადაიღებთ სკრინშოტებს და ნუ გააზიარებთ ამ ეკრანს.</string>
+    <string name="location_permission_denied">მდებარეობის ნებართვა უარყოფილია. ჩართეთ პარამეტრებში მდებარეობის არხების გამოსაყენებლად.</string>
+    <string name="finding_nearby_channels">ახლომდებარე არხების ძიება…</string>
+    <string name="bookmarked">სანიშნეები</string>
+    <string name="geohash_placeholder">Geohash</string>
+    <string name="invalid_geohash">არასწორი geohash</string>
+    <string name="teleport">ტელეპორტი</string>
+    <string name="disable_location_services">მდებარეობის სერვისების გამორთვა</string>
+    <string name="enable_location_services">მდებარეობის სერვისების ჩართვა</string>
+    <string name="location_level_block">კვარტალი</string>
+    <string name="location_level_neighborhood">ახლომდებარე რაიონი</string>
+    <string name="location_level_city">ქალაქი</string>
+    <string name="location_level_province">პროვინცია</string>
+    <string name="location_level_region">რეგიონი</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <plurals name="people_count">
+        <item quantity="one">1 ადამიანი</item>
+        <item quantity="other">%d ადამიანი</item>
+    </plurals>
+
+  <string name="nearby_notes_reveal">აქ დატოვებული ჩანაწერების შემოწმება</string>
+    <string name="globe_live">ლაივი</string>
+    <string name="globe_connecting">უკავშირდება</string>
+    <string name="globe_offline">ხაზგარეშე</string>
+    <string name="globe_hint_drag">ტრიალი</string>
+    <string name="globe_hint_pinch">მასშტაბი</string>
+    <string name="globe_hint_tap">შეეხეთ წერტილს</string>
+    <string name="globe_no_activity">ბოლო აქტივობა არ არის</string>
+    <string name="cd_show_whole_globe">მთელი გლობუსის ჩვენება</string>
+    <string name="cd_globe_activity">%1$d აქტიური ჩატი, %2$d ადამიანი ონლაინ</string>
+    <string name="cd_channel_activity">%1$d ადამიანი, %2$d შეტყობინება ბოლო საათში</string>
+    <string name="join">შეუერთდი</string>
+    <string name="cd_close">დახურვა</string>
+</resources>

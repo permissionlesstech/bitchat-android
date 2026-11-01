@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retry">Försök igen</string>
+    <string name="cd_add_bookmark">Lägg till bokmärke</string>
+
+    <string name="about_network">nätverk</string>
+    <string name="cd_open_map">Öppna karta</string>
+    <string name="cd_remove_bookmark">Ta bort bokmärke</string>
+    <string name="cd_decrease_precision">Minska precision</string>
+    <string name="cd_increase_precision">Öka precision</string>
+    <string name="location_channels_title">#platskanaler</string>
+    <string name="location_channels_desc">chatta med folk nära dig via geohash‑kanaler. endast en grov geohash delas, aldrig exakt gps. ta inte skärmdumpar eller dela skärmen för att skydda din integritet.</string>
+    <string name="location_permission_denied">platsbehörighet nekades. aktivera i inställningar för att använda platskanaler.</string>
+    <string name="finding_nearby_channels">söker efter kanaler i närheten…</string>
+    <string name="bookmarked">bokmärkt</string>
+    <string name="geohash_placeholder">geohash</string>
+    <string name="invalid_geohash">ogiltig geohash</string>
+    <string name="teleport">teleportera</string>
+    <string name="disable_location_services">inaktivera platstjänster</string>
+    <string name="enable_location_services">aktivera platstjänster</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+    <string name="location_level_block">kvarter</string>
+    <string name="location_level_neighborhood">grannskap</string>
+    <string name="location_level_city">stad</string>
+    <string name="location_level_province">län</string>
+    <string name="location_level_region">region</string>
+
+    <string name="hash_symbol">#</string>
+    <plurals name="people_count">
+        <item quantity="one">1 person</item>
+        <item quantity="other">%d personer</item>
+    </plurals>
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d anteckning</item>
+    <item quantity="other">#%1$s ± 1 • %2$d anteckningar</item>
+  </plurals>
+  <string name="location_notes_description">lägg till korta permanenta anteckningar för den här platsen så att andra besökare kan hitta dem.</string>
+  <string name="location_notes_relays_unavailable">geo-reläer är inte tillgängliga; anteckningar pausade</string>
+  <string name="location_notes_no_relays_title">inga geo-reläer i närheten</string>
+  <string name="location_notes_no_relays_desc">anteckningar är beroende av geo-reläer. kontrollera anslutningen och försök igen.</string>
+  <string name="loading_location_notes">laddar anteckningar…</string>
+  <string name="location_notes_empty_title">inga anteckningar ännu</string>
+  <string name="location_notes_empty_desc">var först med att lägga till en anteckning för den här platsen.</string>
+  <string name="dismiss">stäng</string>
+  <string name="location_notes_input_placeholder">lägg till en anteckning för den här platsen</string>
+  <string name="nearby_notes_reveal">kolla om anteckningar lämnats här</string>
+    <string name="globe_live">live</string>
+    <string name="globe_connecting">ansluter</string>
+    <string name="globe_offline">offline</string>
+    <string name="globe_hint_drag">snurra</string>
+    <string name="globe_hint_pinch">zooma</string>
+    <string name="globe_hint_tap">tryck på en prick</string>
+    <string name="globe_no_activity">ingen aktivitet nyligen</string>
+    <string name="cd_show_whole_globe">Visa hela jordklotet</string>
+    <string name="cd_globe_activity">%1$d aktiva chattar, %2$d personer online</string>
+    <string name="cd_channel_activity">%1$d personer, %2$d meddelanden den senaste timmen</string>
+    <string name="join">Gå med</string>
+</resources>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+  <string name="verify_mutual_match_title">பரஸ்பர சரிபார்ப்பு</string>
+  <string name="verify_mutual_match_body">நீங்களும் %1$s உம் ஒருவரையொருவர் சரிபார்த்துக்கொண்டீர்கள்</string>
+  <string name="verify_mutual_system_message">%1$s உடன் பரஸ்பர சரிபார்ப்பு</string>
+  <string name="verify_success_title">சரிபார்க்கப்பட்டது</string>
+  <string name="verify_success_body">நீங்கள் %1$s ஐ சரிபார்த்துவிட்டீர்கள்</string>
+  <string name="verify_success_system_message">%1$s சரிபார்க்கப்பட்டது</string>
+  <string name="notification_messages_from_people">%2$d நபர்களிடமிருந்து %1$d செய்திகள்</string>
+  <string name="notification_more_conversations">மற்றும் %1$d மேலும் உரையாடல்கள்</string>
+  <string name="notification_new_messages">புதிய செய்திகள்</string>
+  <string name="notification_new_location_messages">புதிய இருப்பிட செய்திகள்</string>
+  <string name="notification_mentions_in">%1$s இல் குறிப்பிடப்பட்டது</string>
+  <string name="notification_mentions_in_more">%1$s இல் குறிப்பிடப்பட்டது (+%2$d மேலும்)</string>
+  <string name="notification_mentions_in_plural">%2$s இல் %1$d குறிப்புகள்</string>
+  <string name="notification_new_activity_in">%1$s இல் புதிய செயல்பாடு</string>
+  <string name="notification_messages_in">%1$s இல் செய்திகள்</string>
+  <string name="notification_joined_conversation">%1$s உரையாடலில் சேர்ந்தார்</string>
+  <string name="notification_geohash_summary_title_mentions">bitchat - %1$d குறிப்புகள்</string>
+  <string name="notification_geohash_summary_title">bitchat - இருப்பிட அரட்டைகள்</string>
+  <string name="notification_geohash_summary_text">%2$d இருப்பிடங்களிலிருந்து %1$d செய்திகள்</string>
+  <string name="notification_mesh_mention_title_singular">மெஷ் அரட்டையில் குறிப்பிடப்பட்டது</string>
+  <string name="notification_mesh_mention_title_plural">மெஷ் அரட்டையில் %1$d குறிப்புகள்</string>
+  <string name="notification_more_locations">மற்றும் %1$d மேலும் இருப்பிடங்கள்</string>
+  <plurals name="notification_and_more">
+    <item quantity="one">மற்றும் %d மேலும்</item>
+    <item quantity="other">மற்றும் %d மேலும்</item>
+  </plurals>
+</resources>

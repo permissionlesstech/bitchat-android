@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import javax.inject.Inject
+import javax.inject.Singleton
 
 enum class FavoriteIndicator {
     None,
@@ -39,9 +41,12 @@ fun favoriteIndicator(
  *
  * Favorites are keyed by the authenticated Noise public key, while screens navigate with the
  * short mesh peer ID. The shared persistence service resolves that mapping and notifies this
- * object whenever either side changes the relationship.
+ * state whenever either side changes the relationship.
  */
-object WearPeerIdentityState : FavoritesChangeListener {
+@Singleton
+class WearPeerIdentityState @Inject constructor(
+    private val favorites: FavoritesPersistenceService,
+) : FavoritesChangeListener {
     private val _revision = MutableStateFlow(0L)
     val revision: StateFlow<Long> = _revision.asStateFlow()
 
@@ -54,9 +59,9 @@ object WearPeerIdentityState : FavoritesChangeListener {
         if (initialized) return
         synchronized(this) {
             if (initialized) return
-            FavoritesPersistenceService.initialize(context.applicationContext)
+            favorites.initialize()
             identityManager = SecureIdentityStateManager(context.applicationContext)
-            FavoritesPersistenceService.shared.addListener(this)
+            favorites.addListener(this)
             initialized = true
         }
         publishChange()
@@ -94,7 +99,7 @@ object WearPeerIdentityState : FavoritesChangeListener {
             ?: peerInfo.nickname.takeIf(String::isNotBlank)
             ?: peerID.take(8)
 
-        FavoritesPersistenceService.shared.updateFavoriteStatus(
+        favorites.updateFavoriteStatus(
             noisePublicKey = noisePublicKey,
             nickname = nickname,
             isFavorite = isFavorite
@@ -129,9 +134,9 @@ object WearPeerIdentityState : FavoritesChangeListener {
         peerID: String,
         mesh: WearMeshService?
     ): FavoriteRelationship? {
-        FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.let { return it }
+        favorites.getFavoriteStatus(peerID)?.let { return it }
         val noisePublicKey = mesh?.getPeerInfo(peerID)?.noisePublicKey ?: return null
-        return FavoritesPersistenceService.shared.getFavoriteStatus(noisePublicKey)
+        return favorites.getFavoriteStatus(noisePublicKey)
     }
 
     private fun publishChange() {

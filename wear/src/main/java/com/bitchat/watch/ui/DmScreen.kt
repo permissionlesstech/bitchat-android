@@ -37,16 +37,24 @@ import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.watch.R
-import com.bitchat.watch.mesh.WearMeshService
+import com.bitchat.watch.mesh.WearMeshHolder
 import com.bitchat.watch.notification.WearNotificationCoordinator
 import com.bitchat.watch.ui.media.FullScreenImageViewer
-import com.bitchat.watch.ui.theme.BitchatMotion
+import com.bitchat.android.ui.PeerIdentity
+import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.watch.ui.theme.ChatVisualTokens
-import com.bitchat.watch.ui.theme.LocalBitchatPalette
-import com.bitchat.watch.ui.theme.colorForPeer
+import com.bitchat.android.ui.theme.LocalBitchatPalette
+import com.bitchat.android.ui.theme.colorForPeer
 
 @Composable
 fun DmScreen(
+    appStateStore: AppStateStore,
+    chatState: WearChatState,
+    peerIdentity: WearPeerIdentityState,
+    meshHolder: WearMeshHolder,
+    liveVoiceManager: com.bitchat.android.features.voice.LiveVoiceManager,
+    voiceWaveformCache: com.bitchat.android.features.voice.VoiceWaveformCache,
+    notificationCoordinator: WearNotificationCoordinator,
     peerID: String,
     active: Boolean = true,
     onOpenUserDetail: () -> Unit,
@@ -54,15 +62,12 @@ fun DmScreen(
     onHorizontalGestureActive: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
-    val privateMessages by AppStateStore.privateMessages.collectAsState()
+    val privateMessages by appStateStore.privateMessages.collectAsState()
     val messages = privateMessages[peerID] ?: emptyList()
-    val mesh = WearMeshService.peek()
+    val mesh = meshHolder.peek()
     val myPeerID = mesh?.myPeerID ?: ""
     val palette = LocalBitchatPalette.current
     var viewerPath by remember { mutableStateOf<String?>(null) }
-    val liveVoiceManager = remember(context) {
-        com.bitchat.android.features.voice.LiveVoiceManager.getInstance(context)
-    }
     val voice = rememberVoiceNoteController(
         recorderFactory = {
             val target = if (
@@ -73,12 +78,12 @@ fun DmScreen(
             } else null
             com.bitchat.android.features.voice.VoiceRecorder(context, target)
         }
-    ) { path -> mesh?.let { sendVoiceNote(it, peerID, path) } }
+    ) { path -> mesh?.let { sendVoiceNote(appStateStore, it, peerID, path) } }
 
     val nickname = mesh?.getPeerNickname(peerID) ?: peerID.take(8)
-    val identityRevision by WearPeerIdentityState.revision.collectAsState()
+    val identityRevision by peerIdentity.revision.collectAsState()
     val identity = remember(peerID, identityRevision) {
-        WearPeerIdentityState.snapshot(peerID, mesh)
+        peerIdentity.snapshot(peerID, mesh)
     }
     var sessionEstablished by remember {
         mutableStateOf(mesh?.hasEstablishedSession(peerID) == true)
@@ -89,10 +94,10 @@ fun DmScreen(
     if (active) {
         DisposableEffect(peerID) {
             liveVoiceManager.showDirectMessage(peerID)
-            WearChatState.openDm(peerID)
-            WearNotificationCoordinator.getInstance(context).clearConversation(peerID)
+            chatState.openDm(peerID)
+            notificationCoordinator.clearConversation(peerID)
             onDispose {
-                WearChatState.closeDm()
+                chatState.closeDm()
                 liveVoiceManager.clearVisibleConversation()
             }
         }
@@ -117,6 +122,8 @@ fun DmScreen(
         myPeerID = myPeerID,
         emptyText = if (sessionEstablished) "Encrypted\nSay hi" else "Securing…",
         voice = voice,
+        liveVoiceManager = liveVoiceManager,
+        voiceWaveformCache = voiceWaveformCache,
         onOpenImage = { viewerPath = it },
         header = { expanded ->
             DmHeader(
@@ -181,7 +188,7 @@ private fun DmHeader(
             fontSize = headerTitleSize.sp,
             lineHeight = (headerTitleSize * 1.3f).sp,
             fontWeight = FontWeight.Bold,
-            color = colorForPeer(nickname + peerID, palette),
+            color = colorForPeer(PeerIdentity.mesh(peerID).stableKey, palette),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f, fill = false),

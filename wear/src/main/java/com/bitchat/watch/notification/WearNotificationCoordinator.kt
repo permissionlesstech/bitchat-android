@@ -17,16 +17,24 @@ import com.bitchat.android.ui.NotificationTextUtils
 import com.bitchat.watch.MainActivity
 import com.bitchat.watch.R
 import com.bitchat.watch.ui.WearChatState
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.ConcurrentHashMap
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Process-wide owner for local Wear notifications.
  *
  * Mesh delivery must not depend on an Activity being alive, so the foreground service invokes this
  * coordinator directly. UI state is consulted only to suppress an alert for the exact DM that is
- * currently visible while the app is resumed.
+ * currently visible while the app is resumed. Building it creates the notification channel, so
+ * the first injection, in `Application.onCreate`, is when that happens.
  */
-class WearNotificationCoordinator private constructor(context: Context) {
+@Singleton
+class WearNotificationCoordinator @Inject constructor(
+    @ApplicationContext context: Context,
+    private val chatState: WearChatState,
+) {
 
     companion object {
         const val EXTRA_OPEN_DM = "com.bitchat.watch.extra.OPEN_DM"
@@ -34,17 +42,6 @@ class WearNotificationCoordinator private constructor(context: Context) {
 
         private const val MESSAGE_CHANNEL_ID = "bitchat_watch_messages"
         private const val CONVERSATION_NOTIFICATION_ID_BASE = 10_000
-
-        @Volatile
-        private var instance: WearNotificationCoordinator? = null
-
-        fun getInstance(context: Context): WearNotificationCoordinator {
-            return instance ?: synchronized(this) {
-                instance ?: WearNotificationCoordinator(context.applicationContext).also {
-                    instance = it
-                }
-            }
-        }
     }
 
     private data class PendingMessage(
@@ -70,8 +67,8 @@ class WearNotificationCoordinator private constructor(context: Context) {
         val shouldNotify = WearNotificationPolicy.shouldNotifyPrivateMessage(
             senderPeerID = senderPeerID,
             senderIsSystem = message.sender == "system",
-            appInForeground = WearChatState.appInForeground,
-            openDmPeer = WearChatState.openDmPeer
+            appInForeground = chatState.appInForeground,
+            openDmPeer = chatState.openDmPeer
         )
         if (!shouldNotify || !canPostNotifications()) return
 

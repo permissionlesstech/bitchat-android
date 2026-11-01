@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+
+    <string name="send_message">Handefa</string>
+    <string name="back">Hiverina</string>
+    <string name="cd_teleported">Nafindra toerana</string>
+    <string name="close_plain">Hanakatona</string>
+    <string name="open_settings">Hanokatra fametrahana</string>
+  <string name="fingerprint_verified_label">verified</string>
+    <string name="cancel">Hanafoana</string>
+
+  <string name="nearby_notes_one">naoty 1 no navela teto — tsindrio raha hamaky</string>
+  <string name="nearby_notes_many">naoty %d no navela teto — tsindrio raha hamaky</string>
+</resources>

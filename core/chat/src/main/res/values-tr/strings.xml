@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="notification_messages_from_people">%2$d kişiden %1$d mesaj</string>
+    <string name="notification_more_conversations">ve %1$d sohbet daha</string>
+    <string name="notification_new_messages">Yeni mesajlar</string>
+    <string name="notification_new_location_messages">Yeni konum mesajları</string>
+    <string name="notification_mentions_in">%1$s içinde bahsedildi</string>
+    <string name="notification_mentions_in_more">%1$s içinde bahsedildi (+%2$d)</string>
+    <string name="notification_mentions_in_plural">%2$s içinde %1$d bahsetme</string>
+    <string name="notification_new_activity_in">%1$s içinde yeni etkinlik</string>
+    <string name="notification_messages_in">%1$s içindeki mesajlar</string>
+    <string name="notification_joined_conversation">%1$s sohbete katıldı</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d bahsetme</string>
+    <string name="notification_geohash_summary_title">bitchat – konum sohbetleri</string>
+    <string name="notification_geohash_summary_text">%2$d konumdan %1$d mesaj</string>
+    <string name="notification_mesh_mention_title_singular">Mesh sohbette bahsedildi</string>
+    <string name="notification_mesh_mention_title_plural">Mesh sohbette %1$d bahsetme</string>
+    <string name="notification_more_locations">ve %1$d konum daha</string>
+    <plurals name="notification_and_more">
+        <item quantity="one">ve %d daha</item>
+        <item quantity="other">ve %d daha</item>
+    </plurals>
+  <string name="verify_mutual_match_title">Mutual verification</string>
+  <string name="verify_mutual_match_body">You and %1$s verified each other</string>
+  <string name="verify_mutual_system_message">mutual verification with %1$s</string>
+  <string name="verify_success_title">Verified</string>
+  <string name="verify_success_body">You verified %1$s</string>
+  <string name="verify_success_system_message">verified %1$s</string>
+</resources>

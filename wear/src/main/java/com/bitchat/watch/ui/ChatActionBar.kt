@@ -67,9 +67,9 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.ripple
 import com.bitchat.watch.ui.media.WaveformBars
-import com.bitchat.watch.ui.theme.BitchatMotion
+import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.watch.ui.theme.ChatVisualTokens
-import com.bitchat.watch.ui.theme.LocalBitchatPalette
+import com.bitchat.android.ui.theme.LocalBitchatPalette
 
 /**
  * Native Wear bottom action bar (designed for the ScreenScaffold `edgeButton` slot): a keyboard

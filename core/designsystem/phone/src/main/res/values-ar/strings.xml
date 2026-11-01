@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+
+    <string name="send_message">إرسال</string>
+    <string name="back">رجوع</string>
+    <string name="cd_teleported">تم الانتقال</string>
+    <string name="close_plain">إغلاق</string>
+    <string name="open_settings">فتح الإعدادات</string>
+  <string name="fingerprint_verified_label">verified</string>
+    <string name="cancel">إلغاء</string>
+
+  <string name="nearby_notes_one">تُركت ملاحظة واحدة هنا — انقر للقراءة</string>
+  <string name="nearby_notes_many">تُركت %d ملاحظات هنا — انقر للقراءة</string>
+</resources>

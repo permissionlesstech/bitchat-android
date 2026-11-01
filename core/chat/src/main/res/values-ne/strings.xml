@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="notification_messages_from_people">%1$d सन्देश %2$d जनाबाट</string>
+    <string name="notification_more_conversations">र %1$d अरू कुराकानी</string>
+    <string name="notification_new_messages">नयाँ सन्देश</string>
+    <string name="notification_new_location_messages">नयाँ स्थान सन्देश</string>
+    <string name="notification_mentions_in">%1$s मा उल्लेख</string>
+    <string name="notification_mentions_in_more">%1$s मा उल्लेख (+%2$d थप)</string>
+    <string name="notification_mentions_in_plural">%1$d उल्लेख %2$s मा</string>
+    <string name="notification_new_activity_in">%1$s मा नयाँ गतिविधि</string>
+    <string name="notification_messages_in">%1$s मा सन्देश</string>
+    <string name="notification_joined_conversation">%1$s वार्तालापमा सामेल भयो</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d उल्लेख</string>
+    <string name="notification_geohash_summary_title">bitchat – स्थान च्याट</string>
+    <string name="notification_geohash_summary_text">%2$d स्थानबाट %1$d सन्देश</string>
+    <string name="notification_mesh_mention_title_singular">मेष च्याटमा उल्लेख</string>
+    <string name="notification_mesh_mention_title_plural">मेष च्याटमा %1$d उल्लेख</string>
+    <string name="notification_more_locations">र %1$d थप स्थान</string>
+    <plurals name="notification_and_more">
+        <item quantity="one">र %d थप</item>
+        <item quantity="other">र %d थप</item>
+    </plurals>
+  <string name="verify_mutual_match_title">Mutual verification</string>
+  <string name="verify_mutual_match_body">You and %1$s verified each other</string>
+  <string name="verify_mutual_system_message">mutual verification with %1$s</string>
+  <string name="verify_success_title">Verified</string>
+  <string name="verify_success_body">You verified %1$s</string>
+  <string name="verify_success_system_message">verified %1$s</string>
+</resources>

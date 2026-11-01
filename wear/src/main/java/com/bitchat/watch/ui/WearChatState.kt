@@ -3,11 +3,14 @@ package com.bitchat.watch.ui
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Process-wide UI state for the watch app: unread DM counters and the currently open DM thread.
  */
-object WearChatState {
+@Singleton
+class WearChatState @Inject constructor() {
     private val _unreadDms = MutableStateFlow<Map<String, Int>>(emptyMap())
     val unreadDms: StateFlow<Map<String, Int>> = _unreadDms.asStateFlow()
 

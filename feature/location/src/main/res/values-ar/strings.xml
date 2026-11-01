@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retry">إعادة المحاولة</string>
+    <string name="cd_add_bookmark">إضافة إشارة مرجعية</string>
+
+    <string name="about_network">الشبكة</string>
+    <string name="cd_open_map">فتح الخريطة</string>
+    <string name="cd_remove_bookmark">إزالة الإشارة المرجعية</string>
+    <string name="cd_decrease_precision">خفض الدقة</string>
+    <string name="cd_increase_precision">رفع الدقة</string>
+    <!-- ورقة قنوات geohash -->
+    <string name="location_channels_title">#قنوات الموقع</string>
+    <string name="location_channels_desc">دردش مع أشخاص قريبين منك عبر قنوات geohash. تتم مشاركة geohash تقريبي فقط، وليس بيانات GPS الدقيقة. للحفاظ على خصوصيتك، لا تلتقط لقطات شاشة ولا تشارك هذه الشاشة.</string>
+    <string name="location_permission_denied">تم رفض إذن الموقع. فعّله من الإعدادات لاستخدام قنوات الموقع.</string>
+    <string name="finding_nearby_channels">البحث عن قنوات قريبة…</string>
+    <string name="bookmarked">محفوظة</string>
+    <string name="geohash_placeholder">Geohash</string>
+    <string name="invalid_geohash">geohash غير صالح</string>
+    <string name="teleport">انتقال</string>
+    <string name="disable_location_services">تعطيل خدمات الموقع</string>
+    <string name="enable_location_services">تمكين خدمات الموقع</string>
+    <string name="location_level_block">مربّع سكني</string>
+    <string name="location_level_neighborhood">حيّ</string>
+    <string name="location_level_city">مدينة</string>
+    <string name="location_level_province">إقليم</string>
+    <string name="location_level_region">منطقة</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <plurals name="people_count">
+        <item quantity="one">شخص واحد</item>
+        <item quantity="other">%d أشخاص</item>
+    </plurals>
+
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d ملاحظة</item>
+    <item quantity="other">#%1$s ± 1 • %2$d ملاحظات</item>
+  </plurals>
+  <string name="location_notes_description">أضف ملاحظات قصيرة ودائمة إلى هذا المكان ليتمكن الزوار الآخرون من العثور عليها.</string>
+  <string name="location_notes_relays_unavailable">قنوات الترحيل الجغرافية غير متاحة؛ تم إيقاف الملاحظات</string>
+  <string name="location_notes_no_relays_title">لا توجد قنوات ترحيل جغرافية قريبة</string>
+  <string name="location_notes_no_relays_desc">تعتمد الملاحظات على قنوات الترحيل الجغرافية. تحقق من الاتصال ثم أعد المحاولة.</string>
+  <string name="loading_location_notes">جارٍ تحميل الملاحظات…</string>
+  <string name="location_notes_empty_title">لا توجد ملاحظات بعد</string>
+  <string name="location_notes_empty_desc">كن أول من يضيف ملاحظة لهذا المكان.</string>
+  <string name="dismiss">إغلاق</string>
+  <string name="location_notes_input_placeholder">أضف ملاحظة لهذا المكان</string>
+  <string name="nearby_notes_reveal">تحقّق من الملاحظات المتروكة هنا</string>
+    <string name="globe_live">مباشر</string>
+    <string name="globe_connecting">جارٍ الاتصال</string>
+    <string name="globe_offline">غير متصل</string>
+    <string name="globe_hint_drag">تدوير</string>
+    <string name="globe_hint_pinch">تكبير</string>
+    <string name="globe_hint_tap">اضغط على نقطة</string>
+    <string name="globe_no_activity">لا يوجد نشاط حديث</string>
+    <string name="cd_show_whole_globe">عرض الكرة الأرضية كاملة</string>
+    <string name="cd_globe_activity">%1$d محادثات نشطة، %2$d أشخاص متصلون</string>
+    <string name="cd_channel_activity">%1$d أشخاص، %2$d رسائل في الساعة الأخيرة</string>
+    <string name="join">انضمام</string>
+    <string name="cd_close">إغلاق</string>
+</resources>

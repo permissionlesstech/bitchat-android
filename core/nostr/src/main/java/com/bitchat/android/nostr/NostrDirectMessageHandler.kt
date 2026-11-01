@@ -1,0 +1,310 @@
+package com.bitchat.android.nostr
+
+import android.app.Application
+import android.util.Log
+import com.bitchat.android.favorites.FavoriteControlMessage
+import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.model.BitchatFilePacket
+import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.model.DeliveryStatus
+import com.bitchat.android.model.NoisePayload
+import com.bitchat.android.model.NoisePayloadType
+import com.bitchat.android.model.PrivateMessagePacket
+import com.bitchat.android.protocol.BitchatPacket
+import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.ContactIdentityResolver
+import com.bitchat.android.services.SeenMessageStore
+import dagger.Lazy
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Date
+
+class NostrDirectMessageHandler(
+    private val application: Application,
+    private val inbox: PrivateMessageInbox,
+    private val updateDeliveryStatus: (String, DeliveryStatus) -> Unit,
+    private val scope: CoroutineScope,
+    private val repo: GeohashRepository,
+    private val dataManager: com.bitchat.android.ui.DataManager,
+    // Asked for at each ack, where the handler used to reach for the transport.
+    private val nostrTransportProvider: () -> NostrTransport,
+    private val seenStoreProvider: () -> SeenMessageStore,
+    private val geohashAliases: GeohashAliasRegistry,
+    private val geohashConversations: GeohashConversationRegistry,
+    private val contactDirectory: ContactDirectory,
+    private val favorites: Lazy<FavoritesPersistenceService>,
+) {
+    companion object { private const val TAG = "NostrDirectMessageHandler" }
+
+    private val seenStore by lazy(seenStoreProvider)
+
+    // Simple event deduplication
+    private val processedIds = ArrayDeque<String>()
+    private val seen = HashSet<String>()
+    private val max = 2000
+
+    private fun dedupe(id: String): Boolean {
+        if (seen.contains(id)) return true
+        seen.add(id)
+        processedIds.addLast(id)
+        if (processedIds.size > max) {
+            val old = processedIds.removeFirst()
+            seen.remove(old)
+        }
+        return false
+    }
+
+    fun onGiftWrap(giftWrap: NostrEvent, geohash: String, identity: NostrIdentity) {
+        scope.launch {
+            try {
+                if (dedupe(giftWrap.id)) return@launch
+
+                val messageAge = System.currentTimeMillis() / 1000 - giftWrap.createdAt
+                if (messageAge > 173700) return@launch // 48 hours + 15 mins
+
+                val decryptResult = NostrProtocol.decryptPrivateMessage(giftWrap, identity)
+                if (decryptResult == null) {
+                    Log.w(TAG, "Failed to decrypt Nostr message")
+                    return@launch
+                }
+
+                val (content, rawSenderPubkey, rumorTimestamp) = decryptResult
+                val senderPubkey = rawSenderPubkey.lowercase()
+
+                // If sender is blocked for geohash contexts, drop any events from this pubkey
+                // Applies to both geohash DMs (geohash != "") and account DMs (geohash == "")
+                if (dataManager.isGeohashUserBlocked(senderPubkey)) return@launch
+                if (!content.startsWith("bitchat1:")) return@launch
+
+                val base64Content = content.removePrefix("bitchat1:")
+                val packetData = base64URLDecode(base64Content) ?: return@launch
+                val packet = BitchatPacket.fromBinaryData(packetData) ?: return@launch
+
+                if (packet.type != com.bitchat.android.protocol.MessageType.NOISE_ENCRYPTED.value) return@launch
+
+                val noisePayload = NoisePayload.decode(packet.payload) ?: return@launch
+                val messageTimestamp = Date(rumorTimestamp * 1000L)
+                val convKey = "nostr_${senderPubkey.take(16)}"
+                repo.putNostrKeyMapping(convKey, senderPubkey)
+                geohashAliases.put(convKey, senderPubkey)
+                if (geohash.isNotEmpty()) {
+                    // Remember which geohash this conversation belongs to so we can subscribe on-demand
+                    repo.setConversationGeohash(convKey, geohash)
+                    geohashConversations.set(convKey, geohash)
+                }
+
+                // Ensure sender appears in geohash people list even if they haven't posted publicly yet
+                if (geohash.isNotEmpty()) {
+                    // Cache a best-effort nickname and mark as participant
+                    val cached = repo.getCachedNickname(senderPubkey)
+                    if (cached == null) {
+                        val base = repo.displayNameForNostrPubkeyUI(senderPubkey).substringBefore("#")
+                        repo.cacheNickname(senderPubkey, base)
+                    }
+                    repo.updateParticipant(geohash, senderPubkey, messageTimestamp)
+                }
+
+                val senderNickname = repo.displayNameForNostrPubkeyUI(senderPubkey)
+                val conversationID = contactDirectory.canonicalConversationId(convKey)
+
+                processNoisePayload(noisePayload, conversationID, senderNickname, messageTimestamp, senderPubkey, identity)
+
+            } catch (e: Exception) {
+                Log.e(TAG, "onGiftWrap error: ${e.message}")
+            }
+        }
+    }
+
+    private suspend fun processNoisePayload(
+        payload: NoisePayload,
+        conversationID: String,
+        senderNickname: String,
+        timestamp: Date,
+        senderPubkey: String,
+        recipientIdentity: NostrIdentity
+    ) {
+        when (payload.type) {
+            NoisePayloadType.PRIVATE_MESSAGE -> {
+                val pm = PrivateMessagePacket.decode(payload.data) ?: return
+                if (inbox.contains(conversationID, pm.messageID)) return
+
+                val favoriteControl = FavoriteControlMessage.parse(pm.content)
+                if (favoriteControl != null) {
+                    val admitted = handleFavoriteControl(
+                        favoriteControl,
+                        conversationID,
+                        senderNickname,
+                        timestamp,
+                        senderPubkey
+                    )
+                    if (!admitted) return
+                    if (!seenStore.hasDelivered(pm.messageID)) {
+                        val nostrTransport = nostrTransportProvider()
+                        nostrTransport.sendDeliveryAckGeohash(pm.messageID, senderPubkey, recipientIdentity)
+                        seenStore.markDelivered(pm.messageID)
+                    }
+                    return
+                }
+
+                val message = BitchatMessage(
+                    id = pm.messageID,
+                    sender = senderNickname,
+                    content = pm.content,
+                    timestamp = timestamp,
+                    isRelay = false,
+                    isPrivate = true,
+                    recipientNickname = inbox.myNickname,
+                    senderPeerID = conversationID,
+                    senderNostrPubkey = senderPubkey,
+                    deliveryStatus = DeliveryStatus.Delivered(to = inbox.myNickname, at = Date())
+                )
+
+                val isViewing = inbox.selectedConversationID == conversationID
+                val suppressUnread = seenStore.hasBeenReadLocally(pm.messageID)
+
+                val admitted = withContext(Dispatchers.Main) {
+                    inbox.admit(message, suppressUnread = suppressUnread)
+                }
+                if (!admitted) return
+
+                if (!seenStore.hasDelivered(pm.messageID)) {
+                    val nostrTransport = nostrTransportProvider()
+                    nostrTransport.sendDeliveryAckGeohash(pm.messageID, senderPubkey, recipientIdentity)
+                    seenStore.markDelivered(pm.messageID)
+                }
+
+                if (isViewing && !suppressUnread) {
+                    val nostrTransport = nostrTransportProvider()
+                    nostrTransport.sendReadReceiptGeohash(pm.messageID, senderPubkey, recipientIdentity)
+                    seenStore.markReadLocally(pm.messageID)
+                    seenStore.markReadReceiptSent(pm.messageID)
+                }
+            }
+            NoisePayloadType.DELIVERED -> {
+                val messageId = String(payload.data, Charsets.UTF_8)
+                withContext(Dispatchers.Main) {
+                    updateDeliveryStatus(
+                        messageId,
+                        DeliveryStatus.Delivered(conversationID, Date())
+                    )
+                }
+            }
+            NoisePayloadType.READ_RECEIPT -> {
+                val messageId = String(payload.data, Charsets.UTF_8)
+                withContext(Dispatchers.Main) {
+                    updateDeliveryStatus(
+                        messageId,
+                        DeliveryStatus.Read(conversationID, Date())
+                    )
+                }
+            }
+            NoisePayloadType.FILE_TRANSFER -> {
+                // Properly handle encrypted file transfer
+                val file = BitchatFilePacket.decode(payload.data)
+                if (file != null) {
+                    val uniqueMsgId = java.util.UUID.randomUUID().toString().uppercase()
+                    val savedPath = com.bitchat.android.features.file.FileUtils.saveIncomingFile(application, file)
+                    val message = BitchatMessage(
+                        id = uniqueMsgId,
+                        sender = senderNickname,
+                        content = savedPath,
+                        type = com.bitchat.android.features.file.FileUtils.messageTypeForMime(file.mimeType),
+                        timestamp = timestamp,
+                        isRelay = false,
+                        isPrivate = true,
+                        recipientNickname = inbox.myNickname,
+                        senderPeerID = conversationID,
+                        senderNostrPubkey = senderPubkey
+                    )
+                    Log.d(TAG, "📄 Saved Nostr encrypted incoming file to $savedPath (msgId=$uniqueMsgId)")
+                    val admitted = withContext(Dispatchers.Main) {
+                        inbox.admit(message, suppressUnread = false)
+                    }
+                    if (!admitted) {
+                        com.bitchat.android.features.file.FileUtils.deleteStoredMediaPaths(
+                            application,
+                            listOf(savedPath)
+                        )
+                    }
+                } else {
+                    Log.w(TAG, "Failed to decode Nostr file transfer from $conversationID")
+                }
+            }
+            NoisePayloadType.VERIFY_CHALLENGE,
+            NoisePayloadType.VERIFY_RESPONSE,
+            NoisePayloadType.VOICE_FRAME,
+            NoisePayloadType.PEER_STATE -> Unit // Peer state is bound to a live mesh Noise generation.
+        }
+    }
+
+    private suspend fun handleFavoriteControl(
+        control: FavoriteControlMessage,
+        conversationID: String,
+        senderNickname: String,
+        timestamp: Date,
+        senderPubkey: String
+    ): Boolean {
+        return try {
+            val senderNpub = control.npub ?: ContactIdentityResolver.npubFromHex(senderPubkey)
+            val noiseKey = senderNpub?.let { favorites.get().findNoiseKey(it) }
+                ?: favorites.get().findNoiseKey(senderPubkey)
+
+            if (noiseKey == null) {
+                Log.w(TAG, "Favorite notification from Nostr sender without known Noise key: ${senderPubkey.take(16)}...")
+                return false
+            }
+
+            favorites.get().updatePeerFavoritedUs(noiseKey, control.isFavorite)
+            senderNpub?.let { favorites.get().updateNostrPublicKey(noiseKey, it) }
+            val targetConversationID = contactDirectory.canonicalConversationId(conversationID)
+
+            val relationship = favorites.get().getFavoriteStatus(noiseKey)
+            val displayName = relationship
+                ?.peerNickname
+                ?.takeUnless { it.equals("Unknown", ignoreCase = true) }
+                ?: senderNickname
+            val guidance = if (control.isFavorite) {
+                if (relationship?.isFavorite == true) {
+                    " - mutual! You can continue DMs via Nostr when out of mesh."
+                } else {
+                    " - favorite back to continue DMs later."
+                }
+            } else {
+                ". DMs over Nostr will pause unless you both favorite again."
+            }
+            val action = if (control.isFavorite) "favorited" else "unfavorited"
+            val systemMessage = BitchatMessage(
+                sender = "system",
+                content = "$displayName $action you$guidance",
+                timestamp = timestamp,
+                isRelay = false,
+                isPrivate = true,
+                senderPeerID = targetConversationID
+            )
+
+            withContext(Dispatchers.Main) {
+                inbox.admit(systemMessage, suppressUnread = true)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to handle Nostr favorite notification: ${e.message}")
+            false
+        }
+    }
+
+    private fun base64URLDecode(input: String): ByteArray? {
+        return try {
+            val padded = input.replace("-", "+")
+                .replace("_", "/")
+                .let { str ->
+                    val padding = (4 - str.length % 4) % 4
+                    str + "=".repeat(padding)
+                }
+            android.util.Base64.decode(padded, android.util.Base64.DEFAULT)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to decode base64url: ${e.message}")
+            null
+        }
+    }
+}
