@@ -20,7 +20,12 @@
     <string name="channels">Canais</string>
     <string name="online_users">Usuários online</string>
     <string name="no_one_connected">Ninguém conectado</string>
-    <string name="emergency_clear_hint">Toque 3 vezes para apagar todos os dados</string>
+    <string name="emergency_clear_hint">Toque três vezes para apagar todos os dados</string>
+    <string name="panic_confirm_title">Apagar todos os dados?</string>
+    <string name="panic_confirm_body">Isso apagará permanentemente sua identidade, suas chaves, mensagens e arquivos de mídia deste dispositivo e criará uma nova identidade. Essa ação não pode ser desfeita.</string>
+    <string name="panic_confirm_action">Apagar</string>
+    <string name="system_panic_completed">todos os dados foram apagados — nova identidade criada</string>
+    <string name="system_panic_incomplete">a limpeza não foi concluída — alguns dados podem permanecer. Toque três vezes no logotipo para tentar novamente.</string>
     <string name="your_network">Sua rede</string>
 
     <!-- Otimização de bateria -->
@@ -187,7 +192,7 @@
 
     <!-- Canais geohash -->
     <string name="location_channels_title">#Canais de localização</string>
-    <string name="location_channels_desc">Converse com pessoas próximas através de canais geohash. Apenas um geohash aproximado é compartilhado, nunca dados exatos de GPS. Para preservar sua privacidade, não tire capturas de tela nem compartilhe esta tela.</string>
+    <string name="location_channels_desc">Converse com pessoas próximas em canais geohash. Apenas uma localização aproximada é compartilhada; a localização exata do GPS nunca é enviada.</string>
     <string name="grant_location_permission">Conceder permissão de localização</string>
     <string name="location_permission_denied">Permissão de localização negada. Ative nas configurações para usar canais de localização.</string>
     <string name="open_settings">Abrir configurações</string>
@@ -229,7 +234,7 @@
     <string name="debug_max_gcs_filter_size_fmt">máx. tamanho do filtro GCS: %1$d bytes (128–1024)</string>
     <string name="debug_target_fpr_fmt">FPR alvo: %1$.2f%%</string>
     <string name="debug_connected_devices">dispositivos conectados</string>
-    <string name="debug_our_device_id_fmt">nosso ID do dispositivo: %1$s</string>
+    <string name="debug_our_device_id_fmt">ID do nosso dispositivo: %1$s</string>
     <string name="debug_none">nenhum</string>
     <string name="debug_disconnect">desconectar</string>
     <string name="debug_recent_scan_results">dispositivos escaneados recentemente</string>
@@ -301,7 +306,7 @@
     <!-- Descrições de permissões -->
     <string name="perm_nearby_devices_desc">Necessário para descobrir usuários do bitchat via Bluetooth</string>
     <string name="perm_nearby_devices_system">Permita que o bitchat se conecte a dispositivos próximos</string>
-    <string name="perm_location_desc">Necessário pelo Android para descobrir usuários próximos via Bluetooth</string>
+    <string name="perm_location_desc">O Android exige essa permissão para encontrar usuários do bitchat próximos via Bluetooth</string>
     <string name="perm_location_system">O bitchat precisa disso para escanear dispositivos próximos</string>
     <string name="perm_notifications_desc">Receber notificações quando você receber mensagens privadas</string>
     <string name="perm_notifications_system">Permita que o bitchat envie notificações</string>
@@ -351,8 +356,8 @@
     <string name="mesh_service_notification_content">Mesh rodando — %1$d pares</string>
 
   <string name="verify_title">verificar</string>
-  <string name="verify_my_qr_title">digitalize para verificar-me</string>
-  <string name="verify_scan_prompt_friend">digitalizar outro qr</string>
+  <string name="verify_my_qr_title">Escaneie para permitir que me verifiquem</string>
+  <string name="verify_scan_prompt_friend">Escaneie o QR code de outra pessoa</string>
   <string name="verify_scan_someone">digitalizar outro qr</string>
   <string name="verify_show_my_qr">mostrar meu qr</string>
   <string name="verify_remove">remover verificação</string>
@@ -451,7 +456,7 @@
     <string name="private_media_legacy_send_once">Enviar este arquivo uma vez</string>
 
     <!-- Sobre -->
-    <string name="about_tagline">O chat do grupo paralelo</string>
+    <string name="about_tagline">Mensagens mesh descentralizadas com criptografia de ponta a ponta</string>
     <string name="about_tab_info">Informações</string>
     <string name="about_tab_settings">Configurações</string>
     <string name="about_how_to_use_heading">Como usar</string>
