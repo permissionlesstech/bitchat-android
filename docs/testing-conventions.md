@@ -102,9 +102,11 @@ test keys. Use a disposable emulator or a lab installation with no user data:
   -Pandroid.testInstrumentationRunnerArguments.signingStorageDisposableData=true
 ```
 
-Always pass `signingStorageDisposableData=true` when running this class, including
-as part of the full Android test suite. The default debug `PerformanceTestRunner`
-starts the minimal Application needed by these tests.
+Normal connected Android test runs exclude these five storage tests. Passing
+`signingStorageDisposableData=true` opts the class in, including during a full
+debug Android test run. The tests also check this flag before clearing storage. The
+default debug `PerformanceTestRunner` starts the minimal Application needed by
+these tests.
 
 The Android tests check that reset replaces the old signing key and that another
 encryption service in the same running app loads the replacement. Because Android

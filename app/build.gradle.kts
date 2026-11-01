@@ -9,6 +9,10 @@ plugins {
 // Opt-in instrumentation of the minified variant; production release signing is unchanged.
 val releaseUiTests = providers.gradleProperty("releaseUiTests").orNull == "true"
 
+val signingStorageDisposableData = providers
+    .gradleProperty("android.testInstrumentationRunnerArguments.signingStorageDisposableData")
+    .orNull == "true"
+
 val githubReleaseCertSha256 = providers
     .environmentVariable("BITCHAT_GITHUB_RELEASE_CERT_SHA256")
     .orElse(providers.gradleProperty("BITCHAT_GITHUB_RELEASE_CERT_SHA256"))
@@ -46,6 +50,11 @@ android {
             "com.bitchat.android.ui.ReleaseScannerTestRunner"
         } else {
             "com.bitchat.android.ui.PerformanceTestRunner"
+        }
+        // Destructive signing-storage checks require an explicit disposable-target opt-in.
+        if (!signingStorageDisposableData) {
+            testInstrumentationRunnerArguments["notClass"] =
+                "com.bitchat.android.crypto.EncryptionServiceInstrumentedTest"
         }
         vectorDrawables {
             useSupportLibrary = true
