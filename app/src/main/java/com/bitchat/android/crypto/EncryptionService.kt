@@ -168,16 +168,21 @@ open class EncryptionService(private val context: Context) {
         val noiseCleared = noiseService.clearPersistentIdentity()
         establishedSessions.clear()
         
-        // Clear Ed25519 signing key from preferences
+        // Remove the migration source before clearing the encrypted signing key.
         try {
+            val oldPrefs = context.getSharedPreferences(OLD_PREFS_NAME, Context.MODE_PRIVATE)
+            if (!oldPrefs.edit().remove(ED25519_PRIVATE_KEY_PREF).commit()) {
+                Log.e(TAG, "Legacy signing key wipe could not be committed")
+                return false
+            }
             if (!prefs.edit().remove(ED25519_PRIVATE_KEY_PREF).commit()) {
                 Log.e(TAG, "❌ Ed25519 signing key wipe could not be committed")
                 return false
             }
             Log.d(TAG, "🗑️ Cleared Ed25519 signing keys from preferences")
 
-            // Generate new keys immediately
-            val keyPair = loadOrCreateEd25519KeyPair()
+            // Panic must replace the signing key without running legacy migration.
+            val keyPair = generateAndSaveEd25519KeyPair()
             ed25519PrivateKey = keyPair.private as Ed25519PrivateKeyParameters
             ed25519PublicKey = keyPair.public as Ed25519PublicKeyParameters
             Log.d(TAG, "✅ Rotated Ed25519 signing keys in memory")

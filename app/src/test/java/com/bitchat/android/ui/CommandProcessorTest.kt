@@ -14,7 +14,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mockito
@@ -58,49 +57,58 @@ class CommandProcessorTest {
     )
   }
 
-  @Ignore // Temporarily disabled due to Mockito final class issues
   @Test
-  fun `when using lower case join command, command returns true`() {
+  fun `lower case join command selects and joins the requested channel`() {
     val channel = "channel-1"
 
     val result = commandProcessor.processCommand(
       command = "/j $channel",
       meshService = meshService,
       myPeerID = "peer-id",
-      onSendMessage = { a, b, c -> { } },
+      onSendMessage = { _, _, _ -> },
       viewModel = null
     )
 
-    assertEquals(result, true)
+    assertTrue(result)
+    assertEquals("#channel-1", chatState.getCurrentChannelValue())
+    assertTrue(chatState.getJoinedChannelsValue().contains("#channel-1"))
   }
 
-  @Ignore // Temporarily disabled due to Mockito final class issues
   @Test
-  fun `when using upper case join command, command returns true`() {
+  fun `upper case join command selects and joins the requested channel`() {
     val channel = "channel-1"
 
     val result = commandProcessor.processCommand(
       command = "/JOIN $channel",
       meshService = meshService,
       myPeerID = "peer-id",
-      onSendMessage = { a, b, c -> { } },
+      onSendMessage = { _, _, _ -> },
       viewModel = null
     )
 
-    assertEquals(result, true)
+    assertTrue(result)
+    assertEquals("#channel-1", chatState.getCurrentChannelValue())
+    assertTrue(chatState.getJoinedChannelsValue().contains("#channel-1"))
   }
 
-  @Ignore // Temporarily disabled due to Mockito final class issues
   @Test
-  fun `when unknown command lower case is given, command returns true but does not process special handling`() {
+  fun `unknown command reports feedback without joining the requested channel`() {
     val channel = "channel-1"
+    val previousChannel = chatState.getCurrentChannelValue()
+    val previousJoinedChannels = chatState.getJoinedChannelsValue().toSet()
 
     val result = commandProcessor.processCommand(
       command = "/wtfjoin $channel", meshService = meshService, myPeerID = "peer-id",
-      onSendMessage = { a, b, c -> { } }, viewModel = null
+      onSendMessage = { _, _, _ -> }, viewModel = null
     )
 
-    assertEquals(result, true)
+    assertTrue(result)
+    assertEquals(previousChannel, chatState.getCurrentChannelValue())
+    assertEquals(previousJoinedChannels, chatState.getJoinedChannelsValue())
+    assertEquals(
+      "unknown command: /wtfjoin. type / to see available commands.",
+      chatState.getMessagesValue().last().content
+    )
   }
 
   @Test
