@@ -19,6 +19,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.geohash.LocationChannelManager
@@ -82,6 +84,13 @@ class MainActivity : OrientationAwareActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        lifecycle.addObserver(object : DefaultLifecycleObserver {
+            override fun onStart(owner: LifecycleOwner) {
+                if (pendingMeshForegroundServiceStart) {
+                    startMeshForegroundServiceBestEffort()
+                }
+            }
+        })
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             this.setRecentsScreenshotEnabled(false)
         }
@@ -603,8 +612,8 @@ class MainActivity : OrientationAwareActivity() {
         }
 
         try {
-            com.bitchat.android.service.MeshForegroundService.start(applicationContext)
-            pendingMeshForegroundServiceStart = false
+            pendingMeshForegroundServiceStart =
+                !com.bitchat.android.service.MeshForegroundService.start(applicationContext)
         } catch (e: Exception) {
             pendingMeshForegroundServiceStart = true
             Log.w("MainActivity", "Unable to start foreground mesh service; will retry when activity is started", e)
@@ -737,13 +746,6 @@ class MainActivity : OrientationAwareActivity() {
         }
     }
 
-    override fun onStart() {
-        super.onStart()
-        if (pendingMeshForegroundServiceStart) {
-            startMeshForegroundServiceBestEffort()
-        }
-    }
-    
     override fun onResume() {
         super.onResume()
         // Revoke stale live-location work before any resumed UI can use cached channels.
