@@ -59,14 +59,8 @@ class GeohashMessageHandler(
                     return@launch
                 }
                 if (dedupe(event.id)) return@launch
-
-                // PoW validation (if enabled) - apply to chat messages primarily
-                if (event.kind == NostrKind.EPHEMERAL_EVENT) {
-                    val pow = PoWPreferenceManager.getCurrentSettings()
-                    if (pow.enabled && pow.difficulty > 0) {
-                        if (!NostrProofOfWork.validateDifficulty(event, pow.difficulty)) return@launch
-                    }
-                }
+                // The PoW setting only mines our own events; iOS mines 8 bits and Android none by
+                // default, so rejecting below our difficulty would hide them.
 
                 // Normalize pubkey to lowercase for consistent blocking and storage
                 val pubkey = event.pubkey.lowercase()
