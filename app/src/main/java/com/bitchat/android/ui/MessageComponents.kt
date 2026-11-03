@@ -272,8 +272,11 @@ fun MessagesList(
     var hasScrolledToInitialPosition by remember(conversationKey) { mutableStateOf(false) }
     var followIncomingMessages by remember(conversationKey) { mutableStateOf(true) }
     
-    // Smart scroll: auto-scroll to bottom for initial load, then follow unless user scrolls away
-    LaunchedEffect(messages.size) {
+    // Smart scroll: auto-scroll to bottom for initial load, then follow unless user scrolls away.
+    //
+    // Keyed on the newest message as well as the count: a timeline at its retention cap evicts its
+    // oldest message for every arrival, so its size stops changing while messages keep coming in.
+    LaunchedEffect(conversationKey, messages.size, messages.lastOrNull()?.id) {
         if (messages.isNotEmpty()) {
             val isFirstLoad = !hasScrolledToInitialPosition
             if (isFirstLoad || followIncomingMessages) {

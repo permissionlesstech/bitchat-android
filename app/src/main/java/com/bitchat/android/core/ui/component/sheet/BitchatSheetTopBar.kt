@@ -34,7 +34,8 @@ fun BitchatSheetTopBar(
             val dismiss = LocalSheetDismiss.current
             CloseButton(
                 onClick = { dismiss?.invoke() ?: onClose() },
-                modifier = Modifier.padding(horizontal = 16.dp)
+                // 2.dp from any preceding action, matching the conversation header's action spacing.
+                modifier = Modifier.padding(start = 2.dp, end = 16.dp)
             )
         },
         colors = TopAppBarDefaults.topAppBarColors(
@@ -64,7 +65,8 @@ fun BitchatSheetCenterTopBar(
             val dismiss = LocalSheetDismiss.current
             CloseButton(
                 onClick = { dismiss?.invoke() ?: onClose() },
-                modifier = Modifier.padding(horizontal = 16.dp)
+                // 2.dp from any preceding action, matching the conversation header's action spacing.
+                modifier = Modifier.padding(start = 2.dp, end = 16.dp)
             )
         },
         colors = TopAppBarDefaults.topAppBarColors(

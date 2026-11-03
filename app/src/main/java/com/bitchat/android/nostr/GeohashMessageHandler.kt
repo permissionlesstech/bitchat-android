@@ -74,10 +74,8 @@ class GeohashMessageHandler(
                 // Blocked users check (use injected DataManager which has loaded state)
                 if (dataManager.isGeohashUserBlocked(pubkey)) return@launch
 
-                // Update participant count (last seen) on BOTH Presence (20001) and Chat (20000) events
-                if (event.kind == NostrKind.GEOHASH_PRESENCE || event.kind == NostrKind.EPHEMERAL_EVENT) {
-                    repo.updateParticipant(subscribedGeohash, pubkey, Date(event.createdAt * 1000L))
-                }
+                // Presence (20001) and chat (20000) both count, under the rule the globe uses too.
+                repo.recordActivity(subscribedGeohash, event)
                 
                 event.tags.find { it.size >= 2 && it[0] == "n" }?.let { repo.cacheNickname(pubkey, it[1]) }
                 event.tags.find { it.size >= 2 && it[0] == "t" && it[1] == "teleport" }?.let { repo.markTeleported(pubkey) }

@@ -1300,21 +1300,12 @@ class ChatViewModel(
         notificationManager.clearMeshMentionNotifications()
     }
 
-    private var reopenSidebarAfterVerification = false
-
-    fun showVerificationSheet(fromSidebar: Boolean = false) {
-        if (fromSidebar) {
-            reopenSidebarAfterVerification = true
-        }
+    fun showVerificationSheet() {
         state.setShowVerificationSheet(true)
     }
 
     fun hideVerificationSheet() {
         state.setShowVerificationSheet(false)
-        if (reopenSidebarAfterVerification) {
-            reopenSidebarAfterVerification = false
-            state.setShowMeshPeerList(true)
-        }
     }
 
     fun showSecurityVerificationSheet() {
@@ -1475,25 +1466,35 @@ class ChatViewModel(
         dataManager.clearAllData()
         conversationListPreferences.clearAll()
         
+        // Every stage that wipes data at rest reports here. The success message is a
+        // security assurance, so it requires all of them, not just the conversation database.
+        var wipeComplete = true
+
         // Clear seen message store and MessageRouter outbox
         try {
             com.bitchat.android.services.SeenMessageStore.getInstance(getApplication()).clear()
-        } catch (_: Exception) { }
+        } catch (_: Exception) {
+            wipeComplete = false
+        }
         try {
             com.bitchat.android.services.MessageRouter.tryGetInstance()?.clearAll()
-        } catch (_: Exception) { }
+        } catch (_: Exception) {
+            wipeComplete = false
+        }
 
         // The spam filter keeps recent message text and sender keys for its repeat checks
         com.bitchat.android.spam.SpamFilter.shared.reset()
         
         // Clear all cryptographic data
-        clearAllCryptographicData()
+        if (!clearAllCryptographicData()) wipeComplete = false
         
         // Clear all notifications
         notificationManager.clearAllNotifications(removeConversationShortcuts = true)
 
         // Clear all media files
-        com.bitchat.android.features.file.FileUtils.clearAllMedia(getApplication())
+        if (!com.bitchat.android.features.file.FileUtils.clearAllMedia(getApplication())) {
+            wipeComplete = false
+        }
         
         // Clear Nostr/geohash state, keys, connections, bookmarks, and reinitialize from scratch
         try {
@@ -1501,16 +1502,21 @@ class ChatViewModel(
             try {
                 val store = com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(getApplication())
                 store.clearAll()
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+                wipeComplete = false
+            }
 
             try {
                 val locationManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(getApplication())
                 locationManager.clearPersistedChannel()
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+                wipeComplete = false
+            }
 
-            geohashViewModel.panicReset()
+            if (!geohashViewModel.panicReset()) wipeComplete = false
         } catch (e: Exception) {
             Log.e(TAG, "Failed to reset Nostr/geohash: ${e.message}")
+            wipeComplete = false
         }
 
         // Reset nickname
@@ -1522,6 +1528,11 @@ class ChatViewModel(
             // Privacy wins over availability: keep private-message admission and transports
             // stopped if SQLite could not prove that the conversation history was erased.
             Log.e(TAG, "🚨 PANIC MODE INCOMPLETE - conversation database wipe failed")
+            // A wipe that does not commit must be as visible as the wipe itself: the
+            // person who triggered it may be relying on the device being clean.
+            messageManager.addSystemMessage(
+                getApplication<Application>().getString(com.bitchat.android.R.string.system_panic_incomplete)
+            )
             return
         }
 
@@ -1529,6 +1540,17 @@ class ChatViewModel(
         com.bitchat.android.services.AppStateStore
             .resumePrivateConversationsAfterPanic()
         recreateMeshServiceAfterPanic()
+
+        // In a duress scenario "did it work?" must not be a guess: the natural
+        // response to uncertainty is to trigger the wipe again. Announce success
+        // only when every stage confirmed its wipe.
+        val outcome = if (wipeComplete) {
+            com.bitchat.android.R.string.system_panic_completed
+        } else {
+            Log.e(TAG, "🚨 PANIC MODE INCOMPLETE - a wipe stage did not confirm")
+            com.bitchat.android.R.string.system_panic_incomplete
+        }
+        messageManager.addSystemMessage(getApplication<Application>().getString(outcome))
 
         Log.w(TAG, "🚨 PANIC MODE COMPLETED - New identity: ${mesh.myPeerID}")
     }
@@ -1579,34 +1601,41 @@ class ChatViewModel(
     /**
      * Clear all cryptographic data including persistent identity
      */
-    private fun clearAllCryptographicData() {
+    /** Returns true only when every identity, key, and favorites store confirmed its wipe. */
+    private fun clearAllCryptographicData(): Boolean {
+        var cleared = true
         try {
             // Clear encryption service persistent identity (Ed25519 signing keys)
-            mesh.clearAllEncryptionData()
+            if (!mesh.clearAllEncryptionData()) cleared = false
             
             // Clear secure identity state (if used)
             try {
                 val identityManager = SecureIdentityStateManager(getApplication())
-                identityManager.clearIdentityData()
+                if (!identityManager.clearIdentityData()) cleared = false
                 // Also clear secure values used by FavoritesPersistenceService (favorites + peerID index)
-                try {
-                    identityManager.clearSecureValues("favorite_relationships", "favorite_peerid_index")
-                } catch (_: Exception) { }
+                if (!identityManager.clearSecureValuesSynchronously("favorite_relationships", "favorite_peerid_index")) {
+                    cleared = false
+                }
                 Log.d(TAG, "✅ Cleared secure identity state and secure favorites store")
             } catch (e: Exception) {
-                Log.d(TAG, "SecureIdentityStateManager not available or already cleared: ${e.message}")
+                Log.e(TAG, "❌ Failed to clear secure identity state: ${e.message}")
+                cleared = false
             }
 
             // Clear FavoritesPersistenceService persistent relationships
             try {
                 FavoritesPersistenceService.shared.clearAllFavorites()
                 Log.d(TAG, "✅ Cleared FavoritesPersistenceService relationships")
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+                cleared = false
+            }
             
             Log.d(TAG, "✅ Cleared all cryptographic data")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error clearing cryptographic data: ${e.message}")
+            cleared = false
         }
+        return cleared
     }
 
     /**

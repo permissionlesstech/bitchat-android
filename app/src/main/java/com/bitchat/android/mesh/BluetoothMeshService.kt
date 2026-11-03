@@ -1639,13 +1639,14 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     /**
      * Clear all encryption and cryptographic data (for panic mode)
      */
-    fun clearAllEncryptionData() {
+    fun clearAllEncryptionData(): Boolean {
         Log.w(TAG, "Clearing all encryption data")
-        try {
+        return try {
             // Clear encryption service persistent identity (includes Ed25519 signing keys)
             encryptionService.clearPersistentIdentity()
         } catch (e: Exception) {
             Log.e(TAG, "Error clearing encryption data: ${e.message}")
+            false
         }
     }
 }
