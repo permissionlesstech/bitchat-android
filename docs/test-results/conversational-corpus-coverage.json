@@ -1,0 +1,820 @@
+{
+  "status": "fetched and prepared locally; app model weights unchanged",
+  "cache": "build/corpora/conversational",
+  "families": 32,
+  "selectedTextRecords": 1011664,
+  "preparedGzipBytes": 100413132,
+  "sampling": {
+    "method": "bottom SHA-256 of normalized content per source and language",
+    "limitPerSourceLanguage": 10000
+  },
+  "sources": {
+    "soc": {
+      "kind": "synthetic-online-chat",
+      "homepage": "https://huggingface.co/datasets/marcodsn/SOC-2508-MULTI",
+      "license": "CC-BY-4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "revision": "a94d7b817488c8e201623e43186893f38335af45",
+      "counters": {
+        "seen": 201660,
+        "eligibleBeforeDedupAndSampling": 120289,
+        "invalid": 81220,
+        "incompatibleScript": 1,
+        "emptyOversizedOrControl": 4,
+        "obviousContactOrIdentifier": 146,
+        "sampledDistinctBeforeCrossSourceDedup": 50000
+      },
+      "selectedByLanguage": {
+        "de": 10000,
+        "en": 10000,
+        "es": 10000,
+        "fr": 10000,
+        "it": 10000
+      }
+    },
+    "aya-soda": {
+      "kind": "machine-translated-synthetic-dialogue",
+      "homepage": "https://huggingface.co/datasets/CohereLabs/aya_collection",
+      "license": "Apache-2.0 AND CC-BY-4.0",
+      "licenseUrl": "https://huggingface.co/datasets/CohereLabs/aya_collection/blob/main/README.md",
+      "revision": "09069079fad96ad9c7f8781be8c1d70471dfa768",
+      "counters": {
+        "seen": 490000,
+        "eligibleBeforeDedupAndSampling": 489560,
+        "obviousContactOrIdentifier": 30,
+        "emptyOversizedOrControl": 400,
+        "incompatibleScript": 10,
+        "sampledDistinctBeforeCrossSourceDedup": 299656
+      },
+      "selectedByLanguage": {
+        "ar": 10000,
+        "bn": 10000,
+        "de": 10000,
+        "en": 10000,
+        "es": 10000,
+        "eu": 9997,
+        "fa": 9999,
+        "fr": 10000,
+        "he": 10000,
+        "hi": 9997,
+        "id": 10000,
+        "it": 10000,
+        "ja": 10000,
+        "ka": 10000,
+        "ko": 10000,
+        "mg": 9999,
+        "ms": 10000,
+        "ne": 9713,
+        "nl": 10000,
+        "pl": 10000,
+        "pt": 9999,
+        "ru": 10000,
+        "sv": 9999,
+        "ta": 9965,
+        "th": 9999,
+        "tr": 10000,
+        "uk": 9997,
+        "ur": 9992,
+        "vi": 10000,
+        "zh": 10000
+      }
+    },
+    "aya": {
+      "kind": "human-authored-qa",
+      "homepage": "https://huggingface.co/datasets/CohereLabs/aya_dataset",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "revision": "f9ea04583f02a8f86404ff6c58bf75fe637df8a2",
+      "counters": {
+        "reannotationsSkipped": 65270,
+        "seen": 156534,
+        "eligibleBeforeDedupAndSampling": 144667,
+        "incompatibleScript": 10582,
+        "emptyOversizedOrControl": 971,
+        "obviousContactOrIdentifier": 314,
+        "sampledDistinctBeforeCrossSourceDedup": 109586
+      },
+      "selectedByLanguage": {
+        "ar": 10000,
+        "bn": 1484,
+        "de": 212,
+        "en": 4118,
+        "es": 1626,
+        "eu": 1573,
+        "fa": 1501,
+        "fil": 1533,
+        "fr": 1895,
+        "hi": 1373,
+        "id": 531,
+        "it": 311,
+        "ja": 10000,
+        "ko": 353,
+        "mg": 10000,
+        "ms": 10000,
+        "ne": 6267,
+        "nl": 2160,
+        "pa": 9,
+        "pl": 863,
+        "pt": 9265,
+        "ru": 229,
+        "sv": 234,
+        "ta": 10000,
+        "th": 497,
+        "tr": 6045,
+        "uk": 440,
+        "ur": 779,
+        "vi": 8957,
+        "zh": 7331
+      }
+    },
+    "tatoeba": {
+      "kind": "authored-short-sentences",
+      "homepage": "https://tatoeba.org/",
+      "license": "CC-BY-2.0-FR",
+      "licenseUrl": "https://en.wiki.tatoeba.org/articles/show/using-the-tatoeba-corpus",
+      "revision": null,
+      "counters": {
+        "seen": 8876370,
+        "eligibleBeforeDedupAndSampling": 8874891,
+        "obviousContactOrIdentifier": 201,
+        "incompatibleScript": 1278,
+        "sampledDistinctBeforeCrossSourceDedup": 266539,
+        "crossSourceDuplicate": 10
+      },
+      "selectedByLanguage": {
+        "ar": 9998,
+        "bn": 10000,
+        "de": 10000,
+        "en": 10000,
+        "es": 10000,
+        "eu": 6429,
+        "fa": 9999,
+        "fil": 10000,
+        "fr": 10000,
+        "he": 10000,
+        "hi": 10000,
+        "id": 10000,
+        "it": 10000,
+        "ja": 10000,
+        "ka": 7697,
+        "ko": 10000,
+        "mg": 74,
+        "ms": 7465,
+        "ne": 4502,
+        "nl": 10000,
+        "pa": 77,
+        "pl": 10000,
+        "pt": 10000,
+        "ru": 10000,
+        "sv": 10000,
+        "ta": 596,
+        "th": 6842,
+        "tr": 10000,
+        "uk": 10000,
+        "ur": 2850,
+        "vi": 10000,
+        "zh": 10000
+      }
+    },
+    "massive": {
+      "kind": "authored-assistant-utterances",
+      "homepage": "https://huggingface.co/datasets/AmazonScience/massive",
+      "license": "CC-BY-4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "revision": "1.1",
+      "counters": {
+        "upstreamHeldOutSkipped": 140196,
+        "seen": 322392,
+        "eligibleBeforeDedupAndSampling": 319902,
+        "incompatibleScript": 2490,
+        "sampledDistinctBeforeCrossSourceDedup": 270000,
+        "crossSourceDuplicate": 46
+      },
+      "selectedByLanguage": {
+        "ar": 9992,
+        "bn": 9999,
+        "de": 10000,
+        "en": 9998,
+        "es": 10000,
+        "fa": 9997,
+        "fil": 10000,
+        "fr": 10000,
+        "he": 10000,
+        "hi": 9998,
+        "id": 10000,
+        "it": 10000,
+        "ja": 9998,
+        "ka": 10000,
+        "ko": 9999,
+        "ms": 9997,
+        "nl": 10000,
+        "pl": 10000,
+        "pt": 10000,
+        "ru": 10000,
+        "sv": 10000,
+        "ta": 9995,
+        "th": 9984,
+        "tr": 10000,
+        "ur": 9999,
+        "vi": 9999,
+        "zh": 9999
+      }
+    },
+    "kakugo-mg": {
+      "kind": "synthetic-assistant-qa",
+      "homepage": "https://huggingface.co/datasets/ptrdvn/kakugo-plt",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "revision": "9b60010d8cb2db8808f1e92aff4e7a6abf34c544",
+      "counters": {
+        "seen": 84988,
+        "eligibleBeforeDedupAndSampling": 83397,
+        "obviousContactOrIdentifier": 1344,
+        "emptyOversizedOrControl": 230,
+        "incompatibleScript": 17,
+        "sampledDistinctBeforeCrossSourceDedup": 10000
+      },
+      "selectedByLanguage": {
+        "mg": 10000
+      }
+    },
+    "georgian-roleplay": {
+      "kind": "machine-translated-roleplay",
+      "homepage": "https://huggingface.co/datasets/jojo-ai-mst/Roleplay-Georgian",
+      "license": "MIT",
+      "licenseUrl": "https://huggingface.co/datasets/jojo-ai-mst/Roleplay-Georgian",
+      "revision": "74aeec0457a27c61d17e14c4ca6cfbf0a4f9715f",
+      "counters": {
+        "seen": 5769,
+        "eligibleBeforeDedupAndSampling": 4276,
+        "incompatibleScript": 1492,
+        "obviousContactOrIdentifier": 1,
+        "sampledDistinctBeforeCrossSourceDedup": 4275
+      },
+      "selectedByLanguage": {
+        "ka": 4275
+      }
+    },
+    "sacor-pa": {
+      "kind": "human-translated-parallel-sentences",
+      "homepage": "https://github.com/hjy895/SACOR",
+      "license": "MIT",
+      "licenseUrl": "https://github.com/hjy895/SACOR/blob/main/LICENSE",
+      "revision": "d0f5cb2c895feac5cb429853cfa0416c4cea7af5",
+      "counters": {
+        "seen": 5127,
+        "eligibleBeforeDedupAndSampling": 5127,
+        "sampledDistinctBeforeCrossSourceDedup": 53
+      },
+      "selectedByLanguage": {
+        "pa": 53
+      }
+    },
+    "smol-pa": {
+      "kind": "professionally-translated-sentences",
+      "homepage": "https://huggingface.co/datasets/google/smol",
+      "license": "CC-BY-4.0",
+      "licenseUrl": "https://huggingface.co/datasets/google/smol/blob/main/README.md",
+      "revision": "fdaff3a1a019f89fa30a562a85d7c1d3e9150444",
+      "counters": {
+        "seen": 1726,
+        "eligibleBeforeDedupAndSampling": 1726,
+        "sampledDistinctBeforeCrossSourceDedup": 863
+      },
+      "selectedByLanguage": {
+        "pa": 863
+      }
+    },
+    "fasal-pa": {
+      "kind": "domain-specific-synthetic-qa",
+      "homepage": "https://huggingface.co/datasets/KhetLink/Fasal-1B-Pak-Agri",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://huggingface.co/datasets/KhetLink/Fasal-1B-Pak-Agri/blob/main/README.md",
+      "revision": "d6e4f60dcf352d4afb54f1148ed66795d14802d1",
+      "counters": {
+        "seen": 752,
+        "eligibleBeforeDedupAndSampling": 748,
+        "incompatibleScript": 4,
+        "sampledDistinctBeforeCrossSourceDedup": 748
+      },
+      "selectedByLanguage": {
+        "pa": 748
+      }
+    }
+  },
+  "languages": [
+    {
+      "language": "ar",
+      "records": 39990,
+      "characters": 3307365,
+      "dialogueRecords": 10000,
+      "observedCodepoints": 229,
+      "sourceCounts": {
+        "aya-soda": 10000,
+        "aya": 10000,
+        "tatoeba": 9998,
+        "massive": 9992
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "df15f9f1b2b18f2800c237cd640d49f55234d4735df17619a4ba82f5c3a0357e"
+    },
+    {
+      "language": "bn",
+      "records": 31483,
+      "characters": 3610914,
+      "dialogueRecords": 10000,
+      "observedCodepoints": 171,
+      "sourceCounts": {
+        "aya-soda": 10000,
+        "aya": 1484,
+        "tatoeba": 10000,
+        "massive": 9999
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "ff4ef3e5877a5f65ae460e56c5dccc9a7fa836107af8e94f9421dcac478a9102"
+    },
+    {
+      "language": "de",
+      "records": 40212,
+      "characters": 5306679,
+      "dialogueRecords": 20000,
+      "observedCodepoints": 666,
+      "sourceCounts": {
+        "soc": 10000,
+        "aya-soda": 10000,
+        "aya": 212,
+        "tatoeba": 10000,
+        "massive": 10000
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "e1b65b21873234e8d7282b025cc25adac7c0eb5eeeb56e04e823d80d4e9929ce"
+    },
+    {
+      "language": "en",
+      "records": 44116,
+      "characters": 5376832,
+      "dialogueRecords": 20000,
+      "observedCodepoints": 699,
+      "sourceCounts": {
+        "soc": 10000,
+        "aya-soda": 10000,
+        "aya": 4118,
+        "tatoeba": 10000,
+        "massive": 9998
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "39d80505b3c2cb1b0e9baf558cdb734cd164c80c30b0f6c83e6b01febd1dc5db"
+    },
+    {
+      "language": "es",
+      "records": 41626,
+      "characters": 5257502,
+      "dialogueRecords": 20000,
+      "observedCodepoints": 689,
+      "sourceCounts": {
+        "soc": 10000,
+        "aya-soda": 10000,
+        "aya": 1626,
+        "tatoeba": 10000,
+        "massive": 10000
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "fa9088d6f51e997f29a434ceac6342a65c34c665360d8552538a7f3647a9e7e8"
+    },
+    {
+      "language": "eu",
+      "records": 17999,
+      "characters": 2560505,
+      "dialogueRecords": 9997,
+      "observedCodepoints": 108,
+      "sourceCounts": {
+        "aya-soda": 9997,
+        "aya": 1573,
+        "tatoeba": 6429
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "e2855726853c8fe44ddbd904f4ce15f62702434c25525bf227d57a49f89a5b79"
+    },
+    {
+      "language": "fa",
+      "records": 31496,
+      "characters": 2979831,
+      "dialogueRecords": 9999,
+      "observedCodepoints": 207,
+      "sourceCounts": {
+        "aya-soda": 9999,
+        "aya": 1501,
+        "tatoeba": 9999,
+        "massive": 9997
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "edcdfbd5648100b2c6110c6fdf58d717c8a9b16a436c2fd739db04efb291865f"
+    },
+    {
+      "language": "fil",
+      "records": 21533,
+      "characters": 1177025,
+      "dialogueRecords": 0,
+      "observedCodepoints": 146,
+      "sourceCounts": {
+        "aya": 1533,
+        "tatoeba": 10000,
+        "massive": 10000
+      },
+      "status": "assistant utterances and QA; general-dialogue gap",
+      "preparedSha256": "3db00e19d3cb3c426a28f34bbe6bc44962f29d78540826aafc2339c3e9b78d38"
+    },
+    {
+      "language": "fr",
+      "records": 41895,
+      "characters": 5798989,
+      "dialogueRecords": 20000,
+      "observedCodepoints": 711,
+      "sourceCounts": {
+        "soc": 10000,
+        "aya-soda": 10000,
+        "aya": 1895,
+        "tatoeba": 10000,
+        "massive": 10000
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "dee6b64812cf2c2ef083b65cdddc49d199e50c118e9de7261d6491adb6fc5694"
+    },
+    {
+      "language": "he",
+      "records": 30000,
+      "characters": 2109017,
+      "dialogueRecords": 10000,
+      "observedCodepoints": 142,
+      "sourceCounts": {
+        "aya-soda": 10000,
+        "tatoeba": 10000,
+        "massive": 10000
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "f0886d9f8f9fca8fe173eb8af9e6099ab445f9e53b3537db6d681603eaa6de58"
+    },
+    {
+      "language": "hi",
+      "records": 31368,
+      "characters": 3349995,
+      "dialogueRecords": 9997,
+      "observedCodepoints": 197,
+      "sourceCounts": {
+        "aya-soda": 9997,
+        "aya": 1373,
+        "tatoeba": 10000,
+        "massive": 9998
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "3d811482631900fa9cd1dff069f39d34468960e72f3a4e99388901c031a85c9c"
+    },
+    {
+      "language": "id",
+      "records": 30531,
+      "characters": 3251950,
+      "dialogueRecords": 10000,
+      "observedCodepoints": 107,
+      "sourceCounts": {
+        "aya-soda": 10000,
+        "aya": 531,
+        "tatoeba": 10000,
+        "massive": 10000
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "287484db74ab9fc8dd1a699124aa63475cc2664ef5e2b0655155cf28f7b1259f"
+    },
+    {
+      "language": "it",
+      "records": 40311,
+      "characters": 4940540,
+      "dialogueRecords": 20000,
+      "observedCodepoints": 692,
+      "sourceCounts": {
+        "soc": 10000,
+        "aya-soda": 10000,
+        "aya": 311,
+        "tatoeba": 10000,
+        "massive": 10000
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "1744228f0b46296e440653bbf520c25f54fb4d3dd505f1e0778c72581920cea9"
+    },
+    {
+      "language": "ja",
+      "records": 39998,
+      "characters": 2262766,
+      "dialogueRecords": 10000,
+      "observedCodepoints": 3071,
+      "sourceCounts": {
+        "aya-soda": 10000,
+        "aya": 10000,
+        "tatoeba": 10000,
+        "massive": 9998
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "52812762bfd70b6fb6dc4f4c00194e60449763821d1d0e66e3acf3939c825ebb"
+    },
+    {
+      "language": "ka",
+      "records": 31972,
+      "characters": 4016507,
+      "dialogueRecords": 10000,
+      "observedCodepoints": 150,
+      "sourceCounts": {
+        "aya-soda": 10000,
+        "tatoeba": 7697,
+        "massive": 10000,
+        "georgian-roleplay": 4275
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "1f6376b89717eb4be1770eae9135a309ffcd17beceeec8931ef3a68b40ee9712"
+    },
+    {
+      "language": "ko",
+      "records": 30352,
+      "characters": 1552624,
+      "dialogueRecords": 10000,
+      "observedCodepoints": 1549,
+      "sourceCounts": {
+        "aya-soda": 10000,
+        "aya": 353,
+        "tatoeba": 10000,
+        "massive": 9999
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "2b24229514b39d0eca9be910d546aede8bf31dd8779eb7f771aa902d3f451b12"
+    },
+    {
+      "language": "mg",
+      "records": 30073,
+      "characters": 11873912,
+      "dialogueRecords": 9999,
+      "observedCodepoints": 967,
+      "sourceCounts": {
+        "aya-soda": 9999,
+        "aya": 10000,
+        "tatoeba": 74,
+        "kakugo-mg": 10000
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "1b8002368aabedc98b2a88e0acd9c23044dac540a1acc1978ec7cddbe9ab2226"
+    },
+    {
+      "language": "ms",
+      "records": 37462,
+      "characters": 4979311,
+      "dialogueRecords": 10000,
+      "observedCodepoints": 327,
+      "sourceCounts": {
+        "aya-soda": 10000,
+        "aya": 10000,
+        "tatoeba": 7465,
+        "massive": 9997
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "a7cb745b94fe70333c43eb758515a39f5f40c2c6286b405a34d168ec07b0193f"
+    },
+    {
+      "language": "ne",
+      "records": 20482,
+      "characters": 3054564,
+      "dialogueRecords": 9713,
+      "observedCodepoints": 211,
+      "sourceCounts": {
+        "aya-soda": 9713,
+        "aya": 6267,
+        "tatoeba": 4502
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "b02a46e5cd4a6e811619d5a4c72710dde8ec85d63595f7113c55e2e134591160"
+    },
+    {
+      "language": "nl",
+      "records": 32160,
+      "characters": 3500041,
+      "dialogueRecords": 10000,
+      "observedCodepoints": 181,
+      "sourceCounts": {
+        "aya-soda": 10000,
+        "aya": 2160,
+        "tatoeba": 10000,
+        "massive": 10000
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "2d74d0d934bed5e4ffb29a296fd72f3c086323e353d6066b2f65795af30343d6"
+    },
+    {
+      "language": "pa",
+      "records": 1750,
+      "characters": 496891,
+      "dialogueRecords": 0,
+      "observedCodepoints": 204,
+      "sourceCounts": {
+        "aya": 9,
+        "tatoeba": 77,
+        "sacor-pa": 53,
+        "smol-pa": 863,
+        "fasal-pa": 748
+      },
+      "status": "limited domain QA and translated sentences; general-chat gap",
+      "preparedSha256": "df23911c920b5e719fe5d46d98780b333cf5793fb0272c7109fb421090747d0b"
+    },
+    {
+      "language": "pl",
+      "records": 30863,
+      "characters": 2803873,
+      "dialogueRecords": 10000,
+      "observedCodepoints": 141,
+      "sourceCounts": {
+        "aya-soda": 10000,
+        "aya": 863,
+        "tatoeba": 10000,
+        "massive": 10000
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "58e0b81e91e1ecdf108e34aa554e3774418414a8c7d7280a7d647eb3b897a55d"
+    },
+    {
+      "language": "pt",
+      "records": 39264,
+      "characters": 4245489,
+      "dialogueRecords": 9999,
+      "observedCodepoints": 190,
+      "sourceCounts": {
+        "aya-soda": 9999,
+        "aya": 9265,
+        "tatoeba": 10000,
+        "massive": 10000
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "038796ee87b0e80a51a8195612e9c3cfa0f10406c74508936b5109626d072145"
+    },
+    {
+      "language": "ru",
+      "records": 30229,
+      "characters": 2847023,
+      "dialogueRecords": 10000,
+      "observedCodepoints": 173,
+      "sourceCounts": {
+        "aya-soda": 10000,
+        "aya": 229,
+        "tatoeba": 10000,
+        "massive": 10000
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "9e72a948ddd3aedbff777e690d35a8eb31180371a18ffeec258155e8c48a47fd"
+    },
+    {
+      "language": "sv",
+      "records": 30233,
+      "characters": 2727911,
+      "dialogueRecords": 9999,
+      "observedCodepoints": 103,
+      "sourceCounts": {
+        "aya-soda": 9999,
+        "aya": 234,
+        "tatoeba": 10000,
+        "massive": 10000
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "e362a9c2d2001172b13d409b12882477e99be32144ba0e4ef4dac8da6cbd9364"
+    },
+    {
+      "language": "ta",
+      "records": 30556,
+      "characters": 5064260,
+      "dialogueRecords": 9965,
+      "observedCodepoints": 188,
+      "sourceCounts": {
+        "aya-soda": 9965,
+        "aya": 10000,
+        "tatoeba": 596,
+        "massive": 9995
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "b13afae4b364d09e984056e5d7d54e4ad88deddd3d62338b9b61f0e2f701e8f6"
+    },
+    {
+      "language": "th",
+      "records": 27322,
+      "characters": 2227992,
+      "dialogueRecords": 9999,
+      "observedCodepoints": 173,
+      "sourceCounts": {
+        "aya-soda": 9999,
+        "aya": 497,
+        "tatoeba": 6842,
+        "massive": 9984
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "2fbf441966ee698d1bd77613b465ab0765be2a1fc045f231c67c583ffc1d1f02"
+    },
+    {
+      "language": "tr",
+      "records": 36045,
+      "characters": 3689709,
+      "dialogueRecords": 10000,
+      "observedCodepoints": 245,
+      "sourceCounts": {
+        "aya-soda": 10000,
+        "aya": 6045,
+        "tatoeba": 10000,
+        "massive": 10000
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "d52d0d7b8c8ab7ccd3b17ce6c61d5d0c9354cde0affb40d200e502d35939e73b"
+    },
+    {
+      "language": "uk",
+      "records": 20437,
+      "characters": 2469948,
+      "dialogueRecords": 9997,
+      "observedCodepoints": 203,
+      "sourceCounts": {
+        "aya-soda": 9997,
+        "aya": 440,
+        "tatoeba": 10000
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "d3b3d0a3749626b87a308b06340312a3b04345f309731b63a5a4cd5ca6a0b3f3"
+    },
+    {
+      "language": "ur",
+      "records": 23620,
+      "characters": 2983349,
+      "dialogueRecords": 9992,
+      "observedCodepoints": 281,
+      "sourceCounts": {
+        "aya-soda": 9992,
+        "aya": 779,
+        "tatoeba": 2850,
+        "massive": 9999
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "1a27378a9112abe688b99b5bc11d32adf2c74fc0ce621c8bd07e2aee615edb81"
+    },
+    {
+      "language": "vi",
+      "records": 38956,
+      "characters": 8580554,
+      "dialogueRecords": 10000,
+      "observedCodepoints": 296,
+      "sourceCounts": {
+        "aya-soda": 10000,
+        "aya": 8957,
+        "tatoeba": 10000,
+        "massive": 9999
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "92082563e4692641e146e3036498fc92299091d2f68ecdad7f434f10400c469d"
+    },
+    {
+      "language": "zh",
+      "records": 37330,
+      "characters": 1104084,
+      "dialogueRecords": 10000,
+      "observedCodepoints": 5200,
+      "sourceCounts": {
+        "aya-soda": 10000,
+        "aya": 7331,
+        "tatoeba": 10000,
+        "massive": 9999
+      },
+      "status": "dialogue data and supplementary text",
+      "preparedSha256": "22e928c01b2c3eabb3a0c77f1c350d6abb82b38f58bd4ea17d087d0ee77f2f6b"
+    }
+  ],
+  "dialogueAcquisition": {
+    "shards": 38,
+    "selectedRawRecords": 490000,
+    "rangedDownloadBytes": 337867874,
+    "originalShardBytes": 25685573558,
+    "verification": "Pinned revision, verified HTTP byte ranges, and checksummed extracted subsets; original full-shard hashes are not verified."
+  },
+  "gaps": {
+    "fil": "Native authored QA, assistant utterances and sentence examples; no SODA general-dialogue subset found.",
+    "pa": "1750 selected records, including 863 distinct professional translations and 748 agricultural QA texts. No broad casual-chat corpus verified. Aya Punjabi records are predominantly Gurmukhi; SACOR target rows are highly duplicated."
+  },
+  "retrainingNotes": {
+    "normalizedChineseAlphabetIncludingAscii": 5177,
+    "currentModelAlphabetLimit": 4096,
+    "action": "Increase or redesign the codec alphabet bound before training this full Chinese candidate set; do not silently discard valid characters."
+  },
+  "privacy": "Source text and contributor/persona metadata are not included in this aggregate report. Local corpus text is not guaranteed anonymized and is not published. Repository tests use invented examples only.",
+  "validation": {
+    "ingestionUnitTests": {
+      "passed": 11,
+      "failed": 0
+    },
+    "rawArtifactAndSubsetChecksums": {
+      "passed": 79,
+      "failed": 0
+    },
+    "preparedFileChecksums": {
+      "passed": 32,
+      "failed": 0
+    },
+    "existingModelConsistency": "32 fixed models and disjoint held-out fixtures verified; app weights unchanged"
+  }
+}

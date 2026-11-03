@@ -21,6 +21,8 @@ data class SpamFilterConfig(
         refillPerSecond = 2.0 / 60.0
     ),
     val repetition: RepetitionConfig = RepetitionConfig(),
+    /** Fixed multilingual character models. Historical name retained for configuration compatibility. */
+    val englishGibberishEnabled: Boolean = true,
     /**
      * How far in the past a message timestamp is trusted. Relay backfill (geohash subscribes to
      * the last hour) and mesh sync deliver history in bursts, so buckets run on message time;

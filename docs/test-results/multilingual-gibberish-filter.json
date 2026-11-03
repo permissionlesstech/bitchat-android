@@ -1,0 +1,975 @@
+{
+  "comparison": {
+    "baselineRevision": "055360a4",
+    "baselinePolicy": "English-only; all characters scored",
+    "currentPolicy": "32 fixed offline multilingual Unicode bigram models"
+  },
+  "data": "Static filtered repository translations and original synthetic examples only; no real messages or devices",
+  "modelPack": {
+    "languageFamilies": 32,
+    "localeVariants": 35,
+    "compressedBytes": 109359,
+    "binaryBytes": 162014,
+    "decodedArrayBytesExcludingOverhead": 222452,
+    "manifestSha256": "b46a6f6b5189a385b3f76044d6fca02cf276474e29a814f9ba846b79b24995ea",
+    "generatedSourceSha256": "0aa185f8042d1ee6970a2cda11ee0dd128d7f28352118e4c39c104de6c9439e5"
+  },
+  "cohorts": {
+    "legitimate": {
+      "samples": 220,
+      "phoneWatchIdentical": true,
+      "before": {
+        "numbers_in_chat": {
+          "total": 20,
+          "modelFlagged": 2,
+          "filterHidden": 2,
+          "unscored": 0
+        },
+        "punctuation_in_chat": {
+          "total": 20,
+          "modelFlagged": 1,
+          "filterHidden": 1,
+          "unscored": 0
+        },
+        "numeric_and_math": {
+          "total": 20,
+          "modelFlagged": 20,
+          "filterHidden": 20,
+          "unscored": 0
+        },
+        "code_and_structured": {
+          "total": 20,
+          "modelFlagged": 18,
+          "filterHidden": 18,
+          "unscored": 0
+        },
+        "urls": {
+          "total": 20,
+          "modelFlagged": 11,
+          "filterHidden": 11,
+          "unscored": 0
+        },
+        "hashes_and_identifiers": {
+          "total": 20,
+          "modelFlagged": 13,
+          "filterHidden": 13,
+          "unscored": 0
+        },
+        "short_replies": {
+          "total": 20,
+          "modelFlagged": 15,
+          "filterHidden": 15,
+          "unscored": 0
+        },
+        "unicode": {
+          "total": 20,
+          "modelFlagged": 8,
+          "filterHidden": 8,
+          "unscored": 0
+        },
+        "english": {
+          "total": 60,
+          "modelFlagged": 0,
+          "filterHidden": 0,
+          "unscored": 0
+        }
+      },
+      "after": {
+        "numbers_in_chat": {
+          "total": 20,
+          "modelFlagged": 2,
+          "filterHidden": 2,
+          "unscored": 0
+        },
+        "punctuation_in_chat": {
+          "total": 20,
+          "modelFlagged": 2,
+          "filterHidden": 2,
+          "unscored": 0
+        },
+        "numeric_and_math": {
+          "total": 20,
+          "modelFlagged": 19,
+          "filterHidden": 19,
+          "unscored": 0
+        },
+        "code_and_structured": {
+          "total": 20,
+          "modelFlagged": 17,
+          "filterHidden": 17,
+          "unscored": 0
+        },
+        "urls": {
+          "total": 20,
+          "modelFlagged": 10,
+          "filterHidden": 10,
+          "unscored": 0
+        },
+        "hashes_and_identifiers": {
+          "total": 20,
+          "modelFlagged": 18,
+          "filterHidden": 18,
+          "unscored": 0
+        },
+        "short_replies": {
+          "total": 20,
+          "modelFlagged": 11,
+          "filterHidden": 11,
+          "unscored": 0
+        },
+        "unicode": {
+          "total": 20,
+          "modelFlagged": 3,
+          "filterHidden": 3,
+          "unscored": 0
+        },
+        "english": {
+          "total": 60,
+          "modelFlagged": 0,
+          "filterHidden": 0,
+          "unscored": 0
+        }
+      },
+      "newlyHidden": 8,
+      "newlyAdmitted": 14
+    },
+    "languages": {
+      "samples": 472,
+      "phoneWatchIdentical": true,
+      "before": {
+        "ar": {
+          "total": 13,
+          "hidden": 12,
+          "syntheticTotal": 4,
+          "syntheticHidden": 4
+        },
+        "bn": {
+          "total": 14,
+          "hidden": 13,
+          "syntheticTotal": 4,
+          "syntheticHidden": 4
+        },
+        "de": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "en": {
+          "total": 20,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "es": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "eu": {
+          "total": 20,
+          "hidden": 1,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "fa": {
+          "total": 14,
+          "hidden": 13,
+          "syntheticTotal": 4,
+          "syntheticHidden": 4
+        },
+        "fil": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "fr": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "he": {
+          "total": 14,
+          "hidden": 14,
+          "syntheticTotal": 4,
+          "syntheticHidden": 4
+        },
+        "hi": {
+          "total": 13,
+          "hidden": 12,
+          "syntheticTotal": 4,
+          "syntheticHidden": 4
+        },
+        "id": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "it": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ja": {
+          "total": 14,
+          "hidden": 13,
+          "syntheticTotal": 4,
+          "syntheticHidden": 4
+        },
+        "ka": {
+          "total": 13,
+          "hidden": 11,
+          "syntheticTotal": 4,
+          "syntheticHidden": 4
+        },
+        "ko": {
+          "total": 14,
+          "hidden": 13,
+          "syntheticTotal": 4,
+          "syntheticHidden": 4
+        },
+        "mg": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ms": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ne": {
+          "total": 13,
+          "hidden": 12,
+          "syntheticTotal": 4,
+          "syntheticHidden": 4
+        },
+        "nl": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "pa": {
+          "total": 13,
+          "hidden": 11,
+          "syntheticTotal": 4,
+          "syntheticHidden": 4
+        },
+        "pl": {
+          "total": 14,
+          "hidden": 8,
+          "syntheticTotal": 4,
+          "syntheticHidden": 3
+        },
+        "pt": {
+          "total": 20,
+          "hidden": 1,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ru": {
+          "total": 14,
+          "hidden": 14,
+          "syntheticTotal": 4,
+          "syntheticHidden": 4
+        },
+        "sv": {
+          "total": 14,
+          "hidden": 3,
+          "syntheticTotal": 4,
+          "syntheticHidden": 1
+        },
+        "ta": {
+          "total": 13,
+          "hidden": 12,
+          "syntheticTotal": 4,
+          "syntheticHidden": 4
+        },
+        "th": {
+          "total": 13,
+          "hidden": 11,
+          "syntheticTotal": 4,
+          "syntheticHidden": 4
+        },
+        "tr": {
+          "total": 14,
+          "hidden": 7,
+          "syntheticTotal": 4,
+          "syntheticHidden": 3
+        },
+        "uk": {
+          "total": 14,
+          "hidden": 14,
+          "syntheticTotal": 4,
+          "syntheticHidden": 4
+        },
+        "ur": {
+          "total": 13,
+          "hidden": 11,
+          "syntheticTotal": 4,
+          "syntheticHidden": 4
+        },
+        "vi": {
+          "total": 13,
+          "hidden": 11,
+          "syntheticTotal": 4,
+          "syntheticHidden": 4
+        },
+        "zh": {
+          "total": 29,
+          "hidden": 29,
+          "syntheticTotal": 4,
+          "syntheticHidden": 4
+        }
+      },
+      "after": {
+        "ar": {
+          "total": 13,
+          "hidden": 1,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "bn": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "de": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "en": {
+          "total": 20,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "es": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "eu": {
+          "total": 20,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "fa": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "fil": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "fr": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "he": {
+          "total": 14,
+          "hidden": 2,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "hi": {
+          "total": 13,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "id": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "it": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ja": {
+          "total": 14,
+          "hidden": 3,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ka": {
+          "total": 13,
+          "hidden": 1,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ko": {
+          "total": 14,
+          "hidden": 3,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "mg": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ms": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ne": {
+          "total": 13,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "nl": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "pa": {
+          "total": 13,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "pl": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "pt": {
+          "total": 20,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ru": {
+          "total": 14,
+          "hidden": 1,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "sv": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ta": {
+          "total": 13,
+          "hidden": 1,
+          "syntheticTotal": 4,
+          "syntheticHidden": 1
+        },
+        "th": {
+          "total": 13,
+          "hidden": 2,
+          "syntheticTotal": 4,
+          "syntheticHidden": 1
+        },
+        "tr": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "uk": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ur": {
+          "total": 13,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "vi": {
+          "total": 13,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "zh": {
+          "total": 29,
+          "hidden": 6,
+          "syntheticTotal": 4,
+          "syntheticHidden": 1
+        }
+      },
+      "newlyHidden": 1,
+      "newlyAdmitted": 227
+    }
+  },
+  "floods": {
+    "nativeRandomCharacters": {
+      "seed": 1007,
+      "samplesPerLanguage": 100,
+      "charactersPerSample": 96,
+      "scoringOnly": true,
+      "before": {
+        "ar": {
+          "total": 100,
+          "hidden": 100
+        },
+        "bn": {
+          "total": 100,
+          "hidden": 100
+        },
+        "de": {
+          "total": 100,
+          "hidden": 100
+        },
+        "en": {
+          "total": 100,
+          "hidden": 100
+        },
+        "es": {
+          "total": 100,
+          "hidden": 100
+        },
+        "eu": {
+          "total": 100,
+          "hidden": 100
+        },
+        "fa": {
+          "total": 100,
+          "hidden": 100
+        },
+        "fil": {
+          "total": 100,
+          "hidden": 100
+        },
+        "fr": {
+          "total": 100,
+          "hidden": 100
+        },
+        "he": {
+          "total": 100,
+          "hidden": 100
+        },
+        "hi": {
+          "total": 100,
+          "hidden": 100
+        },
+        "id": {
+          "total": 100,
+          "hidden": 100
+        },
+        "it": {
+          "total": 100,
+          "hidden": 100
+        },
+        "ja": {
+          "total": 100,
+          "hidden": 100
+        },
+        "ka": {
+          "total": 100,
+          "hidden": 100
+        },
+        "ko": {
+          "total": 100,
+          "hidden": 100
+        },
+        "mg": {
+          "total": 100,
+          "hidden": 100
+        },
+        "ms": {
+          "total": 100,
+          "hidden": 100
+        },
+        "ne": {
+          "total": 100,
+          "hidden": 100
+        },
+        "nl": {
+          "total": 100,
+          "hidden": 100
+        },
+        "pa": {
+          "total": 100,
+          "hidden": 100
+        },
+        "pl": {
+          "total": 100,
+          "hidden": 100
+        },
+        "pt": {
+          "total": 100,
+          "hidden": 100
+        },
+        "ru": {
+          "total": 100,
+          "hidden": 100
+        },
+        "sv": {
+          "total": 100,
+          "hidden": 100
+        },
+        "ta": {
+          "total": 100,
+          "hidden": 100
+        },
+        "th": {
+          "total": 100,
+          "hidden": 100
+        },
+        "tr": {
+          "total": 100,
+          "hidden": 100
+        },
+        "uk": {
+          "total": 100,
+          "hidden": 100
+        },
+        "ur": {
+          "total": 100,
+          "hidden": 100
+        },
+        "vi": {
+          "total": 100,
+          "hidden": 100
+        },
+        "zh": {
+          "total": 100,
+          "hidden": 100
+        }
+      },
+      "after": {
+        "ar": {
+          "total": 100,
+          "hidden": 100
+        },
+        "bn": {
+          "total": 100,
+          "hidden": 100
+        },
+        "de": {
+          "total": 100,
+          "hidden": 100
+        },
+        "en": {
+          "total": 100,
+          "hidden": 100
+        },
+        "es": {
+          "total": 100,
+          "hidden": 100
+        },
+        "eu": {
+          "total": 100,
+          "hidden": 100
+        },
+        "fa": {
+          "total": 100,
+          "hidden": 100
+        },
+        "fil": {
+          "total": 100,
+          "hidden": 100
+        },
+        "fr": {
+          "total": 100,
+          "hidden": 100
+        },
+        "he": {
+          "total": 100,
+          "hidden": 100
+        },
+        "hi": {
+          "total": 100,
+          "hidden": 100
+        },
+        "id": {
+          "total": 100,
+          "hidden": 100
+        },
+        "it": {
+          "total": 100,
+          "hidden": 100
+        },
+        "ja": {
+          "total": 100,
+          "hidden": 100
+        },
+        "ka": {
+          "total": 100,
+          "hidden": 100
+        },
+        "ko": {
+          "total": 100,
+          "hidden": 100
+        },
+        "mg": {
+          "total": 100,
+          "hidden": 100
+        },
+        "ms": {
+          "total": 100,
+          "hidden": 100
+        },
+        "ne": {
+          "total": 100,
+          "hidden": 100
+        },
+        "nl": {
+          "total": 100,
+          "hidden": 100
+        },
+        "pa": {
+          "total": 100,
+          "hidden": 100
+        },
+        "pl": {
+          "total": 100,
+          "hidden": 100
+        },
+        "pt": {
+          "total": 100,
+          "hidden": 100
+        },
+        "ru": {
+          "total": 100,
+          "hidden": 100
+        },
+        "sv": {
+          "total": 100,
+          "hidden": 100
+        },
+        "ta": {
+          "total": 100,
+          "hidden": 100
+        },
+        "th": {
+          "total": 100,
+          "hidden": 100
+        },
+        "tr": {
+          "total": 100,
+          "hidden": 100
+        },
+        "uk": {
+          "total": 100,
+          "hidden": 100
+        },
+        "ur": {
+          "total": 100,
+          "hidden": 100
+        },
+        "vi": {
+          "total": 100,
+          "hidden": 100
+        },
+        "zh": {
+          "total": 100,
+          "hidden": 100
+        }
+      }
+    },
+    "randomIdentityRegressions": [
+      {
+        "seed": 999,
+        "verdicts": {
+          "ENGLISH_GIBBERISH": 1000
+        },
+        "scenario": "keyboardLike",
+        "samples": 1000
+      },
+      {
+        "seed": 1000,
+        "verdicts": {
+          "ENGLISH_GIBBERISH": 2000
+        },
+        "scenario": "independentSeedLetters",
+        "samples": 2000
+      },
+      {
+        "seed": 1001,
+        "verdicts": {
+          "ENGLISH_GIBBERISH": 1999,
+          "ALLOWED": 1
+        },
+        "scenario": "independentSeedLetters",
+        "samples": 2000
+      },
+      {
+        "seed": 1002,
+        "verdicts": {
+          "ENGLISH_GIBBERISH": 2000
+        },
+        "scenario": "independentSeedLetters",
+        "samples": 2000
+      },
+      {
+        "seed": 999,
+        "verdicts": {
+          "ENGLISH_GIBBERISH": 10000
+        },
+        "transport": "mesh",
+        "baselineWithoutModelAllowed": 9994,
+        "scenario": "mixedPrintableAscii",
+        "samples": 10000
+      },
+      {
+        "seed": 999,
+        "verdicts": {
+          "ENGLISH_GIBBERISH": 10000
+        },
+        "transport": "nostr",
+        "baselineWithoutModelAllowed": 9994,
+        "scenario": "mixedPrintableAscii",
+        "samples": 10000
+      },
+      {
+        "seed": 999,
+        "verdicts": {
+          "CHARACTER_RATE": 100
+        },
+        "scenario": "oversized",
+        "samples": 100
+      },
+      {
+        "seed": 999,
+        "verdicts": {
+          "ALLOWED": 3,
+          "REPEATED_ACROSS_USERS": 997
+        },
+        "scenario": "copied-text",
+        "samples": 1000
+      },
+      {
+        "seed": 999,
+        "verdicts": {
+          "ALLOWED": 6,
+          "MESSAGE_RATE": 994
+        },
+        "scenario": "same-identity",
+        "samples": 1000
+      },
+      {
+        "seed": 999,
+        "verdicts": {
+          "ENGLISH_GIBBERISH": 10000
+        },
+        "transport": "mesh",
+        "baselineWithoutModelAllowed": 10000,
+        "scenario": "spacedLetters",
+        "samples": 10000
+      },
+      {
+        "seed": 999,
+        "verdicts": {
+          "ENGLISH_GIBBERISH": 10000
+        },
+        "transport": "mesh",
+        "baselineWithoutModelAllowed": 10000,
+        "scenario": "unbrokenLetters",
+        "samples": 10000
+      },
+      {
+        "seed": 999,
+        "verdicts": {
+          "ENGLISH_GIBBERISH": 10000
+        },
+        "transport": "nostr",
+        "baselineWithoutModelAllowed": 10000,
+        "scenario": "spacedLetters",
+        "samples": 10000
+      },
+      {
+        "seed": 999,
+        "verdicts": {
+          "ENGLISH_GIBBERISH": 10000
+        },
+        "transport": "nostr",
+        "baselineWithoutModelAllowed": 10000,
+        "scenario": "unbrokenLetters",
+        "samples": 10000
+      }
+    ]
+  },
+  "validation": {
+    "app": {
+      "debugBuild": "pass",
+      "unitTests": {
+        "tests": 775,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 3,
+        "passed": 772
+      },
+      "lint": "completed; repository findings remain",
+      "lintCounts": {
+        "Hint": 19,
+        "Warning": 335,
+        "Error": 311
+      },
+      "findingsInNewModelAndEvaluationFiles": 0,
+      "bundledModelDigestsVerifiedInApk": 32
+    },
+    "wear": {
+      "debugBuild": "pass",
+      "unitTests": {
+        "tests": 303,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 303
+      },
+      "lint": "completed; repository findings remain",
+      "lintCounts": {
+        "Error": 37,
+        "Warning": 51,
+        "Hint": 10
+      },
+      "findingsInNewModelAndEvaluationFiles": 0,
+      "bundledModelDigestsVerifiedInApk": 32
+    },
+    "generator": "pass --check",
+    "hostScenarioTests": {
+      "passed": 6
+    },
+    "physicalMeshLab": {
+      "status": "blocked (not run)",
+      "reason": "No physical endpoints available",
+      "scenario": "broadcast_gibberish",
+      "controlLanguages": [
+        "en",
+        "ja",
+        "ar",
+        "ko",
+        "zh"
+      ]
+    },
+    "evaluationReportOrderRecheck": "pass on phone and watch; identical case reports"
+  }
+}

@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "implementation_commit": "8bf71b631fa1bd66dffd75f8076ddbf6b3323eda",
+  "comparison_base": "b8354d58e50356039399fd17d9e7eb5f491fefba",
+  "test_seed": 999,
+  "model": {
+    "language": "English",
+    "type": "character bigram Markov",
+    "alphabet_size": 27,
+    "weights": 729,
+    "weight_bytes": 2916,
+    "smoothing": 0.1,
+    "threshold_negative_log_probability": 4.2,
+    "training_data": "original synthetic examples",
+    "training_corpus": "tools/spam_filter/english-training.txt",
+    "training_corpus_sha256": "ff669ed795513847d073ff0782059ba8c114a5e7bfd2307fdc8bd68d4ce6e6ce"
+  },
+  "flood_metrics": [
+    {
+      "scenario": "original random text and fresh mesh identity per message",
+      "sent": 10000,
+      "baseline_admitted": 10000,
+      "model_admitted": 67,
+      "model_hidden": 9933,
+      "model_hidden_percent": 99.33
+    },
+    {
+      "scenario": "original random text and fresh Nostr sender key per message",
+      "sent": 10000,
+      "baseline_admitted": 10000,
+      "model_admitted": 52,
+      "model_hidden": 9948,
+      "model_hidden_percent": 99.48
+    },
+    {
+      "scenario": "validly signed geohash events, fresh synthetic identity per event",
+      "sent": 500,
+      "baseline_admitted": 500,
+      "model_admitted": 1,
+      "model_hidden": 499,
+      "model_hidden_percent": 99.8
+    },
+    {
+      "scenario": "mesh app-state admission, fresh synthetic identities",
+      "sent": 200,
+      "model_admitted": 1,
+      "model_hidden": 199,
+      "model_hidden_percent": 99.5
+    }
+  ],
+  "additional_seed_metrics": [
+    {
+      "seed": 1000,
+      "sent": 2000,
+      "model_hidden": 1986,
+      "model_admitted": 14,
+      "model_hidden_percent": 99.3
+    },
+    {
+      "seed": 1001,
+      "sent": 2000,
+      "model_hidden": 1991,
+      "model_admitted": 9,
+      "model_hidden_percent": 99.55
+    },
+    {
+      "seed": 1002,
+      "sent": 2000,
+      "model_hidden": 1988,
+      "model_admitted": 12,
+      "model_hidden_percent": 99.4
+    }
+  ],
+  "legitimate_controls": {
+    "scenario": "held-out synthetic legitimate controls",
+    "english": 60,
+    "multilingual": 16,
+    "technical_and_short": 15,
+    "model_flags": 0,
+    "baseline_other_rule_flags": 1,
+    "new_admission_changes": 0
+  },
+  "unit_tests": {
+    "app": {
+      "tests": 766,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 3,
+      "passed": 763
+    },
+    "wear": {
+      "tests": 296,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 296
+    }
+  },
+  "debug_builds": {
+    "app": "pass",
+    "wear": "pass"
+  },
+  "lint": {
+    "tasks": "completed under repository nonblocking configuration",
+    "new_filter_test_hook_issues": 0,
+    "app": {
+      "errors": 311,
+      "warnings": 335,
+      "hints": 19
+    },
+    "wear": {
+      "errors": 37,
+      "warnings": 51,
+      "hints": 10
+    }
+  },
+  "host_scenario_tests": {
+    "passed": 4,
+    "physical_evidence": false
+  },
+  "physical_validation": {
+    "result": "not_run",
+    "scenario": "broadcast_gibberish",
+    "physical_evidence": false
+  },
+  "reproduction": {
+    "model_check": "python3 tools/spam_filter/train_english.py --check",
+    "focused_tests": "TEST_SEED=999 ./gradlew :app:testDebugUnitTest --tests 'com.bitchat.android.spam.*' --tests '*GeohashMessageHandlerSpamTest' --tests '*IncomingMessageAdmissionTest' :wear:testDebugUnitTest --tests 'com.bitchat.android.spam.*'",
+    "project_checks": "./gradlew :app:assembleDebug :wear:assembleDebug testDebugUnitTest lintDebug",
+    "host_scenario_tests": "python3 -m unittest tools.release_gate.test_mesh_lab_gibberish"
+  },
+  "limits": [
+    "Synthetic development/regression samples are not a real-world accuracy benchmark",
+    "Short, unsupported, technical and plausible-looking text can pass",
+    "No physical-device result claimed"
+  ],
+  "documentation": "docs/english-gibberish-filter.md"
+}
