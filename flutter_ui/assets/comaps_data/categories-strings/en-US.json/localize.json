@@ -1,0 +1,10 @@
+{
+"shop-garden_centre|@shop": "4Garden Center",
+"amenity-cinema|@category_entertainment": "3Movie Theatre|3Cinema|Movies|Film|U+1F3A6|U+1F3AC",
+"amenity-theatre|@category_entertainment": "4Theater",
+"amenity-recycling-centre|@category_recycling": "4Recycling Center|U+1F6AE|U+267B",
+"shop-tyres|@shop": "3Tire|tires",
+"leisure-fitness_centre": "3Fitness Center",
+"shop-car_repair-tyres|shop-car_repair": "3Tire Repair|tires|tire puncture repair|flat tire repair|tire fix|tire replacement",
+"amenity-community_centre": "4Community Center"
+}

@@ -21,7 +21,7 @@
 |---|---|
 | **Health Report 封包** — 受災者自述狀況（Status）、位置與聯絡資訊的線路格式與序列化 | `app/.../protocol/DisasterReportPacket.kt` |
 | **Flutter ↔ Android 橋接** — MethodChannel／EventChannel，讓 Flutter UI 驅動原生 mesh | `app/.../flutter/BitchatFlutterChannels.kt`、`FlutterChatActivity.kt` |
-| **Flutter UI 全套畫面** — 登入／註冊／信箱驗證、首頁、SOS、避難所地圖、物資、防災知識、健康回報 | `flutter_ui/lib/screens/` |
+| **Flutter UI 全套畫面** — 登入／註冊／信箱驗證、首頁、SOS、主動顯示附近避難所與離線導航、物資、防災知識、健康回報 | `flutter_ui/lib/screens/` |
 | **Firebase 整合** — 使用者驗證與健康資料儲存 | `flutter_ui/lib/services/auth_service.dart` |
 
 ### 上游元件的修改
@@ -34,6 +34,8 @@
 - Gradle — 嵌入 `:flutter` 子專案、加入 google-services plugin
 
 完整的檔案層級差異：`git diff 632ee88 main`（`632ee88` 為 fork 自上游的最後一個未修改狀態）。
+
+離線地圖資料與導航引擎的安裝方式見 [離線地圖導航說明](docs/offline-map-navigation.md)。
 
 ---
 

@@ -67,15 +67,21 @@ abstract final class ExperimentErrors {
 }
 
 /// 設定頁 method 名稱，對應 Kotlin `SettingsBridge` 的 companion 常數（命名規則 `settings_<動詞><受詞>`，#80）。
+abstract final class MapMethods {
+  static const clearDataCache = 'clearMapDataCache';
+}
+
 abstract final class SettingsMethods {
   static const getState = 'settings_getState';
   static const requestPermission = 'settings_requestPermission';
   static const openAppSettings = 'settings_openAppSettings';
   static const requestEnableBluetooth = 'settings_requestEnableBluetooth';
-  static const requestIgnoreBatteryOptimization = 'settings_requestIgnoreBatteryOptimization';
+  static const requestIgnoreBatteryOptimization =
+      'settings_requestIgnoreBatteryOptimization';
   static const setBackgroundEnabled = 'settings_setBackgroundEnabled';
   static const setAutoStartEnabled = 'settings_setAutoStartEnabled';
-  static const setNotificationAutoRestore = 'settings_setNotificationAutoRestore';
+  static const setNotificationAutoRestore =
+      'settings_setNotificationAutoRestore';
   static const panicClear = 'settings_panicClear';
 }
 
@@ -148,7 +154,9 @@ abstract final class ChatEvents {
 }
 
 class BitchatBridge {
-  static const MethodChannel _method = MethodChannel('com.bitchat/bridge/methods');
+  static const MethodChannel _method = MethodChannel(
+    'com.bitchat/bridge/methods',
+  );
   static const EventChannel _events = EventChannel('com.bitchat/bridge/events');
 
   // Cached broadcast stream — receiveBroadcastStream() must only be called once
@@ -156,15 +164,14 @@ class BitchatBridge {
   static Stream<Map<String, dynamic>>? _cachedEventStream;
 
   static Stream<Map<String, dynamic>> events() {
-    return _cachedEventStream ??= _events
-        .receiveBroadcastStream()
-        .map((dynamic e) {
-          if (e is Map) {
-            return e.map((k, v) => MapEntry(k.toString(), v));
-          }
-          return <String, dynamic>{'type': 'unknown', 'raw': e};
-        })
-        .asBroadcastStream();
+    return _cachedEventStream ??= _events.receiveBroadcastStream().map((
+      dynamic e,
+    ) {
+      if (e is Map) {
+        return e.map((k, v) => MapEntry(k.toString(), v));
+      }
+      return <String, dynamic>{'type': 'unknown', 'raw': e};
+    }).asBroadcastStream();
   }
 
   /// 設定流程用的舊方法（[getSystemStatus]、[checkPermissions]、[requestPermissions]、[isRegistered]、
@@ -176,22 +183,35 @@ class BitchatBridge {
   ///
   /// 原生以 `result.error(...)` 回報的 [PlatformException]（例如 `START_FAILED`、`NO_ACTIVITY`）照常
   /// 往上拋，連同錯誤碼與原因，由呼叫端決定怎麼告訴使用者（與 [setNickname] 等方法一致）。
-  static Future<T> _degradeWithoutNative<T>(String method, T fallback, Future<T> Function() call) async {
+  static Future<T> _degradeWithoutNative<T>(
+    String method,
+    T fallback,
+    Future<T> Function() call,
+  ) async {
     try {
       return await call();
     } on MissingPluginException {
-      debugPrint('BitchatBridge: $method has no native implementation on this platform; using $fallback');
+      debugPrint(
+        'BitchatBridge: $method has no native implementation on this platform; using $fallback',
+      );
       return fallback;
     }
   }
 
   /// 獲取當前系統狀態 (藍牙、位置、權限)。沒有原生實作時回傳 null；原生錯誤（[PlatformException]）
   /// 往上拋。
+
   static Future<Map<String, dynamic>?> getSystemStatus() =>
-      _degradeWithoutNative<Map<String, dynamic>?>('getSystemStatus', null, () async {
-        final Map<dynamic, dynamic>? result = await _method.invokeMethod<Map>('getSystemStatus');
-        return result?.map((k, v) => MapEntry(k.toString(), v));
-      });
+      _degradeWithoutNative<Map<String, dynamic>?>(
+        'getSystemStatus',
+        null,
+        () async {
+          final Map<dynamic, dynamic>? result = await _method.invokeMethod<Map>(
+            'getSystemStatus',
+          );
+          return result?.map((k, v) => MapEntry(k.toString(), v));
+        },
+      );
 
   /// 從裝置相簿挑一張照片當大頭貼。回傳已在原生端裁成正方形、縮成小圖的 JPEG；
   /// 使用者取消時為 null。沒有原生實作的平台（例如 iOS 開發用模擬機）會丟
@@ -201,28 +221,37 @@ class BitchatBridge {
 
   /// 檢查權限是否已開啟 (通知、藍牙、位置)。沒有原生實作時回傳 false；原生錯誤（[PlatformException]）
   /// 往上拋，不當成「沒有權限」。
-  static Future<bool> checkPermissions() => _degradeWithoutNative('checkPermissions', false, () async {
-        final bool? result = await _method.invokeMethod<bool>('checkPermissions');
-        return result ?? false;
-      });
+  static Future<bool> checkPermissions() => _degradeWithoutNative(
+    'checkPermissions',
+    false,
+    () async {
+      final bool? result = await _method.invokeMethod<bool>('checkPermissions');
+      return result ?? false;
+    },
+  );
 
   /// 請原生跳出權限請求。回傳是否已發出請求（不是使用者是否允許）；沒有原生實作時回傳 false。
   /// 原生沒有發出請求時（例如 `NO_ACTIVITY`）以 [PlatformException] 往上拋。
-  static Future<bool> requestPermissions() => _degradeWithoutNative('requestPermissions', false, () async {
-        final bool? result = await _method.invokeMethod<bool>('requestPermissions');
+  static Future<bool> requestPermissions() =>
+      _degradeWithoutNative('requestPermissions', false, () async {
+        final bool? result = await _method.invokeMethod<bool>(
+          'requestPermissions',
+        );
         return result ?? false;
       });
 
   /// 檢查原生端是否已有身分資料（已註冊）。沒有原生實作時回傳 false（iOS 的 setup 流程依賴它）；
   /// 原生讀不到身分資料時（例如 `IDENTITY_UNAVAILABLE`）以 [PlatformException] 往上拋，不當成「尚未註冊」。
-  static Future<bool> isRegistered() => _degradeWithoutNative('isRegistered', false, () async {
+  static Future<bool> isRegistered() =>
+      _degradeWithoutNative('isRegistered', false, () async {
         final bool? result = await _method.invokeMethod<bool>('isRegistered');
         return result ?? false;
       });
 
   /// 啟動 Mesh 服務。回傳 true 表示已啟動；沒有原生實作時回傳 false。原生啟動失敗時（例如
   /// `START_FAILED`）以 [PlatformException] 往上拋，[PlatformException.message] 是 Kotlin 回報的原因。
-  static Future<bool> startMesh() => _degradeWithoutNative('startMesh', false, () async {
+  static Future<bool> startMesh() =>
+      _degradeWithoutNative('startMesh', false, () async {
         final bool? result = await _method.invokeMethod<bool>('startMesh');
         return result ?? false;
       });
@@ -252,7 +281,9 @@ class BitchatBridge {
   /// 正規化後的對話 ID，也可能拒絕（例如已封鎖）。完成後回傳當下的 [ChatEvents.selectedPrivatePeer]
   /// map。bridge 錯誤會往上拋。
   static Future<Map<dynamic, dynamic>?> startPrivateChat(String peerID) =>
-      _method.invokeMethod<Map>(ChatMethods.startPrivateChat, <String, dynamic>{'peerID': peerID});
+      _method.invokeMethod<Map>(ChatMethods.startPrivateChat, <String, dynamic>{
+        'peerID': peerID,
+      });
 
   /// 結束私訊焦點（原生 `ChatViewModel.endPrivateChat`），之後輸入的文字回到公開聊天室。
   /// 回傳當下的 [ChatEvents.selectedPrivatePeer] map（`peerID` 為 null）。bridge 錯誤會往上拋。
@@ -277,7 +308,10 @@ class BitchatBridge {
   /// [ChatEvents.selectedPrivatePeer] `peerID`。新的星號經 [ChatEvents.peers]、
   /// [ChatEvents.selectedPrivatePeer] 快照回推。bridge 錯誤會往上拋。
   static Future<void> toggleFavorite(String peerID) async {
-    await _method.invokeMethod<void>(ChatMethods.toggleFavorite, <String, dynamic>{'peerID': peerID});
+    await _method.invokeMethod<void>(
+      ChatMethods.toggleFavorite,
+      <String, dynamic>{'peerID': peerID},
+    );
   }
 
   /// 設定 mesh 暱稱（原生 `ChatViewModel.setNickname`：儲存後立即重新 announce）。
@@ -287,18 +321,22 @@ class BitchatBridge {
   /// 處理沿用上游，這裡不另訂規則。新值經 [ChatEvents.nickname] 快照回推；
   /// bridge 錯誤（例如 [MissingPluginException]、[PlatformException]）會往上拋。
   static Future<void> setNickname(String nickname) async {
-    await _method.invokeMethod<void>(
-      ChatMethods.setNickname,
-      <String, dynamic>{'nickname': nickname},
-    );
+    await _method.invokeMethod<void>(ChatMethods.setNickname, <String, dynamic>{
+      'nickname': nickname,
+    });
   }
 
   /// 一次性讀取目前的 mesh 暱稱。畫面請改看 `ChatService.nickname`（[ChatEvents.nickname] 快照），
   /// 它會跟著任何來源的變更更新。bridge 錯誤會往上拋。
   static Future<String> getNickname() async {
-    final String? nickname = await _method.invokeMethod<String>(ChatMethods.getNickname);
+    final String? nickname = await _method.invokeMethod<String>(
+      ChatMethods.getNickname,
+    );
     if (nickname == null) {
-      throw PlatformException(code: 'NO_NICKNAME', message: '${ChatMethods.getNickname} answered null');
+      throw PlatformException(
+        code: 'NO_NICKNAME',
+        message: '${ChatMethods.getNickname} answered null',
+      );
     }
     return nickname;
   }
@@ -315,11 +353,14 @@ class BitchatBridge {
   /// 公開聊天室（null）的文字用來更新 `/` 指令與 `@` 提及補完，結果經 [ChatEvents.suggestions]
   /// 快照回推；私訊輸入框的文字只存成該私訊的草稿（原生私訊畫面沒有補完）。文字原樣傳過去。
   /// bridge 錯誤會往上拋。
-  static Future<void> updateChatInput(String text, {String? privateChat}) async {
-    await _method.invokeMethod<void>(
-      ChatMethods.updateInput,
-      <String, dynamic>{'text': text, 'privateChat': privateChat},
-    );
+  static Future<void> updateChatInput(
+    String text, {
+    String? privateChat,
+  }) async {
+    await _method.invokeMethod<void>(ChatMethods.updateInput, <String, dynamic>{
+      'text': text,
+      'privateChat': privateChat,
+    });
   }
 
   /// 選取一個 `/` 指令補完，回傳輸入框的新文字（原生 `selectCommandSuggestion`，同時關閉清單）。
@@ -327,23 +368,36 @@ class BitchatBridge {
   /// 只傳指令名稱，原生端從它目前提供的清單找回上游物件；該指令已不在清單上時回傳 null，
   /// 輸入框不要變。bridge 錯誤會往上拋。
   static Future<String?> selectCommandSuggestion(String command) =>
-      _method.invokeMethod<String>(ChatMethods.selectCommandSuggestion, <String, dynamic>{'command': command});
+      _method.invokeMethod<String>(
+        ChatMethods.selectCommandSuggestion,
+        <String, dynamic>{'command': command},
+      );
 
   /// 選取一個 `@` 提及補完，回傳輸入框的新文字（原生 `selectMentionSuggestion`：把正在輸入的
   /// `@片段` 換成 `@暱稱 `，同時關閉清單）。[currentText] 是選取當下輸入框的文字。
   /// bridge 錯誤會往上拋。
-  static Future<String> selectMentionSuggestion(String nickname, String currentText) async {
+  static Future<String> selectMentionSuggestion(
+    String nickname,
+    String currentText,
+  ) async {
     final String? text = await _method.invokeMethod<String>(
       ChatMethods.selectMentionSuggestion,
       <String, dynamic>{'nickname': nickname, 'currentText': currentText},
     );
     if (text == null) {
-      throw PlatformException(code: 'NO_TEXT', message: '${ChatMethods.selectMentionSuggestion} answered null');
+      throw PlatformException(
+        code: 'NO_TEXT',
+        message: '${ChatMethods.selectMentionSuggestion} answered null',
+      );
     }
     return text;
   }
 
   /// 關閉兩個補完清單（原生輸入框在送出、清空文字後這樣做）。bridge 錯誤會往上拋。
+  static Future<void> clearMapDataCache() async {
+    await _method.invokeMethod<void>(MapMethods.clearDataCache);
+  }
+
   static Future<void> clearChatSuggestions() async {
     await _method.invokeMethod<void>(ChatMethods.clearSuggestions);
   }
@@ -396,8 +450,8 @@ class BitchatBridge {
     required String? startAt,
     required String status,
     required bool keepAwake,
-  }) =>
-      _method.invokeMethod<Map>(ExperimentMethods.startSender, <String, dynamic>{
+  }) => _method
+      .invokeMethod<Map>(ExperimentMethods.startSender, <String, dynamic>{
         'device': device,
         'count': count,
         'intervalMs': intervalMs,
@@ -417,9 +471,14 @@ class BitchatBridge {
 
   /// 一次取得權限、藍牙、電池最佳化、mesh 背景運作的三個開關與版本號（見 `models/settings_state.dart`）。
   static Future<Map<String, dynamic>> getSettingsState() async {
-    final Map<dynamic, dynamic>? state = await _method.invokeMethod<Map>(SettingsMethods.getState);
+    final Map<dynamic, dynamic>? state = await _method.invokeMethod<Map>(
+      SettingsMethods.getState,
+    );
     if (state == null) {
-      throw PlatformException(code: 'NO_STATE', message: '${SettingsMethods.getState} answered null');
+      throw PlatformException(
+        code: 'NO_STATE',
+        message: '${SettingsMethods.getState} answered null',
+      );
     }
     return state.map((k, v) => MapEntry(k.toString(), v));
   }
@@ -428,31 +487,46 @@ class BitchatBridge {
   /// 系統不再詢問時開啟 App 資訊頁讓使用者自己切換，電池最佳化則請系統排除本 App。回傳原生做了哪一個
   /// （`prompted`、`openedAppSettings`、`requestedBatteryExemption`）。
   static Future<String?> requestSettingsPermission(String category) =>
-      _method.invokeMethod<String>(SettingsMethods.requestPermission, <String, dynamic>{'category': category});
+      _method.invokeMethod<String>(
+        SettingsMethods.requestPermission,
+        <String, dynamic>{'category': category},
+      );
 
   /// 開啟系統設定裡本 App 的資訊頁。
-  static Future<void> openAppSettings() => _method.invokeMethod<void>(SettingsMethods.openAppSettings);
+  static Future<void> openAppSettings() =>
+      _method.invokeMethod<void>(SettingsMethods.openAppSettings);
 
   /// 請系統詢問使用者是否開啟藍牙（App 不能直接開關系統藍牙）。
-  static Future<void> requestEnableBluetooth() => _method.invokeMethod<void>(SettingsMethods.requestEnableBluetooth);
+  static Future<void> requestEnableBluetooth() =>
+      _method.invokeMethod<void>(SettingsMethods.requestEnableBluetooth);
 
   /// 請系統詢問是否讓本 App 不受電池最佳化限制。
-  static Future<void> requestIgnoreBatteryOptimization() =>
-      _method.invokeMethod<void>(SettingsMethods.requestIgnoreBatteryOptimization);
+  static Future<void> requestIgnoreBatteryOptimization() => _method
+      .invokeMethod<void>(SettingsMethods.requestIgnoreBatteryOptimization);
 
   /// 背景執行；關閉時原生會停止前景服務。
   static Future<void> setBackgroundEnabled(bool enabled) =>
-      _method.invokeMethod<void>(SettingsMethods.setBackgroundEnabled, <String, dynamic>{'enabled': enabled});
+      _method.invokeMethod<void>(
+        SettingsMethods.setBackgroundEnabled,
+        <String, dynamic>{'enabled': enabled},
+      );
 
   /// 開機自動啟動。
   static Future<void> setAutoStartEnabled(bool enabled) =>
-      _method.invokeMethod<void>(SettingsMethods.setAutoStartEnabled, <String, dynamic>{'enabled': enabled});
+      _method.invokeMethod<void>(
+        SettingsMethods.setAutoStartEnabled,
+        <String, dynamic>{'enabled': enabled},
+      );
 
   /// 常駐通知被滑掉時立即恢復；原生會立刻重發一次通知讓設定生效。
   static Future<void> setNotificationAutoRestore(bool enabled) =>
-      _method.invokeMethod<void>(SettingsMethods.setNotificationAutoRestore, <String, dynamic>{'enabled': enabled});
+      _method.invokeMethod<void>(
+        SettingsMethods.setNotificationAutoRestore,
+        <String, dynamic>{'enabled': enabled},
+      );
 
   /// 原生 `ChatViewModel.panicClearAllData()`：清除聊天紀錄、身分金鑰、媒體檔與通知，換一組新身分。
   /// 原生清除完才回來；沒有清乾淨時以 [SettingsErrors] 的錯誤碼往上拋。
-  static Future<void> panicClear() => _method.invokeMethod<void>(SettingsMethods.panicClear);
+  static Future<void> panicClear() =>
+      _method.invokeMethod<void>(SettingsMethods.panicClear);
 }

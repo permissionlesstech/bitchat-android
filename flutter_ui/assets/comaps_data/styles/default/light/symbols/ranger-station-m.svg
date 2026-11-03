@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="18px" height="18px" viewBox="0 0 18 18" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>ranger-station-m</title>
+    <g id="ranger-station-m" stroke="none" fill="none" fill-rule="nonzero">
+        <circle id="Oval" fill="#FFFFFF" opacity="0.6" cx="9" cy="9" r="9"></circle>
+        <circle id="Oval" fill="#747E86" cx="9" cy="9" r="8.25"></circle>
+        <polygon id="Path" fill="#FFFFFF" points="10.1090909 3.30003542 8.56363636 4.07276269 8.56363636 6.98857032 4.7 9.09552538 4.7 13.7319598 7.79090909 13.7319598 7.79090909 10.6410508 10.1090909 10.6410508 10.1090909 13.7319598 13.2 13.7319598 13.2 9.09552538 9.33636364 6.98857032 9.33636364 6.00454545 10.1090909 5.61818182 11.6545455 6.39090909 13.2 5.61818182 13.2 3.3 11.6545455 4.07272727"></polygon>
+    </g>
+</svg>

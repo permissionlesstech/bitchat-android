@@ -1,59 +1,50 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_ui/screens/shelter_screen.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:flutter_ui/screens/offline_navigation_screen.dart';
+import 'package:flutter_ui/services/offline_shelter_service.dart';
 
-import 'support/screen_sizes.dart';
-
-/// 防災地圖本身是 WebView，測試裡無法建立，所以只測地圖下方的資料來源列（#79）。
 void main() {
-  late List<String> opened;
+  testWidgets('offline shelter map exposes shelter navigation details', (
+    tester,
+  ) async {
+    const shelter = ShelterLocation(
+      name: '測試避難所',
+      latitude: 23.9461,
+      longitude: 120.9251,
+    );
+    final position = Position(
+      longitude: 120.925,
+      latitude: 23.946,
+      timestamp: DateTime(2026),
+      accuracy: 10,
+      altitude: 0,
+      altitudeAccuracy: 0,
+      heading: 0,
+      headingAccuracy: 0,
+      speed: 0,
+      speedAccuracy: 0,
+    );
 
-  setUp(() => opened = []);
-
-  Future<void> pumpFooter(WidgetTester tester) => tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: Column(
-            children: [
-              const Expanded(child: SizedBox()),
-              ShelterSourceFooter(onOpen: opened.add),
-            ],
-          ),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: OfflineNavigationScreen(
+          position: position,
+          shelters: const [
+            NearbyShelter(location: shelter, distanceMeters: 20),
+          ],
         ),
-      ));
+      ),
+    );
 
-  for (final screen in layoutCases) {
-    testWidgets('the source line fits on $screen', (tester) async {
-      useScreen(tester, screen);
-
-      await pumpFooter(tester);
-
-      expect(tester.takeException(), isNull);
-    });
-  }
-
-  testWidgets('on a narrow phone with large text the second source wraps onto its own line', (tester) async {
-    useScreen(tester, smallPhoneLargeText);
-
-    await pumpFooter(tester);
-
-    final footer = tester.getRect(find.byType(ShelterSourceFooter));
-    final paragraph = tester.renderObject<RenderParagraph>(
-        find.descendant(of: find.byType(ShelterSourceFooter), matching: find.byType(RichText)).first);
-    final text = paragraph.text.toPlainText();
-    double lineOf(String part) =>
-        paragraph.getOffsetForCaret(TextPosition(offset: text.indexOf(part)), Rect.zero).dy;
-    expect(footer.right, lessThanOrEqualTo(smallPhoneLargeText.size.width));
-    expect(lineOf('內政部警政署（NPA）'), greaterThan(lineOf('kiang.github.io/air_raid_shelter')));
-  });
-
-  testWidgets('both sources stay tappable', (tester) async {
-    useScreen(tester, smallPhoneLargeText);
-    await pumpFooter(tester);
-
-    await tester.tapOnText(find.textRange.ofSubstring('kiang.github.io/air_raid_shelter'));
-    await tester.tapOnText(find.textRange.ofSubstring('內政部警政署（NPA）'));
-
-    expect(opened, ['https://kiang.github.io/air_raid_shelter/', 'https://adr.npa.gov.tw/']);
+    expect(find.text('防災避難所・離線地圖'), findsOneWidget);
+    expect(find.text('附近避難所 1 / 1 處'), findsOneWidget);
+    expect(find.text('要顯示的避難所數量'), findsOneWidget);
+    expect(find.textContaining('測試避難所'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.location_on_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('開始導航'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

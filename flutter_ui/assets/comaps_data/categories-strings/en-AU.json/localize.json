@@ -1,0 +1,9 @@
+{
+"shop-alcohol|@category_food|@shop": "Bottleshop|liquor",
+"shop-optician|@shop": "Optometrist|4Optician",
+"shop-confectionery|craft-confectionery|@category_food|@shop": "Lollies|Candy",
+"shop-car|@shop": "3Car Dealership|Car showroom",
+"amenity-kindergarten": "Kindy",
+"amenity-pharmacy|@category_pharmacy": "4Chemist|pharmacist",
+"amenity-waste_basket": "4Waste Bin|4litter bin|trash bin"
+}

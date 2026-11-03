@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.bluetooth.BluetoothAdapter
 import android.location.LocationManager
+import android.net.Uri
 import android.util.Log
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.mesh.InboundPacketBridge
@@ -134,6 +135,23 @@ class BitchatFlutterChannels(
     /** 處理系統狀態、權限與 Health Report 相關 method；不認得的回 false 交給下一個 handler。 */
     override fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {
         when (call.method) {
+            "clearMapDataCache" -> {
+                try {
+                    val staleFiles = listOf(
+                        "minsk-pass.mwm",
+                        "Taiwan_North.mwm",
+                        "Taiwan_South.mwm",
+                        ".comaps_data_extracted"
+                    )
+                    staleFiles.forEach { name -> context.filesDir.resolve(name).deleteRecursively() }
+                    context.filesDir.resolve("borders").deleteRecursively()
+                    context.filesDir.resolve("test_data").deleteRecursively()
+                    result.success(true)
+                } catch (e: Exception) {
+                    result.error("MAP_CACHE_CLEAR_FAILED", e.message, null)
+                }
+            }
+
             "getSystemStatus" -> {
                 result.success(getStatusMap())
             }

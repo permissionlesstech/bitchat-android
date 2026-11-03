@@ -1,0 +1,11 @@
+{
+"shop-alcohol|@category_food|@shop": "Off licence|liquor",
+"shop-jewelry|@category_shopping|@shop": "4Jewellery",
+"shop-mall|@category_shopping|@shop": "entertainment centre|shopping arcade|retail|Shopping Centre",
+"shop-car|@shop": "3Car Dealership|Car showroom",
+"amenity-pharmacy|@category_pharmacy": "4Chemist|pharmacist|Pharmacy",
+"amenity-waste_basket": "4Waste Bin|4litter bin|trash bin",
+"amenity-arts_centre|@category_tourism": "Arts Centre",
+"amenity-exhibition_centre": "Exhibition Centre",
+"amenity-conference_centre": "Conference Centre"
+}

@@ -1,0 +1,16 @@
+diff --git a/android/src/main/java/app/agus/maps/agus_maps_flutter/AgusMapsFlutterPlugin.java b/android/src/main/java/app/agus/maps/agus_maps_flutter/AgusMapsFlutterPlugin.java
+--- a/android/src/main/java/app/agus/maps/agus_maps_flutter/AgusMapsFlutterPlugin.java
++++ b/android/src/main/java/app/agus/maps/agus_maps_flutter/AgusMapsFlutterPlugin.java
+@@ -69,7 +69,11 @@ public class AgusMapsFlutterPlugin implements FlutterPlugin, AgusMapsApi.AgusMapsHostApi {
+     // Initialize native locale for localized type names
+     Locale locale = Locale.getDefault();
+     String localeTag = locale != null ? locale.toLanguageTag() : "en";
+-    nativeSetLocale(localeTag);
++    try {
++      nativeSetLocale(localeTag);
++    } catch (UnsatisfiedLinkError error) {
++      android.util.Log.w(TAG, "Native locale support is unavailable; using the default locale", error);
++    }
+     
+     // Get display metrics for proper density
+     WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);

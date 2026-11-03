@@ -1,0 +1,169 @@
+diff --git a/src/agus_maps_flutter.h b/src/agus_maps_flutter.h
+--- a/src/agus_maps_flutter.h
++++ b/src/agus_maps_flutter.h
+@@ -294,3 +294,10 @@
+ FFI_PLUGIN_EXPORT void comaps_navigation_clear_route_points(void);
++FFI_PLUGIN_EXPORT int32_t comaps_navigation_update_location(
++    double latitude,
++    double longitude,
++    double horizontalAccuracy,
++    double timestamp,
++    double bearing,
++    double speed);
+ FFI_PLUGIN_EXPORT int32_t comaps_navigation_build_route(void);
+ FFI_PLUGIN_EXPORT int32_t comaps_navigation_follow_route(void);
+diff --git a/src/agus_maps_flutter.cpp b/src/agus_maps_flutter.cpp
+--- a/src/agus_maps_flutter.cpp
++++ b/src/agus_maps_flutter.cpp
+@@ -2322,10 +2322,40 @@
+ FFI_PLUGIN_EXPORT void comaps_navigation_clear_route_points(void) {
+     agus::navigation::ClearRoutePoints(g_framework.get());
+     WakeRenderer();
+ }
+ 
++FFI_PLUGIN_EXPORT int32_t comaps_navigation_update_location(
++    double latitude,
++    double longitude,
++    double horizontalAccuracy,
++    double timestamp,
++    double bearing,
++    double speed) {
++    if (!g_framework) return -1;
++    if (!std::isfinite(latitude) || latitude < -90.0 || latitude > 90.0 ||
++        !std::isfinite(longitude) || longitude < -180.0 || longitude > 180.0 ||
++        !std::isfinite(horizontalAccuracy) || horizontalAccuracy < 0.0 ||
++        !std::isfinite(timestamp) || timestamp < 0.0 ||
++        !std::isfinite(bearing) || bearing < -1.0 || bearing >= 360.0 ||
++        !std::isfinite(speed) || speed < -1.0) {
++        return -2;
++    }
++
++    location::GpsInfo info;
++    info.m_source = location::EUser;
++    info.m_timestamp = timestamp;
++    info.m_latitude = latitude;
++    info.m_longitude = longitude;
++    info.m_horizontalAccuracy = horizontalAccuracy;
++    info.m_bearing = bearing;
++    info.m_speed = speed;
++    g_framework->OnLocationUpdate(info);
++    WakeRenderer();
++    return 1;
++}
++
+ FFI_PLUGIN_EXPORT int32_t comaps_navigation_build_route(void) {
+     auto const result = agus::navigation::BuildRoute(g_framework.get());
+     if (result > 0) WakeRenderer();
+     return result;
+ }
+diff --git a/lib/agus_maps_flutter_bindings_generated.dart b/lib/agus_maps_flutter_bindings_generated.dart
+--- a/lib/agus_maps_flutter_bindings_generated.dart
++++ b/lib/agus_maps_flutter_bindings_generated.dart
+@@ -703,6 +703,37 @@
+   late final _comaps_navigation_clear_route_points =
+       _comaps_navigation_clear_route_pointsPtr.asFunction<void Function()>();
+ 
++  int comaps_navigation_update_location(
++    double latitude,
++    double longitude,
++    double horizontalAccuracy,
++    double timestamp,
++    double bearing,
++    double speed,
++  ) {
++    return _comaps_navigation_update_location(
++      latitude,
++      longitude,
++      horizontalAccuracy,
++      timestamp,
++      bearing,
++      speed,
++    );
++  }
++
++  late final _comaps_navigation_update_locationPtr = _lookup<
++      ffi.NativeFunction<
++          ffi.Int32 Function(
++              ffi.Double,
++              ffi.Double,
++              ffi.Double,
++              ffi.Double,
++              ffi.Double,
++              ffi.Double)>>('comaps_navigation_update_location');
++  late final _comaps_navigation_update_location =
++      _comaps_navigation_update_locationPtr.asFunction<
++          int Function(double, double, double, double, double, double)>();
++
+   int comaps_navigation_build_route() {
+     return _comaps_navigation_build_route();
+   }
+diff --git a/lib/agus_maps_flutter.dart b/lib/agus_maps_flutter.dart
+--- a/lib/agus_maps_flutter.dart
++++ b/lib/agus_maps_flutter.dart
+@@ -678,22 +678,66 @@
+ /// Cancel native CoMaps search and clear cached native results.
+ void cancelNativeSearch() {
+   try {
+     _bindings.comaps_search_cancel();
+   } on ArgumentError catch (error) {
+     if (kDebugMode) {
+       debugPrint('[AgusMap] Native search cancel is unavailable: $error');
+     }
+   }
+ }
+ 
++/// Send a platform location update to CoMaps for route matching and guidance.
++int updateNavigationLocation({
++  required double latitude,
++  required double longitude,
++  required double horizontalAccuracy,
++  required double timestampSeconds,
++  double bearingDegrees = -1,
++  double speedMetersPerSecond = -1,
++}) {
++  if (!latitude.isFinite ||
++      latitude < -90 ||
++      latitude > 90 ||
++      !longitude.isFinite ||
++      longitude < -180 ||
++      longitude > 180 ||
++      !horizontalAccuracy.isFinite ||
++      horizontalAccuracy < 0 ||
++      !timestampSeconds.isFinite ||
++      timestampSeconds < 0 ||
++      !bearingDegrees.isFinite ||
++      bearingDegrees < -1 ||
++      bearingDegrees >= 360 ||
++      !speedMetersPerSecond.isFinite ||
++      speedMetersPerSecond < -1) {
++    throw ArgumentError('Invalid navigation location');
++  }
++
++  try {
++    return _bindings.comaps_navigation_update_location(
++      latitude,
++      longitude,
++      horizontalAccuracy,
++      timestampSeconds,
++      bearingDegrees,
++      speedMetersPerSecond,
++    );
++  } on ArgumentError catch (error) {
++    if (kDebugMode) {
++      debugPrint('[AgusMap] Navigation location updates are unavailable: $error');
++    }
++    return -1;
++  }
++}
++
+ /// Select the native CoMaps router engine.
+ int setNavigationRouter(NavigationRouterType routerType) {
+   try {
+     return _bindings.comaps_navigation_set_router(routerType.index);
+   } on ArgumentError catch (error) {
+     if (kDebugMode) {
+       debugPrint('[AgusMap] Navigation router is unavailable: $error');
+     }
+     return -1;
+   }
+ }

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="18px" height="18px" viewBox="0 0 18 18" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>atm-m</title>
+    <g id="atm-m" stroke="none" fill="none" fill-rule="nonzero">
+        <path d="M13.8,4.2 C14.4618,4.2 15,4.7382 15,5.4 L15,12.6 C15,13.2618 14.4618,13.8 13.8,13.8 L4.2,13.8 C3.5382,13.8 3,13.2618 3,12.6 L3,5.4 C3,4.7382 3.5382,4.2 4.2,4.2 L13.8,4.2 Z M13.8006,9 L4.2,9 L4.2,12.6 L13.8012,12.6 L13.8006,9 Z M9,10.2 L9,11.4 L5.4,11.4 L5.4,10.2 L9,10.2 Z M13.8,5.4 L4.2,5.4 L4.2,6.6 L13.8,6.6 L13.8,5.4 Z" id="Shape" fill="#51585E"></path>
+    </g>
+</svg>
