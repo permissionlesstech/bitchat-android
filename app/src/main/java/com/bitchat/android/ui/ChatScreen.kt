@@ -437,11 +437,15 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     )
                 },
                 onMentionSuggestionClick = { mention: String ->
-                    val mentionText = viewModel.selectMentionSuggestion(mention, messageText.text)
-                    messageText = TextFieldValue(
-                        text = mentionText,
-                        selection = TextRange(mentionText.length)
-                    )
+                    // A retained callback may run before visibility has recomposed.
+                    if (viewModel.showMentionSuggestions.value &&
+                        mention in viewModel.mentionSuggestions.value) {
+                        val mentionText = viewModel.selectMentionSuggestion(mention, messageText.text)
+                        messageText = TextFieldValue(
+                            text = mentionText,
+                            selection = TextRange(mentionText.length)
+                        )
+                    }
                 },
                 selectedPrivatePeer = null,
                 currentChannel = currentChannel,
@@ -571,6 +575,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 TextButton(
                     onClick = {
                         showPanicConfirmation = false
+                        messageText = TextFieldValue("")
+                        viewModel.clearSuggestions()
                         viewModel.panicClearAllData()
                     },
                     colors = ButtonDefaults.textButtonColors(
@@ -739,7 +745,9 @@ fun ChatInputSection(
                 MentionSuggestionsBox(
                     suggestions = displayedMentionSuggestions,
                     mentionPeerIdentities = mentionPeerIdentities,
-                    onSuggestionClick = onMentionSuggestionClick,
+                    onSuggestionClick = { nickname ->
+                        if (mentionPickerVisible) onMentionSuggestionClick(nickname)
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
                 HorizontalDivider(thickness = 1.dp, color = colorScheme.outlineVariant)
