@@ -73,10 +73,14 @@ class BluetoothConnectionManager(
         }
 
         override fun onGattClientWriteComplete(deviceAddress: String, linkID: String, status: Int) {
+            BleLinkDiagnostics.onSendComplete(deviceAddress, linkID, status == BluetoothGatt.GATT_SUCCESS)
+            clientManager.onSendResult(linkID, status == BluetoothGatt.GATT_SUCCESS)
             packetBroadcaster.onGattClientWriteComplete(deviceAddress, linkID, status)
         }
 
         override fun onGattServerNotificationComplete(deviceAddress: String, linkID: String?, status: Int) {
+            BleLinkDiagnostics.onSendComplete(deviceAddress, linkID, status == BluetoothGatt.GATT_SUCCESS)
+            linkID?.let { serverManager.onSendResult(it, status == BluetoothGatt.GATT_SUCCESS) }
             packetBroadcaster.onGattServerNotificationComplete(deviceAddress, linkID, status)
         }
         
@@ -85,10 +89,10 @@ class BluetoothConnectionManager(
         }
     }
     
-    private val serverManager = BluetoothGattServerManager(
+    private val serverManager: BluetoothGattServerManager = BluetoothGattServerManager(
         context, connectionScope, connectionTracker, permissionManager, powerManager, componentDelegate, myPeerID
     )
-    private val clientManager = BluetoothGattClientManager(
+    private val clientManager: BluetoothGattClientManager = BluetoothGattClientManager(
         context, connectionScope, connectionTracker, permissionManager, powerManager, componentDelegate
     )
     
@@ -102,7 +106,9 @@ class BluetoothConnectionManager(
     val addressPeerMap get() = connectionTracker.addressPeerMap
 
     fun observePeerIfCurrent(deviceAddress: String, linkID: String, peerID: String): Boolean =
-        connectionTracker.observePeerIfCurrent(deviceAddress, linkID, peerID)
+        connectionTracker.observePeerIfCurrent(deviceAddress, linkID, peerID).also { current ->
+            if (current) BleLinkDiagnostics.onLinkPeer(linkID, peerID)
+        }
 
     fun getCurrentLinkID(deviceAddress: String): String? =
         connectionTracker.getCurrentLinkID(deviceAddress)
@@ -126,6 +132,9 @@ class BluetoothConnectionManager(
     }
 
     init {
+        // Android reports our outgoing connections on the server side too; the client owns those.
+        serverManager.isOwnOutgoing = { address -> clientManager.hasOutgoingLink(address) }
+        serverManager.outgoingLinkRssi = { peerID -> clientManager.outgoingSmoothedRssi(peerID) }
         connectionScope.launch {
             var previousMode: PowerManager.PowerMode? = null
             powerManager.profile.collect { profile ->
@@ -165,6 +174,37 @@ class BluetoothConnectionManager(
                 }
             }
             
+            // Long-range (LE Coded PHY) policy: re-arm advertising/scanning and re-apply link PHYs
+            connectionScope.launch {
+                var previous: BleLongRangeMode? = null
+                dbg.bleLongRangeMode.collect { mode ->
+                    val changed = previous != null && previous != mode
+                    previous = mode
+                    BleLinkDiagnostics.setMode(mode)
+                    if (!changed || !isActive || !isBleTransportEnabled()) return@collect
+                    BleLinkDiagnostics.resetExtendedScanRejection()
+                    if (isGattServerEnabled()) {
+                        serverManager.restartAdvertising()
+                        serverManager.applyLinkPhyPolicy()
+                    }
+                    if (isGattClientEnabled()) {
+                        clientManager.restartScanning()
+                        clientManager.applyLinkPhyPolicy()
+                    }
+                }
+            }
+
+            // Coded coding preference (S=8 / S=2): re-request Coded so links pick up the new coding
+            connectionScope.launch {
+                var previous: BleCodedCoding? = null
+                dbg.bleCodedCoding.collect { coding ->
+                    val changed = previous != null && previous != coding
+                    previous = coding
+                    BleLinkDiagnostics.setCoding(coding)
+                    if (changed) reapplyLongRangePhy()
+                }
+            }
+
             // Centralized limit enforcement on any setting change
             connectionScope.launch {
                 combine(
@@ -183,6 +223,15 @@ class BluetoothConnectionManager(
         } catch (_: Exception) { }
     }
     
+    /**
+     * Re-send the long-range PHY request on every current link (debug action and coding changes).
+     */
+    fun reapplyLongRangePhy() {
+        if (!isActive || !isBleTransportEnabled()) return
+        if (isGattServerEnabled()) serverManager.applyLinkPhyPolicy()
+        if (isGattClientEnabled()) clientManager.applyLinkPhyPolicy(recodeCodedLinks = true)
+    }
+
     /**
      * Centralized connection limit enforcement
      */
@@ -236,6 +285,14 @@ class BluetoothConnectionManager(
         
         try {
             isActive = true
+            val caps = BleRadioCapabilities.detect(bluetoothAdapter)
+            BleLinkDiagnostics.setCapabilities(caps)
+            Log.i(
+                TAG,
+                "BLE capabilities: codedPhy=${caps.leCodedPhy}, extendedAdv=${caps.leExtendedAdvertising}, " +
+                    "2M=${caps.le2MPhy}, maxAdvData=${caps.maxAdvertisingDataLength}; " +
+                    "long-range discovery ${if (BleLongRangePolicy.supportsLongRangeDiscovery(caps)) "available" else "unavailable (legacy fallback)"}"
+            )
 
         // set the adapter's name to our 8-character peerID for iOS privacy, TODO: Make this configurable
         // try {
@@ -474,6 +531,20 @@ class BluetoothConnectionManager(
             appendLine("GATT Server Active: ${serverManager.getGattServer() != null}")
             appendLine()
             appendLine(powerManager.getPowerInfo())
+            appendLine()
+            val lr = BleLinkDiagnostics.snapshot()
+            appendLine("=== Long range ===")
+            appendLine("Mode: ${lr.mode}")
+            appendLine("Coded PHY: ${lr.capabilities.leCodedPhy}, Extended adv: ${lr.capabilities.leExtendedAdvertising}")
+            appendLine("Advertising: legacy ${lr.legacyAdvertiser}, coded ${lr.codedAdvertiser}")
+            appendLine("Scan: ${lr.scanMode} (legacy ${lr.scanResultsLegacy}, coded ${lr.scanResultsCoded})")
+            lr.links.forEach { link ->
+                appendLine(
+                    "  - ${link.address} ${if (link.isClient) "client" else "server"} " +
+                        "tx ${BleLongRangePolicy.phyName(link.txPhy)} rx ${BleLongRangePolicy.phyName(link.rxPhy)} " +
+                        "rssi ${link.rssi ?: "?"} sent ${link.sendOk}/${link.sendOk + link.sendFailed}"
+                )
+            }
             appendLine()
             appendLine(connectionTracker.getDebugInfo())
         }

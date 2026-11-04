@@ -22,6 +22,8 @@ class BluetoothConnectionTracker(
     companion object {
         private const val TAG = "BluetoothConnectionTracker"
         private const val CLEANUP_DELAY = com.bitchat.android.util.AppConstants.Mesh.CONNECTION_CLEANUP_DELAY_MS
+        /** Covers Android's direct-connect timeout, after which another address may be tried. */
+        internal const val PEER_RESERVATION_MS = 30_000L
     }
     
     // Connection tracking - reduced memory footprint
@@ -32,6 +34,8 @@ class BluetoothConnectionTracker(
     private val firstAnnounceSeen = ConcurrentHashMap<String, Boolean>()
     // RSSI tracking from scan results (for devices we discover but may connect as servers)
     private val scanRSSI = ConcurrentHashMap<String, Int>()
+    // peerID -> (address, reservedAt) for the in-flight client attempt to that peer
+    private val peerAttemptReservations = ConcurrentHashMap<String, Pair<String, Long>>()
     private val connectionStateLock = Any()
     
     /**
@@ -198,6 +202,37 @@ class BluetoothConnectionTracker(
     }
     
     /**
+     * Reserve the single in-flight client attempt for [peerID]. A long-range peer advertises the
+     * same peer ID from two addresses (legacy 1M set and LE Coded set); without this a scanner that
+     * hears both would open two client links to one device.
+     *
+     * Returns false while another address for the peer is connected, or holds a fresh (still
+     * pending) attempt.
+     */
+    fun reservePeerConnectionAttempt(
+        peerID: String,
+        address: String,
+        nowMs: Long = System.currentTimeMillis()
+    ): Boolean = synchronized(connectionStateLock) {
+        val existing = peerAttemptReservations[peerID]
+        if (existing != null && existing.first != address) {
+            val connected = connectedDevices.containsKey(existing.first)
+            val freshPending = nowMs - existing.second < PEER_RESERVATION_MS &&
+                pendingConnections.containsKey(existing.first)
+            if (connected || freshPending) return@synchronized false
+        }
+        peerAttemptReservations[peerID] = address to nowMs
+        true
+    }
+
+    /** Drop the reservation held by [address] (failed attempt or closed link). */
+    fun releasePeerReservation(address: String) {
+        synchronized(connectionStateLock) {
+            peerAttemptReservations.entries.removeIf { it.value.first == address }
+        }
+    }
+
+    /**
      * Disconnect a specific device (by MAC address)
      */
     fun disconnectDevice(deviceAddress: String) = disconnect(deviceAddress)
@@ -329,6 +364,7 @@ class BluetoothConnectionTracker(
         addressPeerMap.clear()
         pendingConnections.clear()
         scanRSSI.clear()
+        peerAttemptReservations.clear()
         firstAnnounceSeen.clear()
     }
 
