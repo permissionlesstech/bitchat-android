@@ -13,6 +13,8 @@ interface MeshService {
     fun stopServices()
 
     fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null)
+    /** Broadcast a pre-encoded message payload (e.g. encrypted channel BitchatMessage binary). */
+    fun sendBinaryBroadcast(payload: ByteArray)
     fun sendPrivateMessage(content: String, recipientPeerID: String, recipientNickname: String, messageID: String? = null)
     fun sendReadReceipt(messageID: String, recipientPeerID: String, readerNickname: String)
     fun sendDeliveryAck(messageID: String, recipientPeerID: String) {}

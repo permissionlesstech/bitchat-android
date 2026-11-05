@@ -859,6 +859,19 @@ object AppStateStore {
         }
     }
 
+    /**
+     * Replace the full message list for a channel (e.g. after password unlock re-decrypt).
+     * Preserves message IDs already in the de-dup set.
+     */
+    fun replaceChannelMessages(channel: String, messages: List<BitchatMessage>) {
+        synchronized(this) {
+            messages.forEach { seenMessageIds.add(it.id) }
+            val map = _channelMessages.value.toMutableMap()
+            map[channel] = messages
+            _channelMessages.value = map
+        }
+    }
+
     private fun appendPublicMessage(messages: List<BitchatMessage>, message: BitchatMessage) =
         buildList(minOf(MAX_PUBLIC_TIMELINE_MESSAGES, messages.size + 1)) {
             val start = (messages.size - MAX_PUBLIC_TIMELINE_MESSAGES + 1).coerceAtLeast(0)

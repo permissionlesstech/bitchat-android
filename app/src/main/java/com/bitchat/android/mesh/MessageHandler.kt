@@ -448,7 +448,9 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
     }
     
     /**
-     * Handle broadcast message with verification enforcement
+     * Handle broadcast message with verification enforcement.
+     * Public mesh (iOS-compatible): plain UTF-8 text.
+     * Channel messages: BitchatMessage binary (optionally AES-GCM encrypted).
      */
     private suspend fun handleBroadcastMessage(routed: RoutedPacket) {
         val packet = routed.packet
@@ -484,10 +486,31 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 Log.w(TAG, "FILE_TRANSFER decode failed (broadcast) from ${peerID.take(8)}")
             }
 
-            // Fallback: plain text
-            val message = BitchatMessage(
-                id = PacketIdUtil.computeIdHex(packet).uppercase(),
-                sender = delegate?.getPeerNickname(peerID) ?: "unknown",
+            // Prefer the shared binary envelope (channel / mentions). Fall back to
+            // legacy UTF-8 mesh text for older peers and for iOS public broadcasts.
+            val packetId = PacketIdUtil.computeIdHex(packet).uppercase()
+            val peerNickname = delegate?.getPeerNickname(peerID) ?: "unknown"
+            val decoded = BitchatMessage.fromBinaryPayload(packet.payload)
+            // Encrypted broadcasts need channel context; never reinterpret them as public text.
+            if (decoded?.isEncrypted == true && decoded.channel.isNullOrBlank()) return
+            val message = decoded?.let {
+                decoded.copy(
+                    id = packetId,
+                    sender = peerNickname,
+                    senderPeerID = peerID,
+                    timestamp = Date(packet.timestamp.toLong()),
+                    content = if (decoded.isEncrypted) {
+                        delegate?.decryptChannelMessage(decoded.encryptedContent ?: return, decoded.channel!!)
+                            ?: "[Encrypted message - password required]"
+                    } else decoded.content,
+                    isPrivate = false,
+                    isRelay = false,
+                    originalSender = null,
+                    recipientNickname = null
+                )
+            } ?: BitchatMessage(
+                id = packetId,
+                sender = peerNickname,
                 content = String(packet.payload, Charsets.UTF_8),
                 senderPeerID = peerID,
                 timestamp = Date(packet.timestamp.toLong())
