@@ -854,6 +854,8 @@ class MainActivity : OrientationAwareActivity() {
     private fun handleGeohashLinkIntent(intent: Intent) {
         val channel = intent.data?.let(::channelForGeohashLink) ?: return
 
+        // A joined channel stays on screen otherwise, while messages go to the location channel.
+        chatViewModel.exitCurrentChannel()
         chatViewModel.selectLocationChannel(com.bitchat.android.geohash.ChannelID.Location(channel))
         chatViewModel.setCurrentGeohash(channel.geohash)
         chatViewModel.clearNotificationsForGeohash(channel.geohash)
