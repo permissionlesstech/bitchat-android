@@ -31,6 +31,7 @@ class UnifiedMeshService(
 ) : MeshService, BluetoothMeshDelegate {
 
     companion object {
+        private const val WIFI_LIVE_PACKET_BUDGET = 300
         private const val TAG = "UnifiedMeshService"
     }
 
@@ -181,6 +182,35 @@ class UnifiedMeshService(
             isBleConnected(recipientPeerID) || (isBleEnabled() && !isWifiConnected(recipientPeerID)) ->
                 bluetooth.sendVoiceFrame(recipientPeerID, payload)
             else -> wifiService()?.sendVoiceFrame(recipientPeerID, payload)
+        }
+    }
+
+    override fun liveSendBacklog(): Int = if (isBleEnabled()) bluetooth.liveSendBacklog() else 0
+
+    override fun liveSendPacketBudget(recipientPeerID: String?): Int {
+        // Mirrors sendVideoFrame's route choice: Wi-Fi Aware has an order of magnitude more room.
+        val viaWifi = if (recipientPeerID == null) {
+            !isBleEnabled()
+        } else {
+            !isBleReady(recipientPeerID) && isWifiReady(recipientPeerID)
+        }
+        return if (viaWifi) WIFI_LIVE_PACKET_BUDGET else super.liveSendPacketBudget(recipientPeerID)
+    }
+
+    override fun sendVideoFrame(recipientPeerID: String?, payload: ByteArray) {
+        if (recipientPeerID == null) {
+            when {
+                isBleEnabled() -> bluetooth.sendVideoFrame(null, payload)
+                else -> wifiService()?.sendVideoFrame(null, payload)
+            }
+            return
+        }
+        when {
+            isBleReady(recipientPeerID) -> bluetooth.sendVideoFrame(recipientPeerID, payload)
+            isWifiReady(recipientPeerID) -> wifiService()?.sendVideoFrame(recipientPeerID, payload)
+            isBleConnected(recipientPeerID) || (isBleEnabled() && !isWifiConnected(recipientPeerID)) ->
+                bluetooth.sendVideoFrame(recipientPeerID, payload)
+            else -> wifiService()?.sendVideoFrame(recipientPeerID, payload)
         }
     }
 

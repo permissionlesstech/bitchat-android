@@ -596,6 +596,24 @@ private fun SpamVerdict.debugLabel(): String = when (this) {
         return
     }
 
+    // Video (live stream or finished clip) special rendering
+    if (message.type == BitchatMessageType.Video) {
+        com.bitchat.android.ui.media.VideoMessageItem(
+            message = message,
+            currentUserNickname = currentUserNickname,
+            meshService = meshService,
+            colorScheme = colorScheme,
+            timeFormatter = timeFormatter,
+            showSender = showSender,
+            bubbles = bubbles,
+            onNicknameClick = onNicknameClick,
+            onMessageLongPress = onMessageLongPress,
+            onCancelTransfer = onCancelTransfer,
+            modifier = modifier
+        )
+        return
+    }
+
     // File special rendering
     if (message.type == BitchatMessageType.File) {
         val path = message.content.trim()

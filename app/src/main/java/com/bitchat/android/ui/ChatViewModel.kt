@@ -41,6 +41,7 @@ import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.util.hexEncodedString
 import com.bitchat.android.features.voice.LiveVoicePreferences
 import com.bitchat.android.features.voice.LiveVoiceTarget
+import com.bitchat.android.features.video.LiveVideoTarget
 import com.bitchat.android.features.voice.VoiceRecorder
 
 private data class ConversationLiveIdentityState(
@@ -90,6 +91,55 @@ class ChatViewModel(
             else -> null
         }
         return VoiceRecorder(context, liveTarget)
+    }
+
+    /**
+     * Live video uses the same routes as live voice: an established Noise session for a DM,
+     * or the public mesh with at least one peer. Returns null when the conversation cannot
+     * carry a live stream (location channels, or no route), in which case only clips apply.
+     */
+    fun createLiveVideoTarget(toPeerIDOrNull: String?, channelOrNull: String?): LiveVideoTarget? {
+        val recipientPeerID = toPeerIDOrNull?.let {
+            PrivateMediaRecipientResolver.resolve(it, mesh)?.meshPeerID
+        }
+        return when {
+            toPeerIDOrNull != null && recipientPeerID != null && mesh.hasEstablishedSession(recipientPeerID) ->
+                LiveVideoTarget.of(
+                    send = { payload -> mesh.sendVideoFrame(recipientPeerID, payload) },
+                    backlog = mesh::liveSendBacklog,
+                    packetBudget = { mesh.liveSendPacketBudget(recipientPeerID) }
+                )
+            toPeerIDOrNull == null && channelOrNull == null && mesh.getActivePeerCount() > 0 ->
+                LiveVideoTarget.of(
+                    send = { payload -> mesh.sendVideoFrame(null, payload) },
+                    backlog = mesh::liveSendBacklog,
+                    packetBudget = { mesh.liveSendPacketBudget(null) }
+                )
+            else -> null
+        }
+    }
+
+    val videoComposerActions = com.bitchat.android.ui.media.VideoComposerActions(
+        createLiveTarget = ::createLiveVideoTarget,
+        onLiveFinished = ::finishLiveVideo,
+        onVideoReady = ::sendVideoNote
+    )
+
+    fun sendVideoNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
+        mediaSendingManager.sendVideoNote(toPeerIDOrNull, channelOrNull, filePath)
+    }
+
+    /**
+     * Sends a finished live recording as the reliable final file when it fits one mesh file
+     * transfer; otherwise keeps it as a local message (viewers keep their reconstruction).
+     */
+    fun finishLiveVideo(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
+        val size = java.io.File(filePath).length()
+        if (size in 1..com.bitchat.android.features.video.LiveVideoLimits.MAX_VIDEO_FILE_BYTES) {
+            mediaSendingManager.sendVideoNote(toPeerIDOrNull, channelOrNull, filePath)
+        } else if (size > 0) {
+            mediaSendingManager.addLocalVideoMessage(toPeerIDOrNull, channelOrNull, filePath)
+        }
     }
 
     fun sendFileNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
