@@ -33,10 +33,9 @@ internal object NostrLiveRelayAuthContract {
         val scope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
         val probe = ObservedConnection(client, identity)
         val manager = NostrRelayManager(
-            listOf(relayUrl),
-            { error("A channel probe must never request the account identity") },
-            { probe },
-            scope
+            initialRelayUrls = listOf(relayUrl),
+            clientProvider = { probe },
+            scope = scope
         )
         try {
             // No channel/location tags, user data, historical queries, or EVENT publication.

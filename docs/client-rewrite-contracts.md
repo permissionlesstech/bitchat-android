@@ -58,7 +58,10 @@ of that operation. Geohash chat, presence, notes, channel DMs, and their deliver
 and read receipts use the originating channel's derived identity. The separate
 account/favorites Nostr path uses its persistent account identity. A channel
 operation must never fall back to that account identity when its signer is
-unavailable. The proof has empty content, the current Unix
+unavailable. Every operation must explicitly provide its authentication signer;
+an absent signer disables authentication rather than loading the account key.
+Anonymous globe activity observations never authenticate as the account.
+The proof has empty content, the current Unix
 timestamp, and `relay` and `challenge` tags bound to that connection. It is sent
 as `["AUTH", <event>]` only to the requesting relay, never published as `EVENT`.
 
@@ -66,7 +69,9 @@ Only an `OK` with a JSON boolean `true` and the exact proof ID authorizes retrie
 The client retries only the rejected subscriptions and publications, once per
 challenge, with their original filters, signed event contents, relay targets,
 and live-location privacy provenance. A revoked or unsubscribed operation must
-not be replayed. Immediately before replay, a publication's signer must still
+not be replayed. Subscription replay resolves its signer before a final active
+subscription check and WebSocket enqueue serialized with unsubscribe, replacement,
+and reset. Immediately before replay, a publication's signer must still
 match the accepted proof and its delivery must still be pending for that relay.
 The pending check and local WebSocket enqueue are serialized with queue clearing
 so a reset cannot replay a removed delivery from an earlier snapshot.

@@ -111,7 +111,6 @@ class NostrRelayAuthenticatedReplayRobolectricTest {
         }
         val manager = NostrRelayManager(
             initialRelayUrls = listOf(request.url.toString()),
-            identityProvider = { identity },
             clientProvider = {
                 WebSocket.Factory { _, callbacks ->
                     listener = callbacks

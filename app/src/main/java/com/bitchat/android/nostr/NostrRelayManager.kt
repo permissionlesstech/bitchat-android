@@ -21,7 +21,6 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 class NostrRelayManager internal constructor(
     private val initialRelayUrls: List<String> = defaultRelays(),
-    private val identityProvider: (() -> NostrIdentity?)? = null,
     private val clientProvider: () -> WebSocket.Factory = {
         com.bitchat.android.net.OkHttpProvider.webSocketClient()
     },
@@ -98,6 +97,8 @@ class NostrRelayManager internal constructor(
     
     // Persistent subscription tracking for robust reconnection
     private val activeSubscriptions = ConcurrentHashMap<String, SubscriptionInfo>() // subscription ID -> info
+    // Serialize subscription removal/replacement with the final authenticated replay enqueue.
+    private val subscriptionLock = Any()
     
     /**
      * Information about an active subscription that needs to be maintained across reconnections
@@ -214,7 +215,10 @@ class NostrRelayManager internal constructor(
         if (releasable.isEmpty()) return
         releasable.forEach { url ->
             reconnectJobs.remove(url)?.cancel()
-            connections.remove(url)?.close(1000, "Released")
+            connections.remove(url)?.let { socket ->
+                authentication.remove(socket)
+                socket.close(1000, "Released")
+            }
             subscriptions.remove(url)
             nonLiveRelayUrls.remove(url)
         }
@@ -360,10 +364,12 @@ class NostrRelayManager internal constructor(
             .filter { it.liveLocationToken != null }
             .mapTo(mutableSetOf()) { it.id }
         closeSubscriptionsOnConnectedRelays(liveSubscriptionIds)
-        liveSubscriptionIds.forEach { id ->
-            activeSubscriptions.remove(id)
-            messageHandlers.remove(id)
-            authentication.values.forEach { it.forgetSubscription(id) }
+        synchronized(subscriptionLock) {
+            liveSubscriptionIds.forEach { id ->
+                activeSubscriptions.remove(id)
+                messageHandlers.remove(id)
+                authentication.values.forEach { it.forgetSubscription(id) }
+            }
         }
         subscriptions.replaceAll { _, ids -> ids - liveSubscriptionIds }
 
@@ -500,6 +506,7 @@ class NostrRelayManager internal constructor(
     
     /**
      * Send an event to specified relays (or all if none specified)
+     * A null authentication signer disables AUTH for this publication.
      */
     fun sendEvent(
         event: NostrEvent,
@@ -535,6 +542,7 @@ class NostrRelayManager internal constructor(
     /**
      * Subscribe to events matching a filter
      * The subscription will be automatically re-established on reconnection
+     * A null authentication signer disables AUTH for this subscription.
      */
     fun subscribe(
         filter: NostrFilter,
@@ -560,9 +568,11 @@ class NostrRelayManager internal constructor(
         )
         
         runNetworkAction(liveLocationToken) {
-            authentication.values.forEach { it.forgetSubscription(id) }
-            activeSubscriptions[id] = subscriptionInfo
-            messageHandlers[id] = handler
+            synchronized(subscriptionLock) {
+                authentication.values.forEach { it.forgetSubscription(id) }
+                activeSubscriptions[id] = subscriptionInfo
+                messageHandlers[id] = handler
+            }
             sendSubscriptionToRelays(subscriptionInfo)
         }
         
@@ -617,9 +627,12 @@ class NostrRelayManager internal constructor(
      */
     fun unsubscribe(id: String) {
         // Remove from persistent tracking
-        val subscriptionInfo = activeSubscriptions.remove(id)
-        messageHandlers.remove(id)
-        authentication.values.forEach { it.forgetSubscription(id) }
+        val subscriptionInfo = synchronized(subscriptionLock) {
+            val removed = activeSubscriptions.remove(id)
+            messageHandlers.remove(id)
+            authentication.values.forEach { it.forgetSubscription(id) }
+            removed
+        }
         
         if (subscriptionInfo == null) {
             return
@@ -730,9 +743,11 @@ class NostrRelayManager internal constructor(
     fun clearAllSubscriptions() {
         try {
             // Clear persistent subscription tracking
-            activeSubscriptions.clear()
-            messageHandlers.clear()
-            subscriptions.clear()
+            synchronized(subscriptionLock) {
+                activeSubscriptions.clear()
+                messageHandlers.clear()
+                subscriptions.clear()
+            }
 
             // Clear routing caches (per-geohash relay selections)
             geohashToRelays.clear()
@@ -1113,10 +1128,9 @@ class NostrRelayManager internal constructor(
     }
 
     private fun resolveAuthenticationIdentity(provider: (() -> NostrIdentity?)?): NostrIdentity? = try {
-        // An explicit channel signer returning null must fail closed, without account fallback.
-        if (provider != null) provider.invoke()
-        else if (identityProvider != null) identityProvider.invoke()
-        else appContext?.let(NostrIdentityBridge::getCurrentNostrIdentity)
+        // Only the originating operation can authorize identity disclosure. Anonymous reads,
+        // including globe observations, must never implicitly load or prove the account key.
+        provider?.invoke()
     } catch (e: Exception) {
         Log.w(TAG, "Unable to load relay authentication identity")
         null
@@ -1193,12 +1207,18 @@ class NostrRelayManager internal constructor(
             val info = activeSubscriptions[id] ?: return@forEach
             if (info.targetRelayUrls != null && relayUrl !in info.targetRelayUrls) return@forEach
             runNetworkAction(info.liveLocationToken) {
-                if (connections[relayUrl] === webSocket && activeSubscriptions[id] === info) {
-                    if (resolveAuthenticationIdentity(info.authenticationIdentity)?.publicKeyHex != identity.publicKeyHex) {
-                        return@runNetworkAction
+                if (resolveAuthenticationIdentity(info.authenticationIdentity)?.publicKeyHex != identity.publicKeyHex) {
+                    return@runNetworkAction
+                }
+                // Signer resolution can overlap unsubscribe, replacement, reset or disconnect.
+                // Keep the last active-state check and enqueue atomic with subscription removal.
+                synchronized(subscriptionLock) {
+                    if (connections[relayUrl] === webSocket && authentication[webSocket] === session &&
+                        desiredConnected.get() && activeSubscriptions[id] === info
+                    ) {
+                        val request = NostrRequest.Subscribe(id, listOf(info.filter))
+                        webSocket.send(gson.toJson(request, NostrRequest::class.java))
                     }
-                    val request = NostrRequest.Subscribe(id, listOf(info.filter))
-                    webSocket.send(gson.toJson(request, NostrRequest::class.java))
                 }
             }
         }
@@ -1230,8 +1250,8 @@ class NostrRelayManager internal constructor(
     ) {
         // Ignore callbacks from intentionally closed or replaced sockets. They must not remove a
         // newer socket or schedule a reconnect after a controlled disconnect/privacy revocation.
-        if (!connections.remove(relayUrl, webSocket)) return
         authentication.remove(webSocket)
+        if (!connections.remove(relayUrl, webSocket)) return
         subscriptions.remove(relayUrl)
         handleCurrentDisconnection(relayUrl, error, liveLocationToken)
     }

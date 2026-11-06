@@ -117,7 +117,7 @@ class NostrRelayAuthenticationRobolectricTest {
             relay.subscribe("ready")
             // Gift wraps can have a different author; AUTH must still prove the account key.
             val event = relay.event(signer = NostrIdentity.fromPrivateKey("0".repeat(63) + "2"))
-            relay.manager.sendEvent(event)
+            relay.manager.sendEvent(event, authenticationIdentity = { relay.identity })
             val original = relay.nextMessage()
             assertEquals("EVENT", original[0].asString)
             relay.send("OK", event.id, false, "auth-required: authenticate")
@@ -137,7 +137,7 @@ class NostrRelayAuthenticationRobolectricTest {
         RelayFixture().use { relay ->
             relay.subscribe("ready")
             val event = relay.event()
-            relay.manager.sendEvent(event)
+            relay.manager.sendEvent(event, authenticationIdentity = { relay.identity })
             assertEquals("EVENT", relay.nextMessage()[0].asString)
             relay.send("AUTH", "first-challenge")
             relay.send("OK", event.id, false, "auth-required: authenticate")
@@ -163,7 +163,7 @@ class NostrRelayAuthenticationRobolectricTest {
                 relay.subscribe("removed")
                 val token = requireNotNull(LiveLocationPrivacyGate.captureToken())
                 val liveEvent = relay.event("synthetic-live")
-                relay.manager.sendEvent(liveEvent, liveLocationToken = token)
+                relay.manager.sendEvent(liveEvent, liveLocationToken = token, authenticationIdentity = { relay.identity })
                 assertEquals("EVENT", relay.nextMessage()[0].asString)
                 relay.send("AUTH", "privacy-challenge")
                 relay.send("CLOSED", "removed", "auth-required: authenticate")
@@ -175,7 +175,7 @@ class NostrRelayAuthenticationRobolectricTest {
                 LiveLocationPrivacyGate.update(false)
                 // This blocked, permitted event provides a positive completion signal after AUTH OK.
                 val manual = relay.event("synthetic-manual")
-                relay.manager.sendEvent(manual)
+                relay.manager.sendEvent(manual, authenticationIdentity = { relay.identity })
                 assertEquals(manual.id, relay.nextMessage()[1].asJsonObject["id"].asString)
                 relay.send("OK", manual.id, false, "auth-required: authenticate")
                 relay.send("OK", proof.id, true, "")
@@ -196,7 +196,7 @@ class NostrRelayAuthenticationRobolectricTest {
             relay.subscribe("ready")
             relay.send("AUTH", "optional-challenge")
             val event = relay.event()
-            relay.manager.sendEvent(event)
+            relay.manager.sendEvent(event, authenticationIdentity = { relay.identity })
             val publication = relay.nextMessage()
             assertEquals("EVENT", publication[0].asString)
             assertEquals(event.id, publication[1].asJsonObject["id"].asString)
@@ -221,7 +221,6 @@ class NostrRelayAuthenticationRobolectricTest {
             url = server.url("/").toString().replaceFirst("http", "ws")
             manager = NostrRelayManager(
                 initialRelayUrls = listOf(url),
-                identityProvider = { identity },
                 clientProvider = { client },
                 scope = scope
             )
@@ -229,7 +228,7 @@ class NostrRelayAuthenticationRobolectricTest {
 
         fun subscribe(
             id: String,
-            authenticationIdentity: (() -> NostrIdentity?)? = null,
+            authenticationIdentity: (() -> NostrIdentity?)? = { identity },
             filter: NostrFilter = NostrFilter(kinds = listOf(1))
         ): JsonArray {
             // Register before the first connection, with launches executed immediately. This avoids
