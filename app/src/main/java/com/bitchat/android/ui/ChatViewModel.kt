@@ -684,6 +684,10 @@ class ChatViewModel(
         channelManager.switchToChannel(channel)
     }
     
+    fun exitCurrentChannel() {
+        channelManager.exitCurrentChannel()
+    }
+
     fun leaveChannel(channel: String) {
         channelManager.leaveChannel(channel)
         mesh.sendMessage("left $channel", emptyList(), null)

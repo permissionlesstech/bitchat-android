@@ -108,6 +108,11 @@ class ChannelManager(
         saveChannelData()
     }
     
+    /** Leaves the joined channel's timeline without changing the location or private chat. */
+    fun exitCurrentChannel() {
+        state.setCurrentChannel(null)
+    }
+
     fun switchToChannel(channel: String?) {
         state.setCurrentChannel(channel)
         state.setSelectedPrivateChatPeer(null)
