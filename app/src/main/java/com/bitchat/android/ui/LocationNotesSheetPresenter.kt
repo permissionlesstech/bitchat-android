@@ -3,6 +3,7 @@ package com.bitchat.android.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -17,6 +18,7 @@ import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.R
+import com.bitchat.android.geohash.LiveLocationPrivacyGate
 
 /**
  * Presenter component for LocationNotesSheet
@@ -34,6 +36,8 @@ fun LocationNotesSheetPresenter(
     val availableChannels by locationManager.availableChannels.collectAsStateWithLifecycle()
     val permissionState by locationManager.permissionState.collectAsStateWithLifecycle()
     val isLoadingLocation by locationManager.isLoadingLocation.collectAsStateWithLifecycle()
+    val appLocationEnabled by LiveLocationPrivacyGate.enabled.collectAsStateWithLifecycle()
+    val systemLocationEnabled by locationManager.systemLocationEnabled.collectAsStateWithLifecycle()
     val nickname by viewModel.nickname.collectAsStateWithLifecycle()
     
     // iOS pattern: notesGeohash ?? LocationChannelManager.shared.availableChannels.first(where: { $0.level == .building })?.geohash
@@ -51,7 +55,17 @@ fun LocationNotesSheetPresenter(
             nickname = nickname,
             onDismiss = onDismiss
         )
-    } else if (permissionState == LocationChannelManager.PermissionState.AUTHORIZED && isLoadingLocation) {
+    } else if (permissionState == LocationChannelManager.PermissionState.AUTHORIZED &&
+        (isLoadingLocation || (appLocationEnabled && systemLocationEnabled))
+    ) {
+        // Authorized with services on but no building channel yet — first
+        // install often has no cached last-fix, so treat this as acquiring
+        // rather than "unavailable" (#577). Kick a live refresh once.
+        LaunchedEffect(appLocationEnabled, systemLocationEnabled) {
+            if (appLocationEnabled && systemLocationEnabled) {
+                locationManager.beginLiveRefresh()
+            }
+        }
         LocationNotesAcquiringSheet(onDismiss = onDismiss)
     } else {
         // No building geohash available - show error state (matches iOS)
@@ -138,6 +152,7 @@ private fun LocationNotesErrorSheet(
                     // Then request location channels (which will also request permission if needed)
                     locationManager.enableLocationChannels()
                     locationManager.refreshChannels()
+                    locationManager.beginLiveRefresh()
                 }) {
                     Text("Enable Location")
                 }
