@@ -26,8 +26,9 @@ Promotion also refuses to displace a different live socket already authenticated
 under the canonical peer ID.
 
 Leave packets use the existing signed wire format and are accepted only when
-the signature matches the key learned from a verified announcement and the
-timestamp is within the five-minute security window. Invalid, stale, future,
+the signature matches the live signing key, or the persisted authenticated
+signing key when no live signing key is available, and the timestamp is within
+the five-minute security window. Invalid, stale, future,
 or unsigned leaves therefore cannot evict the claimed peer or be relayed. A
 valid leave removes the peer through the normal peer-manager path, which also
 clears its active Noise session.
