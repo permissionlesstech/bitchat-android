@@ -12,6 +12,39 @@ This is the Android implementation of bitchat, fully protocol-compatible with th
 
 [<img alt="Get it on Google Play" height="60" src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png"/>](https://play.google.com/store/apps/details?id=com.bitchat.droid)
 
+## Verify GitHub APKs
+
+GitHub release APKs must match the signing-certificate SHA-256 below. This is the
+certificate fingerprint, not the checksum of an APK file. It is the same pin
+used by the release tooling in `gradle.properties`.
+
+```text
+com.bitchat.droid
+3B:03:FA:66:A5:45:13:21:10:07:92:F5:B5:5A:7B:49:66:D5:C8:DC:10:C6:DA:A4:0A:A9:5E:A4:89:53:1B:CA
+```
+
+[Copy the verification info](docs/github-apk-verification.txt) for
+[AppVerifier](https://github.com/soupslurpr/AppVerifier), which compares the
+installed app's package name and signing-certificate hashes with supplied
+verification info. You can also verify an APK before installation:
+
+```sh
+apksigner verify --print-certs bitchat-android-arm64.apk
+```
+
+Verification must succeed, and the reported signer certificate SHA-256 must
+match the pin above (ignoring case and colon separators). Stop on a mismatch;
+do not uninstall an existing app to bypass a signature conflict. Google Play
+can use a different app-signing key, so this pin is specifically for **GitHub
+release APKs**, not an assertion about Play-delivered APKs.
+
+For independent authentication, obtain the expected fingerprint through a
+separately trusted project channel. A fingerprint and APK downloaded from the
+same compromised page are not independent evidence. This repository does not
+claim that a second publication channel has been provisioned. See
+[the verification guide](docs/reproducible-builds.md) for provenance, payload,
+and reproducibility checks and the separate Google Play verification process.
+
 ## See it in action
 
 <table>
