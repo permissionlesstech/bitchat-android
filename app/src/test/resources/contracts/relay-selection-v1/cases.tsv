@@ -1,0 +1,14 @@
+id	csv	latitude	longitude	count	expected
+ties-five	ties.csv	12.34	56.78	5	wss://alpha.example|wss://bravo.example|wss://charlie.example|wss://delta.example|wss://echo.example
+ties-reversed	ties-reversed.csv	12.34	56.78	5	wss://alpha.example|wss://bravo.example|wss://charlie.example|wss://delta.example|wss://echo.example
+ties-one	ties.csv	12.34	56.78	1	wss://alpha.example
+ties-all	ties.csv	12.34	56.78	10	wss://alpha.example|wss://bravo.example|wss://charlie.example|wss://delta.example|wss://echo.example|wss://foxtrot.example
+zero-count	ties.csv	12.34	56.78	0	-
+negative-count	ties.csv	12.34	56.78	-1	-
+duplicates-five	duplicates.csv	10.1	20.2	5	wss://nearest.example|wss://nearest.example:8443|wss://second.example|wss://third.example|wss://fourth.example
+duplicates-all	duplicates.csv	10.1	20.2	20	wss://nearest.example|wss://nearest.example:8443|wss://second.example|wss://third.example|wss://fourth.example|wss://far.example
+longitude-east	longitude.csv	0	19	3	wss://near.example|wss://middle.example|wss://far.example
+longitude-west	longitude.csv	0	69	3	wss://far.example|wss://middle.example|wss://near.example
+dateline-east	dateline.csv	0	179	3	wss://near.example|wss://across.example|wss://far.example
+dateline-west	dateline.csv	0	-179	3	wss://across.example|wss://near.example|wss://far.example
+latitude-weight	latitude-weight.csv	60	20	3	wss://east.example|wss://north.example|wss://far.example
