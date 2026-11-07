@@ -69,6 +69,29 @@ class GeohashRepository(
         return matches.singleOrNull()?.key
     }
 
+    /** Resolve a block command within the displayed channel, including anonymous senders. */
+    fun findPubkeyForGeohashBlock(geohash: String, targetNickname: String): String? {
+        val base = targetNickname.substringBefore('#')
+        val suffix = targetNickname.substringAfter('#', missingDelimiterValue = "")
+        if (base.isEmpty() || ('#' in targetNickname && suffix.length != 4)) return null
+
+        fun matches(pubkey: String, name: String): Boolean =
+            name.substringBefore('#').equals(base, ignoreCase = true) &&
+                (suffix.isEmpty() || pubkey.endsWith(suffix, ignoreCase = true))
+
+        val snapshot = participantStore.snapshots.value
+        val candidates = mutableSetOf<String>()
+        for (pubkey in snapshot.participants[geohash].orEmpty().keys) {
+            if (matches(pubkey, snapshot.nicknames[pubkey] ?: "anon")) candidates.add(pubkey)
+        }
+        // A person can age out of presence while their message is still visible.
+        for (message in state.getChannelMessagesValue()["geo:$geohash"].orEmpty()) {
+            val pubkey = message.senderNostrPubkey?.lowercase() ?: continue
+            if (matches(pubkey, message.originalSender ?: message.sender)) candidates.add(pubkey)
+        }
+        return candidates.singleOrNull()
+    }
+
     @Synchronized
     fun findPubkeyByShortId(shortId: String): String? {
         // First check cached nicknames (fastest)
