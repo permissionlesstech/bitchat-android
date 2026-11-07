@@ -60,8 +60,10 @@ class NostrDirectMessageHandler(
             try {
                 if (dedupe(giftWrap.id)) return@launch
 
-                val messageAge = System.currentTimeMillis() / 1000 - giftWrap.createdAt
-                if (messageAge > 173700) return@launch // 48 hours + 15 mins
+                if (!NostrTimestampPolicy.isAcceptableGiftWrapTimestamp(giftWrap.createdAt)) {
+                    Log.v(TAG, "Ignoring gift wrap with implausible created_at")
+                    return@launch
+                }
 
                 val decryptResult = NostrProtocol.decryptPrivateMessage(giftWrap, identity)
                 if (decryptResult == null) {
@@ -70,6 +72,10 @@ class NostrDirectMessageHandler(
                 }
 
                 val (content, rawSenderPubkey, rumorTimestamp) = decryptResult
+                if (!NostrTimestampPolicy.isPlausibleRumorTimestamp(rumorTimestamp)) {
+                    Log.w(TAG, "Dropping Nostr DM with implausible rumor timestamp")
+                    return@launch
+                }
                 val senderPubkey = rawSenderPubkey.lowercase()
 
                 // If sender is blocked for geohash contexts, drop any events from this pubkey
