@@ -19,6 +19,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mockito
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
 import java.util.Date
@@ -140,6 +141,25 @@ class CommandProcessorTest {
     )
 
     assertTrue(locallyRead.contains(message.id))
+  }
+
+  @Test
+  fun `block and ban in a geohash use the geohash block handler`() {
+    chatState.setSelectedLocationChannel(
+      ChannelID.Location(GeohashChannel(GeohashChannelLevel.PROVINCE, "0000"))
+    )
+    val viewModel: ChatViewModel = mock()
+    for (command in listOf("/block", "/ban")) {
+      assertTrue(commandProcessor.processCommand(
+        command = "$command @anon#a1b2",
+        meshService = meshService,
+        myPeerID = "self",
+        onSendMessage = { _, _, _ -> error("blocking must not publish a message") },
+        viewModel = viewModel
+      ))
+    }
+    verify(viewModel, Mockito.times(2)).blockUserInGeohash("anon#a1b2", null)
+    verify(meshService, Mockito.never()).getPeerNicknames()
   }
 
   @Test

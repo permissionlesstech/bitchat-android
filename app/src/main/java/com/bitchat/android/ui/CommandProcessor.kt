@@ -20,7 +20,7 @@ class CommandProcessor(
     
     // Available commands list
     private val baseCommands = listOf(
-        CommandSuggestion("/block", emptyList(), "[nickname]", "block or list blocked peers"),
+        CommandSuggestion("/block", listOf("/ban"), "[nickname]", "block or list blocked peers"),
         CommandSuggestion("/channels", emptyList(), null, "show all discovered channels"),
         CommandSuggestion("/clear", emptyList(), null, "clear chat messages"),
         CommandSuggestion("/hug", emptyList(), "<nickname>", "send someone a warm hug"),
@@ -46,7 +46,7 @@ class CommandProcessor(
             "/w" -> handleWhoCommand(meshService, viewModel)
             "/clear" -> handleClearCommand()
             "/pass" -> handlePassCommand(parts, myPeerID)
-            "/block" -> handleBlockCommand(parts, meshService)
+            "/block", "/ban" -> handleBlockCommand(parts, meshService, viewModel)
             "/unblock" -> handleUnblockCommand(parts, meshService)
             "/hug" -> handleActionCommand(parts, "gives", "a warm hug 🫂", meshService, myPeerID, onSendMessage, viewModel)
             "/slap" -> handleActionCommand(parts, "slaps", "around a bit with a large trout 🐟", meshService, myPeerID, onSendMessage, viewModel)
@@ -256,9 +256,15 @@ class CommandProcessor(
         }
     }
     
-    private fun handleBlockCommand(parts: List<String>, meshService: MeshService) {
-        if (parts.size > 1) {
-            val targetName = parts[1].removePrefix("@")
+    private fun handleBlockCommand(parts: List<String>, meshService: MeshService, viewModel: ChatViewModel?) {
+        val targetName = parts.drop(1).firstOrNull { it.isNotBlank() }?.removePrefix("@")
+        if (!targetName.isNullOrEmpty()) {
+            if (state.selectedLocationChannel.value is com.bitchat.android.geohash.ChannelID.Location &&
+                state.getSelectedPrivateChatPeerValue() == null
+            ) {
+                viewModel?.blockUserInGeohash(targetName)
+                return
+            }
             privateChatManager.blockPeerByNickname(targetName, meshService)
         } else {
             // List blocked users
