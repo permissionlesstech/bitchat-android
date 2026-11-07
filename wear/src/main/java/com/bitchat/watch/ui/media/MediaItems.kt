@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -21,7 +22,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -40,9 +45,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -53,6 +60,8 @@ import androidx.wear.compose.material3.Text
 import com.bitchat.android.features.voice.AudioWaveformExtractor
 import com.bitchat.android.features.voice.VoiceWaveformCache
 import com.bitchat.watch.ui.theme.ChatVisualTokens
+import com.bitchat.watch.ui.roundFitSize
+import com.bitchat.watch.ui.theme.BitchatMotion
 import com.bitchat.watch.ui.theme.LocalBitchatPalette
 import kotlinx.coroutines.delay
 import java.io.File
@@ -92,30 +101,51 @@ fun FullScreenImageViewer(path: String, onClose: () -> Unit) {
         onDismissRequest = onClose,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Box(
+        // The image grows out of its thumbnail's scale instead of popping in at full size.
+        val reveal = remember { Animatable(0f) }
+        LaunchedEffect(Unit) {
+            reveal.animateTo(1f, tween(BitchatMotion.EMPHASIZED_MS, easing = FastOutSlowInEasing))
+        }
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
+                .graphicsLayer { alpha = reveal.value }
                 .background(Color.Black)
-                .clickable { onClose() },
+                .clickable(onClickLabel = "Close") { onClose() },
             contentAlignment = Alignment.Center
         ) {
             val bitmap = remember(path) { BitmapFactory.decodeFile(path) }
             if (bitmap != null) {
+                val aspect = bitmap.width.toFloat() / bitmap.height.toFloat()
+                // On a round display, the largest rectangle of the image's own shape that fits
+                // the circle: landscape photos use the full width instead of a centered square.
+                val imageModifier = if (LocalConfiguration.current.isScreenRound) {
+                    val (w, h) = roundFitSize(maxWidth.value, maxHeight.value, aspect)
+                    Modifier.size(w.dp, h.dp)
+                } else {
+                    Modifier.fillMaxSize()
+                }
                 Image(
                     painter = BitmapPainter(bitmap.asImageBitmap()),
-                    contentDescription = "image fullscreen",
+                    contentDescription = "Image",
                     contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = imageModifier
+                        .graphicsLayer {
+                            val scale = 0.88f + 0.12f * reveal.value
+                            scaleX = scale
+                            scaleY = scale
+                        }
+                        .clip(RoundedCornerShape(8.dp))
                 )
             }
             Icon(
                 imageVector = Icons.Filled.Close,
-                contentDescription = "close",
+                contentDescription = null,
                 tint = Color.White.copy(alpha = 0.7f),
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = 24.dp)
-                    .size(20.dp)
+                    .padding(top = 10.dp)
+                    .size(18.dp)
             )
         }
     }
@@ -184,7 +214,7 @@ fun VoiceNoteItem(path: String, messageID: String? = null) {
         if (isLive) {
             Text(
                 text = "LIVE",
-                color = Color(0xFFFFB300),
+                color = palette.accentOrange,
                 style = ChatVisualTokens.SystemActionStyle,
                 modifier = Modifier.padding(end = 4.dp)
             )
@@ -205,31 +235,12 @@ fun VoiceNoteItem(path: String, messageID: String? = null) {
                 },
             contentAlignment = Alignment.Center
         ) {
-            if (playing) {
-                Canvas(modifier = Modifier.size(10.dp)) {
-                    val w = size.width
-                    val h = size.height
-                    drawRoundRect(
-                        color = Color.Black,
-                        topLeft = Offset(0f, 0f),
-                        size = Size(w * 0.35f, h),
-                        cornerRadius = CornerRadius(1.dp.toPx())
-                    )
-                    drawRoundRect(
-                        color = Color.Black,
-                        topLeft = Offset(w * 0.65f, 0f),
-                        size = Size(w * 0.35f, h),
-                        cornerRadius = CornerRadius(1.dp.toPx())
-                    )
-                }
-            } else {
-                Icon(
-                    imageVector = Icons.Filled.PlayArrow,
-                    contentDescription = "play",
-                    tint = Color.Black,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
+            Icon(
+                imageVector = if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                contentDescription = if (playing) "Pause" else "Play",
+                tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(16.dp)
+            )
         }
         WaveformBars(
             samples = samples,
@@ -268,7 +279,8 @@ fun WaveformBars(
             val barHeight = size.height * v
             val x = i * barWidth * 2
             drawRoundRect(
-                color = if (i.toFloat() / bars <= progress) activeColor else inactiveColor,
+                // A bar lights once playback passes its middle, so nothing is lit at rest.
+                color = if ((i + 0.5f) / bars < progress) activeColor else inactiveColor,
                 topLeft = Offset(x, (size.height - barHeight) / 2f),
                 size = Size(barWidth, barHeight),
                 cornerRadius = CornerRadius(barWidth / 2f)

@@ -25,16 +25,23 @@ object CashuTokenDecoder {
         val memo: String?
     ) {
         val displayAmount: String?
-            get() = amount?.let { value ->
-                val displayUnit = unit ?: "sat"
-                val minorDigits = minorUnitDigits(displayUnit)
-                val formatted = if (minorDigits == null || minorDigits == 0) {
-                    value.toString()
-                } else {
-                    BigDecimal.valueOf(value, minorDigits).setScale(minorDigits).toPlainString()
-                }
-                "$formatted $displayUnit"
-            }
+            get() = formatDisplayAmount(amount, unit)
+    }
+
+    internal fun formatDisplayAmount(
+        amount: Long?,
+        unit: String?,
+        minorUnits: Map<String, Int> = platformMinorUnits,
+    ): String? {
+        val value = amount ?: return null
+        val displayUnit = unit ?: "sat"
+        val minorDigits = minorUnits[displayUnit.uppercase(Locale.ROOT)]?.takeIf { it > 0 }
+        val formatted = if (minorDigits == null) {
+            value.toString()
+        } else {
+            BigDecimal.valueOf(value, minorDigits).toPlainString()
+        }
+        return "$formatted $displayUnit"
     }
 
     fun bareToken(raw: String): String? {
@@ -191,11 +198,10 @@ object CashuTokenDecoder {
         return value.filterNot(Char::isISOControl).trim().take(80).takeIf(String::isNotEmpty)
     }
 
-    /** ISO-4217 values use their currency's minor unit; custom units stay integer-denominated. */
-    private fun minorUnitDigits(unit: String): Int? {
-        return runCatching {
-            Currency.getInstance(unit.uppercase(Locale.ROOT)).defaultFractionDigits
-        }.getOrNull()?.takeIf { it >= 0 }
+    private val platformMinorUnits: Map<String, Int> by lazy {
+        Currency.getAvailableCurrencies().associate { currency ->
+            currency.currencyCode to currency.defaultFractionDigits
+        }
     }
 
     private val TOKEN_REGEX = Regex("""(?i:cashu:(?://)?)?cashu[AB][A-Za-z0-9_+/%=-]{6,}""")

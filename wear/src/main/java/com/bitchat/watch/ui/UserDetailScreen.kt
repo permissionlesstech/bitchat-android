@@ -1,20 +1,17 @@
 package com.bitchat.watch.ui
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -22,7 +19,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
-import androidx.wear.compose.material3.Card
+import androidx.wear.compose.material3.FilledTonalButton
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
@@ -47,18 +44,13 @@ fun UserDetailScreen(
     val nickname = mesh?.getPeerNickname(peerID) ?: peerID.take(8)
     val listState = rememberScalingLazyListState()
     val palette = LocalBitchatPalette.current
+    val favoriteLit = identity.isFavorite || identity.theyFavoritedUs
 
     ScreenScaffold(scrollState = listState) { scaffoldPadding ->
-        val layoutDirection = LocalLayoutDirection.current
         ScalingLazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = scaffoldPadding
-                .withAdditionalPadding(
-                    layoutDirection = layoutDirection,
-                    horizontal = 10.dp,
-                    vertical = 8.dp
-                )
         ) {
             item {
                 ListHeader {
@@ -68,15 +60,16 @@ fun UserDetailScreen(
                     ) {
                         Text(
                             text = nickname,
-                            style = MaterialTheme.typography.titleSmall,
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = colorForPeer(nickname + peerID, palette),
+                            textAlign = TextAlign.Center,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "User details",
-                            style = ChatVisualTokens.SystemActionStyle,
+                            text = peerID.take(8),
+                            style = ChatVisualTokens.TimestampStyle,
                             color = palette.textTertiary
                         )
                     }
@@ -84,7 +77,7 @@ fun UserDetailScreen(
             }
 
             item {
-                Card(
+                FilledTonalButton(
                     onClick = {
                         mesh?.let {
                             WearPeerIdentityState.setFavorite(
@@ -94,12 +87,8 @@ fun UserDetailScreen(
                             )
                         }
                     },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    modifier = Modifier.fillMaxWidth(),
+                    icon = {
                         Icon(
                             painter = painterResource(
                                 if (identity.isFavorite) {
@@ -108,54 +97,39 @@ fun UserDetailScreen(
                                     R.drawable.ic_spec_star
                                 }
                             ),
-                            contentDescription = when {
-                                identity.isFavorite -> "Favorite"
-                                identity.theyFavoritedUs -> "They favorited you"
-                                else -> "Not a favorite"
-                            },
-                            tint = if (
-                                identity.isFavorite || identity.theyFavoritedUs
-                            ) {
-                                palette.accentOrange
-                            } else {
-                                palette.textTertiary
-                            },
-                            modifier = Modifier.size(24.dp)
+                            contentDescription = null,
+                            tint = if (favoriteLit) palette.accentOrange else palette.textTertiary,
+                            modifier = Modifier.size(20.dp)
                         )
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(start = 8.dp)
-                        ) {
+                    },
+                    secondaryLabel = favoriteSubtitle(identity)?.let { subtitle ->
+                        {
                             Text(
-                                text = favoriteTitle(identity),
-                                style = ChatVisualTokens.SenderStyle,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = favoriteSubtitle(identity),
+                                text = subtitle,
                                 style = ChatVisualTokens.SystemActionStyle,
-                                color = palette.textTertiary
+                                color = palette.accentOrange,
+                                maxLines = 1
                             )
                         }
                     }
+                ) {
+                    Text(
+                        text = if (identity.isFavorite) "Favorited" else "Favorite",
+                        maxLines = 1
+                    )
                 }
             }
 
             item {
-                Card(
+                FilledTonalButton(
                     onClick = onOpenVerification,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    modifier = Modifier.fillMaxWidth(),
+                    icon = {
                         Icon(
                             imageVector = if (identity.isVerified) {
                                 Icons.Filled.Verified
                             } else {
-                                Icons.Filled.Lock
+                                Icons.Filled.Shield
                             },
                             contentDescription = null,
                             tint = if (identity.isVerified) {
@@ -163,57 +137,32 @@ fun UserDetailScreen(
                             } else {
                                 palette.textTertiary
                             },
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(20.dp)
                         )
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(start = 8.dp)
-                        ) {
+                    },
+                    secondaryLabel = if (identity.isVerified) null else {
+                        {
                             Text(
-                                text = if (identity.isVerified) {
-                                    "Identity verified"
-                                } else {
-                                    "Verification code"
-                                },
-                                style = ChatVisualTokens.SenderStyle,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "Compare cryptographic fingerprints",
+                                text = "Compare codes",
                                 style = ChatVisualTokens.SystemActionStyle,
-                                color = palette.textTertiary
+                                color = palette.textTertiary,
+                                maxLines = 1
                             )
                         }
                     }
+                ) {
+                    Text(
+                        text = if (identity.isVerified) "Verified" else "Verify",
+                        maxLines = 1
+                    )
                 }
-            }
-
-            item {
-                Text(
-                    text = "Peer ${peerID.take(8)}",
-                    style = ChatVisualTokens.SystemActionStyle,
-                    color = palette.textTertiary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp)
-                )
             }
         }
     }
 }
 
-private fun favoriteTitle(identity: WearPeerIdentitySnapshot): String = when {
-    identity.isFavorite && identity.theyFavoritedUs -> "Mutual favorite"
-    identity.isFavorite -> "Favorited"
-    identity.theyFavoritedUs -> "Favorite back"
-    else -> "Add favorite"
-}
-
-private fun favoriteSubtitle(identity: WearPeerIdentitySnapshot): String = when {
-    identity.isFavorite && identity.theyFavoritedUs -> "You favorited each other"
-    identity.isFavorite -> "Remove from favorites"
-    identity.theyFavoritedUs -> "They favorited you"
-    else -> "Keep this person easy to find"
+private fun favoriteSubtitle(identity: WearPeerIdentitySnapshot): String? = when {
+    identity.isFavorite && identity.theyFavoritedUs -> "Mutual"
+    identity.theyFavoritedUs -> "Favors you"
+    else -> null
 }

@@ -14,8 +14,6 @@ import okhttp3.*
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.math.min
-import kotlin.math.pow
 
 /**
  * Manages WebSocket connections to Nostr relays
@@ -48,12 +46,8 @@ class NostrRelayManager private constructor() {
             "wss://nostr21.com"
         )
         
-        // Exponential backoff configuration (same as iOS)
-        private const val INITIAL_BACKOFF_INTERVAL = com.bitchat.android.util.AppConstants.Nostr.INITIAL_BACKOFF_INTERVAL_MS  // 1 second
-        private const val MAX_BACKOFF_INTERVAL = com.bitchat.android.util.AppConstants.Nostr.MAX_BACKOFF_INTERVAL_MS    // 5 minutes
-        private const val BACKOFF_MULTIPLIER = com.bitchat.android.util.AppConstants.Nostr.BACKOFF_MULTIPLIER
-        private const val MAX_RECONNECT_ATTEMPTS = com.bitchat.android.util.AppConstants.Nostr.MAX_RECONNECT_ATTEMPTS
-        
+        // Reconnect backoff lives in RelayReconnectPolicy.
+
         // Track gift-wraps we initiated for logging
         private val pendingGiftWrapIDs = ConcurrentHashMap.newKeySet<String>()
         
@@ -108,7 +102,13 @@ class NostrRelayManager private constructor() {
         val createdAt: Long = System.currentTimeMillis(),
         val originGeohash: String? = null,
         val owner: String = OWNER_LEGACY,
-        val liveLocationToken: Long? = null
+        val liveLocationToken: Long? = null,
+        /**
+         * Deliver every matching event straight to [handler] on the socket thread, bypassing the
+         * shared deduplicator. For observers that must not consume events other subscriptions
+         * still need (the globe activity sweep overlaps the open chat's subscription).
+         */
+        val observeOnly: Boolean = false
     )
     
     // Event deduplication system
@@ -178,6 +178,45 @@ class NostrRelayManager private constructor() {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to ensure geohash relays")
         }
+    }
+
+    /**
+     * Connect to an explicit relay set that carries no location meaning, such as the globe
+     * picker's worldwide activity sweep. Pair with [releaseRelays].
+     */
+    fun connectToRelays(relayUrls: Collection<String>) {
+        val urls = relayUrls.filter { it.isNotBlank() }.toSet()
+        if (urls.isEmpty()) return
+        // A relay held only for a live-location channel keeps its live gating.
+        val connectable = urls.filterTo(mutableSetOf()) {
+            !liveLocationRelayTokens.containsKey(it) || it in nonLiveRelayUrls
+        }
+        nonLiveRelayUrls.addAll(connectable)
+        ensureConnectionsFor(connectable)
+    }
+
+    /**
+     * Disconnect relays from [connectToRelays] that nothing else needs: not a default relay,
+     * not routed for a geohash, and not targeted by any remaining subscription.
+     */
+    fun releaseRelays(relayUrls: Collection<String>) {
+        val routed = buildSet { geohashToRelays.values.forEach { addAll(it) } }
+        val targeted = buildSet {
+            activeSubscriptions.values.forEach { info -> info.targetRelayUrls?.let { addAll(it) } }
+        }
+        val releasable = relayUrls.toSet() - DEFAULT_RELAYS.toSet() - routed - targeted
+        if (releasable.isEmpty()) return
+        releasable.forEach { url ->
+            reconnectJobs.remove(url)?.cancel()
+            connections.remove(url)?.close(1000, "Released")
+            subscriptions.remove(url)
+            nonLiveRelayUrls.remove(url)
+        }
+        synchronized(relaysList) {
+            relaysList.removeAll { it.url in releasable }
+        }
+        updateRelaysList()
+        updateConnectionStatus()
     }
 
     /**
@@ -430,7 +469,7 @@ class NostrRelayManager private constructor() {
         liveLocationConnectionJobs.forEach(Job::cancel)
         liveLocationConnectionJobs.clear()
 
-        val sockets = connections.values.toList()
+        val sockets = buildList { connections.values.forEach { add(it) } }
         connections.clear()
         sockets.forEach { webSocket ->
             webSocket.close(1000, "Manual disconnect")
@@ -490,7 +529,8 @@ class NostrRelayManager private constructor() {
         handler: (NostrEvent) -> Unit,
         targetRelayUrls: List<String>? = null,
         owner: String = OWNER_LEGACY,
-        liveLocationToken: Long? = null
+        liveLocationToken: Long? = null,
+        observeOnly: Boolean = false
     ): String {
         val subscriptionInfo = SubscriptionInfo(
             id = id,
@@ -498,7 +538,8 @@ class NostrRelayManager private constructor() {
             handler = handler,
             targetRelayUrls = targetRelayUrls?.toSet(),
             owner = owner,
-            liveLocationToken = liveLocationToken
+            liveLocationToken = liveLocationToken,
+            observeOnly = observeOnly
         )
         
         runNetworkAction(liveLocationToken) {
@@ -520,7 +561,10 @@ class NostrRelayManager private constructor() {
 
         scope.launch {
             if (!isNetworkActionAllowed(subscriptionInfo.liveLocationToken)) return@launch
-            val targetRelays = subscriptionInfo.targetRelayUrls?.toList() ?: connections.keys.toList()
+            // A concurrent view can shrink between Collection.size and iterator.next.
+            // Build by iteration instead of Kotlin's size-based toList fast paths.
+            val targetRelays = subscriptionInfo.targetRelayUrls?.toList()
+                ?: buildList { connections.keys.forEach { add(it) } }
             
             targetRelays.forEach { relayUrl ->
                 val webSocket = connections[relayUrl]
@@ -942,6 +986,11 @@ class NostrRelayManager private constructor() {
                         }
                     }
 
+                    if (subscriptionInfo.observeOnly) {
+                        messageHandlers[response.subscriptionId]?.invoke(response.event)
+                        return
+                    }
+
                     // DEDUPLICATION: Check if we've already processed this event
                     eventDeduplicator.processEvent(response.event) { event ->
                         // Call handler for new events only
@@ -1018,36 +1067,15 @@ class NostrRelayManager private constructor() {
         if (!desiredConnected.get() ||
             !isNetworkActionAllowed(connectionToken)
         ) return
-        
-        // Check if this is a DNS error
-        val errorMessage = error.message?.lowercase() ?: ""
-        if (errorMessage.contains("hostname could not be found") || 
-            errorMessage.contains("dns") ||
-            errorMessage.contains("unable to resolve host")) {
-            
-            val relay = relaysList.find { it.url == relayUrl }
-            if (relay?.lastError == null) {
-                Log.w(TAG, "Nostr relay DNS failure; not retrying")
-            }
-            return
-        }
-        
-        // Implement exponential backoff for non-DNS errors
+
+        // Every failure backs off and retries, including a name-resolution
+        // failure: "unable to resolve host" is what this device reports when it
+        // simply has no network, so treating it as permanent turns a walk
+        // through a tunnel into a dead relay layer for the rest of the process.
         val relay = relaysList.find { it.url == relayUrl } ?: return
-        relay.reconnectAttempts++
-        
-        // Stop attempting after max attempts
-        if (relay.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-            Log.w(TAG, "Max Nostr relay reconnection attempts reached")
-            return
-        }
-        
-        // Calculate backoff interval
-        val backoffInterval = min(
-            INITIAL_BACKOFF_INTERVAL * BACKOFF_MULTIPLIER.pow(relay.reconnectAttempts - 1.0),
-            MAX_BACKOFF_INTERVAL.toDouble()
-        ).toLong()
-        
+        relay.reconnectAttempts = RelayReconnectPolicy.nextAttempt(relay.reconnectAttempts)
+        val backoffInterval = RelayReconnectPolicy.backoffMs(relay.reconnectAttempts)
+
         relay.nextReconnectTime = System.currentTimeMillis() + backoffInterval
         
         Log.d(TAG, "Scheduling Nostr relay reconnection")
