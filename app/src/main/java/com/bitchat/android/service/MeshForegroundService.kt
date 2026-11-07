@@ -307,7 +307,9 @@ class MeshForegroundService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(content)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            // Adaptive launcher icons are not valid smallIcon glyphs — the
+            // system expects a white alpha silhouette (see #531 / #721).
+            .setSmallIcon(R.drawable.ic_notification)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
