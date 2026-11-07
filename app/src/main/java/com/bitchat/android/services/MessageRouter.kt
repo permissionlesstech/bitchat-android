@@ -164,23 +164,6 @@ class MessageRouter private constructor(
         }
     }
 
-    fun sendDeliveryAck(messageID: String, toPeerID: String) {
-        // Mesh delivery ACKs are sent by the receiver automatically.
-        // Only route via Nostr when mesh path isn't available or when this is a geohash alias
-        if (com.bitchat.android.nostr.GeohashAliasRegistry.contains(toPeerID)) {
-            val recipientHex = com.bitchat.android.nostr.GeohashAliasRegistry.get(toPeerID)
-            if (recipientHex != null) {
-                nostr.sendDeliveryAckGeohash(messageID, recipientHex, try { com.bitchat.android.nostr.NostrIdentityBridge.getCurrentNostrIdentity(context)!! } catch (_: Exception) { return })
-                return
-            }
-        }
-        val resolution = ContactDirectory.resolve(toPeerID)
-        val meshTarget = resolution.meshPeerID ?: toPeerID.takeIf { ContactIdentityResolver.isMeshPeerId(it) }
-        if (!(meshTarget != null && (mesh.getPeerInfo(meshTarget)?.isConnected == true) && mesh.hasEstablishedSession(meshTarget))) {
-            nostr.sendDeliveryAck(messageID, resolution.noiseKeyHex ?: toPeerID)
-        }
-    }
-
     fun sendFavoriteNotification(toPeerID: String, isFavorite: Boolean) {
         val resolution = ContactDirectory.resolve(toPeerID)
         val meshTarget = resolution.meshPeerID ?: toPeerID.takeIf { ContactIdentityResolver.isMeshPeerId(it) }
