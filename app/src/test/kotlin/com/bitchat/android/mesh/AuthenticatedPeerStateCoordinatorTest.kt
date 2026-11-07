@@ -337,12 +337,13 @@ class AuthenticatedPeerStateCoordinatorTest {
     }
 
     @Test
-    fun `an accepted proof is resolvable by peer ID afterwards`() {
+    fun `an accepted proof stays resolvable after coordinator state is cleared`() {
         val store = MemoryStore()
         val coordinator = coordinatorOver(store)
 
         coordinator.onSessionAuthenticated(peerID, remoteStatic, firstSession.sessionToken)
         assertTrue(coordinator.receive(peerID, remoteState, firstSession))
+        coordinator.clear(peerID)
 
         assertArrayEquals(remoteState.signingPublicKey, coordinator.persistedSigningKeyFor(peerID))
     }

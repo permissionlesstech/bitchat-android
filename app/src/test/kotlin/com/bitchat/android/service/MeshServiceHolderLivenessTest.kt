@@ -49,8 +49,7 @@ class MeshServiceHolderLivenessTest {
 
     @After
     fun tearDown() {
-        MeshServiceHolder.unregisterLivenessProbe("WIFI")
-        MeshServiceHolder.unregisterLivenessProbe("BLE")
+        MeshServiceHolder.clear()
         scope.cancel()
     }
 

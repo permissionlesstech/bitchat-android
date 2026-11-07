@@ -80,11 +80,16 @@ class SecurityManagerPersistedIdentityRobolectricTest {
         ))
     }
 
-    private fun signedPacket(key: Ed25519PrivateKeyParameters = signingKey): BitchatPacket {
+    private fun signedPacket(
+        key: Ed25519PrivateKeyParameters = signingKey,
+        type: MessageType = MessageType.MESSAGE,
+        timestamp: ULong = System.currentTimeMillis().toULong()
+    ): BitchatPacket {
         val packet = BitchatPacket(
-            type = MessageType.MESSAGE.value,
+            type = type.value,
+            timestamp = timestamp,
             ttl = 0u,
-            senderID = peerID,
+            senderID = peerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray(),
             payload = "synthetic replay".toByteArray()
         )
         val bytes = requireNotNull(packet.toBinaryDataForSigning())
@@ -151,4 +156,21 @@ class SecurityManagerPersistedIdentityRobolectricTest {
         identity.clearIdentityData()
         assertFalse(manager.validatePacket(signedPacket(), peerID))
     }
+
+    @Test
+    fun `persisted key verifies a fresh LEAVE but cannot bypass signature or age checks`() {
+        val fresh = signedPacket(type = MessageType.LEAVE)
+        assertFalse("without persisted state the absent sender is rejected", manager.validatePacket(fresh, peerID))
+        persistKey()
+        assertFalse(manager.validatePacket(fresh.copy(signature = ByteArray(64)), peerID))
+        val now = System.currentTimeMillis()
+        assertFalse(manager.validatePacket(signedPacket(
+            type = MessageType.LEAVE, timestamp = (now - 360_000L).toULong()
+        ), peerID))
+        assertFalse(manager.validatePacket(signedPacket(
+            type = MessageType.LEAVE, timestamp = (now + 360_000L).toULong()
+        ), peerID))
+        assertTrue("fresh LEAVE verifies through the real persisted store", manager.validatePacket(fresh, peerID))
+    }
+
 }

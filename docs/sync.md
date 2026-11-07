@@ -122,19 +122,26 @@ live signing key when available, otherwise the key persisted by a completed
 authenticated peer-state exchange over Noise. A signature must verify with the
 selected key. Packet-type checks still apply, including LEAVE's age bound and
 the live-peer and age checks for public voice frames. This fallback is not
-restricted to REQUEST_SYNC responses.
+restricted to REQUEST_SYNC responses. Accepted packets follow normal handling,
+including relay when TTL and existing relay rules allow. The fallback adds no
+age limit for MESSAGE or FILE_TRANSFER packets.
 
 The broadcast message handler can display an absent sender under its cached
 nickname, or peer ID, when authenticated signing state is persisted. A present
 peer with an unverified nickname remains rejected by that handler.
 
 For archiving another sender's broadcast MESSAGE, the shared gossip manager
-checks the registered transport lookups. If none reports that sender present,
-the message is not archived for later sync. Own broadcasts bypass this check;
-ANNOUNCE retention is unchanged. This is a presence check at receipt time, not a
+checks the registered transport lookups; a standalone MeshCore, as used by Wear,
+checks its own peer registry. If the applicable lookup does not report that
+sender present, the message is not archived for later sync. Own broadcasts
+bypass this check; ANNOUNCE retention is unchanged. This is a presence check at receipt time, not a
 permanent marker of departure: a returning sender can be archived again. After
 an announcement is purged, its age can no longer trigger removal of messages
 inserted later; capacity eviction and explicit removal remain available.
+
+Android emits REQUEST_SYNC and its responses with TTL=0. Relay suppression relies
+on TTL; the relay manager does not independently exclude REQUEST_SYNC or its
+responses.
 
 ## Configuration (Debug Sheet)
 

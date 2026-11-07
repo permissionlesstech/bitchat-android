@@ -5,6 +5,9 @@ import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -17,9 +20,10 @@ import org.junit.Test
 /**
  * A message accepted from an absent sender must not refill the archive after its announcement
  * is purged. Without that announcement, announcement-age pruning cannot remove the message;
- * it could be served to requesters missing it until capacity eviction or explicit removal.
+ * it could remain eligible for the bounded recovery window until capacity eviction or explicit removal.
  * The guard checks current registry presence and exempts our own broadcasts.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class GossipSyncArchiveGuardTest {
 
     private val sent = mutableListOf<Pair<String, BitchatPacket>>()
@@ -115,4 +119,30 @@ class GossipSyncArchiveGuardTest {
 
         assertEquals("own broadcasts must keep being served", 1, sent.size)
     }
+
+    @Test
+    fun `a returning sender is served with its announcement before paced messages`() = runTest {
+        val pacedManager = GossipSyncManager(
+            myPeerID = "1122334455667788", scope = this, configProvider = config
+        ).also { it.delegate = delegate }
+        // A replay received while absent must not be retained for this later request.
+        pacedManager.onPublicPacketSeen(broadcastMessage(ageMillis = 90_000L))
+        livePeers = setOf(senderID)
+        pacedManager.onPublicPacketSeen(announce(ageMillis = 120_000L))
+        val older = broadcastMessage(ageMillis = 60_000L)
+        val newer = broadcastMessage(ageMillis = 30_000L)
+        pacedManager.onPublicPacketSeen(newer)
+        pacedManager.onPublicPacketSeen(older)
+
+        pacedManager.handleRequestSync(requester, requestForNothingHeld())
+        assertEquals(listOf(MessageType.ANNOUNCE.value), sent.map { it.second.type })
+        advanceUntilIdle()
+
+        assertEquals(3, sent.size)
+        assertTrue(sent.all { it.first == requester })
+        assertEquals(listOf(older.timestamp, newer.timestamp), sent.drop(1).map { it.second.timestamp })
+        assertTrue(sent.all { it.second.ttl == 0.toUByte() })
+        assertEquals(40L, testScheduler.currentTime)
+    }
+
 }
