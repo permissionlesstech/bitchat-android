@@ -8,8 +8,8 @@ import kotlin.math.ln
  * Golomb-Coded Set (GCS) filter implementation for sync.
  *
  * Hashing:
- * - h64(id) = first 8 bytes of SHA-256 over the 16-byte PacketId (big-endian unsigned)
- * - Map to range [0, M) via (h64 % M)
+ * - h64(id) = first 8 bytes of SHA-256 over the 16-byte PacketId, big-endian with the high bit cleared
+ * - Map via (h64 % M), replacing zero with one
  *
  * Encoding (v1):
  * - Sort mapped values ascending; encode deltas (first is v0, then vi - v{i-1}) as positive integers
