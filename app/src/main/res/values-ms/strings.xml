@@ -158,7 +158,6 @@
   <string name="cd_offline_favorite">Kegemaran luar talian</string>
   <string name="cd_decrease_precision">Kurangkan ketepatan</string>
   <string name="cd_increase_precision">Tingkatkan ketepatan</string>
-  <string name="cd_select_geohash">Pilih geohash</string>
   <string name="cd_scroll_to_bottom">Tatal ke bawah</string>
   <string name="cd_file">Fail</string>
   <string name="cd_image">Imej</string>
@@ -356,8 +355,6 @@
   <string name="channel_count_prefix"> · ⧉ </string>
   <string name="nobody_around">tiada sesiapa berdekatan...</string>
   <string name="you_suffix"> (anda)</string>
-  <string name="pan_zoom_instruction">gerak dan zum untuk memilih geohash</string>
-  <string name="select">pilih</string>
   <string name="type_a_message_placeholder">taip mesej...</string>
   <string name="mention_suggestion_at">@%1$s</string>
   <string name="mention">sebutan</string>
@@ -435,4 +432,14 @@
     <string name="about_select_language">Pilih bahasa</string>
     <string name="about_spam_filter_title">Penapis spam</string>
     <string name="about_spam_filter_desc">Sembunyikan mesej awam daripada orang yang menghantar terlalu pantas, mengulang mesej atau membanjiri perbualan dengan pautan.</string>
+    <string name="globe_live">langsung</string>
+    <string name="globe_connecting">menyambung</string>
+    <string name="globe_offline">luar talian</string>
+    <string name="globe_hint_drag">putar</string>
+    <string name="globe_hint_pinch">zum</string>
+    <string name="globe_hint_tap">ketik satu titik</string>
+    <string name="globe_no_activity">tiada aktiviti terkini</string>
+    <string name="cd_show_whole_globe">Tunjukkan seluruh glob</string>
+    <string name="cd_globe_activity">%1$d sembang aktif, %2$d orang dalam talian</string>
+    <string name="cd_channel_activity">%1$d orang, %2$d mesej dalam sejam lepas</string>
 </resources>

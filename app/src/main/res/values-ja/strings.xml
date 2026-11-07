@@ -145,7 +145,6 @@
     <string name="cd_offline_favorite">お気に入り (オフライン)</string>
     <string name="cd_decrease_precision">精度を下げる</string>
     <string name="cd_increase_precision">精度を上げる</string>
-    <string name="cd_select_geohash">Geohash を選択</string>
     <string name="cd_scroll_to_bottom">一番下へスクロール</string>
     <string name="cd_file">ファイル</string>
     <string name="cd_image">画像</string>
@@ -280,8 +279,6 @@
     <string name="location_tracking_warning">bitchat はあなたの位置情報を追跡しません</string>
     <string name="nobody_around">誰もいません…</string>
     <string name="you_suffix"> (あなた)</string>
-    <string name="pan_zoom_instruction">パン/ズームして geohash を選択</string>
-    <string name="select">選択</string>
     <string name="type_a_message_placeholder">メッセージを入力…</string>
     <string name="mention">メンション</string>
     <string name="version_prefix">v%1$s</string>
@@ -395,4 +392,14 @@
     <string name="about_select_language">言語を選択</string>
     <string name="about_spam_filter_title">スパムフィルター</string>
     <string name="about_spam_filter_desc">短時間に大量のメッセージを送信したり、同じ内容を繰り返したり、リンクを大量に投稿したりする人の公開メッセージを非表示にします。</string>
+    <string name="globe_live">ライブ</string>
+    <string name="globe_connecting">接続中</string>
+    <string name="globe_offline">オフライン</string>
+    <string name="globe_hint_drag">回転</string>
+    <string name="globe_hint_pinch">ズーム</string>
+    <string name="globe_hint_tap">ドットをタップ</string>
+    <string name="globe_no_activity">最近のアクティビティなし</string>
+    <string name="cd_show_whole_globe">地球全体を表示</string>
+    <string name="cd_globe_activity">アクティブなチャット %1$d 件、オンライン %2$d 人</string>
+    <string name="cd_channel_activity">%1$d 人、過去1時間のメッセージ %2$d 件</string>
 </resources>

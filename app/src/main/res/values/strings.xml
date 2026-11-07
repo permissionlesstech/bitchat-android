@@ -362,7 +362,6 @@
   <string name="cd_offline_favorite">Offline favorite</string>
   <string name="cd_decrease_precision">Decrease precision</string>
   <string name="cd_increase_precision">Increase precision</string>
-  <string name="cd_select_geohash">Select geohash</string>
   <string name="cd_scroll_to_bottom">Scroll to bottom</string>
   <string name="cd_file">File</string>
   <string name="cd_image">Image</string>
@@ -584,8 +583,6 @@
   <string name="channel_count_prefix"> · ⧉ </string>
   <string name="nobody_around">Nobody around…</string>
   <string name="you_suffix"> (you)</string>
-  <string name="pan_zoom_instruction">Drag to spin · Pinch to zoom · Tap to focus</string>
-  <string name="select">Select</string>
   <string name="type_a_message_placeholder">Type a message…</string>
   <string name="mention_suggestion_at">@%1$s</string>
   <string name="mention">Mention</string>
@@ -663,4 +660,14 @@
   <string name="about_app_language">App language</string>
   <string name="about_system_default">System default</string>
   <string name="about_select_language">Select language</string>
+    <string name="globe_live">live</string>
+    <string name="globe_connecting">connecting</string>
+    <string name="globe_offline">offline</string>
+    <string name="globe_hint_drag">spin</string>
+    <string name="globe_hint_pinch">zoom</string>
+    <string name="globe_hint_tap">tap a dot</string>
+    <string name="globe_no_activity">no recent activity</string>
+    <string name="cd_show_whole_globe">Show the whole globe</string>
+    <string name="cd_globe_activity">%1$d active chats, %2$d people online</string>
+    <string name="cd_channel_activity">%1$d people, %2$d messages in the last hour</string>
 </resources>

@@ -145,7 +145,6 @@
     <string name="cd_offline_favorite">Paborito (offline)</string>
     <string name="cd_decrease_precision">Bawasan ang precision</string>
     <string name="cd_increase_precision">Dagdagan ang precision</string>
-    <string name="cd_select_geohash">Piliin ang geohash</string>
     <string name="cd_scroll_to_bottom">Mag‑scroll pababa</string>
     <string name="cd_file">File</string>
     <string name="cd_image">Larawan</string>
@@ -275,8 +274,6 @@
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="nobody_around">walang tao sa paligid…</string>
     <string name="you_suffix"> (ikaw)</string>
-    <string name="pan_zoom_instruction">i‑pan at i‑zoom para pumili ng geohash</string>
-    <string name="select">piliin</string>
     <string name="type_a_message_placeholder">magtype ng mensahe…</string>
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">banggit</string>
@@ -393,4 +390,14 @@
     <string name="about_select_language">Pumili ng wika</string>
     <string name="about_spam_filter_title">Filter ng spam</string>
     <string name="about_spam_filter_desc">Itago ang mga pampublikong mensahe mula sa mga taong masyadong mabilis mag-post, paulit-ulit ang sinasabi, o nagpapadala ng napakaraming link.</string>
+    <string name="globe_live">live</string>
+    <string name="globe_connecting">kumokonekta</string>
+    <string name="globe_offline">offline</string>
+    <string name="globe_hint_drag">iikot</string>
+    <string name="globe_hint_pinch">zoom</string>
+    <string name="globe_hint_tap">i-tap ang tuldok</string>
+    <string name="globe_no_activity">walang kamakailang aktibidad</string>
+    <string name="cd_show_whole_globe">Ipakita ang buong globo</string>
+    <string name="cd_globe_activity">%1$d aktibong chat, %2$d tao ang online</string>
+    <string name="cd_channel_activity">%1$d tao, %2$d mensahe sa nakaraang oras</string>
 </resources>

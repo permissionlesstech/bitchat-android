@@ -145,7 +145,6 @@
     <string name="cd_offline_favorite">پسندیدہ (آف لائن)</string>
     <string name="cd_decrease_precision">درستگی گھٹاؤ</string>
     <string name="cd_increase_precision">درستگی وداؤ</string>
-    <string name="cd_select_geohash">geohash چُنو</string>
     <string name="cd_scroll_to_bottom">تھلے سکرول کرو</string>
     <string name="cd_file">فائل</string>
     <string name="cd_image">تصویر</string>
@@ -280,8 +279,6 @@
     <string name="location_tracking_warning">bitchat توانڈی لوکیشن نئیں ٹریک کردا</string>
     <string name="nobody_around">کوئی وی نیڑے نئیں …</string>
     <string name="you_suffix"> (تُسی)</string>
-    <string name="pan_zoom_instruction">geohash چُنن لئی پین تے زوم کرو</string>
-    <string name="select">چُنو</string>
     <string name="type_a_message_placeholder">پیغام لکھو …</string>
     <string name="mention">ذکر</string>
     <string name="version_prefix">v%1$s</string>
@@ -382,4 +379,14 @@
     <string name="about_select_language">بولی چݨو</string>
     <string name="about_spam_filter_title">سپیم فلٹر</string>
     <string name="about_spam_filter_desc">اوہناں لوکاں دے عوامی پیغام لُکاؤ جو بہت تیزی نال پیغام بھیجدے، گلّاں دُہراوندے یا بہت سارے لنک بھیجدے نیں۔</string>
+    <string name="globe_live">لائیو</string>
+    <string name="globe_connecting">جڑ رہیا اے</string>
+    <string name="globe_offline">آف لائن</string>
+    <string name="globe_hint_drag">گھماؤ</string>
+    <string name="globe_hint_pinch">زوم</string>
+    <string name="globe_hint_tap">کسے بندو تے ٹیپ کرو</string>
+    <string name="globe_no_activity">کوئی تازہ سرگرمی نہیں</string>
+    <string name="cd_show_whole_globe">پورا گلوب وکھاؤ</string>
+    <string name="cd_globe_activity">%1$d فعال چیٹاں، %2$d لوک آن لائن</string>
+    <string name="cd_channel_activity">%1$d لوک، پچھلے گھنٹے وچ %2$d سنیہے</string>
 </resources>

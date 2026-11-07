@@ -8,6 +8,8 @@ plugins {
 
 // Opt-in instrumentation of the minified variant; production release signing is unchanged.
 val releaseUiTests = providers.gradleProperty("releaseUiTests").orNull == "true"
+val composerUiTests = providers.gradleProperty("composerUiTests").orNull == "true"
+require(!(releaseUiTests && composerUiTests)) { "Select one UI test configuration" }
 
 val githubReleaseCertSha256 = providers
     .environmentVariable("BITCHAT_GITHUB_RELEASE_CERT_SHA256")
@@ -34,15 +36,17 @@ android {
         applicationId = "com.bitchat.droid"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 41
-        versionName = "2.1.0"
+        versionCode = 42
+        versionName = "2.2.0"
         buildConfigField(
             "String",
             "GITHUB_RELEASE_CERT_SHA256",
             "\"$normalizedGithubReleaseCertSha256\""
         )
 
-        testInstrumentationRunner = if (releaseUiTests) {
+        testInstrumentationRunner = if (composerUiTests) {
+            "com.bitchat.android.ui.ComposerPanicTestRunner"
+        } else if (releaseUiTests) {
             "com.bitchat.android.ui.ReleaseScannerTestRunner"
         } else {
             "com.bitchat.android.ui.PerformanceTestRunner"
@@ -59,8 +63,13 @@ android {
         includeInBundle = false
     }
 
+    if (composerUiTests) {
+        sourceSets.getByName("androidTest").kotlin.directories.add("src/composerAndroidTest/java")
+    }
+
     buildTypes {
         debug {
+            if (composerUiTests) applicationIdSuffix = ".composerTest"
             ndk {
                 // Include x86_64 for emulator support during development
                 abiFilters += listOf("arm64-v8a", "x86_64", "armeabi-v7a", "x86")

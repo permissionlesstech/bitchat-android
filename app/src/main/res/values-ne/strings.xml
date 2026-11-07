@@ -145,7 +145,6 @@
     <string name="cd_offline_favorite">मनपर्ने (अफलाइन)</string>
     <string name="cd_decrease_precision">शुद्धता घटाउनुहोस्</string>
     <string name="cd_increase_precision">शुद्धता बढाउनुहोस्</string>
-    <string name="cd_select_geohash">geohash छान्नुहोस्</string>
     <string name="cd_scroll_to_bottom">तल स्क्रोल गर्नुहोस्</string>
     <string name="cd_file">फाइल</string>
     <string name="cd_image">तस्वीर</string>
@@ -275,8 +274,6 @@
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="nobody_around">वरिपरि कोही छैन…</string>
     <string name="you_suffix"> (तपाईं)</string>
-    <string name="pan_zoom_instruction">geohash छान्न प्यान र जुम गर्नुहोस्</string>
-    <string name="select">छान्नुहोस्</string>
     <string name="type_a_message_placeholder">सन्देश टाइप गर्नुहोस्…</string>
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">उल्लेख</string>
@@ -393,4 +390,14 @@
     <string name="about_select_language">भाषा छान्नुहोस्</string>
     <string name="about_spam_filter_title">स्प्याम फिल्टर</string>
     <string name="about_spam_filter_desc">धेरै छिटो सन्देश पठाउने, एउटै कुरा दोहोर्‍याउने वा धेरै लिङ्क पठाउने व्यक्तिका सार्वजनिक सन्देशहरू लुकाउनुहोस्।</string>
+    <string name="globe_live">लाइभ</string>
+    <string name="globe_connecting">जडान हुँदै</string>
+    <string name="globe_offline">अफलाइन</string>
+    <string name="globe_hint_drag">घुमाउनुहोस्</string>
+    <string name="globe_hint_pinch">जुम</string>
+    <string name="globe_hint_tap">एउटा बिन्दुमा ट्याप गर्नुहोस्</string>
+    <string name="globe_no_activity">हालको कुनै गतिविधि छैन</string>
+    <string name="cd_show_whole_globe">पूरै ग्लोब देखाउनुहोस्</string>
+    <string name="cd_globe_activity">%1$d सक्रिय च्याट, %2$d जना अनलाइन</string>
+    <string name="cd_channel_activity">%1$d जना, पछिल्लो एक घण्टामा %2$d सन्देश</string>
 </resources>

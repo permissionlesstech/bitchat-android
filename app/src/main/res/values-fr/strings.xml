@@ -145,7 +145,6 @@
     <string name="cd_offline_favorite">Favori (hors‑ligne)</string>
     <string name="cd_decrease_precision">Diminuer la précision</string>
     <string name="cd_increase_precision">Augmenter la précision</string>
-    <string name="cd_select_geohash">Sélectionner le geohash</string>
     <string name="cd_scroll_to_bottom">Aller en bas</string>
     <string name="cd_file">Fichier</string>
     <string name="cd_image">Image</string>
@@ -276,8 +275,6 @@
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="nobody_around">personne aux alentours…</string>
     <string name="you_suffix"> (toi)</string>
-    <string name="pan_zoom_instruction">déplacer et zoomer pour choisir un geohash</string>
-    <string name="select">sélectionner</string>
     <string name="type_a_message_placeholder">écrire un message…</string>
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">mention</string>
@@ -407,4 +404,14 @@
     <string name="about_select_language">Choisir la langue</string>
     <string name="about_spam_filter_title">Filtre antispam</string>
     <string name="about_spam_filter_desc">Masquer les messages publics des personnes qui publient trop vite, se répètent ou inondent le chat de liens.</string>
+    <string name="globe_live">en direct</string>
+    <string name="globe_connecting">connexion</string>
+    <string name="globe_offline">hors ligne</string>
+    <string name="globe_hint_drag">tourner</string>
+    <string name="globe_hint_pinch">zoomer</string>
+    <string name="globe_hint_tap">touchez un point</string>
+    <string name="globe_no_activity">aucune activité récente</string>
+    <string name="cd_show_whole_globe">Afficher tout le globe</string>
+    <string name="cd_globe_activity">%1$d discussions actives, %2$d personnes en ligne</string>
+    <string name="cd_channel_activity">%1$d personnes, %2$d messages au cours de la dernière heure</string>
 </resources>

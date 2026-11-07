@@ -342,7 +342,6 @@
     <string name="cd_offline_favorite">Lineaz kanpoko gogokoa</string>
     <string name="cd_decrease_precision">Txikitu zehaztasuna</string>
     <string name="cd_increase_precision">Handitu zehaztasuna</string>
-    <string name="cd_select_geohash">Hautatu geohash-a</string>
     <string name="cd_scroll_to_bottom">Joan behera</string>
     <string name="cd_file">Fitxategia</string>
     <string name="cd_image">Irudia</string>
@@ -556,8 +555,6 @@
     <string name="cd_open_about">Ireki Honi buruz</string>
     <string name="nobody_around">Ez dago inor inguruan…</string>
     <string name="you_suffix"> (zu)</string>
-    <string name="pan_zoom_instruction">Arrastatu biratzeko · Atximurkatu zoom egiteko · Sakatu fokatzeko</string>
-    <string name="select">Hautatu</string>
     <string name="type_a_message_placeholder">Idatzi mezu bat…</string>
     <string name="mention">Aipatu</string>
     <string name="media_type_image">Irudia</string>
@@ -625,4 +622,14 @@
     <string name="image_star">image/*</string>
     <string name="about_spam_filter_title">Spam-iragazkia</string>
     <string name="about_spam_filter_desc">Ezkutatu azkarregi idazten duten, mezuak errepikatzen dituzten edo esteka gehiegi bidaltzen dituzten pertsonen mezu publikoak.</string>
+    <string name="globe_live">zuzenean</string>
+    <string name="globe_connecting">konektatzen</string>
+    <string name="globe_offline">lineaz kanpo</string>
+    <string name="globe_hint_drag">biratu</string>
+    <string name="globe_hint_pinch">zooma</string>
+    <string name="globe_hint_tap">sakatu puntu bat</string>
+    <string name="globe_no_activity">ez dago azken jarduerarik</string>
+    <string name="cd_show_whole_globe">Erakutsi globo osoa</string>
+    <string name="cd_globe_activity">%1$d txat aktibo, %2$d pertsona konektatuta</string>
+    <string name="cd_channel_activity">%1$d pertsona, %2$d mezu azken orduan</string>
 </resources>
