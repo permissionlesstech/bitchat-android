@@ -34,7 +34,7 @@ For the technical trust model and third-party verification instructions, see
 
 ## What the signing identities mean
 
-These are four separate signing identities:
+These are separate signing identities:
 
 1. **Git tag signature**: identifies the maintainer who approved the source
    commit. It is created locally by `git tag -s`.
@@ -45,9 +45,13 @@ These are four separate signing identities:
    upload key so Play will accept them.
 4. **Play app signature**: Google generates device APKs and signs them with the
    separate Play app-signing key.
+5. **OpenPGP release signature (optional)**: a maintainer signs the public
+   checksum manifest. Users pin its complete primary-key fingerprint through
+   a trusted channel independent of the downloaded release.
 
 APK and AAB signatures are embedded in those files. Do not create or publish
-detached `.sig` files. GitHub build-provenance attestations are stored by GitHub
+detached APK/AAB `.sig` files. The optional armored OpenPGP signature covers
+`BITCHAT_SHA256SUMS`, not individual APKs. GitHub build-provenance attestations are stored by GitHub
 and verified with `gh attestation verify`; they are not release asset files.
 
 Never request, export, or use Google's Play app-signing private key during this
@@ -417,7 +421,7 @@ The final GitHub Release must contain all 17 files below:
 | `bitchat-android-wear-play-upload.aab` | Play upload key | Exact bundle uploaded to the Wear OS track |
 | `BITCHAT_BUILDINFO.json` | GitHub attestation | Source commit and pinned toolchain |
 | `BITCHAT_SHA256SUMS.unsigned` | GitHub attestation | Original canonical CI manifest |
-| `BITCHAT_SHA256SUMS` | No detached signature | SHA-256 for every published asset |
+| `BITCHAT_SHA256SUMS` | Optional OpenPGP signature | SHA-256 for every payload asset |
 
 Run the public checksum verification once more:
 
@@ -434,6 +438,48 @@ Run the public checksum verification once more:
 
 Do not add keystores, certificate exports, passwords, raw release-gate logs,
 local paths, or device/user identifiers to this directory.
+
+### Optional OpenPGP checksum signature
+
+This adds two public metadata files to the 17-file release. It does not replace
+Android signing, canonical-byte comparisons, or GitHub attestations. First
+choose a dedicated release OpenPGP signing key and publish its complete primary
+fingerprint through at least one separately trusted project channel. Review its
+public user IDs before publication; do not export a personal key by accident.
+The project must provision that key and publish the pin before users can rely
+on this option. This tooling does not create or designate a production key.
+
+After preparing the final release directory, run with the fingerprint of that
+key (40 hex characters for OpenPGP v4; 64 for v5/v6):
+
+```bash
+python3 tools/reproducible-builds/openpgp-release.py sign "$RELEASE_DIR" "$RELEASE_FINGERPRINT"
+python3 tools/reproducible-builds/openpgp-release.py verify "$RELEASE_DIR" "$RELEASE_FINGERPRINT"
+```
+
+Publish `BITCHAT_SHA256SUMS.asc` and `BITCHAT_RELEASE_KEY.asc` alongside the
+existing assets. They are excluded from the checksum manifest: the signature
+authenticates the manifest, while an independently trusted fingerprint
+authenticates the included public key. Signing refuses existing metadata and
+unlisted payload files. Verification uses an isolated keyring, rejects an
+unexpected signer, and checks every listed payload and the directory inventory.
+Keep the private key outside the release directory and repository. The signer
+uses the configured GnuPG keyring; verification never consults its trust database
+or retrieves keys from a server.
+
+For a downloaded release, compare the complete fingerprint through a trusted
+channel, then pass it explicitly. Never derive the expected pin from the public
+key downloaded with the release:
+
+```bash
+BITCHAT_RELEASE_GPG_FINGERPRINT="$RELEASE_FINGERPRINT" \
+  tools/reproducible-builds/verify-github-release.sh vX.Y.Z --no-rebuild
+```
+
+If the pin is set, missing metadata or any failed signature/checksum is fatal.
+Older releases remain verifiable through the existing attestation path when
+no OpenPGP pin is supplied. A checksum signature authenticates the maintainer's
+release inventory; it does not prove reproducibility or validate app behavior.
 
 ## 8. Create release notes and a draft GitHub Release
 
@@ -592,7 +638,7 @@ Also verify:
 - [ ] Checksums, source commit, and attestations verified
 - [ ] GitHub APKs signed locally with the pinned certificate
 - [ ] Phone and Wear Play AABs signed locally with the registered upload key
-- [ ] `BITCHAT_SHA256SUMS` verifies all 17 release assets
+- [ ] `BITCHAT_SHA256SUMS` verifies every payload asset; if OpenPGP metadata is included, its signature verifies against the independently published full fingerprint
 - [ ] GitHub draft created with certificate fingerprints and all assets
 - [ ] Exact signed phone and Wear AABs uploaded to and tested on their tracks
 - [ ] GitHub Release published
