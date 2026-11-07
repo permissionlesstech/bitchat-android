@@ -16,8 +16,8 @@ class SyncReceivePolicyRobolectricTest {
     private val sender = "aaaabbbbccccdddd"
     private val neighbor = "1111222233334444"
 
-    // These tests isolate policy. Real Ed25519 and persisted-store coverage lives in
-    // SecurityManagerPersistedIdentityRobolectricTest.
+    // These tests isolate policy. Real Ed25519 verification is exercised separately
+    // in SyncReceiveSignatureRobolectricTest.
     private fun accepts(offset: Long, marked: Boolean = false, ttl: UByte = 7u,
                         requested: Boolean = false, recipient: ByteArray? = null): Boolean {
         val delegate = mock<SecurityManagerDelegate>()

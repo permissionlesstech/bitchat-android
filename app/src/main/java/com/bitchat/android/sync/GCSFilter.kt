@@ -8,8 +8,8 @@ import kotlin.math.ln
  * Golomb-Coded Set (GCS) filter implementation for sync.
  *
  * Hashing:
- * - h64(id) = first 8 bytes of SHA-256 over the 16-byte PacketId, big-endian with the high bit cleared
- * - Map via (h64 % M), replacing zero with one
+ * - h64(id) = first 8 bytes of SHA-256 over the 16-byte PacketId (big-endian unsigned)
+ * - Map to range [0, M) via (h64 % M)
  *
  * Encoding (v1):
  * - Sort mapped values ascending; encode deltas (first is v0, then vi - v{i-1}) as positive integers
@@ -18,6 +18,14 @@ import kotlin.math.ln
  * - Bitstream is packed MSB-first in each byte.
  */
 object GCSFilter {
+    /**
+     * Highest Golomb-Rice parameter accepted from the wire. P maps to an FPR of
+     * ~1/2^P; beyond 32 the remainder width exceeds any practical filter, and
+     * the shifts in decode silently wrap (Kotlin shifts use the low 6 bits of
+     * the count) into garbage values.
+     */
+    const val MAX_P = 32
+
     data class Params(
         val p: Int,         // Golomb-Rice parameter (>= 1)
         val m: Long,        // Range M = N * 2^P
@@ -70,6 +78,11 @@ object GCSFilter {
     }
 
     fun decodeToSortedSet(p: Int, m: Long, data: ByteArray): LongArray {
+        // p and m arrive off the wire. Reject out-of-range parameters rather
+        // than decoding garbage: callers read the result as "peer has nothing"
+        // and fall back to sending the data, which is the safe direction.
+        // Matches the iOS guard in GCSFilter.decodeToSortedSet.
+        if (p < 1 || p > MAX_P || m <= 1L) return LongArray(0)
         val values = ArrayList<Long>()
         val reader = BitReader(data)
         var acc = 0L

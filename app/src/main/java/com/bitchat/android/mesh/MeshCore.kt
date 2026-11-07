@@ -143,8 +143,6 @@ class MeshCore(
                     TransportBridgeService.sendToPeer(transport.id, peerID, packet)
                 }
 
-                override fun hasLivePeer(peerID: String): Boolean = peerManager.getPeerInfo(peerID) != null
-
                 override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket {
                     return signPacketBeforeBroadcast(packet)
                 }
@@ -272,8 +270,6 @@ class MeshCore(
             override fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? =
                 authenticatedPeerState.persistedSigningKeyFor(noisePublicKey)
 
-            override fun getPersistedSigningKey(peerID: String): ByteArray? =
-                authenticatedPeerState.persistedSigningKeyFor(peerID)
             override fun peerIDForRelayAddress(relayAddress: String): String? =
                 transport.peerIDForRelayAddress(relayAddress)?.takeIf { directPeers.contains(it) }
             override fun isValidSyncResponse(neighborPeerID: String): Boolean =
@@ -375,9 +371,6 @@ class MeshCore(
 
             override fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? =
                 authenticatedPeerState.persistedSigningKeyFor(noisePublicKey)
-
-            override fun getPersistedPeerNickname(peerID: String): String? =
-                authenticatedPeerState.persistedNicknameFor(peerID)
 
             override fun hasNoiseSession(peerID: String): Boolean {
                 return encryptionService.hasEstablishedSession(peerID)
@@ -490,8 +483,8 @@ class MeshCore(
                 return true
             }
 
-            override fun handleMessage(routed: RoutedPacket) {
-                scope.launch { messageHandler.handleMessage(routed) }
+            override suspend fun handleMessage(routed: RoutedPacket) {
+                messageHandler.handleMessage(routed)
                 try {
                     val pkt = routed.packet
                     val isBroadcast = (pkt.recipientID == null || pkt.recipientID.contentEquals(SpecialRecipients.BROADCAST))
@@ -504,8 +497,8 @@ class MeshCore(
             override fun handleVoiceFrame(routed: RoutedPacket): Boolean =
                 messageHandler.handlePublicVoiceFrame(routed)
 
-            override fun handleLeave(routed: RoutedPacket) {
-                scope.launch { messageHandler.handleLeave(routed) }
+            override suspend fun handleLeave(routed: RoutedPacket) {
+                messageHandler.handleLeave(routed)
             }
 
             override fun handleFragment(packet: BitchatPacket): BitchatPacket? {
@@ -1051,9 +1044,8 @@ class MeshCore(
         try { gossipSyncManager.clear() } catch (_: Exception) { }
     }
 
-    fun clearAllEncryptionData() {
+    fun clearAllEncryptionData(): Boolean =
         encryptionService.clearPersistentIdentity()
-    }
 
     private fun applyRouteIfAvailable(packet: BitchatPacket): BitchatPacket {
         return try {

@@ -244,111 +244,6 @@ class FragmentManagerTest {
         assertEquals(257, plan(low).size)
     }
 
-    /**
-     * Fragments of a solicited sync response stay marked: each carries the original timestamp a
-     * freshness window would judge it on.
-     */
-    @Test
-    fun `fragments of a sync response stay marked as sync responses`() {
-        val payload = ByteArray(4000) { (it % 251).toByte() }
-        val replayed = BitchatPacket(
-            version = 1u,
-            type = MessageType.MESSAGE.value,
-            senderID = hexStringToByteArray(senderID),
-            recipientID = null,
-            timestamp = 1_700_000_000_000uL,
-            payload = payload,
-            signature = ByteArray(64) { 9 },
-            ttl = 0u
-        ).apply { isRSR = true }
-
-        val fragments = fragmentManager.createFragments(replayed)
-
-        assertTrue("payload should have been split", fragments.size > 1)
-        assertTrue(
-            "every fragment of a sync response must carry the mark",
-            fragments.all { it.isRSR }
-        )
-        assertTrue(
-            "fragments keep the original timestamp, which is why they need the mark",
-            fragments.all { it.timestamp == replayed.timestamp }
-        )
-    }
-
-    @Test
-    fun `a sync response reassembled from its fragments is still marked`() {
-        val payload = ByteArray(4000) { (it % 251).toByte() }
-        val replayed = BitchatPacket(
-            version = 1u,
-            type = MessageType.MESSAGE.value,
-            senderID = hexStringToByteArray(senderID),
-            recipientID = null,
-            timestamp = 1_700_000_000_000uL,
-            payload = payload,
-            // Trailing zeros prevent this test signature from being interpreted as padding.
-            signature = ByteArray(64),
-            ttl = 0u
-        ).apply { isRSR = true }
-        val fragments = fragmentManager.createFragments(replayed)
-        assertTrue(fragments.size > 1)
-
-        val reassembled = fragments.mapNotNull { fragmentManager.handleFragment(it) }
-
-        assertEquals(1, reassembled.size)
-        assertTrue("a reassembled sync response must still carry the mark", reassembled[0].isRSR)
-        assertEquals(replayed.timestamp, reassembled[0].timestamp)
-    }
-
-    /** A normal, unsolicited packet must not gain the mark by being fragmented. */
-    @Test
-    fun `fragments of an ordinary packet are not marked`() {
-        val payload = ByteArray(4000) { (it % 251).toByte() }
-        val ordinary = BitchatPacket(
-            version = 1u,
-            type = MessageType.MESSAGE.value,
-            senderID = hexStringToByteArray(senderID),
-            recipientID = null,
-            timestamp = 1_700_000_000_000uL,
-            payload = payload,
-            signature = ByteArray(64) { 9 },
-            ttl = 7u
-        )
-
-        val fragments = fragmentManager.createFragments(ordinary)
-
-        assertTrue("payload should have been split", fragments.size > 1)
-        assertTrue("no fragment may be marked", fragments.none { it.isRSR })
-    }
-
-    @Test
-    fun `sync response mark survives fragment encoding and reassembly`() {
-        val payload = ByteArray(4000).also { Random(925L).nextBytes(it) }
-        val packet = BitchatPacket(
-            version = 1u, type = MessageType.MESSAGE.value,
-            senderID = hexStringToByteArray(senderID), recipientID = null,
-            timestamp = 1_700_000_000_000uL, payload = payload,
-            signature = ByteArray(64) { 0x55 }, ttl = 0u, isRSR = true
-        )
-        val fragments = fragmentManager.createFragments(packet)
-        assertTrue(fragments.size > 1)
-        val receiver = FragmentManager()
-        try {
-            var restored: BitchatPacket? = null
-            for (fragment in fragments.reversed()) {
-                val received = BitchatPacket.fromBinaryData(fragment.toBinaryData()!!)!!
-                assertTrue(received.isRSR)
-                receiver.handleFragment(received)?.let { restored = it }
-            }
-            assertNotNull(restored)
-            assertTrue(restored!!.isRSR)
-            assertEquals(0u.toUByte(), restored!!.ttl)
-            org.junit.Assert.assertArrayEquals(payload, restored!!.payload)
-            org.junit.Assert.assertArrayEquals(packet.signature, restored!!.signature)
-        } finally {
-            receiver.shutdown()
-        }
-    }
-
     private fun hexStringToByteArray(hexString: String): ByteArray {
         val result = ByteArray(8)
         for (i in 0 until 8) {
@@ -356,5 +251,144 @@ class FragmentManagerTest {
             result[i] = byteStr.toInt(16).toByte()
         }
         return result
+    }
+
+    // Injected-fragment hardening. Fragment packets are unauthenticated and
+    // both halves of the reassembly key are attacker-choosable, so a stream in
+    // flight has to survive a crafted packet aimed at it. Ports the storage
+    // rules from permissionlesstech/bitchat#1515.
+
+    /** A real packet, fragmented the way the sender would fragment it. */
+    private fun honestStream(): Pair<BitchatPacket, List<BitchatPacket>> {
+        val payload = ByteArray(1200) { (it % 251).toByte() }
+        val packet = BitchatPacket(
+            version = 1u,
+            type = MessageType.FILE_TRANSFER.value,
+            senderID = hexStringToByteArray(senderID),
+            recipientID = hexStringToByteArray(recipientID),
+            timestamp = 1u,
+            payload = payload,
+            ttl = 7u
+        )
+        val fragments = fragmentManager.createFragments(packet)
+        assertTrue("Need a multi-fragment stream", fragments.size >= 3)
+        return packet to fragments
+    }
+
+    /** Same stream key as [honest], but attacker-chosen contents. */
+    private fun injected(
+        honest: BitchatPacket,
+        index: Int,
+        total: Int,
+        data: ByteArray,
+        originalType: UByte
+    ): BitchatPacket {
+        val decoded = FragmentPayload.decode(honest.payload)!!
+        return honest.copy(
+            payload = FragmentPayload(
+                fragmentID = decoded.fragmentID,
+                index = index,
+                total = total,
+                originalType = originalType,
+                data = data
+            ).encode()
+        )
+    }
+
+    private fun feedAllButLast(fragments: List<BitchatPacket>) {
+        fragments.dropLast(1).forEach {
+            assertNull("No fragment before the last should complete", fragmentManager.handleFragment(it))
+        }
+    }
+
+    private fun assertCompletes(original: BitchatPacket, last: BitchatPacket) {
+        val reassembled = fragmentManager.handleFragment(last)
+        assertNotNull("The honest stream must still complete", reassembled)
+        assertTrue(
+            "Reassembled payload must be the honest bytes",
+            original.payload.contentEquals(reassembled!!.payload)
+        )
+    }
+
+    @Test
+    fun `a conflicting total is rejected without destroying the stream`() {
+        val (original, fragments) = honestStream()
+        feedAllButLast(fragments)
+
+        val decoded = FragmentPayload.decode(fragments[0].payload)!!
+        assertNull(
+            fragmentManager.handleFragment(
+                injected(fragments[0], index = 0, total = decoded.total - 1,
+                         data = ByteArray(4), originalType = decoded.originalType)
+            )
+        )
+
+        assertCompletes(original, fragments.last())
+    }
+
+    @Test
+    fun `a conflicting original type is rejected without destroying the stream`() {
+        val (original, fragments) = honestStream()
+        feedAllButLast(fragments)
+
+        val decoded = FragmentPayload.decode(fragments[0].payload)!!
+        assertNull(
+            fragmentManager.handleFragment(
+                injected(fragments[0], index = 0, total = decoded.total,
+                         data = ByteArray(4), originalType = MessageType.ANNOUNCE.value)
+            )
+        )
+
+        assertCompletes(original, fragments.last())
+    }
+
+    @Test
+    fun `an index already held keeps its first bytes`() {
+        val (original, fragments) = honestStream()
+        feedAllButLast(fragments)
+
+        // Same stream, same index, different bytes: last-wins would swap the
+        // real sender's bytes out from under the reassembly.
+        val decoded = FragmentPayload.decode(fragments[0].payload)!!
+        assertNull(
+            fragmentManager.handleFragment(
+                injected(fragments[0], index = 0, total = decoded.total,
+                         data = ByteArray(decoded.data.size) { 0x66 },
+                         originalType = decoded.originalType)
+            )
+        )
+
+        assertCompletes(original, fragments.last())
+    }
+
+    @Test
+    fun `an identical duplicate is still accepted`() {
+        // Duplicate delivery is normal in a mesh; only a *differing* duplicate
+        // is an attack, so redelivery must not be turned into a rejection.
+        val (original, fragments) = honestStream()
+        feedAllButLast(fragments)
+
+        assertNull(fragmentManager.handleFragment(fragments[0]))
+
+        assertCompletes(original, fragments.last())
+    }
+
+    @Test
+    fun `an oversized fragment cannot wipe an assembly it did not start`() {
+        val (original, fragments) = honestStream()
+        feedAllButLast(fragments)
+
+        val decoded = FragmentPayload.decode(fragments[0].payload)!!
+        val oversized = ByteArray(
+            com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENT_TOTAL_BYTES + 1
+        )
+        assertNull(
+            fragmentManager.handleFragment(
+                injected(fragments[0], index = decoded.total - 1, total = decoded.total,
+                         data = oversized, originalType = decoded.originalType)
+            )
+        )
+
+        assertCompletes(original, fragments.last())
     }
 }

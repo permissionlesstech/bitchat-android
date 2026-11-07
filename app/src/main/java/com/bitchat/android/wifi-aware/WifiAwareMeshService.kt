@@ -515,9 +515,6 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         TransportBridgeService.register("WIFI", this)
 
         meshCore.startCore()
-        com.bitchat.android.service.MeshServiceHolder.registerLivenessProbe("WIFI") { peerID ->
-            meshCore.getPeerInfo(peerID) != null
-        }
         com.bitchat.android.service.MeshServiceHolder.startSharedGossip("WIFI")
         startPeriodicConnectionMaintenance()
         connectionTracker.start()
@@ -535,7 +532,6 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         // Unregister from bridge
         TransportBridgeService.unregister("WIFI")
         com.bitchat.android.service.MeshServiceHolder.stopSharedGossip("WIFI")
-        com.bitchat.android.service.MeshServiceHolder.unregisterLivenessProbe("WIFI")
         try { com.bitchat.android.services.AppStateStore.clearTransportPeers("WIFI") } catch (_: Exception) { }
         try { com.bitchat.android.services.AppStateStore.clearTransportDirectPeers("WIFI") } catch (_: Exception) { }
 
@@ -582,7 +578,6 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         isActive = false
         TransportBridgeService.unregister("WIFI")
         com.bitchat.android.service.MeshServiceHolder.stopSharedGossip("WIFI")
-        com.bitchat.android.service.MeshServiceHolder.unregisterLivenessProbe("WIFI")
         try { com.bitchat.android.services.AppStateStore.clearTransportPeers("WIFI") } catch (_: Exception) { }
         try { com.bitchat.android.services.AppStateStore.clearTransportDirectPeers("WIFI") } catch (_: Exception) { }
         val oldPublishSession = publishSession
@@ -1607,9 +1602,8 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         meshCore.clearAllInternalData()
     }
 
-    override fun clearAllEncryptionData() {
+    override fun clearAllEncryptionData(): Boolean =
         meshCore.clearAllEncryptionData()
-    }
 
     /** Utility extension to safely close server sockets. */
     private fun ServerSocket.closeQuietly() = try { close() } catch (_: Exception) {}

@@ -454,21 +454,11 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         val packet = routed.packet
         val peerID = routed.peerID ?: "unknown"
         
-        // Only accept public messages from senders whose identity is established: a verified
-        // peer in the live registry, or a sender the registry has forgotten whose signing key
-        // this device persisted. A peer still in the registry with an unverified nickname is
-        // dropped as before; the persisted name must not override that registry decision.
+        // Enforce: only accept public messages from verified peers we know
         val peerInfo = delegate?.getPeerInfo(peerID)
-        val senderNickname = when {
-            peerInfo == null -> delegate?.getPersistedPeerNickname(peerID) ?: run {
-                Log.w(TAG, "Dropping public message from unknown peer ${peerID.take(8)}")
-                return
-            }
-            peerInfo.isVerifiedNickname -> delegate?.getPeerNickname(peerID) ?: "unknown"
-            else -> {
-                Log.w(TAG, "Dropping public message from unverified peer ${peerID.take(8)}")
-                return
-            }
+        if (peerInfo == null || !peerInfo.isVerifiedNickname) {
+            Log.w(TAG, "Dropping public message from unverified peer ${peerID.take(8)}")
+            return
         }
         
         try {
@@ -480,7 +470,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 val savedPath = com.bitchat.android.features.file.FileUtils.saveIncomingFile(appContext, file)
                 val message = BitchatMessage(
                     id = PacketIdUtil.computeIdHex(packet).uppercase(),
-                    sender = senderNickname,
+                    sender = delegate?.getPeerNickname(peerID) ?: "unknown",
                     content = savedPath,
                     type = com.bitchat.android.features.file.FileUtils.messageTypeForMime(file.mimeType),
                     senderPeerID = peerID,
@@ -497,7 +487,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
             // Fallback: plain text
             val message = BitchatMessage(
                 id = PacketIdUtil.computeIdHex(packet).uppercase(),
-                sender = senderNickname,
+                sender = delegate?.getPeerNickname(peerID) ?: "unknown",
                 content = String(packet.payload, Charsets.UTF_8),
                 senderPeerID = peerID,
                 timestamp = Date(packet.timestamp.toLong())
@@ -726,8 +716,6 @@ interface MessageHandlerDelegate {
     ): com.bitchat.android.noise.NoiseDecryptionResult?
     fun verifyEd25519Signature(signature: ByteArray, data: ByteArray, publicKey: ByteArray): Boolean
     fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? = null
-    /** Nickname persisted for a peer this device authenticated before, for senders no longer in the live registry. */
-    fun getPersistedPeerNickname(peerID: String): String? = null
     
     // Noise protocol operations
     fun hasNoiseSession(peerID: String): Boolean

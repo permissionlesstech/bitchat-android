@@ -109,8 +109,10 @@ class SecurityManager(
         // Record only authenticated packets. Recording an attacker-controlled
         // invalid packet first would let it poison duplicate detection for a
         // later legitimate packet with the same timestamp and payload.
-        processedMessages.add(messageID)
-        messageTimestamps[messageID] = currentTime
+        synchronized(messageTimestamps) {
+            processedMessages.add(messageID)
+            messageTimestamps[messageID] = currentTime
+        }
 
         return true
     }
@@ -186,8 +188,10 @@ class SecurityManager(
             // flow and reports whether this exact frame completed authentication. Never infer that
             // from ambient session state: a rejected replacement may leave the old session active.
             val result = encryptionService.processHandshakeMessageWithResult(packet.payload, peerID)
-            processedKeyExchanges.add(exchangeKey)
-            keyExchangeTimestamps[exchangeKey] = System.currentTimeMillis()
+            synchronized(keyExchangeTimestamps) {
+                processedKeyExchanges.add(exchangeKey)
+                keyExchangeTimestamps[exchangeKey] = System.currentTimeMillis()
+            }
             
             if (result.response != null) {
                 // Send handshake response through delegate
@@ -226,10 +230,10 @@ class SecurityManager(
     }
 
     /**
-     * Apply the signature policy for the packet type. ANNOUNCE is checked
-     * against its carried key and existing identity state. MESSAGE,
-     * FILE_TRANSFER, VOICE_FRAME and LEAVE use the live signing key when
-     * available, otherwise the persisted authenticated key.
+     * Verify a packet signature against the signing key learned from the
+     * peer's verified announcement. Signatures cover the canonical packet,
+     * not only its payload; otherwise routing and recipient fields could be
+     * changed without invalidating the signature.
      */
     fun verifySignature(packet: BitchatPacket, peerID: String): Boolean {
         return verifyPacketSignature(packet, peerID)
@@ -295,12 +299,13 @@ class SecurityManager(
     }
     
     /**
-     * Verify signatures for the packet types listed below.
-     * Other packet types pass this check without signature verification.
+     * Verify packet signature using peer's signing public key
+     * Returns true only if signature is present and valid
      */
     private fun verifyPacketSignature(packet: BitchatPacket, peerID: String): Boolean {
         try {
-            // These packet types require signature verification. LEAVE is included so an attacker
+            // Public packets that mutate identity, presence, or user-visible state must prove the
+            // signing key learned from a verified announcement. LEAVE is included so an attacker
             // cannot evict a claimed peer or amplify a forged departure through relay.
             if (MessageType.fromValue(packet.type) !in setOf(
                     MessageType.ANNOUNCE,
@@ -352,15 +357,13 @@ class SecurityManager(
                 return false
             }
             
-            // 2. Get Signing Public Key: the live registry first, then the identity persisted
-            //    for a peer this device authenticated before. A sync replay from a peer that has
-            //    since left carries that peer's signature, and the live registry has forgotten it.
+            // 2. Get Signing Public Key
             val peerInfo = delegate?.getPeerInfo(peerID)
             val signingPublicKey = peerInfo?.signingPublicKey
-                ?: delegate?.getPersistedSigningKey(peerID)
             
             if (signingPublicKey == null) {
-                // Without a live or persisted key, this sender's signature cannot be verified.
+                // If we don't have a key (and it's not an announce), we can't verify.
+                // For security, we must reject packets from unknown peers unless it's an announce.
                 Log.w(TAG, "Signature check for $peerID: NO_SIGNING_KEY_AVAILABLE (packet type ${packet.type})")
                 return false
             }
@@ -440,42 +443,45 @@ class SecurityManager(
     internal fun cleanupOldData(nowMs: Long = System.currentTimeMillis()) {
         val cutoffTime = nowMs - MESSAGE_TIMEOUT
 
-        // Clean up old message timestamps and corresponding processed messages
-        val messagesToRemove = messageTimestamps.entries.filter { (_, timestamp) ->
-            timestamp < cutoffTime
-        }.map { it.key }
-
-        messagesToRemove.forEach { messageId ->
-            messageTimestamps.remove(messageId)
-            processedMessages.remove(messageId)
+        // Synchronized collection wrappers protect individual operations, not iteration.
+        // Keep each timestamp/set pair locked through expiry and capacity eviction so
+        // cleanup cannot remove a freshly recorded entry or traverse a mutating set.
+        synchronized(messageTimestamps) {
+            synchronized(processedMessages) {
+                val messagesToRemove = messageTimestamps.entries.filter { (_, timestamp) ->
+                    timestamp < cutoffTime
+                }.map { it.key }
+                messagesToRemove.forEach { messageId ->
+                    messageTimestamps.remove(messageId)
+                    processedMessages.remove(messageId)
+                }
+                if (processedMessages.size > MAX_PROCESSED_MESSAGES) {
+                    val excess = processedMessages.size - MAX_PROCESSED_MESSAGES
+                    val toRemove = processedMessages.take(excess)
+                    processedMessages.removeAll(toRemove.toSet())
+                    removeFromMessageTimestamps(toRemove)
+                }
+            }
         }
 
-        // Limit the size of processed messages set
-        if (processedMessages.size > MAX_PROCESSED_MESSAGES) {
-            val excess = processedMessages.size - MAX_PROCESSED_MESSAGES
-            val toRemove = processedMessages.take(excess)
-            processedMessages.removeAll(toRemove.toSet())
-            removeFromMessageTimestamps(toRemove)
-        }
-
-        // Expire handshake dedup entries by time so a delayed same-ephemeral delivery
-        // (e.g. a re-handshake retry after a failed attempt) is not blocked forever.
-        val keyExchangeCutoff = nowMs - KEY_EXCHANGE_DEDUP_TIMEOUT
-        val keyExchangesToRemove = keyExchangeTimestamps.entries.filter { (_, timestamp) ->
-            timestamp < keyExchangeCutoff
-        }.map { it.key }
-
-        keyExchangesToRemove.forEach { exchangeKey ->
-            keyExchangeTimestamps.remove(exchangeKey)
-            processedKeyExchanges.remove(exchangeKey)
-        }
-
-        // Limit the size of processed key exchanges set
-        if (processedKeyExchanges.size > MAX_PROCESSED_KEY_EXCHANGES) {
-            val excess = processedKeyExchanges.size - MAX_PROCESSED_KEY_EXCHANGES
-            val toRemove = processedKeyExchanges.take(excess)
-            processedKeyExchanges.removeAll(toRemove.toSet())
-            toRemove.forEach { keyExchangeTimestamps.remove(it) }
+        synchronized(keyExchangeTimestamps) {
+            synchronized(processedKeyExchanges) {
+                // Expire delayed handshake retries as well as bounding the cache size.
+                val keyExchangeCutoff = nowMs - KEY_EXCHANGE_DEDUP_TIMEOUT
+                val keyExchangesToRemove = keyExchangeTimestamps.entries.filter { (_, timestamp) ->
+                    timestamp < keyExchangeCutoff
+                }.map { it.key }
+                keyExchangesToRemove.forEach { exchangeKey ->
+                    keyExchangeTimestamps.remove(exchangeKey)
+                    processedKeyExchanges.remove(exchangeKey)
+                }
+                if (processedKeyExchanges.size > MAX_PROCESSED_KEY_EXCHANGES) {
+                    val excess = processedKeyExchanges.size - MAX_PROCESSED_KEY_EXCHANGES
+                    val toRemove = processedKeyExchanges.take(excess)
+                    processedKeyExchanges.removeAll(toRemove.toSet())
+                    toRemove.forEach { keyExchangeTimestamps.remove(it) }
+                }
+            }
         }
     }
     
@@ -492,10 +498,14 @@ class SecurityManager(
      * Clear all security data
      */
     fun clearAllData() {
-        processedMessages.clear()
-        processedKeyExchanges.clear()
-        messageTimestamps.clear()
-        keyExchangeTimestamps.clear()
+        synchronized(messageTimestamps) {
+            processedMessages.clear()
+            messageTimestamps.clear()
+        }
+        synchronized(keyExchangeTimestamps) {
+            processedKeyExchanges.clear()
+            keyExchangeTimestamps.clear()
+        }
     }
     
     /**
@@ -521,8 +531,6 @@ interface SecurityManagerDelegate {
     fun sendHandshakeResponse(peerID: String, response: ByteArray)
     fun getPeerInfo(peerID: String): PeerInfo? // NEW: For signature verification
     fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? = null
-    // Fallback key from a previously authenticated peer.
-    fun getPersistedSigningKey(peerID: String): ByteArray? = null
     fun peerIDForRelayAddress(relayAddress: String): String? = null
     fun isValidSyncResponse(neighborPeerID: String): Boolean = false
 }
