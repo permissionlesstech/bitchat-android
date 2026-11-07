@@ -16,6 +16,8 @@ import java.util.concurrent.ConcurrentLinkedQueue
  */
 class NostrTransport(
     private val context: Context,
+    // BLE short peer ID embedded in favorites (recipient-addressed) envelopes.
+    // Geohash envelopes never carry it (see NostrEmbeddedBitChat).
     var senderPeerID: String = ""
 ) {
     

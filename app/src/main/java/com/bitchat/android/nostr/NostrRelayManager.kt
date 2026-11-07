@@ -102,7 +102,13 @@ class NostrRelayManager private constructor() {
         val createdAt: Long = System.currentTimeMillis(),
         val originGeohash: String? = null,
         val owner: String = OWNER_LEGACY,
-        val liveLocationToken: Long? = null
+        val liveLocationToken: Long? = null,
+        /**
+         * Deliver every matching event straight to [handler] on the socket thread, bypassing the
+         * shared deduplicator. For observers that must not consume events other subscriptions
+         * still need (the globe activity sweep overlaps the open chat's subscription).
+         */
+        val observeOnly: Boolean = false
     )
     
     // Event deduplication system
@@ -172,6 +178,45 @@ class NostrRelayManager private constructor() {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to ensure geohash relays")
         }
+    }
+
+    /**
+     * Connect to an explicit relay set that carries no location meaning, such as the globe
+     * picker's worldwide activity sweep. Pair with [releaseRelays].
+     */
+    fun connectToRelays(relayUrls: Collection<String>) {
+        val urls = relayUrls.filter { it.isNotBlank() }.toSet()
+        if (urls.isEmpty()) return
+        // A relay held only for a live-location channel keeps its live gating.
+        val connectable = urls.filterTo(mutableSetOf()) {
+            !liveLocationRelayTokens.containsKey(it) || it in nonLiveRelayUrls
+        }
+        nonLiveRelayUrls.addAll(connectable)
+        ensureConnectionsFor(connectable)
+    }
+
+    /**
+     * Disconnect relays from [connectToRelays] that nothing else needs: not a default relay,
+     * not routed for a geohash, and not targeted by any remaining subscription.
+     */
+    fun releaseRelays(relayUrls: Collection<String>) {
+        val routed = buildSet { geohashToRelays.values.forEach { addAll(it) } }
+        val targeted = buildSet {
+            activeSubscriptions.values.forEach { info -> info.targetRelayUrls?.let { addAll(it) } }
+        }
+        val releasable = relayUrls.toSet() - DEFAULT_RELAYS.toSet() - routed - targeted
+        if (releasable.isEmpty()) return
+        releasable.forEach { url ->
+            reconnectJobs.remove(url)?.cancel()
+            connections.remove(url)?.close(1000, "Released")
+            subscriptions.remove(url)
+            nonLiveRelayUrls.remove(url)
+        }
+        synchronized(relaysList) {
+            relaysList.removeAll { it.url in releasable }
+        }
+        updateRelaysList()
+        updateConnectionStatus()
     }
 
     /**
@@ -424,7 +469,7 @@ class NostrRelayManager private constructor() {
         liveLocationConnectionJobs.forEach(Job::cancel)
         liveLocationConnectionJobs.clear()
 
-        val sockets = connections.values.toList()
+        val sockets = buildList { connections.values.forEach { add(it) } }
         connections.clear()
         sockets.forEach { webSocket ->
             webSocket.close(1000, "Manual disconnect")
@@ -484,7 +529,8 @@ class NostrRelayManager private constructor() {
         handler: (NostrEvent) -> Unit,
         targetRelayUrls: List<String>? = null,
         owner: String = OWNER_LEGACY,
-        liveLocationToken: Long? = null
+        liveLocationToken: Long? = null,
+        observeOnly: Boolean = false
     ): String {
         val subscriptionInfo = SubscriptionInfo(
             id = id,
@@ -492,7 +538,8 @@ class NostrRelayManager private constructor() {
             handler = handler,
             targetRelayUrls = targetRelayUrls?.toSet(),
             owner = owner,
-            liveLocationToken = liveLocationToken
+            liveLocationToken = liveLocationToken,
+            observeOnly = observeOnly
         )
         
         runNetworkAction(liveLocationToken) {
@@ -514,7 +561,10 @@ class NostrRelayManager private constructor() {
 
         scope.launch {
             if (!isNetworkActionAllowed(subscriptionInfo.liveLocationToken)) return@launch
-            val targetRelays = subscriptionInfo.targetRelayUrls?.toList() ?: connections.keys.toList()
+            // A concurrent view can shrink between Collection.size and iterator.next.
+            // Build by iteration instead of Kotlin's size-based toList fast paths.
+            val targetRelays = subscriptionInfo.targetRelayUrls?.toList()
+                ?: buildList { connections.keys.forEach { add(it) } }
             
             targetRelays.forEach { relayUrl ->
                 val webSocket = connections[relayUrl]
@@ -934,6 +984,11 @@ class NostrRelayManager private constructor() {
                             // Do NOT call deduplicator here to allow the correct subscription to process it later
                             return
                         }
+                    }
+
+                    if (subscriptionInfo.observeOnly) {
+                        messageHandlers[response.subscriptionId]?.invoke(response.event)
+                        return
                     }
 
                     // DEDUPLICATION: Check if we've already processed this event

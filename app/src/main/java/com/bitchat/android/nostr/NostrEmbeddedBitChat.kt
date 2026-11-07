@@ -9,6 +9,7 @@ import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.services.ContactIdentityResolver
 import java.security.SecureRandom
+import java.util.*
 
 /**
  * BitChat-over-Nostr Adapter
@@ -16,6 +17,7 @@ import java.security.SecureRandom
 object NostrEmbeddedBitChat {
     
     private const val TAG = "NostrEmbeddedBitChat"
+    private const val SENDER_ID_SIZE = 8
     private val secureRandom = SecureRandom()
     
     /**
@@ -101,6 +103,7 @@ object NostrEmbeddedBitChat {
     
     /**
      * Build a `bitchat1:` ACK (delivered/read) without an embedded recipient peer ID (geohash DMs).
+     * The sender ID is random per envelope; see [unlinkableSenderID].
      */
     fun encodeAckForNostrNoRecipient(
         type: NoisePayloadType,
@@ -119,7 +122,7 @@ object NostrEmbeddedBitChat {
             val packet = BitchatPacket(
                 version = 1u,
                 type = MessageType.NOISE_ENCRYPTED.value,
-                senderID = randomSenderID(),
+                senderID = unlinkableSenderID(),
                 recipientID = null, // No recipient for geohash DMs
                 timestamp = System.currentTimeMillis().toULong(),
                 payload = payload,
@@ -137,6 +140,7 @@ object NostrEmbeddedBitChat {
     
     /**
      * Build a `bitchat1:` payload without an embedded recipient peer ID (used for geohash DMs).
+     * The sender ID is random per envelope; see [unlinkableSenderID].
      */
     fun encodePMForNostrNoRecipient(
         content: String,
@@ -153,7 +157,7 @@ object NostrEmbeddedBitChat {
             val packet = BitchatPacket(
                 version = 1u,
                 type = MessageType.NOISE_ENCRYPTED.value,
-                senderID = randomSenderID(),
+                senderID = unlinkableSenderID(),
                 recipientID = null, // No recipient for geohash DMs
                 timestamp = System.currentTimeMillis().toULong(),
                 payload = payload,
@@ -169,9 +173,18 @@ object NostrEmbeddedBitChat {
         }
     }
     
-    // Geohash conversations use the authenticated Nostr pubkey. A mesh ID here
-    // would let a DM recipient link otherwise separate geohash identities.
-    private fun randomSenderID(): ByteArray = ByteArray(8).also(secureRandom::nextBytes)
+    /**
+     * Sender ID for the recipient-less envelopes above. They go out under a
+     * per-geohash identity (and as the acks for inbound account DMs), where no
+     * receiver reads this field: iOS and Android both key these conversations
+     * on the Nostr sender pubkey. The mesh peer ID must never go here: it is the
+     * stable Noise fingerprint prefix, so anyone who DMs a geohash identity (and
+     * gets the automatic DELIVERED ack back) could link that persona to the
+     * device and to its other geohash personas. Fresh random bytes per envelope
+     * keep even our own envelopes unlinkable.
+     */
+    private fun unlinkableSenderID(): ByteArray =
+        ByteArray(SENDER_ID_SIZE).also { secureRandom.nextBytes(it) }
 
     /**
      * Normalize recipient peer ID (matches iOS implementation)

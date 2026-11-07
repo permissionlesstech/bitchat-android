@@ -34,6 +34,20 @@ class GeohashParticipantStoreTest {
     }
 
     @Test
+    fun `chat authors stay participants for the hour, as on the globe`() {
+        store.recordEvent("s00000", "a1", NostrKind.EPHEMERAL_EVENT, "e1", now, "hello")
+        store.recordEvent("s00000", "b2", NostrKind.GEOHASH_PRESENCE, "e2", now, "")
+
+        now += 40 * 60_000L
+        store.pruneExpired()
+        assertEquals(setOf("a1"), store.snapshots.value.participants["s00000"]?.keys)
+
+        now += 21 * 60_000L
+        store.pruneExpired()
+        assertTrue(store.snapshots.value.participants["s00000"].orEmpty().isEmpty())
+    }
+
+    @Test
     fun `clearing shared presence removes identities names and teleport markers`() {
         store.updateParticipant("s00000", "a1", now)
         store.cacheNickname("a1", "fixture-speaker")
