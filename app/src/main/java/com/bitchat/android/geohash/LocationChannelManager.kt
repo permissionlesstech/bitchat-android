@@ -478,9 +478,10 @@ class LocationChannelManager private constructor(private val context: Context) {
         geocodingJob = scope.launch(Dispatchers.IO) {
             try {
                 if (!canUseLiveLocation(token)) return@launch
+                val query = geocodeQueryPoint(location.latitude, location.longitude)
                 val addresses = geocoderProvider.getFromLocation(
-                    location.latitude,
-                    location.longitude,
+                    query.first,
+                    query.second,
                     1,
                     liveLocationToken = token
                 )
