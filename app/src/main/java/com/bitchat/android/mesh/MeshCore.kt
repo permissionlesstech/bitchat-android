@@ -146,6 +146,8 @@ class MeshCore(
                 override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket {
                     return signPacketBeforeBroadcast(packet)
                 }
+
+                override fun connectedPeerIDs(): List<String> = directPeers.toList()
             }
         }
     }
@@ -267,6 +269,11 @@ class MeshCore(
 
             override fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? =
                 authenticatedPeerState.persistedSigningKeyFor(noisePublicKey)
+
+            override fun peerIDForRelayAddress(relayAddress: String): String? =
+                transport.peerIDForRelayAddress(relayAddress)?.takeIf { directPeers.contains(it) }
+            override fun isValidSyncResponse(neighborPeerID: String): Boolean =
+                gossipSyncManager.isValidSyncResponse(neighborPeerID)
         }
 
         storeForwardManager.delegate = object : StoreForwardManagerDelegate {
@@ -440,8 +447,8 @@ class MeshCore(
         }
 
         packetProcessor.delegate = object : PacketProcessorDelegate {
-            override fun validatePacketSecurity(packet: BitchatPacket, peerID: String): Boolean {
-                return securityManager.validatePacket(packet, peerID)
+            override fun validatePacketSecurity(packet: BitchatPacket, peerID: String, relayAddress: String?): Boolean {
+                return securityManager.validatePacket(packet, peerID, relayAddress)
             }
 
             override fun updatePeerLastSeen(peerID: String) {

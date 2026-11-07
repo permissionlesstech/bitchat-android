@@ -105,7 +105,7 @@ class PacketProcessorAnnounceSideEffectTest {
         val lastSeen = CompletableDeferred<String>()
         @Volatile var relayCount = 0
 
-        override fun validatePacketSecurity(packet: BitchatPacket, peerID: String) = true
+        override fun validatePacketSecurity(packet: BitchatPacket, peerID: String, relayAddress: String?) = true
         override fun updatePeerLastSeen(peerID: String) {
             lastSeen.complete(peerID)
         }
