@@ -602,8 +602,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 return true
             }
             
-            override fun handleMessage(routed: RoutedPacket) {
-                serviceScope.launch { messageHandler.handleMessage(routed) }
+            override suspend fun handleMessage(routed: RoutedPacket) {
+                messageHandler.handleMessage(routed)
                 // Track broadcast messages for sync
                 try {
                     val pkt = routed.packet
@@ -617,8 +617,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             override fun handleVoiceFrame(routed: RoutedPacket): Boolean =
                 messageHandler.handlePublicVoiceFrame(routed)
             
-            override fun handleLeave(routed: RoutedPacket) {
-                serviceScope.launch { messageHandler.handleLeave(routed) }
+            override suspend fun handleLeave(routed: RoutedPacket) {
+                messageHandler.handleLeave(routed)
             }
             
             override fun handleFragment(packet: BitchatPacket): BitchatPacket? {
@@ -1639,13 +1639,14 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     /**
      * Clear all encryption and cryptographic data (for panic mode)
      */
-    fun clearAllEncryptionData() {
+    fun clearAllEncryptionData(): Boolean {
         Log.w(TAG, "Clearing all encryption data")
-        try {
+        return try {
             // Clear encryption service persistent identity (includes Ed25519 signing keys)
             encryptionService.clearPersistentIdentity()
         } catch (e: Exception) {
             Log.e(TAG, "Error clearing encryption data: ${e.message}")
+            false
         }
     }
 }

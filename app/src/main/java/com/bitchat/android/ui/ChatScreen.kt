@@ -90,6 +90,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var passwordInput by remember { mutableStateOf("") }
     var showLocationChannelsSheet by remember { mutableStateOf(false) }
     var showLocationNotesSheet by remember { mutableStateOf(false) }
+    // Triple-tapping the logo asks first: the same logo opens App Info on a
+    // single tap, so a fumbled tap must never be able to wipe the device.
+    var showPanicConfirmation by remember { mutableStateOf(false) }
     var showUserSheet by remember { mutableStateOf(false) }
     var selectedUserForSheet by remember { mutableStateOf("") }
     var selectedMessageForSheet by remember { mutableStateOf<BitchatMessage?>(null) }
@@ -226,15 +229,14 @@ fun ChatScreen(viewModel: ChatViewModel) {
         }
     }
 
-    val mentionPeerIdentities = remember(
-        displayMessages,
+    val knownMentionPeers = remember(
         currentChannel,
         selectedLocationChannel,
         connectedPeers,
         peerNicknames,
         geohashPeople,
     ) {
-        val knownPeers = if (
+        if (
             currentChannel == null && selectedLocationChannel is ChannelID.Location
         ) {
             val duplicateNames = duplicateGeohashBaseNames(geohashPeople)
@@ -250,8 +252,10 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 }
             }
         }
-        buildMentionPeerIdentityMap(displayMessages, knownPeers)
     }
+    val mentionPeerIdentities = rememberMentionPeerIdentities(
+        displayMessages, knownMentionPeers, conversationKey
+    )
 
     // Determine whether to show media buttons (only hide in geohash location chats)
     val showMediaButtons = when {
@@ -449,16 +453,20 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     viewModel.updateMentionSuggestions(commandText)
                 },
                 onMentionSuggestionClick = { mention: String ->
-                    val mentionText = viewModel.selectMentionSuggestion(mention, messageText.text)
-                    messageText = TextFieldValue(
-                        text = mentionText,
-                        selection = TextRange(mentionText.length)
-                    )
-                    // A code-driven edit skips onMessageTextChange; call the same
-                    // draft and popup handlers here.
-                    viewModel.setConversationDraft(selectedPrivatePeer, mentionText)
-                    viewModel.updateCommandSuggestions(mentionText)
-                    viewModel.updateMentionSuggestions(mentionText)
+                    // A retained callback may run before visibility has recomposed.
+                    if (viewModel.showMentionSuggestions.value &&
+                        mention in viewModel.mentionSuggestions.value) {
+                        val mentionText = viewModel.selectMentionSuggestion(mention, messageText.text)
+                        messageText = TextFieldValue(
+                            text = mentionText,
+                            selection = TextRange(mentionText.length)
+                        )
+                        // A code-driven edit skips onMessageTextChange; call the same
+                        // draft and popup handlers here.
+                        viewModel.setConversationDraft(selectedPrivatePeer, mentionText)
+                        viewModel.updateCommandSuggestions(mentionText)
+                        viewModel.updateMentionSuggestions(mentionText)
+                    }
                 },
                 selectedPrivatePeer = null,
                 currentChannel = currentChannel,
@@ -478,7 +486,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             colorScheme = colorScheme,
             onSidebarToggle = { viewModel.showMeshPeerList() },
             onShowAppInfo = { viewModel.showAppInfo() },
-            onPanicClear = { viewModel.panicClearAllData() },
+            onPanicClear = { showPanicConfirmation = true },
             onLocationChannelsClick = { showLocationChannelsSheet = true },
             onLocationNotesClick = {
                 nearbyNotesController.reveal()
@@ -578,6 +586,34 @@ fun ChatScreen(viewModel: ChatViewModel) {
         showMeshPeerListSheet = showMeshPeerListSheet,
         onMeshPeerListDismiss = viewModel::hideMeshPeerList,
     )
+
+    if (showPanicConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showPanicConfirmation = false },
+            title = { Text(stringResource(com.bitchat.android.R.string.panic_confirm_title)) },
+            text = { Text(stringResource(com.bitchat.android.R.string.panic_confirm_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showPanicConfirmation = false
+                        messageText = TextFieldValue("")
+                        viewModel.clearSuggestions()
+                        viewModel.panicClearAllData()
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text(stringResource(com.bitchat.android.R.string.panic_confirm_action))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPanicConfirmation = false }) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            }
+        )
+    }
 
     legacyPrivateMediaConsent?.let { request ->
         AlertDialog(
@@ -730,7 +766,9 @@ fun ChatInputSection(
                 MentionSuggestionsBox(
                     suggestions = displayedMentionSuggestions,
                     mentionPeerIdentities = mentionPeerIdentities,
-                    onSuggestionClick = onMentionSuggestionClick,
+                    onSuggestionClick = { nickname ->
+                        if (mentionPickerVisible) onMentionSuggestionClick(nickname)
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
                 HorizontalDivider(thickness = 1.dp, color = colorScheme.outlineVariant)
@@ -921,10 +959,8 @@ private fun ChatDialogs(
             isPresented = showMeshPeerListSheet,
             viewModel = viewModel,
             onDismiss = onMeshPeerListDismiss,
-            onShowVerification = {
-                onMeshPeerListDismiss()
-                viewModel.showVerificationSheet(fromSidebar = true)
-            }
+            // Stacks on top of the network sheet, so dismissing it lands back here.
+            onShowVerification = viewModel::showVerificationSheet
         )
     }
 

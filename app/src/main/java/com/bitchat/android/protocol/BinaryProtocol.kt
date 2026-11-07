@@ -1,6 +1,7 @@
 package com.bitchat.android.protocol
 
 import android.os.Parcelable
+import kotlinx.parcelize.IgnoredOnParcel
 import kotlinx.parcelize.Parcelize
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -35,6 +36,27 @@ object SpecialRecipients {
 }
 
 /**
+ * Payload as it arrived on the wire, set by [BinaryProtocol.decode].
+ *
+ * Signatures cover a re-encoding of the packet, and verification re-encodes too.
+ * DEFLATE output is not canonical and clients use different encoders
+ * (java.util.zip.Deflater here, Apple's compression_encode_buffer on iOS), so
+ * re-compressing can change the preimage and reject a valid packet. Reusing these
+ * bytes also stops a relay, which re-encodes on TTL decrement, from substituting
+ * its own encoding.
+ *
+ * [forPayload] ties the bytes to the payload they decode to: replace the payload
+ * and the encoder compresses instead.
+ *
+ * Not a data class: generated equals/hashCode over ByteArray compares references.
+ */
+class WirePayload(
+    val bytes: ByteArray,
+    val compressed: Boolean,
+    val forPayload: ByteArray
+)
+
+/**
  * Binary packet format - 100% backward compatible with iOS version
  *
  * Header (14 bytes for v1, 16 bytes for v2):
@@ -61,7 +83,10 @@ data class BitchatPacket(
     val payload: ByteArray,
     var signature: ByteArray? = null,  // Changed from val to var for packet signing
     var ttl: UByte,
-    var route: List<ByteArray>? = null // Optional source route: ordered list of peerIDs (8 bytes each), not including sender and final recipient
+    var route: List<ByteArray>? = null, // Optional source route: ordered list of peerIDs (8 bytes each), not including sender and final recipient
+    // Set by BinaryProtocol.decode. Not part of packet identity, so it stays out of
+    // the parcel, equals and hashCode. Losing it only costs a re-compression.
+    @IgnoredOnParcel val wirePayload: WirePayload? = null
 ) : Parcelable {
 
     constructor(
@@ -100,7 +125,8 @@ data class BitchatPacket(
             payload = payload,
             signature = null, // Remove signature for signing
             route = route,
-            ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS // Use fixed TTL=0 for signing to ensure relay compatibility
+            ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS, // Use fixed TTL=0 for signing to ensure relay compatibility
+            wirePayload = wirePayload // preimage must use the originator's bytes
         )
         return BinaryProtocol.encode(unsignedPacket)
     }
@@ -214,7 +240,17 @@ object BinaryProtocol {
             var originalPayloadSize: Int? = null
             var isCompressed = false
             
-            if (CompressionUtil.shouldCompress(payload)) {
+            // Re-encode of a decoded packet: reuse the originator's bytes (see WirePayload).
+            val wire = packet.wirePayload
+            if (wire != null && wire.forPayload.contentEquals(packet.payload)) {
+                if (wire.compressed) {
+                    payload = wire.bytes
+                    originalPayloadSize = packet.payload.size
+                    isCompressed = true
+                }
+                // Uncompressed on the wire: keep it that way. shouldCompress agrees
+                // across clients, but the "only if smaller" check need not.
+            } else if (CompressionUtil.shouldCompress(payload)) {
                 CompressionUtil.compress(payload)?.let { compressedPayload ->
                     originalPayloadSize = payload.size
                     payload = compressedPayload
@@ -400,6 +436,11 @@ object BinaryProtocol {
                 return null
             }
 
+            // Per-type ceiling on the decoded payload, compressed or not, checked
+            // before any allocation: see PacketPayloadLimits for why one
+            // frame-wide cap is not enough.
+            val maxPayloadSize = PacketPayloadLimits.maxPayloadBytes(type)
+
             var expectedSize = headerSize + SENDER_ID_SIZE + payloadLength.toInt()
             if (hasRecipient) expectedSize += RECIPIENT_ID_SIZE
             var routeCount = 0
@@ -450,6 +491,8 @@ object BinaryProtocol {
             } else null
 
             // Payload
+            // Kept so the packet can be re-encoded byte-identically (see WirePayload).
+            var receivedCompressed: ByteArray? = null
             val payload = if (isCompressed) {
                 val lengthFieldBytes = if (version >= 2u.toUByte()) 4 else 2
                 if (payloadLength.toInt() < lengthFieldBytes) return null
@@ -460,11 +503,10 @@ object BinaryProtocol {
                     buffer.getShort().toUShort().toInt()
                 }
 
-                val maxExpandedSize = com.bitchat.android.util.AppConstants.Protocol.MAX_PAYLOAD_LENGTH
-                if (originalSize <= 0 || originalSize > maxExpandedSize) {
+                if (originalSize <= 0 || originalSize > maxPayloadSize) {
                     Log.w(
                         "BinaryProtocol",
-                        "Expanded payload size $originalSize is outside the allowed range 1..$maxExpandedSize"
+                        "Expanded payload size $originalSize for type $type is outside the allowed range 1..$maxPayloadSize"
                     )
                     return null
                 }
@@ -476,9 +518,8 @@ object BinaryProtocol {
                     return null
                 }
                 // Security check: Compression bomb protection
-                val ratio = originalSize.toDouble() / compressedSize.toDouble()
-                if (ratio > 50_000.0) {
-                    Log.w("BinaryProtocol", "🚫 Suspicious compression ratio: ${ratio}:1")
+                if (originalSize.toLong() > compressedSize.toLong() * PacketPayloadLimits.MAX_DEFLATE_RATIO) {
+                    Log.w("BinaryProtocol", "🚫 Impossible compression ratio: $originalSize bytes from $compressedSize")
                     return null
                 }
                 
@@ -488,6 +529,8 @@ object BinaryProtocol {
                 val expandedPayload = CompressionUtil.withDecompressionResources(resourceBytes) {
                     val compressedPayload = ByteArray(compressedSize)
                     buffer.get(compressedPayload)
+                    // Captured here so the allocation stays inside the reservation.
+                    receivedCompressed = compressedPayload
                     decompress(compressedPayload, originalSize)
                 } ?: return null
                 if (expandedPayload.size != originalSize) {
@@ -499,6 +542,12 @@ object BinaryProtocol {
                 }
                 expandedPayload
             } else {
+                // Uncompressed payloads get the same ceiling, or a large frame
+                // could arrive as small compressed fragments and be reassembled.
+                if (payloadLength > maxPayloadSize.toUInt()) {
+                    Log.w("BinaryProtocol", "Payload for type $type is $payloadLength bytes (cap $maxPayloadSize)")
+                    return null
+                }
                 val payloadBytes = ByteArray(payloadLength.toInt())
                 buffer.get(payloadBytes)
                 payloadBytes
@@ -520,7 +569,12 @@ object BinaryProtocol {
                 payload = payload,
                 signature = signature,
                 ttl = ttl,
-                route = route
+                route = route,
+                wirePayload = WirePayload(
+                    bytes = receivedCompressed ?: payload,
+                    compressed = receivedCompressed != null,
+                    forPayload = payload
+                )
             )
             
         } catch (e: Exception) {

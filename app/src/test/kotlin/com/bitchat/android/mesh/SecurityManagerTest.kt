@@ -10,6 +10,10 @@ import com.bitchat.android.noise.NoiseSessionError
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import kotlinx.coroutines.runBlocking
+import java.util.Collections
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -96,6 +100,75 @@ class SecurityManagerTest {
     fun tearDown() {
         if (::securityManager.isInitialized) {
             securityManager.shutdown()
+        }
+    }
+
+    @Test
+    fun `cleanup serializes timestamp traversal with concurrent packet tracking`() {
+        assertCleanupSerializesWrites("messageTimestamps")
+    }
+
+    @Test
+    fun `cleanup serializes timestamp traversal with concurrent handshake tracking`() {
+        assertCleanupSerializesWrites("keyExchangeTimestamps")
+    }
+
+    private fun assertCleanupSerializesWrites(fieldName: String) {
+        val allowWrite = CountDownLatch(1)
+        val writeFinished = CountDownLatch(1)
+        lateinit var timestamps: MutableMap<String, Long>
+        val backing = object : LinkedHashMap<String, Long>() {
+            override val entries: MutableSet<MutableMap.MutableEntry<String, Long>>
+                get() {
+                    val original = super.entries
+                    return object : AbstractMutableSet<MutableMap.MutableEntry<String, Long>>() {
+                        override val size get() = original.size
+                        override fun add(element: MutableMap.MutableEntry<String, Long>) =
+                            error("Not used")
+                        override fun iterator(): MutableIterator<MutableMap.MutableEntry<String, Long>> {
+                            val iterator = original.iterator()
+                            var first = true
+                            return object : MutableIterator<MutableMap.MutableEntry<String, Long>> {
+                                override fun hasNext() = iterator.hasNext()
+                                override fun remove() = iterator.remove()
+                                override fun next(): MutableMap.MutableEntry<String, Long> {
+                                    if (first) {
+                                        first = false
+                                        allowWrite.countDown()
+                                        // A correct synchronized traversal blocks the writer. An
+                                        // unguarded traversal deterministically exposes the CME.
+                                        if (!Thread.holdsLock(timestamps)) {
+                                            assertTrue(writeFinished.await(5, TimeUnit.SECONDS))
+                                        }
+                                    }
+                                    return iterator.next()
+                                }
+                            }
+                        }
+                    }
+                }
+        }
+        timestamps = Collections.synchronizedMap(backing)
+        timestamps["expired-a"] = 1L
+        timestamps["expired-b"] = 2L
+        SecurityManager::class.java.getDeclaredField(fieldName).apply {
+            isAccessible = true
+            set(securityManager, timestamps)
+        }
+        val now = 10_000_000L
+        val executor = Executors.newSingleThreadExecutor()
+        val writer = executor.submit {
+            check(allowWrite.await(5, TimeUnit.SECONDS))
+            timestamps["fresh"] = now
+            writeFinished.countDown()
+        }
+        try {
+            securityManager.cleanupOldData(now)
+            writer.get(5, TimeUnit.SECONDS)
+            assertTrue(timestamps.keys == setOf("fresh"))
+        } finally {
+            allowWrite.countDown()
+            executor.shutdownNow()
         }
     }
 
@@ -597,5 +670,66 @@ class SecurityManagerTest {
     }
 
     private fun String.hexToBytes(): ByteArray =
+        chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+
+    // Duplicate-detection identity.
+
+    /**
+     * Two distinct packets that agree on their first 64 bytes and share a
+     * timestamp. The old key hashed only that prefix, with a 32-bit
+     * `contentHashCode`, so these were "the same packet" and the second was
+     * silently dropped.
+     */
+    private fun prefixSharingPair(): Pair<BitchatPacket, BitchatPacket> {
+        val shared = ByteArray(64) { 0x7 }
+        val first = BitchatPacket(
+            version = 1u,
+            type = MessageType.NOISE_ENCRYPTED.value,
+            senderID = otherPeerID.hexToByteArrayForTest(),
+            recipientID = myPeerID.hexToByteArrayForTest(),
+            timestamp = 1_700_000_000_000uL,
+            payload = shared + byteArrayOf(0x01, 0x02, 0x03),
+            ttl = 7u
+        )
+        val second = first.copy(payload = shared + byteArrayOf(0x0A, 0x0B, 0x0C))
+        return first to second
+    }
+
+    @Test
+    fun `packets differing only past the first 64 bytes are not treated as duplicates`() {
+        val (first, second) = prefixSharingPair()
+
+        assertTrue(securityManager.validatePacket(first, otherPeerID))
+        assertTrue(
+            "A distinct packet must not be dropped as a duplicate",
+            securityManager.validatePacket(second, otherPeerID)
+        )
+    }
+
+    @Test
+    fun `a genuine replay of the same packet is still rejected`() {
+        // The other half: strengthening the identity must not weaken replay
+        // protection, which is the reason this cache exists.
+        val (first, _) = prefixSharingPair()
+
+        assertTrue(securityManager.validatePacket(first, otherPeerID))
+        assertFalse(
+            "The identical packet must still be caught",
+            securityManager.validatePacket(first, otherPeerID)
+        )
+    }
+
+    @Test
+    fun `the same packet from two different peers is tracked separately`() {
+        // Peer scoping is deliberately kept: PacketIdUtil covers the packet's
+        // own senderID, which is not the peer it was received from once a
+        // packet has been relayed.
+        val (first, _) = prefixSharingPair()
+
+        assertTrue(securityManager.validatePacket(first, otherPeerID))
+        assertTrue(securityManager.validatePacket(first, unknownPeerID))
+    }
+
+    private fun String.hexToByteArrayForTest(): ByteArray =
         chunked(2).map { it.toInt(16).toByte() }.toByteArray()
 }

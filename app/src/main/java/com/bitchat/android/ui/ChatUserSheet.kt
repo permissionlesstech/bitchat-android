@@ -158,8 +158,8 @@ fun ChatUserSheet(
                                     // Check if we're in a geohash channel
                                     val selectedLocationChannel = viewModel.selectedLocationChannel.value
                                     if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location) {
-                                        // Get user's nostr public key and add to geohash block list
-                                        viewModel.blockUserInGeohash(targetNickname)
+                                        // Block the exact sender key; nicknames are not unique
+                                        viewModel.blockUserInGeohash(targetNickname, selectedMessage?.senderNostrPubkey)
                                     } else {
                                         // Regular mesh blocking
                                         viewModel.sendMessage("/block $targetNickname")

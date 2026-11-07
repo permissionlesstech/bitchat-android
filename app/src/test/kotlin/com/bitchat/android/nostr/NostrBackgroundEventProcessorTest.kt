@@ -3,6 +3,7 @@ package com.bitchat.android.nostr
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.spam.SpamFilter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -23,12 +24,17 @@ class NostrBackgroundEventProcessorTest {
     @Before
     fun setUp() {
         AppStateStore.clear()
+        // This test floods one sender to measure throughput; that is exactly what the spam
+        // filter hides, so it is covered by SpamFilterTest instead.
+        SpamFilter.shared.enabled = false
         scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
 
     @After
     fun tearDown() {
         scope.cancel()
+        SpamFilter.shared.enabled = true
+        SpamFilter.shared.reset()
         AppStateStore.clear()
     }
 
@@ -36,17 +42,21 @@ class NostrBackgroundEventProcessorTest {
     fun `cold start processes more events than the removed handoff queue capacity`() = runBlocking {
         val application = ApplicationProvider.getApplicationContext<Application>()
         val processor = NostrBackgroundEventProcessor(application, scope)
+        val identity = NostrIdentity.generate()
+        val expectedIds = mutableSetOf<String>()
 
         repeat(300) { index ->
+            val event = NostrEvent(
+                pubkey = identity.publicKeyHex,
+                createdAt = index + 1,
+                kind = NostrKind.EPHEMERAL_EVENT,
+                tags = listOf(listOf("g", "u4pruy")),
+                content = "message-$index"
+            ).sign(identity.privateKeyHex)
+            expectedIds += event.id
+
             processor.onGeohashMessage(
-                event = NostrEvent(
-                    id = "cold-start-$index",
-                    pubkey = index.toString(16).padStart(64, '0'),
-                    createdAt = 1,
-                    kind = NostrKind.EPHEMERAL_EVENT,
-                    tags = listOf(listOf("g", "u4pruy")),
-                    content = "message-$index"
-                ),
+                event = event,
                 geohash = "u4pruy"
             )
         }
@@ -58,7 +68,7 @@ class NostrBackgroundEventProcessorTest {
         }
 
         assertEquals(
-            (0 until 300).map { "cold-start-$it" }.toSet(),
+            expectedIds,
             AppStateStore.channelMessages.value["geo:u4pruy"].orEmpty().map { it.id }.toSet()
         )
     }

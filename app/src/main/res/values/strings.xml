@@ -136,6 +136,13 @@
   <string name="private_media_legacy_body" tools:ignore="MissingTranslation">%1$s cannot be sent encrypted to %2$s because their client is older. %3$s</string>
   <string name="private_media_legacy_send_once" tools:ignore="MissingTranslation">Send this file once</string>
 
+  <!-- Panic wipe confirmation and outcome -->
+  <string name="panic_confirm_title" tools:ignore="MissingTranslation">Wipe all data?</string>
+  <string name="panic_confirm_body" tools:ignore="MissingTranslation">This permanently deletes your identity, keys, messages, and media on this device and creates a new identity. It can\'t be undone.</string>
+  <string name="panic_confirm_action" tools:ignore="MissingTranslation">Wipe</string>
+  <string name="system_panic_completed" tools:ignore="MissingTranslation">all data wiped — new identity created</string>
+  <string name="system_panic_incomplete" tools:ignore="MissingTranslation">wipe incomplete — some data may remain. triple-tap the logo to try again.</string>
+
   <!-- File viewer dialog -->
   <string name="file_viewer_title">📎 File Received</string>
   <string name="file_viewer_name">📄 %1$s</string>
@@ -202,6 +209,8 @@
   <string name="about_pow_off">PoW Off</string>
   <string name="about_pow_on">PoW On</string>
   <string name="about_pow_tip">Add proof of work to geohash messages for spam deterrence.</string>
+  <string name="about_spam_filter_title">Spam Filter</string>
+  <string name="about_spam_filter_desc">Hide public messages from people who post too fast, repeat themselves, or flood links.</string>
   <string name="about_pow_difficulty">Difficulty: %1$d bits (~%2$s)</string>
   <string name="about_pow_difficulty_attempts">Difficulty %1$d requires ~%2$s hash attempts</string>
   <string name="about_pow_desc_none">No proof of work required</string>
@@ -236,36 +245,70 @@
 
   <!-- Universal APK Preparation -->
   <string name="prepare_apk_title">Prepare App for Sharing</string>
-  <string name="prepare_apk_ready_title" translatable="false">App Ready for Offline Sharing</string>
+  <string name="prepare_apk_ready_title">App Ready for Offline Sharing</string>
   <string name="prepare_apk_subtitle">Download universal APK for offline sharing</string>
   <string name="prepare_apk_status_not_downloaded">Not ready • Tap to download</string>
   <string name="prepare_apk_status_ready">Ready to share</string>
-  <string name="prepare_apk_source_installed" translatable="false">Sharing source: this installed APK</string>
-  <string name="prepare_apk_source_installed_arm64" translatable="false">Sharing source: this installed APK • ARM64 devices only</string>
-  <string name="prepare_apk_source_github" translatable="false">Sharing source: verified GitHub universal APK</string>
-  <string name="prepare_apk_get_universal" translatable="false">Get universal</string>
+  <!-- Assembled as one string so translators control separator and line order, not Kotlin. -->
+  <string name="prepare_apk_ready_detail">Ready to share • %1$s • %2$d MB\n%3$s</string>
+  <string name="prepare_apk_status_resumable">%1$s • %2$d%% downloaded</string>
+  <string name="prepare_apk_source_installed">Sharing source: this installed APK</string>
+  <string name="prepare_apk_source_installed_arm64">Sharing source: this installed APK • ARM64 devices only</string>
+  <string name="prepare_apk_source_downloaded">Sharing source: verified downloaded universal APK</string>
+  <string name="prepare_apk_update_available">Version %1$s is available. You can keep sharing this APK or download the update.</string>
+  <string name="prepare_apk_update_warning">New version available</string>
+  <!-- Now the accessibility label and tooltip for an icon-only button, not a visible label. -->
+  <string name="prepare_apk_get_universal">Download universal APK</string>
+  <string name="prepare_apk_retry">Retry download</string>
   <string name="prepare_apk_status_downloading">Downloading… %1$d%%</string>
-  <string name="prepare_apk_status_update_available">Update available</string>
+  <!-- Stages of preparing the APK. Only the transfer has a meaningful percentage. -->
+  <string name="prepare_apk_phase_awaiting_connectivity">Waiting for network…</string>
+  <string name="prepare_apk_phase_retrying">Retrying…</string>
+  <string name="prepare_apk_phase_selecting_source">Selecting download source…</string>
+  <string name="prepare_apk_phase_awaiting_route">Waiting for Tor…</string>
+  <string name="prepare_apk_phase_transferring">Downloading…</string>
+  <string name="prepare_apk_phase_verifying_signature">Verifying signature…</string>
+  <string name="prepare_apk_stop">Stop download</string>
   <string name="prepare_apk_button_prepare">Prepare</string>
-  <string name="prepare_apk_button_update">Update</string>
   <string name="prepare_apk_button_delete">Delete</string>
   <string name="prepare_apk_info">Version %1$s • %2$d MB</string>
   <string name="prepare_apk_dialog_title">Download Universal APK?</string>
-  <string name="prepare_apk_dialog_message">This will download the universal APK (~%1$d MB) from GitHub releases. You only need to do this once.</string>
-  <string name="prepare_apk_dialog_message_unknown_size" translatable="false">The release size is temporarily unavailable. BitChat will retry the GitHub request before downloading.</string>
+  <string name="prepare_apk_update_dialog_title">Download Newer Universal APK?</string>
+  <string name="prepare_apk_dialog_message_unknown_size">This will download a verified universal APK from a configured source. You only need to do this once.</string>
+  <string name="prepare_apk_update_dialog_message">Version %1$s is available from GitHub (%2$d MB). Your current APK remains shareable during the download.</string>
   <string name="prepare_apk_dialog_confirm">Download</string>
   <string name="prepare_apk_downloading_title">Downloading Universal APK</string>
   <string name="prepare_apk_downloading_message">Downloading %1$d MB…</string>
-  <string name="prepare_apk_verifying">Verifying checksum…</string>
   <string name="prepare_apk_success">Universal APK ready!</string>
   <string name="prepare_apk_error_network">Network error. Check your connection.</string>
-  <string name="prepare_apk_error_checksum">Checksum verification failed. Please try again.</string>
   <string name="prepare_apk_error_storage">Not enough storage space.</string>
-  <string name="prepare_apk_error_github">Failed to fetch release info from GitHub.</string>
+  <!--
+    Download failures. These are named in the util layer, which has no Context, and resolved at
+    the presentation boundary: the row resolves its own status text, the ViewModel resolves the
+    toast shown when an APK is still shareable.
+  -->
+  <string name="prepare_apk_error_rate_limited">%1$s is temporarily rate limited. Try again later.</string>
+  <string name="prepare_apk_error_no_universal">%1$s does not currently have a universal APK.</string>
+  <string name="prepare_apk_error_http">%1$s download failed: HTTP %2$s %3$s</string>
+  <string name="prepare_apk_error_generic">Download failed. Please try again.</string>
+  <string name="prepare_apk_error_storage_needed">Not enough storage: %1$s MB needed, %2$s MB free.</string>
+  <string name="prepare_apk_error_no_sources">No APK download sources are configured.</string>
+  <string name="prepare_apk_error_tor_connecting">Tor is still connecting. Try again when Tor is ready.</string>
+  <string name="prepare_apk_error_no_url">%1$s has no usable APK URL.</string>
+  <string name="prepare_apk_error_unreachable">%1$s could not be reached.</string>
+  <string name="prepare_apk_error_insecure_redirect">%1$s redirected to an insecure URL.</string>
+  <string name="prepare_apk_error_resume_rejected">%1$s rejected the saved download position. The next attempt will restart the download.</string>
+  <string name="prepare_apk_error_incomplete">%1$s download ended before all bytes arrived. It can be resumed.</string>
+  <string name="prepare_apk_error_invalid_resume">%1$s returned an invalid resume response. The next attempt will restart the download.</string>
+  <string name="prepare_apk_error_untrusted_key">The APK from %1$s is not signed by a trusted BitChat release key.</string>
+  <string name="prepare_apk_error_not_universal">%1$s returned an architecture-specific APK, not the required universal APK.</string>
+  <string name="prepare_apk_error_apk_unreadable">The downloaded APK could not be read.</string>
+  <string name="prepare_apk_error_not_bitchat">The downloaded file is not a BitChat APK.</string>
+  <string name="prepare_apk_error_no_version">The downloaded APK has no version information.</string>
+  <string name="prepare_apk_error_source_failed">%1$s download failed.</string>
+  <string name="prepare_apk_error_all_sources">All configured APK sources failed.</string>
   <string name="prepare_apk_delete_confirm">Delete cached APK?</string>
   <string name="prepare_apk_delete_message">This will free up ~%1$d MB of storage.</string>
-  <string name="prepare_apk_update_dialog_title">Update Available</string>
-  <string name="prepare_apk_update_dialog_message">A newer version (%1$s) is available. Current: %2$s</string>
   <string name="prepare_apk_required">Please prepare the app for sharing first.</string>
   <string name="prepare_apk_download_interrupted">Download interrupted</string>
   <string name="prepare_apk_download_cancelled">Download cancelled</string>
@@ -319,7 +362,6 @@
   <string name="cd_offline_favorite">Offline favorite</string>
   <string name="cd_decrease_precision">Decrease precision</string>
   <string name="cd_increase_precision">Increase precision</string>
-  <string name="cd_select_geohash">Select geohash</string>
   <string name="cd_scroll_to_bottom">Scroll to bottom</string>
   <string name="cd_file">File</string>
   <string name="cd_image">Image</string>
@@ -541,8 +583,6 @@
   <string name="channel_count_prefix"> · ⧉ </string>
   <string name="nobody_around">Nobody around…</string>
   <string name="you_suffix"> (you)</string>
-  <string name="pan_zoom_instruction">Drag to spin · Pinch to zoom · Tap to focus</string>
-  <string name="select">Select</string>
   <string name="type_a_message_placeholder">Type a message…</string>
   <string name="mention_suggestion_at">@%1$s</string>
   <string name="mention">Mention</string>
@@ -620,4 +660,14 @@
   <string name="about_app_language">App language</string>
   <string name="about_system_default">System default</string>
   <string name="about_select_language">Select language</string>
+    <string name="globe_live">live</string>
+    <string name="globe_connecting">connecting</string>
+    <string name="globe_offline">offline</string>
+    <string name="globe_hint_drag">spin</string>
+    <string name="globe_hint_pinch">zoom</string>
+    <string name="globe_hint_tap">tap a dot</string>
+    <string name="globe_no_activity">no recent activity</string>
+    <string name="cd_show_whole_globe">Show the whole globe</string>
+    <string name="cd_globe_activity">%1$d active chats, %2$d people online</string>
+    <string name="cd_channel_activity">%1$d people, %2$d messages in the last hour</string>
 </resources>

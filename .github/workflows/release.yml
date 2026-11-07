@@ -102,7 +102,7 @@ jobs:
             "$RUNNER_TEMP/attestation-subjects/BITCHAT_SHA256SUMS.unsigned"
           cp "$RUNNER_TEMP"/release-a/bitchat-android-*-unsigned.apk \
             "$RUNNER_TEMP/attestation-subjects/"
-          cp "$RUNNER_TEMP/release-a/bitchat-android-release-unsigned.aab" \
+          cp "$RUNNER_TEMP"/release-a/bitchat-android-*-unsigned.aab \
             "$RUNNER_TEMP/attestation-subjects/"
 
       - name: Attest verified unsigned release

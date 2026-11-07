@@ -16,6 +16,10 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import com.bitchat.android.MainActivity
 import com.bitchat.android.R
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 internal enum class PeerAvailabilityAction {
     NONE,
@@ -151,9 +155,12 @@ private class AndroidPeerAvailabilityTextProvider(
 
 /**
  * Owns the user-visible "bitchatters nearby" notification independently of the UI delegate.
+ * The first eligible peer starts a fixed aggregation window; arrivals within that window update
+ * the count without postponing the alert indefinitely.
  */
 internal class PeerAvailabilityNotifier(
     private val context: Context,
+    private val scope: CoroutineScope,
     private val notificationManager: NotificationManagerCompat =
         NotificationManagerCompat.from(context),
     private val tracker: PeerAvailabilityTracker = PeerAvailabilityTracker(
@@ -161,6 +168,8 @@ internal class PeerAvailabilityNotifier(
     ),
     private val textProvider: PeerAvailabilityTextProvider =
         AndroidPeerAvailabilityTextProvider(context),
+    private val isAppCurrentlyInBackground: () -> Boolean,
+    private val aggregationWindowMs: Long = AGGREGATION_WINDOW_MS,
     private val canPostNotifications: () -> Boolean = {
         notificationManager.areNotificationsEnabled() &&
             (
@@ -175,23 +184,45 @@ internal class PeerAvailabilityNotifier(
     companion object {
         internal const val CHANNEL_ID = "bitchat_peer_availability_notifications"
         internal const val NOTIFICATION_ID = 997
+        internal const val AGGREGATION_WINDOW_MS = 10_000L
         private const val TAG = "PeerAvailability"
     }
 
+    private var latestPeerCount = 0
+    private var pendingNotificationJob: Job? = null
+
     init {
+        require(aggregationWindowMs >= 0) { "aggregationWindowMs must not be negative" }
         createNotificationChannel()
     }
 
     fun onPeerCountChanged(peerCount: Int, isAppInBackground: Boolean) {
+        latestPeerCount = peerCount
         when (tracker.update(peerCount, isAppInBackground)) {
             PeerAvailabilityAction.NONE -> Unit
             PeerAvailabilityAction.CLEAR -> clear()
-            PeerAvailabilityAction.SHOW -> showNotification(peerCount)
+            PeerAvailabilityAction.SHOW -> scheduleNotification()
         }
     }
 
     fun clear() {
+        pendingNotificationJob?.cancel()
+        pendingNotificationJob = null
         notificationManager.cancel(NOTIFICATION_ID)
+    }
+
+    private fun scheduleNotification() {
+        if (pendingNotificationJob?.isActive == true) return
+
+        pendingNotificationJob = scope.launch {
+            delay(aggregationWindowMs)
+            pendingNotificationJob = null
+
+            val peerCount = latestPeerCount
+            if (peerCount > 0 && isAppCurrentlyInBackground()) {
+                showNotification(peerCount)
+            }
+        }
     }
 
     private fun createNotificationChannel() {

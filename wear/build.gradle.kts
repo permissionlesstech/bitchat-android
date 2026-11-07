@@ -9,19 +9,27 @@ plugins {
 android {
     namespace = "com.bitchat.watch"
     compileSdk = libs.versions.compileSdk.get().toInt()
+    buildToolsVersion = libs.versions.buildTools.get()
 
     defaultConfig {
-        applicationId = "com.bitchat.watch"
+        applicationId = "com.bitchat.droid"
         minSdk = 33 // Wear OS 4 (Pixel Watch 1+): the S+ Bluetooth permissions the app
         // declares only exist from API 31, and API 30 would additionally require location
         // for BLE scan results, which the app deliberately refuses.
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "0.1.0"
+        // Wear releases use a separate high range because Play requires every artifact in
+        // one application ID to have a unique version code across all form factors.
+        versionCode = 1_000_000_008
+        versionName = "0.1.7"
 
         vectorDrawables {
             useSupportLibrary = true
         }
+    }
+
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
     }
 
     buildTypes {
@@ -32,9 +40,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Sign with the debug key so release builds can be installed over the
-            // debug app during development (same signature = seamless upgrade).
-            signingConfig = signingConfigs.getByName("debug")
+            vcsInfo {
+                include = false
+            }
         }
     }
 
@@ -57,6 +65,18 @@ android {
     }
 }
 
+// Robolectric downloads its Android runtime outside Gradle dependency resolution.
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
+}
+
+composeCompiler {
+    // Kotlin 2.4.10's optional Compose group-key mapping depends on unspecified
+    // class-file iteration order. Keep the normal R8 mapping, but omit that
+    // augmentation until its producer is deterministic across clean builds.
+    includeComposeMappingFile.set(false)
+}
+
 // Shared bitchat protocol stack: compiled from :app sources in place (never moved/copied by hand).
 // AGP's source directory sets no longer support include/exclude filters, so a Sync task
 // materializes a filtered mirror into build/sharedSrc and that directory is added as a source
@@ -75,6 +95,7 @@ val sharedSourceIncludes = listOf(
     "com/bitchat/android/sync/**",
     "com/bitchat/android/favorites/**",
     "com/bitchat/android/services/AppStateStore.kt",
+    "com/bitchat/android/services/PeerConversationReconciler.kt",
     "com/bitchat/android/services/ContactDirectory.kt",
     "com/bitchat/android/services/ContactIdentityResolver.kt",
     "com/bitchat/android/services/ConversationRepository.kt",
@@ -84,6 +105,7 @@ val sharedSourceIncludes = listOf(
     "com/bitchat/android/services/VerificationService.kt",
     "com/bitchat/android/services/meshgraph/**",
     "com/bitchat/android/service/TransportBridgeService.kt",
+    "com/bitchat/android/spam/**",
     "com/bitchat/android/nostr/Bech32.kt",
     "com/bitchat/android/nostr/GeohashAliasRegistry.kt",
     "com/bitchat/android/features/file/FileUtils.kt",
@@ -98,6 +120,8 @@ val sharedSourceIncludes = listOf(
 )
 val sharedSourceExcludes = listOf(
     "com/bitchat/android/model/FileSharingManager.kt",
+    // The watch has no spam filter toggle, so it keeps the filter's default (on).
+    "com/bitchat/android/spam/SpamFilterPreferences.kt",
     // Legacy phone monolith and Wi-Fi Aware multiplexer; the watch composes its own service
     // (MeshCore-style) in M2 instead of reusing these.
     "com/bitchat/android/mesh/BluetoothMeshService.kt",
@@ -158,6 +182,7 @@ tasks.matching { it.name.contains("UnitTest", ignoreCase = true) }.configureEach
 }
 
 kotlin {
+    jvmToolchain(21)
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_11)
     }
@@ -171,6 +196,7 @@ dependencies {
     implementation(libs.androidx.wear.compose.foundation)
     implementation(libs.androidx.wear.compose.material3)
     implementation(libs.androidx.wear.tooling.preview)
+    implementation(libs.androidx.wear.ongoing)
     implementation(libs.androidx.compose.material.icons.extended)
 
     // Lifecycle

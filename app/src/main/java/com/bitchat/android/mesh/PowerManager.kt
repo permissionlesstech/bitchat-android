@@ -46,7 +46,6 @@ class PowerManager private constructor(context: Context) : LifecycleEventObserve
         val scanOnMs: Long,
         val scanOffMs: Long,
         val continuousScan: Boolean,
-        val rssiPollIntervalMs: Long,
         val maxConnections: Int = 8
     )
 
@@ -318,24 +317,22 @@ internal object PowerProfileResolver {
                 PowerManager.BleSchedule(
                     scanOnMs = 1_000L,
                     scanOffMs = 29_000L,
-                    continuousScan = false,
-                    rssiPollIntervalMs = backgroundRssiInterval(batteryBand)
+                    continuousScan = false
                 )
             isBackground ->
                 PowerManager.BleSchedule(
                     scanOnMs = 1_000L,
                     scanOffMs = 59_000L,
-                    continuousScan = false,
-                    rssiPollIntervalMs = backgroundRssiInterval(batteryBand)
+                    continuousScan = false
                 )
             mode == PowerManager.PowerMode.PERFORMANCE ->
-                PowerManager.BleSchedule(Long.MAX_VALUE, 0L, true, 5_000L)
+                PowerManager.BleSchedule(Long.MAX_VALUE, 0L, true)
             mode == PowerManager.PowerMode.BALANCED ->
-                PowerManager.BleSchedule(8_000L, 2_000L, false, 10_000L)
+                PowerManager.BleSchedule(8_000L, 2_000L, false)
             mode == PowerManager.PowerMode.POWER_SAVER ->
-                PowerManager.BleSchedule(2_000L, 28_000L, false, 30_000L)
+                PowerManager.BleSchedule(2_000L, 28_000L, false)
             else ->
-                PowerManager.BleSchedule(1_000L, 29_000L, false, 60_000L)
+                PowerManager.BleSchedule(1_000L, 29_000L, false)
         }
 
         val announcementInterval = when {
@@ -407,10 +404,4 @@ internal object PowerProfileResolver {
         discoverySessionRefreshMinMs = minRefreshMinutes * 60_000L,
         discoveryStaleMs = staleMinutes * 60_000L
     )
-
-    private fun backgroundRssiInterval(band: PowerManager.BatteryBand): Long = when (band) {
-        PowerManager.BatteryBand.NORMAL -> 60_000L
-        PowerManager.BatteryBand.LOW -> 120_000L
-        PowerManager.BatteryBand.CRITICAL -> 300_000L
-    }
 }

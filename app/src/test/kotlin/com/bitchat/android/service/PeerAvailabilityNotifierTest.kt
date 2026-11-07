@@ -4,6 +4,11 @@ import android.app.Notification
 import android.app.NotificationManager
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -121,6 +126,7 @@ class PeerAvailabilityTrackerTest {
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [32])
+@OptIn(ExperimentalCoroutinesApi::class)
 class PeerAvailabilityNotifierTest {
     private lateinit var context: Context
     private lateinit var systemNotificationManager: NotificationManager
@@ -138,18 +144,25 @@ class PeerAvailabilityNotifierTest {
     }
 
     @Test
-    fun `background availability posts on dedicated channel`() {
+    fun `background availability waits ten seconds before posting on dedicated channel`() = runTest {
         val textProvider = testTextProvider()
-        val notifier = PeerAvailabilityNotifier(
-            context = context,
-            tracker = tracker(),
-            textProvider = textProvider,
-            canPostNotifications = { true }
+        val notifier = createNotifier(
+            scope = this,
+            textProvider = textProvider
         )
 
         notifier.onPeerCountChanged(0, isAppInBackground = true)
         notifier.onPeerCountChanged(2, isAppInBackground = true)
 
+        advanceTimeBy(PeerAvailabilityNotifier.AGGREGATION_WINDOW_MS - 1)
+        assertNull(
+            shadowOf(systemNotificationManager).getNotification(
+                PeerAvailabilityNotifier.NOTIFICATION_ID
+            )
+        )
+
+        advanceTimeBy(1)
+        runCurrent()
         val notification =
             shadowOf(systemNotificationManager).getNotification(
                 PeerAvailabilityNotifier.NOTIFICATION_ID
@@ -171,16 +184,63 @@ class PeerAvailabilityNotifierTest {
     }
 
     @Test
-    fun `returning to zero cancels availability notification`() {
-        val notifier = PeerAvailabilityNotifier(
-            context = context,
-            tracker = tracker(),
-            textProvider = testTextProvider(),
-            canPostNotifications = { true }
+    fun `later peer arrivals are included without restarting aggregation window`() = runTest {
+        val textProvider = testTextProvider()
+        val notifier = createNotifier(
+            scope = this,
+            textProvider = textProvider
         )
 
         notifier.onPeerCountChanged(1, isAppInBackground = true)
+        advanceTimeBy(6_000L)
+        notifier.onPeerCountChanged(3, isAppInBackground = true)
+        advanceTimeBy(4_000L)
+        runCurrent()
+
+        val notification =
+            shadowOf(systemNotificationManager).getNotification(
+                PeerAvailabilityNotifier.NOTIFICATION_ID
+            )
+        assertNotNull(notification)
+        assertEquals(
+            textProvider.body(3),
+            notification.extras.getString("android.text")
+        )
+    }
+
+    @Test
+    fun `opening app during aggregation suppresses notification`() = runTest {
+        var isAppInBackground = true
+        val history = InMemoryAlertHistory()
+        val notifier = createNotifier(
+            scope = this,
+            availabilityTracker = PeerAvailabilityTracker(history),
+            isAppCurrentlyInBackground = { isAppInBackground }
+        )
+
+        notifier.onPeerCountChanged(1, isAppInBackground = true)
+        advanceTimeBy(PeerAvailabilityNotifier.AGGREGATION_WINDOW_MS / 2)
+        isAppInBackground = false
+        advanceTimeBy(PeerAvailabilityNotifier.AGGREGATION_WINDOW_MS / 2)
+        runCurrent()
+
+        assertNull(
+            shadowOf(systemNotificationManager).getNotification(
+                PeerAvailabilityNotifier.NOTIFICATION_ID
+            )
+        )
+        assertNull(history.lastAlertAtMillis)
+    }
+
+    @Test
+    fun `returning to zero cancels pending availability notification`() = runTest {
+        val notifier = createNotifier(scope = this)
+
+        notifier.onPeerCountChanged(1, isAppInBackground = true)
+        advanceTimeBy(PeerAvailabilityNotifier.AGGREGATION_WINDOW_MS / 2)
         notifier.onPeerCountChanged(0, isAppInBackground = true)
+        advanceTimeBy(PeerAvailabilityNotifier.AGGREGATION_WINDOW_MS)
+        runCurrent()
 
         assertNull(
             shadowOf(systemNotificationManager).getNotification(
@@ -190,16 +250,13 @@ class PeerAvailabilityNotifierTest {
     }
 
     @Test
-    fun `explicit clear cancels availability notification`() {
-        val notifier = PeerAvailabilityNotifier(
-            context = context,
-            tracker = tracker(),
-            textProvider = testTextProvider(),
-            canPostNotifications = { true }
-        )
+    fun `explicit clear cancels pending availability notification`() = runTest {
+        val notifier = createNotifier(scope = this)
 
         notifier.onPeerCountChanged(1, isAppInBackground = true)
         notifier.clear()
+        advanceTimeBy(PeerAvailabilityNotifier.AGGREGATION_WINDOW_MS)
+        runCurrent()
 
         assertNull(
             shadowOf(systemNotificationManager).getNotification(
@@ -209,16 +266,17 @@ class PeerAvailabilityNotifierTest {
     }
 
     @Test
-    fun `disabled notifications do not post`() {
+    fun `disabled notifications do not post`() = runTest {
         val history = InMemoryAlertHistory()
-        val notifier = PeerAvailabilityNotifier(
-            context = context,
-            tracker = PeerAvailabilityTracker(history),
-            textProvider = testTextProvider(),
+        val notifier = createNotifier(
+            scope = this,
+            availabilityTracker = PeerAvailabilityTracker(history),
             canPostNotifications = { false }
         )
 
         notifier.onPeerCountChanged(1, isAppInBackground = true)
+        advanceTimeBy(PeerAvailabilityNotifier.AGGREGATION_WINDOW_MS)
+        runCurrent()
 
         assertNull(
             shadowOf(systemNotificationManager).getNotification(
@@ -241,6 +299,23 @@ class PeerAvailabilityNotifierTest {
 
     private fun tracker(): PeerAvailabilityTracker {
         return PeerAvailabilityTracker(InMemoryAlertHistory())
+    }
+
+    private fun createNotifier(
+        scope: CoroutineScope,
+        availabilityTracker: PeerAvailabilityTracker = tracker(),
+        textProvider: PeerAvailabilityTextProvider = testTextProvider(),
+        isAppCurrentlyInBackground: () -> Boolean = { true },
+        canPostNotifications: () -> Boolean = { true }
+    ): PeerAvailabilityNotifier {
+        return PeerAvailabilityNotifier(
+            context = context,
+            scope = scope,
+            tracker = availabilityTracker,
+            textProvider = textProvider,
+            isAppCurrentlyInBackground = isAppCurrentlyInBackground,
+            canPostNotifications = canPostNotifications
+        )
     }
 
     private fun testTextProvider(): PeerAvailabilityTextProvider {

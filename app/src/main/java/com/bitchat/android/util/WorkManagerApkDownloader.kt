@@ -3,7 +3,6 @@ package com.bitchat.android.util
 import android.content.Context
 import androidx.work.Constraints
 import androidx.work.BackoffPolicy
-import com.bitchat.android.R
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
@@ -59,13 +58,21 @@ class WorkManagerApkDownloader(context: Context) : ApkDownloader {
         return when (workInfo.state) {
             WorkInfo.State.ENQUEUED,
             WorkInfo.State.BLOCKED -> {
-                // Waiting for constraints (network). Show existing partial progress if any.
+                // ENQUEUED covers two different waits. A non-zero attempt count means the work
+                // already ran and failed, so this is the retry backoff rather than a missing
+                // network — saying "waiting for network" there would be false while online.
                 val partial = apkManager.getPartialDownloadProgress()
-                ApkDownloader.DownloadState.Downloading(partial ?: 0)
+                ApkDownloader.DownloadState.Downloading(
+                    partial ?: 0,
+                    queuedPhase(workInfo.runAttemptCount)
+                )
             }
             WorkInfo.State.RUNNING -> {
                 val progress = workInfo.progress.getInt(ApkDownloadWorker.KEY_PROGRESS, 0)
-                ApkDownloader.DownloadState.Downloading(progress)
+                val phase = ApkDownloader.DownloadPhase.fromKey(
+                    workInfo.progress.getString(ApkDownloadWorker.KEY_PHASE)
+                )
+                ApkDownloader.DownloadState.Downloading(progress, phase)
             }
             WorkInfo.State.SUCCEEDED -> {
                 val version = workInfo.outputData.getString(ApkDownloadWorker.KEY_VERSION) ?: ""
@@ -73,16 +80,28 @@ class WorkManagerApkDownloader(context: Context) : ApkDownloader {
                 ApkDownloader.DownloadState.Success(version, sizeMB)
             }
             WorkInfo.State.FAILED -> {
-                val error = workInfo.outputData.getString(ApkDownloadWorker.KEY_ERROR) ?: "Download failed"
+                // Tolerates a missing or retired reason from an older build's record.
+                val reason = ApkDownloadFailureReason.fromKey(
+                    workInfo.outputData.getString(ApkDownloadWorker.KEY_ERROR_REASON)
+                )
+                val args = workInfo.outputData
+                    .getStringArray(ApkDownloadWorker.KEY_ERROR_ARGS)
+                    ?.toList()
+                    .orEmpty()
                 val resumable = workInfo.outputData.getInt(ApkDownloadWorker.KEY_RESUMABLE_PERCENT, -1)
-                ApkDownloader.DownloadState.Failed(error, if (resumable >= 0) resumable else null)
+                ApkDownloader.DownloadState.Failed(
+                    reason = reason,
+                    messageArgs = args,
+                    resumablePercent = if (resumable >= 0) resumable else null
+                )
             }
             WorkInfo.State.CANCELLED -> {
                 val partial = apkManager.getPartialDownloadProgress()
                 if (partial != null) {
                     ApkDownloader.DownloadState.Failed(
-                        appContext.getString(R.string.prepare_apk_download_cancelled),
-                        partial
+                        reason = ApkDownloadFailureReason.Cancelled,
+                        messageArgs = emptyList(),
+                        resumablePercent = partial
                     )
                 } else {
                     ApkDownloader.DownloadState.Idle
