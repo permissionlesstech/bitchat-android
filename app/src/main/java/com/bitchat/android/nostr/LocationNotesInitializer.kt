@@ -44,18 +44,15 @@ object LocationNotesInitializer {
                     NostrRelayManager.getInstance(context).unsubscribe(id)
                 },
                 sendEvent = { event, relayUrls, token ->
-                    if (relayUrls != null) {
-                        NostrRelayManager.getInstance(context).sendEvent(
-                            event,
-                            relayUrls,
-                            liveLocationToken = token
-                        )
-                    } else {
-                        NostrRelayManager.getInstance(context).sendEvent(
-                            event,
-                            liveLocationToken = token
-                        )
-                    }
+                    NostrRelayManager.getInstance(context).sendEvent(
+                        event,
+                        relayUrls,
+                        liveLocationToken = token,
+                        authenticationIdentity = {
+                            event.tags.firstOrNull { it.size >= 2 && it[0] == "g" }
+                                ?.get(1)?.let { NostrIdentityBridge.deriveIdentity(it, context) }
+                        }
+                    )
                 },
                 deriveIdentity = { geohash ->
                     NostrIdentityBridge.deriveIdentity(geohash, context)
