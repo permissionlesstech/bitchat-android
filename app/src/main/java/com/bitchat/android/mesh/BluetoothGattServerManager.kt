@@ -34,6 +34,10 @@ class BluetoothGattServerManager(
         // Self-healing advertising recovery tuning
         private const val ADVERTISE_RETRY_BASE_MS = 3_000L      // base backoff for transient advertise failures
         private const val ADVERTISE_MAX_RETRY_DELAY_MS = 30_000L // cap on backoff delay
+        // ATT error code 0x09 "Prepare Queue Full" — Android's BluetoothGatt has no
+        // constant for it (it exposes GATT_INVALID_OFFSET but not this), so it is
+        // defined here. Returned when a prepared-write chunk can't be buffered.
+        private const val ATT_ERROR_PREPARE_QUEUE_FULL = 0x09
     }
     
     // Core Bluetooth components
@@ -51,6 +55,11 @@ class BluetoothGattServerManager(
     
     // State management
     private var isActive = false
+
+    // Reassembles BLE prepared ("reliable"/long) writes. iOS uses these to send
+    // packets larger than the negotiated ATT MTU: the payload arrives as several
+    // preparedWrite chunks and is finalized by onExecuteWrite.
+    private val preparedWriteBuffer = GattPreparedWriteBuffer()
 
     private fun isBleTransportEnabled(): Boolean {
         return try {
@@ -119,6 +128,10 @@ class BluetoothGattServerManager(
      * Stop GATT server
      */
     fun stop() {
+        // Drop any half-finished prepared writes. A disconnect after the server is marked
+        // inactive returns early before the per-device cancel path, so clear them here.
+        preparedWriteBuffer.clearAll()
+
         if (!isActive) {
             // Idempotent stop
             stopAdvertising()
@@ -161,6 +174,24 @@ class BluetoothGattServerManager(
      * Get characteristic instance
      */
     fun getCharacteristic(): BluetoothGattCharacteristic? = characteristic
+
+    /**
+     * Parse a fully-received payload and hand it to the delegate. Shared by the
+     * non-prepared write path and the reassembled prepared-write path so both
+     * behave identically once a complete payload is in hand.
+     */
+    private fun handleReceivedPacket(device: BluetoothDevice, value: ByteArray, linkID: String) {
+        Log.i(TAG, "Server: Received packet from ${device.address}, size: ${value.size} bytes")
+        val packet = BitchatPacket.fromBinaryData(value)
+        if (packet != null) {
+            val peerID = packet.senderID.take(8).toByteArray().joinToString("") { "%02x".format(it) }
+            Log.d(TAG, "Server: Parsed packet type ${packet.type} from $peerID")
+            delegate?.onPacketReceived(packet, peerID, device, linkID)
+        } else {
+            Log.w(TAG, "Server: Failed to parse packet from ${device.address}, size: ${value.size} bytes")
+            Log.w(TAG, "Server: Packet data: ${value.joinToString(" ") { "%02x".format(it) }}")
+        }
+    }
     
     /**
      * Setup GATT server with proper sequencing
@@ -208,6 +239,8 @@ class BluetoothGattServerManager(
                         if (linkID != null) {
                             connectionTracker.cleanupDeviceConnectionIfCurrent(device.address, linkID)
                         }
+                        // Drop any in-flight prepared-write buffer for this device to avoid leaks
+                        preparedWriteBuffer.cancel(device.address)
                         // Notify delegate about device disconnection so higher layers can update direct flags
                         delegate?.onDeviceDisconnected(device, linkID, disconnectedPeerID)
                     }
@@ -240,6 +273,33 @@ class BluetoothGattServerManager(
                 }
 
                 if (characteristic.uuid == AppConstants.Mesh.Gatt.CHARACTERISTIC_UUID) {
+                    if (preparedWrite) {
+                        // BLE reliable/long write (used by iOS for packets larger than the
+                        // negotiated ATT MTU): buffer this chunk by offset and defer parsing
+                        // until onExecuteWrite reassembles the full payload.
+                        val accepted = preparedWriteBuffer.append(device.address, offset, value)
+                        if (accepted) {
+                            Log.d(TAG, "Server: Buffered prepared-write chunk from ${device.address} (offset=$offset, size=${value.size})")
+                        } else {
+                            val reason = if (offset < 0) "invalid offset" else "buffer cap exceeded"
+                            Log.w(TAG, "Server: Rejected prepared-write chunk from ${device.address} (offset=$offset, size=${value.size}); $reason")
+                        }
+                        // On success the prepared-write protocol echoes the offset and value
+                        // back; on rejection send the matching ATT error so the peer can
+                        // abort or resend, instead of only discovering the loss at execute
+                        // (where the chunk is silently dropped).
+                        if (responseNeeded) {
+                            val status = when {
+                                accepted -> BluetoothGatt.GATT_SUCCESS
+                                offset < 0 -> BluetoothGatt.GATT_INVALID_OFFSET
+                                else -> ATT_ERROR_PREPARE_QUEUE_FULL
+                            }
+                            gattServer?.sendResponse(device, requestId, status, offset, if (accepted) value else null)
+                        }
+                        return
+                    }
+
+                    // Reject writes from a connection we no longer track (stale link).
                     val linkID = serverLinkIDs[device.address]
                     if (linkID == null) {
                         Log.d(TAG, "Server: Dropping packet from stale connection ${device.address}")
@@ -254,18 +314,45 @@ class BluetoothGattServerManager(
                         }
                         return
                     }
-                    val packet = BitchatPacket.fromBinaryData(value)
-                    if (packet != null) {
-                        val peerID = packet.senderID.take(8).toByteArray().joinToString("") { "%02x".format(it) }
-                        delegate?.onPacketReceived(packet, peerID, device, linkID)
-                    } else {
-                        Log.d(TAG, "Server: Failed to parse packet from ${device.address}, size: ${value.size} bytes")
-                    }
-                    
+
+                    handleReceivedPacket(device, value, linkID)
+
                     if (responseNeeded) {
                         gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
                     }
                 }
+            }
+
+            override fun onExecuteWrite(device: BluetoothDevice, requestId: Int, execute: Boolean) {
+                // Guard against callbacks after service shutdown
+                if (!isActive) {
+                    Log.d(TAG, "Server: Ignoring execute write after shutdown")
+                    preparedWriteBuffer.cancel(device.address)
+                    return
+                }
+
+                if (execute) {
+                    val assembled = preparedWriteBuffer.execute(device.address)
+                    if (assembled != null) {
+                        // Same stale-connection guard as the non-prepared write path: only
+                        // dispatch the reassembled payload if we still track this link.
+                        val linkID = serverLinkIDs[device.address]
+                        if (linkID != null) {
+                            Log.i(TAG, "Server: Reassembled prepared write from ${device.address}, size: ${assembled.size} bytes")
+                            handleReceivedPacket(device, assembled, linkID)
+                        } else {
+                            Log.d(TAG, "Server: Dropping reassembled prepared write from stale connection ${device.address}")
+                        }
+                    } else {
+                        Log.w(TAG, "Server: Execute write from ${device.address} with no or oversized buffered data; dropped")
+                    }
+                } else {
+                    // Client cancelled the long write; discard the buffered chunks
+                    preparedWriteBuffer.cancel(device.address)
+                }
+
+                // An execute-write always expects a response
+                gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
             }
             
             override fun onDescriptorWriteRequest(
