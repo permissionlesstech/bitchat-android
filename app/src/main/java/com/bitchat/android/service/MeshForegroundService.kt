@@ -36,26 +36,42 @@ class MeshForegroundService : Service() {
         const val ACTION_QUIT = "com.bitchat.android.service.QUIT"
         const val ACTION_UPDATE_NOTIFICATION = "com.bitchat.android.service.UPDATE_NOTIFICATION"
 
-        fun start(context: Context) {
+        /** Returns true when the service start request was accepted. */
+        fun start(context: Context): Boolean {
             val intent = Intent(context, MeshForegroundService::class.java).apply { action = ACTION_START }
 
             // Only launch as an FGS when onStartCommand can promote immediately.
             val shouldStartForeground = shouldStartAsForeground(context)
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 if (shouldStartForeground) {
-                    context.startForegroundService(intent)
+                    try {
+                        context.startForegroundService(intent)
+                        true
+                    } catch (_: IllegalStateException) {
+                        // Boot/background starts can be denied even with permissions.
+                        // A later user-visible start can retry; never fall back to an
+                        // illegal background service or crash the receiver/activity.
+                        Log.i("MeshForegroundService", "Foreground service start deferred by system")
+                        false
+                    } catch (_: SecurityException) {
+                        Log.i("MeshForegroundService", "Foreground service permission no longer available")
+                        false
+                    }
                 } else {
                     android.util.Log.i(
                         "MeshForegroundService",
                         "Not starting service on API>=26 (shouldStartForeground=$shouldStartForeground)"
                     )
+                    false
                 }
             } else {
                 if (MeshServicePreferences.isBackgroundEnabled(true)) {
                     context.startService(intent)
+                    true
                 } else {
                     android.util.Log.i("MeshForegroundService", "Background disabled; not starting service (pre-O)")
+                    false
                 }
             }
         }
@@ -112,17 +128,6 @@ class MeshForegroundService : Service() {
             }
         )
         createChannel()
-
-        // Ensure mesh service exists in holder (create if needed)
-        val existing = MeshServiceHolder.meshService
-        if (existing != null) {
-            Log.d("MeshForegroundService", "Using existing BluetoothMeshService from holder")
-        } else {
-            val created = MeshServiceHolder.getOrCreate(applicationContext)
-            Log.i("MeshForegroundService", "Created new BluetoothMeshService via holder")
-            MeshServiceHolder.attach(created)
-        }
-        MeshServiceHolder.getUnifiedOrCreate(applicationContext)
 
         // Notification content is driven by peer-state changes, not a permanent timer.
         updateJob = scope.launch {
@@ -185,34 +190,37 @@ class MeshForegroundService : Service() {
                 return START_NOT_STICKY
             }
             ACTION_UPDATE_NOTIFICATION -> {
-                // If we became eligible and are not in foreground yet, promote once
-                if (MeshServicePreferences.isBackgroundEnabled(true) && hasAllRequiredPermissions() && !isInForeground) {
-                    val count = getUnifiedActivePeerCount()
-                    val n = buildNotification(count)
-                    startForegroundCompat(n)
-                    isInForeground = true
-                    lastNotifiedPeerCount = count
-                } else {
+                if (isInForeground) {
                     updateNotification(force = true)
                 }
             }
             else -> { /* ACTION_START or null */ }
         }
 
-        // Ensure mesh is running (only after permissions are granted)
-        ensureMeshStarted()
-
-        // Promote exactly once when eligible, otherwise stay background (or stop).
+        // Recheck permissions: they can change after startForegroundService().
         // POST_NOTIFICATIONS is intentionally not an eligibility requirement: Android 13+
         // still allows foreground services and exposes them in the system task manager.
-        if (MeshServicePreferences.isBackgroundEnabled(true) && hasAllRequiredPermissions() && !isInForeground) {
+        if (!MeshServicePreferences.isBackgroundEnabled(true) || !hasAllRequiredPermissions()) {
+            if (isInForeground) stopForeground(true)
+            isInForeground = false
+            clearMeshNotifications()
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+        // Promote before constructing transports, loading identity storage, or starting
+        // mesh work. Android's foreground deadline includes time spent in onCreate().
+        if (!isInForeground) {
             val count = getUnifiedActivePeerCount()
             val notification = buildNotification(count)
-            startForegroundCompat(notification)
+            if (!startForegroundCompat(notification)) {
+                stopSelf(startId)
+                return START_NOT_STICKY
+            }
             isInForeground = true
             lastNotifiedPeerCount = count
         }
 
+        ensureMeshStarted()
         return START_STICKY
     }
 
@@ -343,7 +351,7 @@ class MeshForegroundService : Service() {
         return fine || coarse
     }
 
-    private fun startForegroundCompat(notification: Notification) {
+    private fun startForegroundCompat(notification: Notification): Boolean = try {
         if (Build.VERSION.SDK_INT >= 34) {
             val type = if (hasLocationPermission()) {
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
@@ -355,8 +363,8 @@ class MeshForegroundService : Service() {
             } catch (e: SecurityException) {
                 // Fallback for cases where "While In Use" permission exists but background start is restricted
                 if (type and ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION != 0) {
-                     android.util.Log.w("MeshForegroundService", "Failed to start with LOCATION type, falling back to CONNECTED_DEVICE: ${e.message}")
-                     startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
+                    Log.i("MeshForegroundService", "Location foreground type unavailable; trying connected device")
+                    startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
                 } else {
                     throw e
                 }
@@ -364,6 +372,13 @@ class MeshForegroundService : Service() {
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
+        true
+    } catch (_: SecurityException) {
+        Log.i("MeshForegroundService", "Foreground promotion permission no longer available")
+        false
+    } catch (_: IllegalStateException) {
+        Log.i("MeshForegroundService", "Foreground promotion deferred by system")
+        false
     }
 
     override fun onDestroy() {
