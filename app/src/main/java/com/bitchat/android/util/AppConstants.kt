@@ -40,7 +40,13 @@ object AppConstants {
         const val FRAGMENT_TIMEOUT_MS: Long = 30_000L
         const val CLEANUP_INTERVAL_MS: Long = 10_000L
         const val MAX_FRAGMENTS_PER_ID: Int = 256
-        const val MAX_FRAGMENT_TOTAL_BYTES: Int = 1_048_576
+        // iOS reassembles up to 10_000 fragments (BLEFragmentAssemblyBuffer).
+        // 256 is only the private-media v1 send cap. A 512 KiB iOS image is
+        // about 1,100 fragments, so the send cap must not be the receive cap.
+        const val MAX_REASSEMBLY_FRAGMENTS: Int = 10_000
+        // iOS FileTransferLimits.maxFramedFileBytes. The old 1 MiB ceiling
+        // dropped a legal iOS file that had already passed the fragment count.
+        const val MAX_FRAGMENT_TOTAL_BYTES: Int = 1_179_760
         const val MAX_ACTIVE_FRAGMENT_SETS: Int = 64
         const val MAX_GLOBAL_FRAGMENT_TOTAL_BYTES: Long = 4L * 1_048_576L
     }
