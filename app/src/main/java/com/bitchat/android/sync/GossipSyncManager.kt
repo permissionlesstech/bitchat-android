@@ -27,7 +27,7 @@ class GossipSyncManager(
     }
 
     interface ConfigProvider {
-        fun seenCapacity(): Int // max packets we sync per request (cap across types)
+        fun seenCapacity(): Int // cap per archive and on the combined request/response candidates
         fun gcsMaxBytes(): Int
         fun gcsTargetFpr(): Double // percent -> 0.0..1.0
     }
@@ -205,7 +205,10 @@ class GossipSyncManager(
                     ensureActive()
                     delegate?.sendPacketToPeer(
                         fromPeerID,
-                        packet.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
+                        packet.copy(
+                            ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS,
+                            isRSR = true
+                        )
                     )
                 }
             } finally {
