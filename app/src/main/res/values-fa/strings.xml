@@ -145,7 +145,6 @@
     <string name="cd_offline_favorite">دلخواه (آفلاین)</string>
     <string name="cd_decrease_precision">کاهش دقت</string>
     <string name="cd_increase_precision">افزایش دقت</string>
-    <string name="cd_select_geohash">انتخاب geohash</string>
     <string name="cd_scroll_to_bottom">اسکرول به پایین</string>
     <string name="cd_file">فایل</string>
     <string name="cd_image">تصویر</string>
@@ -280,8 +279,6 @@
     <string name="location_tracking_warning">bitchat موقعیت شما را پیگیری نمی‌کند</string>
     <string name="nobody_around">کسی در اطراف نیست …</string>
     <string name="you_suffix"> (شما)</string>
-    <string name="pan_zoom_instruction">برای انتخاب geohash، جابه‌جا و زوم کنید</string>
-    <string name="select">انتخاب</string>
     <string name="type_a_message_placeholder">نوشتن پیام …</string>
     <string name="mention">ذکر</string>
     <string name="version_prefix">v%1$s</string>
@@ -382,4 +379,14 @@
     <string name="about_select_language">انتخاب زبان</string>
     <string name="about_spam_filter_title">فیلتر هرزنامه</string>
     <string name="about_spam_filter_desc">پیام‌های عمومی افرادی را که خیلی سریع پیام می‌فرستند، خود را تکرار می‌کنند یا پیوندهای زیادی می‌فرستند پنهان کن.</string>
+    <string name="globe_live">زنده</string>
+    <string name="globe_connecting">در حال اتصال</string>
+    <string name="globe_offline">آفلاین</string>
+    <string name="globe_hint_drag">چرخش</string>
+    <string name="globe_hint_pinch">بزرگ‌نمایی</string>
+    <string name="globe_hint_tap">روی یک نقطه بزنید</string>
+    <string name="globe_no_activity">فعالیت اخیری نیست</string>
+    <string name="cd_show_whole_globe">نمایش کل کره زمین</string>
+    <string name="cd_globe_activity">%1$d گفتگوی فعال، %2$d نفر آنلاین</string>
+    <string name="cd_channel_activity">%1$d نفر، %2$d پیام در ساعت گذشته</string>
 </resources>

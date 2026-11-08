@@ -198,7 +198,6 @@
   <string name="cd_offline_favorite">מועדף לא מקוון</string>
   <string name="cd_decrease_precision">הפחת דיוק</string>
   <string name="cd_increase_precision">הגבר דיוק</string>
-  <string name="cd_select_geohash">בחר geohash</string>
   <string name="cd_scroll_to_bottom">גלול לתחתית</string>
   <string name="cd_file">קובץ</string>
   <string name="cd_image">תמונה</string>
@@ -333,8 +332,6 @@
   <string name="channel_count_prefix"> · ⧉ </string>
   <string name="nobody_around">אין אף אחד בסביבה...</string>
   <string name="you_suffix"> (אתה)</string>
-  <string name="pan_zoom_instruction">הזז ושנה תצוגה כדי לבחור geohash</string>
-  <string name="select">בחר</string>
   <string name="type_a_message_placeholder">הקלד הודעה...</string>
   <string name="mention_suggestion_at">@%1$s</string>
   <string name="mention">אזכור</string>
@@ -394,4 +391,14 @@
     <string name="about_select_language">בחירת שפה</string>
     <string name="about_spam_filter_title">מסנן ספאם</string>
     <string name="about_spam_filter_desc">הסתר הודעות ציבוריות מאנשים ששולחים מהר מדי, חוזרים על עצמם או מציפים בקישורים.</string>
+  <string name="globe_live">חי</string>
+  <string name="globe_connecting">מתחבר</string>
+  <string name="globe_offline">לא מחובר</string>
+  <string name="globe_hint_drag">סיבוב</string>
+  <string name="globe_hint_pinch">זום</string>
+  <string name="globe_hint_tap">הקש על נקודה</string>
+  <string name="globe_no_activity">אין פעילות אחרונה</string>
+  <string name="cd_show_whole_globe">הצג את כל הגלובוס</string>
+  <string name="cd_globe_activity">%1$d צ׳אטים פעילים, %2$d אנשים מחוברים</string>
+  <string name="cd_channel_activity">%1$d אנשים, %2$d הודעות בשעה האחרונה</string>
 </resources>

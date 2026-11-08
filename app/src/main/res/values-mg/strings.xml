@@ -145,7 +145,6 @@
     <string name="cd_offline_favorite">Ankafizina tsy an-tserasera</string>
     <string name="cd_decrease_precision">Hampihenana ny fahamarinana</string>
     <string name="cd_increase_precision">Hampitombo ny fahamarinana</string>
-    <string name="cd_select_geohash">Hifidy geohash</string>
     <string name="cd_scroll_to_bottom">Hidina any ambany</string>
     <string name="cd_file">Rakitra</string>
     <string name="cd_image">Sary</string>
@@ -284,8 +283,6 @@
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="nobody_around">tsy misy olona manodidina...</string>
     <string name="you_suffix"> (ianao)</string>
-    <string name="pan_zoom_instruction">ahetsika sy ataovy lehibe mba hifidianana geohash</string>
-    <string name="select">hifidy</string>
     <string name="type_a_message_placeholder">soraty hafatra...</string>
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">hanonona</string>
@@ -402,4 +399,14 @@
     <string name="about_select_language">Safidio ny fiteny</string>
     <string name="about_spam_filter_title">Sivana spam</string>
     <string name="about_spam_filter_desc">Afeno ny hafatra ampahibemaso avy amin’ireo olona mandefa haingana loatra, mamerimberina hafatra, na mandefa rohy be loatra.</string>
+    <string name="globe_live">mivantana</string>
+    <string name="globe_connecting">mampifandray</string>
+    <string name="globe_offline">tsy mifandray</string>
+    <string name="globe_hint_drag">ahodino</string>
+    <string name="globe_hint_pinch">hanalehibe</string>
+    <string name="globe_hint_tap">tsindrio teboka iray</string>
+    <string name="globe_no_activity">tsy misy hetsika vao haingana</string>
+    <string name="cd_show_whole_globe">Asehoy ny tany manontolo</string>
+    <string name="cd_globe_activity">resaka mavitrika %1$d, olona %2$d an-tserasera</string>
+    <string name="cd_channel_activity">olona %1$d, hafatra %2$d tao anatin\'ny ora farany</string>
 </resources>

@@ -134,7 +134,6 @@
     <string name="cd_offline_favorite">Favori (çevrimdışı)</string>
     <string name="cd_decrease_precision">Hassasiyeti azalt</string>
     <string name="cd_increase_precision">Hassasiyeti artır</string>
-    <string name="cd_select_geohash">Geohash seç</string>
     <string name="cd_scroll_to_bottom">Alta kaydır</string>
     <string name="cd_file">Dosya</string>
     <string name="cd_image">Görsel</string>
@@ -259,8 +258,6 @@
     <string name="channel_count_prefix"> · ⧉ </string>
     <string name="nobody_around">yakında kimse yok…</string>
     <string name="you_suffix"> (sen)</string>
-    <string name="pan_zoom_instruction">geohash seçmek için kaydır/zoom yap</string>
-    <string name="select">seç</string>
     <string name="type_a_message_placeholder">mesaj yaz…</string>
     <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">bahset</string>
@@ -380,4 +377,14 @@
     <string name="about_select_language">Dil seçin</string>
     <string name="about_spam_filter_title">Spam filtresi</string>
     <string name="about_spam_filter_desc">Çok hızlı mesaj gönderen, kendini tekrarlayan veya çok fazla bağlantı paylaşan kişilerin herkese açık mesajlarını gizle.</string>
+    <string name="globe_live">canlı</string>
+    <string name="globe_connecting">bağlanıyor</string>
+    <string name="globe_offline">çevrimdışı</string>
+    <string name="globe_hint_drag">döndür</string>
+    <string name="globe_hint_pinch">yakınlaştır</string>
+    <string name="globe_hint_tap">bir noktaya dokun</string>
+    <string name="globe_no_activity">yakın zamanda etkinlik yok</string>
+    <string name="cd_show_whole_globe">Tüm küreyi göster</string>
+    <string name="cd_globe_activity">%1$d etkin sohbet, %2$d kişi çevrimiçi</string>
+    <string name="cd_channel_activity">%1$d kişi, son bir saatte %2$d mesaj</string>
 </resources>

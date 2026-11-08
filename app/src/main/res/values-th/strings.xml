@@ -145,7 +145,6 @@
     <string name="cd_offline_favorite">รายการโปรด (ออฟไลน์)</string>
     <string name="cd_decrease_precision">ลดความแม่นยำ</string>
     <string name="cd_increase_precision">เพิ่มความแม่นยำ</string>
-    <string name="cd_select_geohash">เลือก geohash</string>
     <string name="cd_scroll_to_bottom">เลื่อนไปด้านล่างสุด</string>
     <string name="cd_file">ไฟล์</string>
     <string name="cd_image">รูปภาพ</string>
@@ -280,8 +279,6 @@
     <string name="location_tracking_warning">bitchat ไม่ติดตามตำแหน่งของคุณ</string>
     <string name="nobody_around">ไม่มีใครอยู่ใกล้…</string>
     <string name="you_suffix"> (คุณ)</string>
-    <string name="pan_zoom_instruction">ลาก/ซูมเพื่อเลือก geohash</string>
-    <string name="select">เลือก</string>
     <string name="type_a_message_placeholder">พิมพ์ข้อความ…</string>
     <string name="mention">กล่าวถึง</string>
     <string name="version_prefix">v%1$s</string>
@@ -382,4 +379,14 @@
     <string name="about_select_language">เลือกภาษา</string>
     <string name="about_spam_filter_title">ตัวกรองสแปม</string>
     <string name="about_spam_filter_desc">ซ่อนข้อความสาธารณะจากผู้ที่ส่งข้อความเร็วเกินไป ส่งข้อความซ้ำ หรือส่งลิงก์จำนวนมากเกินไป</string>
+    <string name="globe_live">สด</string>
+    <string name="globe_connecting">กำลังเชื่อมต่อ</string>
+    <string name="globe_offline">ออฟไลน์</string>
+    <string name="globe_hint_drag">หมุน</string>
+    <string name="globe_hint_pinch">ซูม</string>
+    <string name="globe_hint_tap">แตะที่จุด</string>
+    <string name="globe_no_activity">ไม่มีกิจกรรมล่าสุด</string>
+    <string name="cd_show_whole_globe">แสดงลูกโลกทั้งใบ</string>
+    <string name="cd_globe_activity">แชทที่ใช้งานอยู่ %1$d รายการ ออนไลน์ %2$d คน</string>
+    <string name="cd_channel_activity">%1$d คน ข้อความ %2$d รายการในชั่วโมงที่ผ่านมา</string>
 </resources>
