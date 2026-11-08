@@ -2,6 +2,7 @@ package com.bitchat.android.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.services.ContactDirectory
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -44,7 +45,7 @@ class SecurityVerificationViewModel @AssistedInject constructor(
     state: ChatState,
     private val verificationHandler: VerificationHandler,
     private val mesh: ChatSessionMesh,
-    private val contactDirectory: ContactDirectory,
+    @CurrentIdentity private val contactDirectory: ContactDirectory,
 ) : ViewModel() {
 
     @AssistedFactory

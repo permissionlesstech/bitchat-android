@@ -3,6 +3,7 @@ package com.bitchat.android.service
 import android.app.Application
 import android.os.Process
 import androidx.core.app.NotificationManagerCompat
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.PowerManager
 import com.bitchat.android.net.ArtiTorManager
@@ -21,6 +22,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
+import javax.inject.Provider
 import javax.inject.Singleton
 
 /**
@@ -33,11 +35,11 @@ import javax.inject.Singleton
  */
 @Singleton
 class AppShutdownCoordinator @Inject constructor(
-    // Lazy: shutdown is the only place any is touched, so building the coordinator constructs none.
+    // Lazy or Provider: shutdown is the only place any is touched, so building the coordinator constructs none.
     private val relayManager: Lazy<NostrRelayManager>,
     private val torManager: Lazy<ArtiTorManager>,
     private val powerManager: Lazy<PowerManager>,
-    private val appStateStore: Lazy<AppStateStore>,
+    @CurrentIdentity private val appStateStore: Provider<AppStateStore>,
 ) {
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private val shutdownToken = AtomicLong(0L)

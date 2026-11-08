@@ -14,7 +14,6 @@ import com.bitchat.android.nostr.PoWPreferenceManager
 import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.services.TestMeshStores
 import com.bitchat.android.spam.SpamFilter
-import dagger.Lazy
 import javax.inject.Provider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -61,7 +60,7 @@ class NostrBackgroundEventProcessorTest {
             nostrTransport = { mock<NostrTransport>() },
             appStateStore = stores.appStateStore,
             contactDirectory = stores.contactDirectory,
-            favorites = Lazy { stores.favorites },
+            favorites = Provider { stores.favorites },
             peerFingerprints = PeerFingerprintManager(),
             geohashAliases = stores.geohashAliases,
             geohashConversations = GeohashConversationRegistry(),

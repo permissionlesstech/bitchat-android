@@ -7,7 +7,7 @@ import com.bitchat.android.mesh.PeerInfo
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.services.TestMeshStores
-import dagger.Lazy
+import javax.inject.Provider
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import org.junit.Assert.assertEquals
@@ -42,7 +42,7 @@ class PrivateChatManagerTest {
             noiseSessionDelegate = mock(),
             contactDirectory = stores.contactDirectory,
             appStateStore = stores.appStateStore,
-            favorites = Lazy { stores.favorites },
+            favorites = Provider { stores.favorites },
             peerFingerprints = PeerFingerprintManager(),
         )
     }
@@ -79,7 +79,7 @@ class PrivateChatManagerTest {
             trackUnreadMessages = false,
             contactDirectory = stores.contactDirectory,
             appStateStore = stores.appStateStore,
-            favorites = Lazy { stores.favorites },
+            favorites = Provider { stores.favorites },
             peerFingerprints = PeerFingerprintManager(),
         )
         val message = BitchatMessage(
@@ -189,7 +189,7 @@ class PrivateChatManagerTest {
             hasReadReceiptBeenSent = { it == oldMessage.id },
             contactDirectory = stores.contactDirectory,
             appStateStore = stores.appStateStore,
-            favorites = Lazy { stores.favorites },
+            favorites = Provider { stores.favorites },
             peerFingerprints = PeerFingerprintManager(),
         )
         state.setNickname("bob")

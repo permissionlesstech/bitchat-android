@@ -19,7 +19,7 @@ import dagger.hilt.components.SingletonComponent
 @EntryPoint
 @InstallIn(SingletonComponent::class)
 interface WearTestHookDependencies {
-    fun appStateStore(): AppStateStore
+    @CurrentIdentity fun appStateStore(): AppStateStore
     @CurrentIdentity fun chatState(): WearChatState
     @CurrentIdentity fun peerIdentity(): WearPeerIdentityState
     @CurrentIdentity fun liveVoiceManager(): LiveVoiceManager

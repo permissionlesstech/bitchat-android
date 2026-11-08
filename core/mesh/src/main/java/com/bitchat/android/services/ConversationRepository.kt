@@ -8,6 +8,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.util.Base64
 import android.util.Log
+import com.bitchat.android.identity.scope.IdentityScoped
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.model.DeliveryStatus
@@ -29,17 +30,16 @@ import java.util.Date
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
- * Process-wide, serialized persistence for private conversations.
+ * The identity's serialized persistence for private conversations.
  *
  * Android's SQLite database is deliberately kept behind this small repository instead of leaking
  * cursors or database threading into the mesh and UI layers. Every mutation is queued on one
  * writer so a delete/merge followed by a newly arriving message is applied in the same order that
  * [AppStateStore] publishes it.
  */
-@Singleton
+@IdentityScoped
 class ConversationRepository(
     context: Context,
     private val dispatcher: CoroutineDispatcher = writerDispatcher(),

@@ -19,7 +19,7 @@ import com.bitchat.android.ui.MessageManager
 import com.bitchat.android.ui.NoiseSessionDelegate
 import com.bitchat.android.ui.PrivateChatManager
 import com.google.gson.Gson
-import dagger.Lazy
+import javax.inject.Provider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -91,7 +91,7 @@ class NostrDirectMessageHandlerTest {
             noiseSessionDelegate = mock<NoiseSessionDelegate>(),
             contactDirectory = stores.contactDirectory,
             appStateStore = stores.appStateStore,
-            favorites = Lazy { stores.favorites },
+            favorites = Provider { stores.favorites },
             peerFingerprints = PeerFingerprintManager(),
         )
         val seenStore = mock<SeenMessageStore>()
@@ -109,7 +109,7 @@ class NostrDirectMessageHandlerTest {
             geohashAliases = stores.geohashAliases,
             geohashConversations = GeohashConversationRegistry(),
             contactDirectory = stores.contactDirectory,
-            favorites = Lazy { stores.favorites },
+            favorites = Provider { stores.favorites },
         )
         val sender = NostrIdentity.generate()
         val recipient = NostrIdentity.generate()
@@ -185,7 +185,7 @@ class NostrDirectMessageHandlerTest {
             geohashAliases = stores.geohashAliases,
             geohashConversations = GeohashConversationRegistry(),
             contactDirectory = stores.contactDirectory,
-            favorites = Lazy { stores.favorites },
+            favorites = Provider { stores.favorites },
         )
         val sender = NostrIdentity.generate()
         val recipient = NostrIdentity.generate()
@@ -227,7 +227,7 @@ class NostrDirectMessageHandlerTest {
             noiseSessionDelegate = mock<NoiseSessionDelegate>(),
             contactDirectory = stores.contactDirectory,
             appStateStore = stores.appStateStore,
-            favorites = Lazy { stores.favorites },
+            favorites = Provider { stores.favorites },
             peerFingerprints = PeerFingerprintManager(),
         )
         val seenStore = mock<SeenMessageStore>()
@@ -243,7 +243,7 @@ class NostrDirectMessageHandlerTest {
             geohashAliases = stores.geohashAliases,
             geohashConversations = GeohashConversationRegistry(),
             contactDirectory = stores.contactDirectory,
-            favorites = Lazy { stores.favorites },
+            favorites = Provider { stores.favorites },
         )
         val sender = NostrIdentity.generate()
         val recipient = NostrIdentity.generate()

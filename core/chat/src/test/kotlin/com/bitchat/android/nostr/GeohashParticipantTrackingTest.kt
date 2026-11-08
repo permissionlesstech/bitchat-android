@@ -10,7 +10,6 @@ import com.bitchat.android.services.TestMeshStores
 import com.bitchat.android.spam.SpamFilter
 import com.bitchat.android.ui.DataManager
 import com.bitchat.android.ui.NostrBackgroundEventProcessor
-import dagger.Lazy
 import javax.inject.Provider
 import java.util.Date
 import kotlinx.coroutines.CoroutineScope
@@ -67,7 +66,7 @@ class GeohashParticipantTrackingTest {
             nostrTransport = { mock<NostrTransport>() },
             appStateStore = stores.appStateStore,
             contactDirectory = stores.contactDirectory,
-            favorites = Lazy { stores.favorites },
+            favorites = Provider { stores.favorites },
             peerFingerprints = PeerFingerprintManager(),
             geohashAliases = stores.geohashAliases,
             geohashConversations = GeohashConversationRegistry(),

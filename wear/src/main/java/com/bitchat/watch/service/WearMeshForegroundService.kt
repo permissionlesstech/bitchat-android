@@ -52,7 +52,7 @@ class WearMeshForegroundService : Service() {
     private lateinit var notificationBuilder: NotificationCompat.Builder
     private lateinit var ongoingActivity: OngoingActivity
     @Inject lateinit var notificationCoordinator: WearNotificationCoordinator
-    @Inject lateinit var appStateStore: AppStateStore
+    @Inject @CurrentIdentity lateinit var appStateStore: Provider<AppStateStore>
     @Inject @CurrentIdentity lateinit var chatState: Provider<WearChatState>
     @Inject @CurrentIdentity lateinit var meshHolder: Provider<WearMeshHolder>
     private lateinit var mesh: WearMeshService
@@ -62,7 +62,7 @@ class WearMeshForegroundService : Service() {
         super.onCreate()
         mesh = meshHolder.get().getOrCreate()
         createChannel()
-        startForeground(WearNotificationPolicy.activePeerCount(appStateStore.peers.value))
+        startForeground(WearNotificationPolicy.activePeerCount(appStateStore.get().peers.value))
         observePeerCount()
         mesh.onPrivateMessage = ::handlePrivateMessage
         mesh.startServices()
@@ -70,7 +70,7 @@ class WearMeshForegroundService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         updateForegroundNotification(
-            WearNotificationPolicy.activePeerCount(appStateStore.peers.value)
+            WearNotificationPolicy.activePeerCount(appStateStore.get().peers.value)
         )
         return START_STICKY
     }
@@ -112,7 +112,7 @@ class WearMeshForegroundService : Service() {
 
     private fun observePeerCount() {
         peerCountJob = serviceScope.launch {
-            appStateStore.peers
+            appStateStore.get().peers
                 .map(WearNotificationPolicy::activePeerCount)
                 .distinctUntilChanged()
                 .collect(::updateForegroundNotification)

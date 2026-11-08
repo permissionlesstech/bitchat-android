@@ -110,7 +110,8 @@ class MainActivity : OrientationAwareActivity() {
     lateinit var wifiAwareController: Provider<WifiAwareController>
 
     @Inject
-    lateinit var contactDirectory: ContactDirectory
+    @CurrentIdentity
+    lateinit var contactDirectory: Provider<ContactDirectory>
 
     @Inject
     @CurrentIdentity
@@ -492,7 +493,7 @@ class MainActivity : OrientationAwareActivity() {
                     if (navigator.popTo(ChatRoute)) {
                         navigator.goTo(MeshPeerListRoute)
                         navigator.openPrivateChat(
-                            contactDirectory.canonicalConversationId(peerID),
+                            contactDirectory.get().canonicalConversationId(peerID),
                             over = MeshPeerListRoute,
                         )
                     }

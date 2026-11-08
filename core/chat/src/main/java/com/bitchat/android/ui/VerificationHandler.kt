@@ -12,7 +12,7 @@ import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.services.VerificationService
 import com.bitchat.android.util.dataFromHexString
 import com.bitchat.android.util.hexEncodedString
-import dagger.Lazy
+import javax.inject.Provider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,7 +33,7 @@ class VerificationHandler(
     private val state: ChatState,
     private val notificationManager: NotificationManager,
     private val messageManager: MessageManager,
-    private val favorites: Lazy<FavoritesPersistenceService>,
+    private val favorites: Provider<FavoritesPersistenceService>,
     private val geohashAliases: GeohashAliasRegistry,
     private val verificationService: VerificationService,
 ) {

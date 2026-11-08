@@ -20,7 +20,6 @@ import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.spam.SpamFilter
-import dagger.Lazy
 import javax.inject.Provider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -41,7 +40,7 @@ class NostrBackgroundEventProcessor(
     nostrTransport: () -> NostrTransport,
     private val appStateStore: AppStateStore,
     private val contactDirectory: ContactDirectory,
-    private val favorites: Lazy<FavoritesPersistenceService>,
+    private val favorites: Provider<FavoritesPersistenceService>,
     private val peerFingerprints: PeerFingerprintManager,
     private val geohashAliases: GeohashAliasRegistry,
     private val geohashConversations: GeohashConversationRegistry,

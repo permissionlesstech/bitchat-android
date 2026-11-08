@@ -89,7 +89,7 @@ object ChatSessionModule {
     @ActivityRetainedScoped
     fun provideChatState(
         @ChatSessionScope scope: CoroutineScope,
-        appStateStore: AppStateStore,
+        @CurrentIdentity appStateStore: AppStateStore,
     ): ChatState = ChatState(scope, appStateStore)
 
     // The managers keep plain constructors, which their unit tests call
@@ -104,8 +104,8 @@ object ChatSessionModule {
     @ActivityRetainedScoped
     fun provideMessageManager(
         state: ChatState,
-        appStateStore: AppStateStore,
-        contactDirectory: ContactDirectory,
+        @CurrentIdentity appStateStore: AppStateStore,
+        @CurrentIdentity contactDirectory: ContactDirectory,
     ): MessageManager = MessageManager(state, appStateStore, contactDirectory)
 
     @Provides
@@ -113,7 +113,7 @@ object ChatSessionModule {
     fun provideNotificationManager(
         @ApplicationContext context: Context,
         targets: NotificationTargets,
-        contactDirectory: ContactDirectory,
+        @CurrentIdentity contactDirectory: ContactDirectory,
         @CurrentIdentity conversationListPreferences: ConversationListPreferences,
     ): NotificationManager = NotificationManager(
         context,
@@ -153,9 +153,9 @@ object ChatSessionModule {
         dataManager: DataManager,
         mesh: ChatSessionMesh,
         @CurrentIdentity seenMessageStore: Provider<SeenMessageStore>,
-        contactDirectory: ContactDirectory,
-        appStateStore: AppStateStore,
-        favorites: Lazy<FavoritesPersistenceService>,
+        @CurrentIdentity contactDirectory: ContactDirectory,
+        @CurrentIdentity appStateStore: AppStateStore,
+        @CurrentIdentity favorites: Provider<FavoritesPersistenceService>,
         @CurrentIdentity peerFingerprints: PeerFingerprintManager,
     ): PrivateChatManager = PrivateChatManager(
         state,
@@ -207,8 +207,8 @@ object ChatSessionModule {
         state: ChatState,
         notificationManager: NotificationManager,
         messageManager: MessageManager,
-        favorites: Lazy<FavoritesPersistenceService>,
-        geohashAliases: GeohashAliasRegistry,
+        @CurrentIdentity favorites: Provider<FavoritesPersistenceService>,
+        @CurrentIdentity geohashAliases: GeohashAliasRegistry,
         @CurrentIdentity verificationService: VerificationService,
     ): VerificationHandler = VerificationHandler(
         context = context,
@@ -231,7 +231,7 @@ object ChatSessionModule {
         channelManager: ChannelManager,
         @ChatSessionScope scope: CoroutineScope,
         mesh: ChatSessionMesh,
-        contactDirectory: ContactDirectory,
+        @CurrentIdentity contactDirectory: ContactDirectory,
     ): MediaSendingManager = MediaSendingManager(
         state,
         messageManager,
@@ -254,7 +254,7 @@ object ChatSessionModule {
         @CurrentIdentity locationChannelManager: Provider<LocationChannelManager>,
         relayManager: Lazy<NostrRelayManager>,
         @CurrentIdentity locationNotesManager: Provider<LocationNotesManager>,
-        geohashAliases: GeohashAliasRegistry,
+        @CurrentIdentity geohashAliases: GeohashAliasRegistry,
         @CurrentIdentity geohashConversations: GeohashConversationRegistry,
         @CurrentIdentity nostrIdentity: NostrIdentityBridge,
         @CurrentIdentity spamFilter: SpamFilter,
@@ -288,8 +288,8 @@ object ChatSessionModule {
         @ChatSessionScope scope: CoroutineScope,
         mesh: ChatSessionMesh,
         @CurrentIdentity seenMessageStore: Provider<SeenMessageStore>,
-        appStateStore: AppStateStore,
-        contactDirectory: ContactDirectory,
+        @CurrentIdentity appStateStore: AppStateStore,
+        @CurrentIdentity contactDirectory: ContactDirectory,
         @CurrentIdentity messageRouterHolder: Provider<MessageRouterHolder>,
     ): MeshDelegateHandler = MeshDelegateHandler(
         state = state,

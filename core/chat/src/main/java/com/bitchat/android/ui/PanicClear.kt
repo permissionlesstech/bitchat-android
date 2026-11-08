@@ -15,7 +15,6 @@ import com.bitchat.android.core.chat.R
 import com.bitchat.android.services.ConversationListPreferences
 import com.bitchat.android.services.MessageRouterHolder
 import com.bitchat.android.services.SeenMessageStore
-import dagger.Lazy
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.scopes.ActivityRetainedScoped
 import javax.inject.Inject
@@ -52,9 +51,9 @@ class PanicClear @Inject constructor(
     @CurrentIdentity @get:VisibleForTesting val seenMessageStoreProvider: Provider<SeenMessageStore>,
     @CurrentIdentity private val locationChannelManagerProvider: Provider<LocationChannelManager>,
     @CurrentIdentity private val geohashBookmarksStoreProvider: Provider<GeohashBookmarksStore>,
-    @get:VisibleForTesting val appStateStore: AppStateStore,
+    @CurrentIdentity @get:VisibleForTesting val appStateStore: AppStateStore,
     @CurrentIdentity @get:VisibleForTesting val spamFilter: SpamFilter,
-    @get:VisibleForTesting val favorites: Lazy<FavoritesPersistenceService>,
+    @CurrentIdentity @get:VisibleForTesting val favorites: Provider<FavoritesPersistenceService>,
     @ChatSessionScope private val scope: CoroutineScope,
 ) {
 

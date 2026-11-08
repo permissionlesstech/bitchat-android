@@ -5,9 +5,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.bitchat.android.MainActivity
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.testhook.ChatSessionTestAccess
+import com.bitchat.android.testhook.MeshTestAccess
 import com.bitchat.android.testhook.TestHookDependencies
 import dagger.hilt.android.EntryPointAccessors
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
 import org.junit.BeforeClass
 import org.junit.Rule
@@ -47,6 +49,26 @@ class PanicClearSessionTest {
         assertNotEquals(before.myPeerID, after.myPeerID)
         // The recreated mesh reports to the session's delegate.
         assertSame(rule.activity.chatMeshDelegate, after.delegate)
+    }
+
+    @Test
+    fun aPanicClearKeepsTheIdentityAndItsStoresAndReplacesOnlyTheMesh() {
+        rule.awaitChat()
+        val graph = MeshTestAccess.of(rule.activity.applicationContext)
+        val identity = graph.identityHolder().current
+        val store = graph.appStateStore()
+        val directory = graph.contactDirectory()
+        val favorites = graph.favorites()
+        val before = sessionMesh()
+
+        rule.runOnUiThread { session().panicClear().run() }
+        rule.waitUntil(timeoutMillis = 15_000) { sessionMesh() !== before }
+
+        assertSame(identity, graph.identityHolder().current)
+        assertSame(store, graph.appStateStore())
+        assertSame(directory, graph.contactDirectory())
+        assertSame(favorites, graph.favorites())
+        assertNotSame(before, sessionMesh())
     }
 
     @Test

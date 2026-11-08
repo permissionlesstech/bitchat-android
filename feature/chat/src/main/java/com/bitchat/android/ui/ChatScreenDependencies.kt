@@ -28,7 +28,7 @@ internal interface ChatScreenDependencies {
     @CurrentIdentity fun nearbyNotesController(): NearbyNotesController
     fun torManager(): ArtiTorManager
     @CurrentIdentity fun liveVoiceManager(): LiveVoiceManager
-    fun contactDirectory(): ContactDirectory
+    @CurrentIdentity fun contactDirectory(): ContactDirectory
     @CurrentIdentity fun voiceWaveformCache(): VoiceWaveformCache
     @CurrentIdentity fun spamFilter(): SpamFilter
 }

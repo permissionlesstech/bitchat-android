@@ -62,10 +62,10 @@ class ChatSessionStartup @Inject constructor(
     private val geohashSession: GeohashSession,
     private val contactFavorites: ContactFavorites,
     private val conversationDirectory: ConversationDirectory,
-    private val appStateStore: AppStateStore,
-    private val contactDirectory: ContactDirectory,
+    @CurrentIdentity private val appStateStore: AppStateStore,
+    @CurrentIdentity private val contactDirectory: ContactDirectory,
     @CurrentIdentity private val transferProgress: TransferProgressManager,
-    private val favorites: FavoritesPersistenceService,
+    @CurrentIdentity private val favorites: FavoritesPersistenceService,
 ) {
 
     private companion object {
@@ -106,7 +106,7 @@ class ChatSessionStartup @Inject constructor(
                 )
             }
         } catch (_: Exception) { }
-        // Hydrate UI state from process-wide AppStateStore to survive Activity recreation
+        // Hydrate UI state from AppStateStore to survive Activity recreation
         scope.launch {
             try { appStateStore.peers.collect { peers ->
                 state.setConnectedPeers(peers)

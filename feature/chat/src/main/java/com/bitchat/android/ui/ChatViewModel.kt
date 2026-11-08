@@ -12,9 +12,9 @@ import com.bitchat.android.navigation.openPrivateChat
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.services.ConversationListPreferences
-import dagger.Lazy
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import javax.inject.Provider
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -49,9 +49,9 @@ class ChatViewModel @Inject constructor(
     private val composerMedia: ComposerMedia,
     private val panicClear: PanicClear,
     sessionStartup: ChatSessionStartup,
-    private val contactDirectory: ContactDirectory,
-    private val favorites: Lazy<FavoritesPersistenceService>,
-    private val geohashAliases: GeohashAliasRegistry,
+    @CurrentIdentity private val contactDirectory: ContactDirectory,
+    @CurrentIdentity private val favorites: Provider<FavoritesPersistenceService>,
+    @CurrentIdentity private val geohashAliases: GeohashAliasRegistry,
 ) : ViewModel() {
 
     private companion object {

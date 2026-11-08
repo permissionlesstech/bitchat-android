@@ -1,10 +1,15 @@
 package com.bitchat.android.identity.scope
 
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.features.voice.LiveVoiceManager
 import com.bitchat.android.features.voice.VoiceWaveformCache
 import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.mesh.TransferProgressManager
+import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.service.TransportBridgeService
+import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.PrivateMessageArrivalOrder
 import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.services.VerificationService
 import com.bitchat.android.services.meshgraph.MeshGraphService
@@ -28,6 +33,11 @@ interface MeshIdentityEntryPoint {
     fun verificationService(): VerificationService
     fun meshGraphService(): MeshGraphService
     fun spamFilter(): SpamFilter
+    fun appStateStore(): AppStateStore
+    fun contactDirectory(): ContactDirectory
+    fun favorites(): FavoritesPersistenceService
+    fun arrivalOrder(): PrivateMessageArrivalOrder
+    fun geohashAliases(): GeohashAliasRegistry
 }
 
 /**
@@ -81,4 +91,29 @@ object MeshIdentityBindings {
     @CurrentIdentity
     fun spamFilter(holder: IdentityHolder): SpamFilter =
         holder.entryPoint<MeshIdentityEntryPoint>().spamFilter()
+
+    @Provides
+    @CurrentIdentity
+    fun appStateStore(holder: IdentityHolder): AppStateStore =
+        holder.entryPoint<MeshIdentityEntryPoint>().appStateStore()
+
+    @Provides
+    @CurrentIdentity
+    fun contactDirectory(holder: IdentityHolder): ContactDirectory =
+        holder.entryPoint<MeshIdentityEntryPoint>().contactDirectory()
+
+    @Provides
+    @CurrentIdentity
+    fun favorites(holder: IdentityHolder): FavoritesPersistenceService =
+        holder.entryPoint<MeshIdentityEntryPoint>().favorites()
+
+    @Provides
+    @CurrentIdentity
+    fun arrivalOrder(holder: IdentityHolder): PrivateMessageArrivalOrder =
+        holder.entryPoint<MeshIdentityEntryPoint>().arrivalOrder()
+
+    @Provides
+    @CurrentIdentity
+    fun geohashAliases(holder: IdentityHolder): GeohashAliasRegistry =
+        holder.entryPoint<MeshIdentityEntryPoint>().geohashAliases()
 }

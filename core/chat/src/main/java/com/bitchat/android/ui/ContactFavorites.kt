@@ -7,7 +7,6 @@ import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.services.MessageRouter
-import dagger.Lazy
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.scopes.ActivityRetainedScoped
 import javax.inject.Inject
@@ -26,8 +25,8 @@ class ContactFavorites @Inject constructor(
     private val privateChatManager: PrivateChatManager,
     private val sessionMesh: ChatSessionMesh,
     @CurrentIdentity private val messageRouterProvider: Provider<MessageRouter>,
-    private val contactDirectory: ContactDirectory,
-    private val favorites: Lazy<FavoritesPersistenceService>,
+    @CurrentIdentity private val contactDirectory: ContactDirectory,
+    @CurrentIdentity private val favorites: Provider<FavoritesPersistenceService>,
 ) {
 
     private val mesh get() = sessionMesh.unified

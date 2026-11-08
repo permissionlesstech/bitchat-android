@@ -93,7 +93,7 @@ sealed interface WearScreen {
 class MainActivity : ComponentActivity() {
 
     // What the screens read and write, handed down to them as parameters.
-    @Inject lateinit var appStateStore: AppStateStore
+    @Inject @CurrentIdentity lateinit var appStateStore: Provider<AppStateStore>
     @Inject @CurrentIdentity lateinit var chatState: Provider<WearChatState>
     @Inject @CurrentIdentity lateinit var peerIdentity: Provider<WearPeerIdentityState>
     @Inject @CurrentIdentity lateinit var voiceWaveformCache: Provider<VoiceWaveformCache>
@@ -162,7 +162,7 @@ class MainActivity : ComponentActivity() {
                                     onSkip = { notificationPromptDismissed = true }
                                 )
                             else -> WearNavHost(
-                                appStateStore = appStateStore,
+                                appStateStore = appStateStore.get(),
                                 chatState = chatState.get(),
                                 peerIdentity = peerIdentity.get(),
                                 meshHolder = meshHolder.get(),

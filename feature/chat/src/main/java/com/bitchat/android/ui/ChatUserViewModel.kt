@@ -3,6 +3,7 @@ package com.bitchat.android.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bitchat.android.geohash.ChannelID
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.navigation.Navigator
 import com.bitchat.android.navigation.openPrivateChat
@@ -43,7 +44,7 @@ class ChatUserViewModel @AssistedInject constructor(
     private val geohashSession: GeohashSession,
     private val messageSender: MessageSender,
     private val navigator: Navigator,
-    private val contactDirectory: ContactDirectory,
+    @CurrentIdentity private val contactDirectory: ContactDirectory,
 ) : ViewModel() {
 
     @AssistedFactory

@@ -4,6 +4,7 @@ import android.content.Context
 import com.bitchat.android.features.voice.LiveVoicePreferences
 import com.bitchat.android.features.voice.LiveVoiceTarget
 import com.bitchat.android.features.voice.VoiceRecorder
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.services.ContactDirectory
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.scopes.ActivityRetainedScoped
@@ -19,7 +20,7 @@ class ComposerMedia @Inject constructor(
     @ApplicationContext private val context: Context,
     private val mediaSendingManager: MediaSendingManager,
     private val sessionMesh: ChatSessionMesh,
-    private val contactDirectory: ContactDirectory,
+    @CurrentIdentity private val contactDirectory: ContactDirectory,
 ) {
 
     private val mesh get() = sessionMesh.unified

@@ -15,10 +15,13 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.bitchat.android.di.DefaultDispatcher
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.util.AppConstants
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
+import javax.inject.Provider
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineDispatcher
@@ -38,7 +41,7 @@ import kotlinx.coroutines.launch
 @Singleton
 class PowerManager @Inject constructor(
     @ApplicationContext context: Context,
-    private val appStateStore: AppStateStore,
+    @CurrentIdentity private val appStateStore: Provider<AppStateStore>,
     @DefaultDispatcher defaultDispatcher: CoroutineDispatcher,
 ) : LifecycleEventObserver {
 
@@ -97,6 +100,7 @@ class PowerManager @Inject constructor(
     @Volatile private var isAppInBackground = true
     @Volatile private var hasDirectPeers = false
     @Volatile private var shutdown = false
+    private val started = AtomicBoolean(false)
 
     private val _profile = MutableStateFlow(
         PowerProfileResolver.resolve(
@@ -145,17 +149,23 @@ class PowerManager @Inject constructor(
                 Log.e(TAG, "Failed to register process lifecycle observer: ${e.message}")
             }
         }
-        scope.launch {
-            appStateStore.directPeers
-                .collect { peers ->
-                    hasDirectPeers = peers.isNotEmpty()
-                    refreshProfile()
-                }
-        }
     }
 
-    /** Kept for existing callers; initialization is eager and idempotent. */
-    fun start() = Unit
+    /**
+     * Starts following the current identity's direct peers. Each client's `Application.onCreate`
+     * calls this first thing after building the manager; later calls do nothing.
+     */
+    fun start() {
+        if (shutdown || !started.compareAndSet(false, true)) return
+        // Read on the caller's thread, so the store is built where this is called, not on a worker.
+        val directPeers = appStateStore.get().directPeers
+        scope.launch {
+            directPeers.collect { peers ->
+                hasDirectPeers = peers.isNotEmpty()
+                refreshProfile()
+            }
+        }
+    }
 
     /**
      * Process-level teardown for explicit full application shutdown only.

@@ -11,11 +11,11 @@ import com.bitchat.android.nostr.GeohashConversationRegistry
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.services.ConversationListPreferences
-import dagger.Lazy
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Provider
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -51,10 +51,10 @@ class PrivateChatViewModel @AssistedInject constructor(
     private val geohashSession: GeohashSession,
     @CurrentIdentity private val conversationListPreferences: ConversationListPreferences,
     private val wifiAwarePeers: WifiAwarePeers,
-    private val contactDirectory: ContactDirectory,
-    private val favorites: Lazy<FavoritesPersistenceService>,
+    @CurrentIdentity private val contactDirectory: ContactDirectory,
+    @CurrentIdentity private val favorites: Provider<FavoritesPersistenceService>,
     @CurrentIdentity private val geohashConversations: GeohashConversationRegistry,
-    private val geohashAliases: GeohashAliasRegistry,
+    @CurrentIdentity private val geohashAliases: GeohashAliasRegistry,
 ) : ViewModel() {
 
     @AssistedFactory

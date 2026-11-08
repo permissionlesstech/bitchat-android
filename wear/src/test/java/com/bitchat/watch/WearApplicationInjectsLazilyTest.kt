@@ -23,7 +23,7 @@ class WearApplicationInjectsLazilyTest {
         assertEquals("Every Application field must be injected Lazy or as a Provider: $eager", emptyList<Pair<String, String>>(), eager)
     }
 
-    private val identityTypes = listOf("WearMeshHolder", "WearMeshService", "WearChatState", "WearPeerIdentityState")
+    private val identityTypes = listOf("WearMeshHolder", "WearMeshService", "WearChatState", "WearPeerIdentityState", "AppStateStore")
 
     private fun code(path: String): String =
         File(root, path).readText()
@@ -59,7 +59,7 @@ class WearApplicationInjectsLazilyTest {
 
     @Test
     fun nothingReadsTheIdentityBeforeThePermissionsAreConfirmed() {
-        val reads = Regex("""(?:meshHolder|chatState|peerIdentity)\.get\(\)""")
+        val reads = Regex("""(?:meshHolder|chatState|peerIdentity|appStateStore)\.get\(\)""")
         val activity = code(processLived[1])
         val beforeSetContent = activity.substringAfter("override fun onCreate").substringBefore("setContent")
         assertFalse("MainActivity.onCreate reads an identity type before the screens: ${reads.find(beforeSetContent)?.value}", reads.containsMatchIn(beforeSetContent))

@@ -22,7 +22,7 @@ class BitchatWatchApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        powerManager.get()
+        powerManager.get().start()
         notificationCoordinator.get()
         peerIdentity.get().initialize(applicationContext)
     }

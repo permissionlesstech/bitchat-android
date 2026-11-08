@@ -20,9 +20,9 @@ import dagger.hilt.components.SingletonComponent
 @EntryPoint
 @InstallIn(SingletonComponent::class)
 interface TestHookDependencies {
-    fun appStateStore(): AppStateStore
-    fun contactDirectory(): ContactDirectory
-    fun favorites(): FavoritesPersistenceService
+    @CurrentIdentity fun appStateStore(): AppStateStore
+    @CurrentIdentity fun contactDirectory(): ContactDirectory
+    @CurrentIdentity fun favorites(): FavoritesPersistenceService
     @CurrentIdentity fun liveVoiceManager(): LiveVoiceManager
     @CurrentIdentity fun meshGraphService(): MeshGraphService
     @CurrentIdentity fun meshServiceHolder(): MeshServiceHolder

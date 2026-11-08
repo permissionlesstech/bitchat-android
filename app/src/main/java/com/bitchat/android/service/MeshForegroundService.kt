@@ -61,7 +61,8 @@ class MeshForegroundService : Service() {
     lateinit var messageRouterHolder: Provider<MessageRouterHolder>
 
     @Inject
-    lateinit var appStateStore: AppStateStore
+    @CurrentIdentity
+    lateinit var appStateStore: Provider<AppStateStore>
 
     /** [start] runs with no service instance, so it reaches the preference store through this. */
     @EntryPoint
@@ -172,7 +173,7 @@ class MeshForegroundService : Service() {
 
         // Notification content is driven by peer-state changes, not a permanent timer.
         updateJob = scope.launch {
-            appStateStore.peers
+            appStateStore.get().peers
                 .map { peers -> peers.distinct().size }
                 .distinctUntilChanged()
                 .collect { peerCount ->

@@ -11,7 +11,6 @@ import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.services.ConversationListPreferences
 import com.bitchat.android.services.PrivateMessageArrivalOrder
 import com.bitchat.android.services.SeenMessageStore
-import dagger.Lazy
 import javax.inject.Provider
 import dagger.hilt.android.scopes.ActivityRetainedScoped
 import javax.inject.Inject
@@ -52,11 +51,11 @@ class ConversationDirectory @Inject constructor(
     private val privateChatManager: PrivateChatManager,
     private val notificationManager: NotificationManager,
     private val sessionMesh: ChatSessionMesh,
-    private val appStateStore: AppStateStore,
-    private val contactDirectory: ContactDirectory,
-    private val arrivalOrder: PrivateMessageArrivalOrder,
+    @CurrentIdentity private val appStateStore: AppStateStore,
+    @CurrentIdentity private val contactDirectory: ContactDirectory,
+    @CurrentIdentity private val arrivalOrder: PrivateMessageArrivalOrder,
     @CurrentIdentity private val geohashConversations: GeohashConversationRegistry,
-    private val favorites: Lazy<FavoritesPersistenceService>,
+    @CurrentIdentity private val favorites: Provider<FavoritesPersistenceService>,
     @ChatSessionScope private val scope: CoroutineScope,
 ) {
 

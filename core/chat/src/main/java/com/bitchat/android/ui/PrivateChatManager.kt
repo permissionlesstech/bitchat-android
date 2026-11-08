@@ -9,9 +9,9 @@ import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 
-import dagger.Lazy
 import java.util.*
 import android.util.Log
+import javax.inject.Provider
 
 /**
  * Interface for Noise session operations needed by PrivateChatManager
@@ -38,7 +38,7 @@ class PrivateChatManager(
     private val noiseSessionDelegate: NoiseSessionDelegate,
     private val contactDirectory: ContactDirectory,
     private val appStateStore: AppStateStore,
-    private val favorites: Lazy<FavoritesPersistenceService>,
+    private val favorites: Provider<FavoritesPersistenceService>,
     private val peerFingerprints: PeerFingerprintManager,
     private val trackUnreadMessages: Boolean = true,
     private val hasReadReceiptBeenSent: (messageID: String) -> Boolean = { false },

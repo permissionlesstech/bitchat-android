@@ -4,12 +4,12 @@ import android.content.Context
 import com.bitchat.android.favorites.FavoriteRelationship
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.identity.SecureIdentityStateManager
+import com.bitchat.android.identity.scope.IdentityScoped
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.nostr.GeohashAliasRegistry
 import dagger.Lazy
 import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Resolves a peer, alias or contact conversation ID to its canonical conversation.
@@ -19,7 +19,7 @@ import javax.inject.Singleton
  * [initialize] (the chat session's start-up); until then cached identities and live peers are
  * not consulted, and on the watch they never are.
  */
-@Singleton
+@IdentityScoped
 class ContactDirectory(
     private val favorites: Lazy<FavoritesPersistenceService>,
     private val arrivalOrder: PrivateMessageArrivalOrder,

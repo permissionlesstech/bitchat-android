@@ -25,7 +25,8 @@ internal fun newRelayManager(
 ): NostrRelayManager {
     val powerManager by lazy {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        PowerManager(context, TestMeshStores(context).appStateStore, kotlinx.coroutines.Dispatchers.Default)
+        val store = TestMeshStores(context).appStateStore
+        PowerManager(context, Provider { store }, kotlinx.coroutines.Dispatchers.Default)
     }
     return NostrRelayManager(
         appContext = ApplicationProvider.getApplicationContext(),

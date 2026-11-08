@@ -24,7 +24,7 @@ class WearStartupOrderTest {
             .joinToString("\n") { it.substringBefore("//") }
             .substringAfter("override fun onCreate()")
         val steps = linkedMapOf(
-            "power policy" to Regex("""powerManager\.get\(\)"""),
+            "power policy" to Regex("""powerManager\.get\(\)\.start\(\)"""),
             "notification coordinator" to Regex("""notificationCoordinator\.get\(\)"""),
             "peer identity" to Regex("""peerIdentity\.get\(\)\.initialize\(applicationContext\)"""),
         )

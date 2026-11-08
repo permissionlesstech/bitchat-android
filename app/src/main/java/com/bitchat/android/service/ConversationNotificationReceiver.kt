@@ -29,8 +29,8 @@ class ConversationNotificationReceiver : BroadcastReceiver() {
     @EntryPoint
     @InstallIn(SingletonComponent::class)
     interface Dependencies {
-        fun contactDirectory(): ContactDirectory
-        fun appStateStore(): AppStateStore
+        @CurrentIdentity fun contactDirectory(): ContactDirectory
+        @CurrentIdentity fun appStateStore(): AppStateStore
         @CurrentIdentity fun meshServiceHolder(): MeshServiceHolder
         @CurrentIdentity fun messageRouterHolder(): MessageRouterHolder
     }

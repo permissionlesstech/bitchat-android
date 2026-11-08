@@ -1,6 +1,7 @@
 package com.bitchat.android.services
 
 import android.content.Context
+import com.bitchat.android.identity.scope.IdentityScoped
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -8,13 +9,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import dagger.Lazy
 import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
- * Process-wide in-memory state store that survives Activity recreation.
+ * The identity's in-memory state store, which survives Activity recreation.
  * The foreground Mesh service updates this store; UI subscribes/hydrates from it.
  */
-@Singleton
+@IdentityScoped
 class AppStateStore(
     private val contactDirectory: ContactDirectory,
     private val arrivalOrder: PrivateMessageArrivalOrder,

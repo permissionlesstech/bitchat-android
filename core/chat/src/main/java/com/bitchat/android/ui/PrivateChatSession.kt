@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ContactDirectory
 import dagger.hilt.android.scopes.ActivityRetainedScoped
@@ -21,8 +22,8 @@ class PrivateChatSession @Inject constructor(
     private val notificationManager: NotificationManager,
     private val geohashSession: GeohashSession,
     private val sessionMesh: ChatSessionMesh,
-    private val appStateStore: AppStateStore,
-    private val contactDirectory: ContactDirectory,
+    @CurrentIdentity private val appStateStore: AppStateStore,
+    @CurrentIdentity private val contactDirectory: ContactDirectory,
 ) {
 
     suspend fun start(peerID: String) {

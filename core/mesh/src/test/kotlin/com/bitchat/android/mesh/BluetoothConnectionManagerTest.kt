@@ -7,6 +7,7 @@ import com.bitchat.android.ui.debug.DebugPreferenceManager
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
+import javax.inject.Provider
 import kotlinx.coroutines.Dispatchers
 import org.junit.After
 import org.junit.Assert.assertFalse
@@ -29,7 +30,7 @@ class BluetoothConnectionManagerTest {
             null,
             PowerManager(
                 RuntimeEnvironment.getApplication(),
-                TestMeshStores(RuntimeEnvironment.getApplication()).appStateStore,
+                TestMeshStores(RuntimeEnvironment.getApplication()).appStateStore.let { store -> Provider { store } },
                 Dispatchers.Default,
             ),
             Lazy(lazy { DebugSettingsManager(DebugPreferenceManager()) }::value),

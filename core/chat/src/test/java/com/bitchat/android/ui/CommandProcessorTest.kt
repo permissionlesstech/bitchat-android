@@ -9,7 +9,7 @@ import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.services.TestMeshStores
-import dagger.Lazy
+import javax.inject.Provider
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertFalse
 import junit.framework.TestCase.assertTrue
@@ -61,7 +61,7 @@ class CommandProcessorTest {
         noiseSessionDelegate = mock<NoiseSessionDelegate>(),
         contactDirectory = stores.contactDirectory,
         appStateStore = stores.appStateStore,
-        favorites = Lazy { stores.favorites },
+        favorites = Provider { stores.favorites },
         peerFingerprints = PeerFingerprintManager(),
       )
     )
@@ -137,7 +137,7 @@ class CommandProcessorTest {
         markMessageReadLocally = locallyRead::add,
         contactDirectory = stores.contactDirectory,
         appStateStore = stores.appStateStore,
-        favorites = Lazy { stores.favorites },
+        favorites = Provider { stores.favorites },
         peerFingerprints = PeerFingerprintManager(),
       )
     )
@@ -169,7 +169,7 @@ class CommandProcessorTest {
         noiseSessionDelegate = mock<NoiseSessionDelegate>(),
         contactDirectory = stores.contactDirectory,
         appStateStore = stores.appStateStore,
-        favorites = Lazy { stores.favorites },
+        favorites = Provider { stores.favorites },
         peerFingerprints = PeerFingerprintManager(),
       ),
       routePrivateMessage = { _, content, recipient, _, _ -> routed += content to recipient }

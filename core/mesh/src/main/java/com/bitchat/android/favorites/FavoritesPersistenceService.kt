@@ -2,6 +2,7 @@ package com.bitchat.android.favorites
 
 import android.content.Context
 import android.util.Log
+import com.bitchat.android.identity.scope.IdentityScoped
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.identity.SecureIdentityStateManager
@@ -10,7 +11,6 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.util.*
 import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Bridging Noise and Nostr favorites
@@ -84,7 +84,7 @@ interface FavoritesChangeListener {
  * `IllegalStateException("FavoritesPersistenceService not initialized")`, as the old static
  * accessor did, and a failed attempt is retried by the next call.
  */
-@Singleton
+@IdentityScoped
 class FavoritesPersistenceService @Inject constructor(
     @ApplicationContext private val context: Context,
     private val appStateStore: AppStateStore,

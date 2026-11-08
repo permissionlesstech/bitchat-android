@@ -5,9 +5,9 @@ import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.services.TestMeshStores
-import dagger.Lazy
 import java.nio.charset.StandardCharsets
 import java.util.Base64
+import javax.inject.Provider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -68,7 +68,7 @@ class PasswordProtectedChannelRobolectricTest {
                 noiseSessionDelegate = mock<NoiseSessionDelegate>(),
                 contactDirectory = stores.contactDirectory,
                 appStateStore = stores.appStateStore,
-                favorites = Lazy { stores.favorites },
+                favorites = Provider { stores.favorites },
                 peerFingerprints = PeerFingerprintManager()
             )
         )

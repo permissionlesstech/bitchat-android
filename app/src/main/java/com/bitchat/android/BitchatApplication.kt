@@ -47,9 +47,9 @@ class BitchatApplication : Application() {
     @Inject lateinit var powPreferences: Lazy<PoWPreferenceManager>
     @Inject @CurrentIdentity lateinit var nostrTransport: Provider<NostrTransport>
     @Inject lateinit var powerManager: Lazy<PowerManager>
-    @Inject lateinit var favoritesPersistence: Lazy<FavoritesPersistenceService>
-    @Inject lateinit var appStateStore: Lazy<AppStateStore>
-    @Inject lateinit var contactDirectory: Lazy<ContactDirectory>
+    @Inject @CurrentIdentity lateinit var favoritesPersistence: Provider<FavoritesPersistenceService>
+    @Inject @CurrentIdentity lateinit var appStateStore: Provider<AppStateStore>
+    @Inject @CurrentIdentity lateinit var contactDirectory: Provider<ContactDirectory>
     @Inject @CurrentIdentity lateinit var nostrIdentityBridge: Provider<NostrIdentityBridge>
     @Inject lateinit var spamFilterPreferences: Lazy<SpamFilterPreferences>
     @Inject @CurrentIdentity lateinit var spamFilter: Provider<SpamFilter>
@@ -57,7 +57,7 @@ class BitchatApplication : Application() {
     @Inject @CurrentIdentity lateinit var wifiAwareController: Provider<WifiAwareController>
     @Inject lateinit var debugSettings: Lazy<DebugSettingsManager>
     @Inject @CurrentIdentity lateinit var meshTransportToggles: Provider<MeshTransportToggles>
-    @Inject lateinit var geohashAliases: Lazy<GeohashAliasRegistry>
+    @Inject @CurrentIdentity lateinit var geohashAliases: Provider<GeohashAliasRegistry>
     @Inject @CurrentIdentity lateinit var geohashConversations: Provider<GeohashConversationRegistry>
     @Inject @CurrentIdentity lateinit var peerFingerprints: Provider<PeerFingerprintManager>
     @Inject @CurrentIdentity lateinit var seenMessageStore: Provider<SeenMessageStore>

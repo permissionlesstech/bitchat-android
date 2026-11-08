@@ -12,8 +12,7 @@ import org.junit.Test
  * or one a `@CurrentIdentity` `@Provides` bridge hands out. Outside the identity scope it is taken
  * as `@CurrentIdentity Provider<T>`, so every `get()` asks the holder and nothing caches an
  * identity's object past a wipe. Read as source text from the module sources, comments and string
- * literals dropped. The tables below are the allowlists: a later change shrinks `PENDING_MOVE`
- * by annotating the class `@IdentityScoped` and removing its name.
+ * literals dropped. The tables below are the allowlists.
  */
 class IdentityScopeRulesTest {
 
@@ -38,13 +37,6 @@ class IdentityScopeRulesTest {
         "SpamFilterPreferences" to "settings only",
         "PoWPreferenceManager" to "settings only",
         "WearNotificationCoordinator" to "system notifications",
-    )
-
-    /** Identity classes not yet moved into the identity scope. Later changes remove names. */
-    private val pendingMove: Set<String> = setOf(
-        // :core:mesh
-        "AppStateStore", "ContactDirectory", "FavoritesPersistenceService", "ConversationRepository",
-        "GeohashAliasRegistry", "PrivateMessageArrivalOrder",
     )
 
     /**
@@ -96,16 +88,16 @@ class IdentityScopeRulesTest {
     // ---- Tests against the real sources -----------------------------------------------------
 
     @Test
-    fun everySingletonIsProcessWideWithAReasonOrPendingAMove() {
+    fun everySingletonIsProcessWideWithAReason() {
         val model = realModel()
-        assertTrue("Scanned no singletons; the scan is broken", model.singletons().size > 20)
-        val offenders = singletonViolations(model, processWide, pendingMove)
+        assertTrue("Scanned no singletons; the scan is broken", model.singletons().size > 10)
+        val offenders = singletonViolations(model, processWide)
         assertTrue(offenders.joinToString("\n"), offenders.isEmpty())
     }
 
     @Test
     fun theAllowlistsHoldNoStaleOrContradictoryEntry() {
-        val problems = tableProblems(realModel(), processWide, pendingMove, pendingChatSession)
+        val problems = tableProblems(realModel(), processWide, pendingChatSession)
         assertTrue(problems.joinToString("\n"), problems.isEmpty())
     }
 
@@ -154,17 +146,16 @@ class IdentityScopeRulesTest {
     fun theSingletonRuleSeesAnUnclassifiedClassAndAProvidedSingleton() {
         val model = modelOf(
             "@Singleton class Known @Inject constructor()",
-            "@Singleton\nclass Pending @Inject constructor()",
             "@Singleton class Stray @Inject constructor()",
             "@javax.inject.Singleton class Qualified @javax.inject.Inject constructor()",
             "@Module object M { @Provides @Singleton fun strayProvided(a: A): Provided = Provided(a) }",
             "@Module abstract class B { @Binds @Singleton abstract fun bind(i: Impl): Bound }",
             "// @Singleton class Commented()\n/* @Singleton class Blocked() */ val s = \"@Singleton class Quoted()\"",
         )
-        val found = singletonViolations(model, mapOf("Known" to "why", "Bound" to "why"), setOf("Pending"))
+        val found = singletonViolations(model, mapOf("Known" to "why", "Bound" to "why"))
         assertEquals(found.toString(), 3, found.size)
         listOf("Stray", "Provided", "Qualified").forEach { name -> assertTrue(found.any { it.contains("'$name'") }) }
-        assertTrue(found.all { "PROCESS_WIDE" in it && "PENDING_MOVE" in it })
+        assertTrue(found.all { "PROCESS_WIDE" in it && "@IdentityScoped" in it })
     }
 
     @Test
@@ -172,16 +163,14 @@ class IdentityScopeRulesTest {
         val model = modelOf(
             identityCache,
             "@Singleton class Gone @Inject constructor()",
-            "@Singleton class Both @Inject constructor()",
             "@IdentityScoped @Singleton class TwoLifetimes @Inject constructor()",
         )
         val problems = tableProblems(
             model,
-            processWide = mapOf("Missing" to "why", "Both" to "why", "Blank" to " ", "Cache" to "why"),
-            pendingMove = setOf("Both", "Cache"),
+            processWide = mapOf("Missing" to "why", "Blank" to " ", "Cache" to "why"),
             pendingChatSession = setOf("NotChatSession"),
         )
-        listOf("Missing", "Blank", "Both", "Cache", "TwoLifetimes", "NotChatSession").forEach { name ->
+        listOf("Missing", "Blank", "Cache", "TwoLifetimes", "NotChatSession").forEach { name ->
             assertTrue("no problem named for $name in $problems", problems.any { name in it })
         }
     }
@@ -335,33 +324,26 @@ class IdentityScopeRulesTest {
 
     // ---- Rules ------------------------------------------------------------------------------
 
-    private fun singletonViolations(model: Model, processWide: Map<String, String>, pending: Set<String>): List<String> =
-        model.singletons().filter { (name, _) -> name !in processWide && name !in pending }.map { (name, file) ->
+    private fun singletonViolations(model: Model, processWide: Map<String, String>): List<String> =
+        model.singletons().filter { (name, _) -> name !in processWide }.map { (name, file) ->
             "'$name' ($file) is a singleton that declares no lifetime. If it holds one identity's data, " +
-                "add it to PENDING_MOVE and make it @IdentityScoped; if it is process-wide on purpose, " +
+                "make it @IdentityScoped; if it is process-wide on purpose, " +
                 "add it to PROCESS_WIDE with the reason."
         }
 
     private fun tableProblems(
         model: Model,
         processWide: Map<String, String>,
-        pendingMove: Set<String>,
         pendingChatSession: Set<String>,
     ): List<String> {
         val declared = model.declaredNames()
         val identity = model.scopedClasses()
         val problems = mutableListOf<String>()
-        (processWide.keys + pendingMove).filter { it !in declared }.forEach {
+        processWide.keys.filter { it !in declared }.forEach {
             problems += "'$it' is in an allowlist but no such class or provided type exists; remove the stale entry."
         }
         processWide.filterValues { it.isBlank() }.keys.forEach {
             problems += "'$it' is in PROCESS_WIDE without a reason; write why it holds no identity's data."
-        }
-        (processWide.keys intersect pendingMove).forEach {
-            problems += "'$it' is in both PROCESS_WIDE and PENDING_MOVE; it is one or the other."
-        }
-        (pendingMove intersect identity).forEach {
-            problems += "'$it' is already @IdentityScoped; remove it from PENDING_MOVE."
         }
         (processWide.keys intersect identity).forEach {
             problems += "'$it' is @IdentityScoped but listed in PROCESS_WIDE; remove it."

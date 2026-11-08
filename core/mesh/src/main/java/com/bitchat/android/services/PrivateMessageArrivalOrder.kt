@@ -1,8 +1,8 @@
 package com.bitchat.android.services
 
+import com.bitchat.android.identity.scope.IdentityScoped
 import com.bitchat.android.model.BitchatMessage
 import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Process-local receipt sequence for private messages.
@@ -11,7 +11,7 @@ import javax.inject.Singleton
  * registry follows the lifetime of [AppStateStore] and lets alias merges reconstruct the order in
  * which messages entered the app, even when they were initially stored under different keys.
  */
-@Singleton
+@IdentityScoped
 class PrivateMessageArrivalOrder @Inject constructor() {
     private val sequenceByMessageID = mutableMapOf<String, Long>()
     private val receivedAtByMessageID = mutableMapOf<String, Long>()

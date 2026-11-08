@@ -11,7 +11,7 @@ import com.bitchat.android.ui.DataManager
 import com.bitchat.android.ui.MessageManager
 import com.bitchat.android.ui.NoiseSessionDelegate
 import com.bitchat.android.ui.PrivateChatManager
-import dagger.Lazy
+import javax.inject.Provider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.TestScope
@@ -165,7 +165,7 @@ class IncomingMessageAdmissionTest {
             noiseSessionDelegate = testNoiseDelegate(),
             contactDirectory = stores.contactDirectory,
             appStateStore = stores.appStateStore,
-            favorites = Lazy { stores.favorites },
+            favorites = Provider { stores.favorites },
             peerFingerprints = PeerFingerprintManager(),
         )
         var callbackInvoked = false
@@ -205,7 +205,7 @@ class IncomingMessageAdmissionTest {
             noiseSessionDelegate = testNoiseDelegate(),
             contactDirectory = stores.contactDirectory,
             appStateStore = stores.appStateStore,
-            favorites = Lazy { stores.favorites },
+            favorites = Provider { stores.favorites },
             peerFingerprints = PeerFingerprintManager(),
         )
 
@@ -273,7 +273,7 @@ class IncomingMessageAdmissionTest {
             noiseSessionDelegate = testNoiseDelegate(),
             contactDirectory = stores.contactDirectory,
             appStateStore = stores.appStateStore,
-            favorites = Lazy { stores.favorites },
+            favorites = Provider { stores.favorites },
             peerFingerprints = PeerFingerprintManager(),
         )
         var callbackInvoked = false

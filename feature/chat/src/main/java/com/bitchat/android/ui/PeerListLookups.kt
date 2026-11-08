@@ -10,7 +10,6 @@ import com.bitchat.android.mesh.PeerInfo
 import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.services.ContactDirectory
 import dagger.Binds
-import dagger.Lazy
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.components.ViewModelComponent
@@ -67,8 +66,8 @@ interface PeerListLookups {
 }
 
 /**
- * Forwards to the singletons and session objects. The favourites are a Lazy that caches only a
- * success, so an uninitialised service throws on each call, where it threw before. The identity state
+ * Forwards to the singletons and session objects. The favourites are read per call, so an uninitialised
+ * service throws on each call, where it threw before. The identity state
  * manager is built once, with the adapter, so a failure to build it is as loud as it was in
  * composition and is not retried per row.
  */
@@ -77,18 +76,18 @@ internal class RealPeerListLookups @Inject constructor(
     private val contactFavorites: ContactFavorites,
     private val verificationHandler: VerificationHandler,
     private val sessionMesh: ChatSessionMesh,
-    private val contactDirectory: ContactDirectory,
-    private val favorites: Lazy<FavoritesPersistenceService>,
+    @CurrentIdentity private val contactDirectory: Provider<ContactDirectory>,
+    @CurrentIdentity private val favorites: Provider<FavoritesPersistenceService>,
     @CurrentIdentity private val nostrIdentity: Provider<NostrIdentityBridge>,
 ) : PeerListLookups {
 
     private val identityStateManager = SecureIdentityStateManager(appContext)
 
     override fun aliasesForConversation(peerOrConversationID: String): Set<String> =
-        contactDirectory.aliasesForConversation(peerOrConversationID)
+        contactDirectory.get().aliasesForConversation(peerOrConversationID)
 
     override fun canonicalConversationId(peerOrConversationID: String): String =
-        contactDirectory.canonicalConversationId(peerOrConversationID)
+        contactDirectory.get().canonicalConversationId(peerOrConversationID)
 
     override fun isFavorite(peerID: String): Boolean = contactFavorites.isFavorite(peerID)
 

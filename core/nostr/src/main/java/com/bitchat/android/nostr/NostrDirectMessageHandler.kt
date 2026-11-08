@@ -14,7 +14,7 @@ import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.services.SeenMessageStore
-import dagger.Lazy
+import javax.inject.Provider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -34,7 +34,7 @@ class NostrDirectMessageHandler(
     private val geohashAliases: GeohashAliasRegistry,
     private val geohashConversations: GeohashConversationRegistry,
     private val contactDirectory: ContactDirectory,
-    private val favorites: Lazy<FavoritesPersistenceService>,
+    private val favorites: Provider<FavoritesPersistenceService>,
 ) {
     companion object { private const val TAG = "NostrDirectMessageHandler" }
 
