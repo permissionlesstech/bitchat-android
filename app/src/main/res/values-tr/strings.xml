@@ -272,9 +272,11 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">Görsel</string>
     <string name="media_type_file">Dosya</string>
+    <string name="media_type_video">Video</string>
 
     <string name="notification_sent_image">📷 görsel gönderdi</string>
     <string name="notification_sent_voice">🎤 sesli mesaj gönderdi</string>
+    <string name="notification_sent_video">🎥 video gönderdi</string>
     <string name="notification_sent_file">📎 dosya gönderdi</string>
     <string name="notification_file_pdf">📄</string>
     <string name="notification_file_zip">🗜️</string>
@@ -387,4 +389,45 @@
     <string name="cd_show_whole_globe">Tüm küreyi göster</string>
     <string name="cd_globe_activity">%1$d etkin sohbet, %2$d kişi çevrimiçi</string>
     <string name="cd_channel_activity">%1$d kişi, son bir saatte %2$d mesaj</string>
+
+    <!-- Live video and video messages -->
+    <string name="video_live_badge">CANLI</string>
+    <string name="video_joining_live">Canlı yayına katılınıyor…</string>
+    <string name="video_weak_signal">Zayıf sinyal</string>
+    <string name="video_weak_signal_reconnecting">Zayıf sinyal · yetişiliyor</string>
+    <string name="video_reconnecting">Yeniden bağlanıyor…</string>
+    <string name="video_live_ended">Canlı video sona erdi</string>
+    <string name="video_live_ended_by">%1$s yayını sonlandırdı</string>
+    <string name="video_watch_replay">Kaydı izle</string>
+    <string name="video_live_rate">mesh üzerinden %1$.1f kbps</string>
+    <string name="video_unavailable">Video kullanılamıyor</string>
+    <string name="video_too_short">Video çok kısa</string>
+    <string name="video_prepare_failed">Bu video mesh için hazırlanamadı</string>
+    <string name="video_camera_failed">Kamera veya video kodlayıcı kullanılamıyor</string>
+    <string name="video_trimmed">Uzun video ilk dakikasına kırpıldı</string>
+    <string name="video_camera_permission">Kayıt yapmak veya canlı yayına geçmek için kamera erişimi gerekiyor</string>
+    <string name="video_grant_camera">Kameraya izin ver</string>
+    <string name="video_compressing">Mesh için sıkıştırılıyor…</string>
+    <string name="video_finishing">Tamamlanıyor…</string>
+    <string name="video_end_live_title">Canlı video sonlandırılsın mı?</string>
+    <string name="video_end_live_message">İzleyiciler aldıklarını saklar. Kayıt sohbette paylaşılır.</string>
+    <string name="video_end_live_confirm">Sonlandır</string>
+    <string name="video_uplink">↑ %1$.1f kbps · %2$s</string>
+    <string name="video_mode_live">CANLI</string>
+    <string name="video_mode_clip">VİDEO</string>
+    <string name="video_live_unavailable">Canlı yayın için yakında bir mesh eşi (veya özel mesajda şifreli bir oturum) gerekir</string>
+    <string name="video_quality_low">Düşük</string>
+    <string name="video_quality_medium">Orta</string>
+    <string name="video_quality_high">Yüksek</string>
+    <string name="video_quality_low_hint">Bluetooth ve çok sayıda atlama için en iyisi</string>
+    <string name="video_quality_medium_hint">Bir veya iki Bluetooth atlaması</string>
+    <string name="video_quality_high_hint">Yalnızca Wi-Fi Aware eşleri</string>
+    <string name="cd_live_video">Canlı video</string>
+    <string name="cd_video">Video</string>
+    <string name="cd_play_video">Videoyu oynat</string>
+    <string name="cd_pause_video">Videoyu duraklat</string>
+    <string name="cd_mute">Sesi kapat</string>
+    <string name="cd_unmute">Sesi aç</string>
+    <string name="cd_switch_camera">Kamerayı değiştir</string>
+    <string name="cd_pick_video">Bir video seç</string>
 </resources>

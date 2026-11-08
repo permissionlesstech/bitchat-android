@@ -142,6 +142,7 @@ class PacketProcessor(
             MessageType.MESSAGE -> handleMessage(routed)
             MessageType.FILE_TRANSFER -> handleMessage(routed) // treat same routing path; parsing happens in handler
             MessageType.VOICE_FRAME -> validPacket = delegate?.handleVoiceFrame(routed) ?: false
+            MessageType.VIDEO_FRAME -> validPacket = delegate?.handleVideoFrame(routed) ?: false
             MessageType.LEAVE -> handleLeave(routed)
             MessageType.FRAGMENT -> handleFragment(routed)
             MessageType.REQUEST_SYNC -> handleRequestSync(routed)
@@ -290,6 +291,7 @@ interface PacketProcessorDelegate {
     suspend fun handleAnnounce(routed: RoutedPacket): Boolean
     suspend fun handleMessage(routed: RoutedPacket)
     fun handleVoiceFrame(routed: RoutedPacket): Boolean = false
+    fun handleVideoFrame(routed: RoutedPacket): Boolean = false
     suspend fun handleLeave(routed: RoutedPacket)
     fun handleFragment(packet: BitchatPacket): BitchatPacket?
     fun handleRequestSync(routed: RoutedPacket)

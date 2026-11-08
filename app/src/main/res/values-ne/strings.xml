@@ -288,12 +288,14 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">तस्वीर</string>
     <string name="media_type_file">फाइल</string>
+    <string name="media_type_video">भिडियो</string>
 
     <!-- सन्देश स्थिति -->
 
     <!-- सूचना पाठ सहायक -->
     <string name="notification_sent_image">📷 तस्वीर पठाइयो</string>
     <string name="notification_sent_voice">🎤 भ्वाइस सन्देश पठाइयो</string>
+    <string name="notification_sent_video">🎥 भिडियो पठाइयो</string>
     <string name="notification_sent_file">📎 फाइल पठाइयो</string>
     <string name="notification_file_pdf">📄</string>
     <string name="notification_file_zip">🗜️</string>
@@ -400,4 +402,45 @@
     <string name="cd_show_whole_globe">पूरै ग्लोब देखाउनुहोस्</string>
     <string name="cd_globe_activity">%1$d सक्रिय च्याट, %2$d जना अनलाइन</string>
     <string name="cd_channel_activity">%1$d जना, पछिल्लो एक घण्टामा %2$d सन्देश</string>
+
+    <!-- Live video and video messages -->
+    <string name="video_live_badge">लाइभ</string>
+    <string name="video_joining_live">लाइभमा सामेल हुँदै…</string>
+    <string name="video_weak_signal">कमजोर सिग्नल</string>
+    <string name="video_weak_signal_reconnecting">कमजोर सिग्नल · समात्दै</string>
+    <string name="video_reconnecting">फेरि जडान हुँदै…</string>
+    <string name="video_live_ended">लाइभ भिडियो सकियो</string>
+    <string name="video_live_ended_by">%1$s ले स्ट्रिम अन्त्य गर्नुभयो</string>
+    <string name="video_watch_replay">रेकर्डिङ हेर्नुहोस्</string>
+    <string name="video_live_rate">mesh मार्फत %1$.1f kbps</string>
+    <string name="video_unavailable">भिडियो उपलब्ध छैन</string>
+    <string name="video_too_short">भिडियो धेरै छोटो छ</string>
+    <string name="video_prepare_failed">यो भिडियो mesh का लागि तयार गर्न सकिएन</string>
+    <string name="video_camera_failed">क्यामेरा वा भिडियो इन्कोडर उपलब्ध छैन</string>
+    <string name="video_trimmed">लामो भिडियोलाई पहिलो मिनेटसम्म काटियो</string>
+    <string name="video_camera_permission">रेकर्ड गर्न वा लाइभ जान क्यामेरा पहुँच आवश्यक छ</string>
+    <string name="video_grant_camera">क्यामेरा अनुमति दिनुहोस्</string>
+    <string name="video_compressing">mesh का लागि कम्प्रेस गर्दै…</string>
+    <string name="video_finishing">सम्पन्न गर्दै…</string>
+    <string name="video_end_live_title">लाइभ भिडियो अन्त्य गर्ने?</string>
+    <string name="video_end_live_message">दर्शकहरूले प्राप्त गरेको कुरा उनीहरूसँगै रहन्छ। रेकर्डिङ च्याटमा साझा गरिन्छ।</string>
+    <string name="video_end_live_confirm">अन्त्य गर्नुहोस्</string>
+    <string name="video_uplink">↑ %1$.1f kbps · %2$s</string>
+    <string name="video_mode_live">लाइभ</string>
+    <string name="video_mode_clip">भिडियो</string>
+    <string name="video_live_unavailable">लाइभका लागि नजिकको mesh पियर (वा निजी सन्देशमा इन्क्रिप्टेड सत्र) आवश्यक छ</string>
+    <string name="video_quality_low">न्यून</string>
+    <string name="video_quality_medium">मध्यम</string>
+    <string name="video_quality_high">उच्च</string>
+    <string name="video_quality_low_hint">Bluetooth र धेरै हपका लागि उत्तम</string>
+    <string name="video_quality_medium_hint">एक वा दुई Bluetooth हप</string>
+    <string name="video_quality_high_hint">Wi-Fi Aware पियर मात्र</string>
+    <string name="cd_live_video">लाइभ भिडियो</string>
+    <string name="cd_video">भिडियो</string>
+    <string name="cd_play_video">भिडियो चलाउनुहोस्</string>
+    <string name="cd_pause_video">भिडियो रोक्नुहोस्</string>
+    <string name="cd_mute">म्युट गर्नुहोस्</string>
+    <string name="cd_unmute">अनम्युट गर्नुहोस्</string>
+    <string name="cd_switch_camera">क्यामेरा बदल्नुहोस्</string>
+    <string name="cd_pick_video">भिडियो छान्नुहोस्</string>
 </resources>

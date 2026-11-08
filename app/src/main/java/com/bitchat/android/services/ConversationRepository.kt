@@ -1543,7 +1543,8 @@ internal class ConversationDatabase(
     private val MEDIA_MESSAGE_TYPES = setOf(
         BitchatMessageType.Audio,
         BitchatMessageType.Image,
-        BitchatMessageType.File
+        BitchatMessageType.File,
+        BitchatMessageType.Video
     )
 
     private fun pruneCandidatesLocked(

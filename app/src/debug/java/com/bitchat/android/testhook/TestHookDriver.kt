@@ -11,6 +11,13 @@ import com.bitchat.android.features.voice.LiveVoicePreferences
 import com.bitchat.android.features.voice.LiveVoiceScope
 import com.bitchat.android.features.voice.LiveVoiceTarget
 import com.bitchat.android.features.voice.LiveVoiceCapture
+import com.bitchat.android.features.video.LiveVideoCapture
+import com.bitchat.android.features.video.LiveVideoEvent
+import com.bitchat.android.features.video.LiveVideoLimits
+import com.bitchat.android.features.video.LiveVideoManager
+import com.bitchat.android.features.video.LiveVideoQuality
+import com.bitchat.android.features.video.LiveVideoTarget
+import com.bitchat.android.features.video.VideoTranscoder
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.PrivateMediaPreparation
@@ -89,6 +96,9 @@ object TestHookDriver {
             "file_cancel" -> fileCancel(context, intent.requiredString("transfer_id"))
             "ptt_send" -> pttSend(context, intent)
             "ptt_recv" -> pttRecv(context, intent)
+            "video_send" -> videoSend(context, intent)
+            "video_recv" -> videoRecv(context, intent)
+            "video_file_send" -> videoFileSend(context, intent)
             "raw_send" -> rawSend(context, intent)
             "ble" -> setBle(intent.getBooleanExtra("enabled", true))
             "inject_peers" -> injectPeers(intent.getStringExtra("peers"))
@@ -615,6 +625,248 @@ object TestHookDriver {
             .put("silent_block_fraction", analysis.silentBlockFraction)
             .put("longest_silent_block_run", analysis.longestSilentBlockRun)
             .put("zero_crossings_per_second", analysis.zeroCrossingsPerSecond)
+    }
+
+    // MARK: - Live video
+
+    /**
+     * Streams a synthetic test card (and tone) live to [peer] or the public mesh, then sends the
+     * finalized MP4 when it fits one file transfer. Never touches the real camera or microphone.
+     */
+    private suspend fun videoSend(context: Context, intent: Intent): JSONObject {
+        val requestedPeer = intent.getStringExtra("peer")
+        val durationMs = intent.getIntExtra("duration_ms", 8_000).toLong().coerceIn(1_500L, 120_000L)
+        val timeoutMs = intent.getLongExtra("timeout_ms", DEFAULT_FILE_TIMEOUT_MS)
+        val quality = LiveVideoQuality.fromName(intent.getStringExtra("quality"))
+        val withAudio = intent.getBooleanExtra("audio", true)
+        val sendFinal = intent.getBooleanExtra("send_final", true)
+        val mesh = mesh(context)
+        val recipient = requestedPeer?.let {
+            PrivateMediaRecipientResolver.resolve(it, mesh)
+                ?: return err("video_send", "no active mesh route for private conversation")
+        }
+        if (recipient != null && !mesh.hasEstablishedSession(recipient.meshPeerID)) {
+            val handshake = handshake(context, recipient.meshPeerID, intent)
+            if (handshake.optString("status") != "ok") return handshake.put("cmd", "video_send")
+        }
+        // Simulated mesh loss: independent drops (`drop_rate`) plus one burst
+        // (`burst_start`, `burst_length`), applied before packets reach the radio.
+        val dropRate = intent.getFloatExtra("drop_rate", 0f).coerceIn(0f, 0.9f)
+        val burstStart = intent.getIntExtra("burst_start", -1)
+        val burstLength = intent.getIntExtra("burst_length", 0)
+        // Simulated link outage: nothing reaches the radio for `outage_ms` from `outage_start_ms`.
+        val outageStartMs = intent.getLongExtra("outage_start_ms", -1L)
+        val outageMs = intent.getLongExtra("outage_ms", 0L)
+        val streamStart = System.currentTimeMillis()
+        val random = java.util.Random(intent.getLongExtra("seed", 1L))
+        val packetIndex = java.util.concurrent.atomic.AtomicInteger()
+        val dropped = java.util.concurrent.atomic.AtomicInteger()
+        val target = LiveVideoTarget.of({ payload ->
+            val index = packetIndex.getAndIncrement()
+            val inBurst = burstStart >= 0 && index in burstStart until burstStart + burstLength
+            val sinceStart = System.currentTimeMillis() - streamStart
+            val inOutage = outageStartMs >= 0 && sinceStart in outageStartMs until outageStartMs + outageMs
+            if (inBurst || inOutage || random.nextFloat() < dropRate) {
+                dropped.incrementAndGet()
+            } else {
+                mesh.sendVideoFrame(recipient?.meshPeerID, payload)
+            }
+        }, mesh::liveSendBacklog, { mesh.liveSendPacketBudget(recipient?.meshPeerID) })
+        val capture = LiveVideoCapture(
+            File(context.filesDir, "videos/outgoing"),
+            target,
+            quality,
+            audioEnabled = withAudio,
+            synthetic = true
+        )
+        capture.start() ?: return err("video_send", "video codec failed to start")
+        delay(durationMs)
+        val finalFile = withContext(Dispatchers.IO) { capture.stop(canceled = false) }
+            ?: return err("video_send", "capture did not produce a finalized video")
+        val stats = capture.stats()
+        val result = ok("video_send")
+            .put("scope", if (recipient == null) "public" else "dm")
+            .put("quality", quality.name)
+            .put("duration_ms", durationMs)
+            .put("stream_id", LiveVideoManager.streamIDFromVideoFileName(finalFile.name))
+            .put("file_bytes", finalFile.length())
+            .put("frames_offered", stats.framesOffered)
+            .put("frames_encoded", stats.framesEncoded)
+            .put("frames_dropped", stats.framesDropped)
+            .put("video_units", stats.videoUnits)
+            .put("audio_units", stats.audioUnits)
+            .put("packets_sent", stats.packetsSent)
+            .put("parity_packets", stats.parityPackets)
+            .put("bytes_sent", stats.bytesSent)
+            .put("send_kbps", stats.sendKbps)
+            .put("simulated_drops", dropped.get())
+            .put("mean_encode_ms", stats.meanEncodeMs)
+            .put("final_video_bitrate", stats.videoBitrate)
+            .put("congestion_skipped_units", stats.congestionSkippedUnits)
+            .put("congestion_episodes", stats.congestionEpisodes)
+            .put("max_backlog", stats.maxBacklog)
+            .put("stale_dropped", stats.staleDropped)
+        if (!sendFinal || finalFile.length() > LiveVideoLimits.MAX_VIDEO_FILE_BYTES) {
+            return result.put("final_sent", false)
+        }
+        val transfer = sendVideoFile(context, intent, mesh, recipient?.meshPeerID, finalFile, timeoutMs)
+        return if (transfer != null) transfer.put("cmd", "video_send") else result.put("final_sent", true)
+    }
+
+    /** Waits for a live stream to finish (and, by default, for its final file to replace it). */
+    private suspend fun videoRecv(context: Context, intent: Intent): JSONObject {
+        val timeoutMs = intent.getLongExtra("timeout_ms", DEFAULT_FILE_TIMEOUT_MS)
+        val fromPeer = intent.getStringExtra("peer")
+        val expectPrivate = intent.getStringExtra("scope") == "dm"
+        val expectFinal = intent.getBooleanExtra("expect_final", true)
+        val manager = LiveVideoManager.getInstance(context)
+        val reconnectWindowMs = intent.getLongExtra("reconnect_window_ms", -1L)
+        val previousWindow = manager.reconnectWindowMs
+        if (reconnectWindowMs > 0) manager.reconnectWindowMs = reconnectWindowMs
+        var finished: LiveVideoEvent.Finished? = null
+        var playable: JSONObject? = null
+        var sessions = 0
+        var silenceCloses = 0
+        val terminal = try {
+            withTimeoutOrNull(timeoutMs) {
+                manager.events.first { event ->
+                    val matches = event.isPrivate == expectPrivate && (fromPeer == null || event.peerID == fromPeer)
+                    if (matches && event is LiveVideoEvent.Started) sessions++
+                    if (matches && event is LiveVideoEvent.Finished) {
+                        finished = event
+                        if (!event.endedBySender) silenceCloses++
+                        if (event.endedBySender) playable = event.path?.let { probeVideo(it) }
+                    }
+                    matches && (event is LiveVideoEvent.Canceled ||
+                        (event is LiveVideoEvent.Absorbed) ||
+                        (!expectFinal && event is LiveVideoEvent.Finished && event.endedBySender))
+                }
+            }
+        } finally {
+            manager.reconnectWindowMs = previousWindow
+        } ?: return err("video_recv", "timeout waiting for live video")
+            .put("live_observed", finished != null)
+            .put("sessions", sessions)
+            .put("silence_closes", silenceCloses)
+        if (terminal is LiveVideoEvent.Canceled) return err("video_recv", "stream canceled")
+        val done = finished ?: return err("video_recv", "final file arrived without a live stream")
+        val result = ok("video_recv")
+            .put("scope", if (expectPrivate) "dm" else "public")
+            .put("from", done.peerID)
+            .put("stream_id", done.streamID)
+            .put("packets", done.packets)
+            .put("bytes", done.bytes)
+            .put("recovered_shards", done.recoveredShards)
+            .put("video_units", done.videoUnits)
+            .put("audio_units", done.audioUnits)
+            .put("skipped_video_units", done.skippedVideoUnits)
+            .put("decoded_frames", done.decodedFrames)
+            .put("mean_luma", done.meanLuma)
+            .put("mean_latency_ms", done.meanLatencyMs)
+            .put("max_latency_ms", done.maxLatencyMs)
+            .put("sessions", sessions)
+            .put("silence_closes", silenceCloses)
+            .put("reconstruction", playable ?: JSONObject().put("playable", false))
+        if (terminal is LiveVideoEvent.Absorbed) {
+            result.put("final_absorbed", true).put("final", probeVideo(terminal.finalizedPath))
+        }
+        return result
+    }
+
+    /**
+     * Records a synthetic clip (or, with `transcode_from_quality`, a larger stream that is then
+     * re-encoded to fit) and sends it as an ordinary video message.
+     */
+    private suspend fun videoFileSend(context: Context, intent: Intent): JSONObject {
+        val requestedPeer = intent.getStringExtra("peer")
+        val durationMs = intent.getIntExtra("duration_ms", 6_000).toLong().coerceIn(1_500L, 60_000L)
+        val timeoutMs = intent.getLongExtra("timeout_ms", DEFAULT_FILE_TIMEOUT_MS)
+        val sourceQuality = LiveVideoQuality.fromName(intent.getStringExtra("transcode_from_quality") ?: "clip")
+        val mesh = mesh(context)
+        val recipient = requestedPeer?.let {
+            PrivateMediaRecipientResolver.resolve(it, mesh)
+                ?: return err("video_file_send", "no active mesh route for private conversation")
+        }
+        val outgoing = File(context.filesDir, "videos/outgoing")
+        val capture = LiveVideoCapture(outgoing, null, sourceQuality, audioEnabled = true, synthetic = true)
+        capture.start() ?: return err("video_file_send", "video codec failed to start")
+        delay(durationMs)
+        val recorded = withContext(Dispatchers.IO) { capture.stop(canceled = false) }
+            ?: return err("video_file_send", "capture did not produce a video")
+        val recordedBytes = recorded.length()
+        val transcodeStarted = System.currentTimeMillis()
+        val ready = if (recordedBytes <= LiveVideoLimits.MAX_VIDEO_FILE_BYTES) recorded else {
+            withContext(Dispatchers.IO) {
+                VideoTranscoder.transcode(
+                    context,
+                    android.net.Uri.fromFile(recorded),
+                    File(outgoing, "clip_transcoded_${System.currentTimeMillis()}.mp4")
+                )?.file
+            } ?: return err("video_file_send", "transcode failed").put("recorded_bytes", recordedBytes)
+        }
+        val transcodeMs = System.currentTimeMillis() - transcodeStarted
+        val sent = sendVideoFile(context, intent, mesh, recipient?.meshPeerID, ready, timeoutMs)
+        if (sent != null) return sent.put("cmd", "video_file_send")
+        return ok("video_file_send")
+            .put("recorded_bytes", recordedBytes)
+            .put("sent_bytes", ready.length())
+            .put("transcoded", ready != recorded)
+            .put("transcode_ms", transcodeMs)
+            .put("file_name", ready.name)
+            .put("video", probeVideo(ready.absolutePath))
+    }
+
+    /** Sends a video file and waits for transfer completion; returns an error object or null. */
+    private suspend fun sendVideoFile(
+        context: Context,
+        intent: Intent,
+        mesh: MeshService,
+        peerID: String?,
+        file: File,
+        timeoutMs: Long
+    ): JSONObject? {
+        val content = withContext(Dispatchers.IO) { file.readBytes() }
+        val packet = BitchatFilePacket(
+            fileName = file.name,
+            fileSize = content.size.toLong(),
+            mimeType = "video/mp4",
+            content = content
+        )
+        val encoded = packet.encode() ?: return err("video_send", "failed to encode video file")
+        val transferId = sha256Hex(encoded)
+        return coroutineScope {
+            val completion = async(Dispatchers.Default) {
+                TransferProgressManager.events.first { it.transferId == transferId && it.completed }
+            }
+            delay(50)
+            val sendError = dispatchFileSend(context, intent, mesh, peerID, packet, transferId)
+            if (sendError != null) {
+                completion.cancel()
+                return@coroutineScope sendError
+            }
+            val event = withTimeoutOrNull(timeoutMs) { completion.await() }
+                ?: return@coroutineScope err("video_send", "timeout waiting for video file transfer")
+            if (event.failed) err("video_send", "video file transfer failed") else null
+        }
+    }
+
+    private fun probeVideo(path: String): JSONObject {
+        val retriever = android.media.MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(path)
+            val frame = retriever.getFrameAtTime(0)
+            JSONObject()
+                .put("playable", frame != null)
+                .put("bytes", File(path).length())
+                .put("duration_ms", retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L)
+                .put("width", retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH))
+                .put("height", retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT))
+                .put("has_audio", retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO) == "yes")
+        } catch (error: Exception) {
+            JSONObject().put("playable", false).put("error", error.message)
+        } finally {
+            runCatching { retriever.release() }
+        }
     }
 
     // MARK: - Raw packet injection

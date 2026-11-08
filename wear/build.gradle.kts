@@ -83,8 +83,8 @@ composeCompiler {
 // root. The app sources remain the single source of truth; extend the include list below (don't
 // copy files into wear/src) when the compiler reveals a missing transitive dependency.
 // Deliberately excluded: ui (except the DebugSettingsManager the mesh layer references),
-// onboarding, nostr (except pure-Kotlin Bech32), net, geohash, wifi-aware, hotspot, voice
-// features, and the phone's foreground service.
+// onboarding, nostr (except pure-Kotlin Bech32), net, geohash, wifi-aware, hotspot, video
+// (except its wire codec), and the phone's foreground service.
 val sharedSourceIncludes = listOf(
     "com/bitchat/android/protocol/**",
     "com/bitchat/android/noise/**",
@@ -110,6 +110,8 @@ val sharedSourceIncludes = listOf(
     "com/bitchat/android/nostr/GeohashAliasRegistry.kt",
     "com/bitchat/android/features/file/FileUtils.kt",
     "com/bitchat/android/features/voice/**",
+    // Wire codec only: the watch validates and relays live video but has no player.
+    "com/bitchat/android/features/video/VideoBurstPacket.kt",
     "com/bitchat/android/ui/debug/DebugSettingsManager.kt",
     "com/bitchat/android/ui/debug/DebugPreferenceManager.kt",
     "com/bitchat/android/ui/NotificationTextUtils.kt",

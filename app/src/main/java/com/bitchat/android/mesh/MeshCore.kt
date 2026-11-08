@@ -112,8 +112,9 @@ class MeshCore(
     private val storeForwardManager = StoreForwardManager()
     private val messageHandler = MessageHandler(myPeerID, context.applicationContext)
     private val packetProcessor = PacketProcessor(myPeerID)
-    private data class VoiceFrameRequest(val recipientPeerID: String?, val payload: ByteArray)
-    private val voiceFrameQueue = Channel<VoiceFrameRequest>(capacity = 128)
+    /** Live voice and live video share one best-effort, drop-when-full send queue. */
+    private data class LiveFrameRequest(val recipientPeerID: String?, val payload: ByteArray, val isVideo: Boolean)
+    private val liveFrameQueue = Channel<LiveFrameRequest>(capacity = 256)
     private val directPeers = ConcurrentHashMap.newKeySet<String>()
 
     val gossipSyncManager: GossipSyncManager =
@@ -126,7 +127,7 @@ class MeshCore(
 
     init {
         scope.launch {
-            for (request in voiceFrameQueue) dispatchVoiceFrame(request)
+            for (request in liveFrameQueue) dispatchLiveFrame(request)
         }
         messageHandler.packetProcessor = packetProcessor
         peerManager.isPeerDirectlyConnected = { peerID -> directPeers.contains(peerID) }
@@ -490,6 +491,9 @@ class MeshCore(
             override fun handleVoiceFrame(routed: RoutedPacket): Boolean =
                 messageHandler.handlePublicVoiceFrame(routed)
 
+            override fun handleVideoFrame(routed: RoutedPacket): Boolean =
+                messageHandler.handlePublicVideoFrame(routed)
+
             override suspend fun handleLeave(routed: RoutedPacket) {
                 messageHandler.handleLeave(routed)
             }
@@ -622,16 +626,21 @@ class MeshCore(
 
     fun sendVoiceFrame(recipientPeerID: String?, payload: ByteArray) {
         if (payload.isEmpty()) return
-        voiceFrameQueue.trySend(VoiceFrameRequest(recipientPeerID, payload.copyOf()))
+        liveFrameQueue.trySend(LiveFrameRequest(recipientPeerID, payload.copyOf(), isVideo = false))
     }
 
-    private fun dispatchVoiceFrame(request: VoiceFrameRequest) {
+    fun sendVideoFrame(recipientPeerID: String?, payload: ByteArray) {
+        if (payload.isEmpty()) return
+        liveFrameQueue.trySend(LiveFrameRequest(recipientPeerID, payload.copyOf(), isVideo = true))
+    }
+
+    private fun dispatchLiveFrame(request: LiveFrameRequest) {
         try {
             val recipientPeerID = request.recipientPeerID
             val packet = if (recipientPeerID == null) {
                 BitchatPacket(
                     version = 1u,
-                    type = MessageType.VOICE_FRAME.value,
+                    type = if (request.isVideo) MessageType.VIDEO_FRAME.value else MessageType.VOICE_FRAME.value,
                     senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
                     recipientID = SpecialRecipients.BROADCAST,
                     timestamp = System.currentTimeMillis().toULong(),
@@ -640,7 +649,8 @@ class MeshCore(
                 )
             } else {
                 if (!encryptionService.hasEstablishedSession(recipientPeerID)) return
-                val plaintext = NoisePayload(NoisePayloadType.VOICE_FRAME, request.payload).encode()
+                val innerType = if (request.isVideo) NoisePayloadType.VIDEO_FRAME else NoisePayloadType.VOICE_FRAME
+                val plaintext = NoisePayload(innerType, request.payload).encode()
                 val ciphertext = encryptionService.encrypt(plaintext, recipientPeerID)
                 BitchatPacket(
                     version = 1u,
@@ -652,9 +662,9 @@ class MeshCore(
                     ttl = maxTtl
                 )
             }
-            dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(packet)))
+            dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(packet), liveMedia = true))
         } catch (e: Exception) {
-            Log.w("MeshCore", "Live voice frame send failed: ${e.message}")
+            Log.w("MeshCore", "Live frame send failed: ${e.message}")
         }
     }
 

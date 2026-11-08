@@ -53,6 +53,10 @@ class MeshGraphService private constructor() {
         }
     }
 
+    /** True when both peers' latest announcements list each other (a confirmed direct link). */
+    fun isConfirmedNeighbor(a: String, b: String): Boolean =
+        announcements[a]?.contains(b) == true && announcements[b]?.contains(a) == true
+
     fun updateNickname(peerID: String, nickname: String?) {
         if (nickname == null) return
         nicknames[peerID] = nickname
