@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
  * Process-owned Nostr event processing.
  *
  * Relay subscriptions must remain useful when no Activity exists, so their handlers cannot be
- * borrowed from a ViewModel. This processor owns only application-scoped collaborators and writes
+ * borrowed from a ViewModel. This processor owns only collaborators that outlive any Activity and writes
  * messages to [AppStateStore], which the next UI instance hydrates from.
  */
 class NostrBackgroundEventProcessor(

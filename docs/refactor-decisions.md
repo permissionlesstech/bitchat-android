@@ -945,7 +945,7 @@ Tests: `PasswordProtectedChannelRobolectricTest` moved to `:core:chat`, `Channel
 - Identity scope now holds the mesh classes and their holders, the router and its holder, the stores and favourites, the voice, transfer and verification classes, the Nostr identity, transport, location and bookmark classes, and the watch's mesh and chat state.
 - `MessageRouter.getInstance` and its companion state are gone, and so is the exemption for them.
 - Behaviour is unchanged: first use, start-up order and the panic wipe's steps are as before. The watch still creates its mesh only after permissions are granted.
-- Tests: JVM 1455 to 1496 (3 skipped) at the stores' commit. Device: app 74 to 79; chat 6, settings 5, location 4, share 3 unchanged; composer 9 of 9 with `-PcomposerUiTests=true`. These numbers are from that commit, before the final gate. The holder, the scope rules and one instance across entry paths are covered by `IdentityHolderTest`, `IdentityScopeRulesTest` and `IdentityScopeWiringTest`. The watch was not run on a device. The emulator check is recorded separately.
+- Tests: the final gate on the docs commit gave JVM 1496 tests (from 1455) with 0 failures (3 skipped). Device suites: app 79 (from 74); chat 6, settings 5, location 4, share 3 unchanged. The opt-in composer suite (`-PcomposerUiTests=true`) was 9 of 9 on the stores' commit. Whole-branch Codex and the whole-branch review found no Critical or Important issues. The holder, the scope rules and one instance across entry paths are covered by `IdentityHolderTest`, `IdentityScopeRulesTest` and `IdentityScopeWiringTest`. The watch was not run on a device. The emulator check is recorded separately.
 
 #### Follow-ups from Phase 10c-2a-2b
 

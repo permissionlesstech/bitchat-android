@@ -66,7 +66,7 @@ interface PeerListLookups {
 }
 
 /**
- * Forwards to the singletons and session objects. The favourites are read per call, so an uninitialised
+ * Forwards to the process singletons, the identity's objects and the session objects. The favourites are read per call, so an uninitialised
  * service throws on each call, where it threw before. The identity state
  * manager is built once, with the adapter, so a failure to build it is as loud as it was in
  * composition and is not retried per row.

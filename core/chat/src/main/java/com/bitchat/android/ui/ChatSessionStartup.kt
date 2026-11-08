@@ -30,7 +30,7 @@ import kotlinx.coroutines.withContext
 
 /**
  * Starts the chat session and tears it down: loads the saved state, hydrates
- * [ChatState] from the process-wide stores, and runs the once-a-second
+ * [ChatState] from the identity's stores, and runs the once-a-second
  * peer-state poll that flushes the router outbox when a Noise session
  * establishes.
  *

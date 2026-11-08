@@ -116,7 +116,7 @@ Safety rails added on the way:
   identity scope (10c-2a-2b).
 - `IdentityScopeRulesTest` fails the build when a singleton is not on a short process-wide list
   with a reason, so a class that holds identity data must declare its lifetime. A reference to an
-  identity class from outside the scope has to go through a qualified `Provider`; an unqualified
+  identity class from a process-lived class has to go through a qualified `Provider`; an unqualified
   one does not compile (10c-2a-2b).
 - `MeshSingletonIdentityTest` (device) shows that the mesh and the panic wipe hold the same single
   instance of each shared store as the rest of the app, so a second `AppStateStore` or favourites

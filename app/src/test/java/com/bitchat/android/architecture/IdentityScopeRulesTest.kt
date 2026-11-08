@@ -13,6 +13,10 @@ import org.junit.Test
  * as `@CurrentIdentity Provider<T>`, so every `get()` asks the holder and nothing caches an
  * identity's object past a wipe. Read as source text from the module sources, comments and string
  * literals dropped. The tables below are the allowlists.
+ *
+ * The construction rule scans only `init` blocks and property initialisers, so `init { setup() }`
+ * and a method that stores `provider.get()` in a field are not caught. The Dagger qualifier is the
+ * primary enforcement; this scan is a backstop.
  */
 class IdentityScopeRulesTest {
 

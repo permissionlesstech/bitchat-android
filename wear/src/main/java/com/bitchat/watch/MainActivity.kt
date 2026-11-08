@@ -96,6 +96,7 @@ class MainActivity : ComponentActivity() {
     @Inject @CurrentIdentity lateinit var appStateStore: Provider<AppStateStore>
     @Inject @CurrentIdentity lateinit var chatState: Provider<WearChatState>
     @Inject @CurrentIdentity lateinit var peerIdentity: Provider<WearPeerIdentityState>
+    // Read it only after permissions and Bluetooth are confirmed.
     @Inject @CurrentIdentity lateinit var voiceWaveformCache: Provider<VoiceWaveformCache>
     @Inject lateinit var notificationCoordinator: WearNotificationCoordinator
 

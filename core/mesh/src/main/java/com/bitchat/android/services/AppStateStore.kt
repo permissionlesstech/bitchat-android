@@ -109,7 +109,7 @@ class AppStateStore(
 
     /**
      * Restores database state again for a newly created UI, even if Android reused this process
-     * after a controlled shutdown cleared the process-wide state.
+     * after a controlled shutdown cleared the identity's state.
      */
     fun reloadConversationPersistence(context: Context) {
         val repository = repositories.get()
@@ -1055,7 +1055,7 @@ class AppStateStore(
 
     /**
      * Identity mappings can become richer after a Noise handshake or favorite/Nostr update.
-     * Keep every process-wide projection on the same canonical key so unread/read/delete updates
+     * Keep every projection on the same canonical key so unread/read/delete updates
      * cannot leave a stale alias behind.
      */
     private fun canonicalizePrivateConversationStateLocked() {

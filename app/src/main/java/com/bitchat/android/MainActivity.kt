@@ -83,7 +83,7 @@ class MainActivity : OrientationAwareActivity() {
     // the instance state: a recreated Activity gets the same intent back.
     private var intentHandled = false
 
-    // Providers, asked when used, so the Activity keeps nothing of the identity's.
+    // Providers, asked when used, so the Activity keeps no other identity object. The mesh fields above are kept until 10c-2b.
     @Inject
     @CurrentIdentity
     lateinit var locationChannelManager: Provider<LocationChannelManager>

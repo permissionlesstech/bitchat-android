@@ -37,7 +37,9 @@ class IdentityScopeWiringTest {
 
     /**
      * What a receiver or service that starts with no Activity sees. Runs before [rule] launches
-     * the Activity, on a background thread, because neither of those starts on the main one.
+     * the Activity, on a background thread, because the notification reply reads there.
+     * `Application.onCreate` has already built the component, so this pins one instance across
+     * entry paths, not a first read.
      */
     private lateinit var holderBeforeAnyActivity: MeshServiceHolder
 

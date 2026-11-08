@@ -77,7 +77,7 @@ interface FavoritesChangeListener {
 
 /**
  * Manages favorites with Noise↔Nostr mapping
- * One instance per process, matching iOS implementation.
+ * One instance per identity (nothing ends an identity until 10c-2b), matching iOS implementation.
  *
  * The constructor does no I/O. [initialize] opens the secure store and loads the saved
  * relationships; until it has succeeded, every public method throws
