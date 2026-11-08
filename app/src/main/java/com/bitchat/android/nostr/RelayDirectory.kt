@@ -88,10 +88,10 @@ object RelayDirectory {
     fun closestRelaysForGeohash(geohash: String, nRelays: Int): List<String> {
         val snapshot = synchronized(relaysLock) { relays.toList() }
         if (snapshot.isEmpty()) return emptyList()
-        val center = try {
-            val c = com.bitchat.android.geohash.Geohash.decodeToCenter(geohash)
-            c
-        } catch (e: Exception) {
+        // An empty or malformed geohash decodes to (0, 0), which would pick the
+        // relays closest to the Gulf of Guinea rather than declining to choose.
+        val center = com.bitchat.android.geohash.Geohash.decodeToCenterOrNull(geohash)
+        if (center == null) {
             Log.e(TAG, "Failed to decode geohash")
             return emptyList()
         }
