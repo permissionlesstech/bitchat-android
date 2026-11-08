@@ -1513,7 +1513,7 @@ class ChatViewModel(
                 wipeComplete = false
             }
 
-            if (!geohashViewModel.panicReset()) wipeComplete = false
+            if (!geohashViewModel.panicReset(reconnectRelays = conversationsCleared)) wipeComplete = false
         } catch (e: Exception) {
             Log.e(TAG, "Failed to reset Nostr/geohash: ${e.message}")
             wipeComplete = false

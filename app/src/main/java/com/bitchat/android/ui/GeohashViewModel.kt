@@ -112,7 +112,7 @@ class GeohashViewModel(
     }
 
     /** Returns true only when the persisted Nostr identity was wiped; the rest is in-memory teardown. */
-    fun panicReset(): Boolean {
+    fun panicReset(reconnectRelays: Boolean): Boolean {
         repo.clearAll()
         GeohashAliasRegistry.clear()
         GeohashConversationRegistry.clear()
@@ -127,7 +127,7 @@ class GeohashViewModel(
             false
         }
         NostrBackgroundRuntime.resetSubscriptions()
-        try { com.bitchat.android.nostr.NostrRelayManager.getInstance(getApplication()).clearAllOnPanic() } catch (_: Exception) {}
+        try { com.bitchat.android.nostr.NostrRelayManager.getInstance(getApplication()).clearAllOnPanic(reconnect = reconnectRelays) } catch (_: Exception) {}
         try { com.bitchat.android.nostr.LocationNotesManager.getInstance().stop() } catch (_: Exception) {}
         return identityCleared
     }
