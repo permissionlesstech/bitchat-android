@@ -127,7 +127,7 @@ class GeohashViewModel(
             false
         }
         NostrBackgroundRuntime.resetSubscriptions()
-        try { com.bitchat.android.nostr.NostrRelayManager.getInstance(getApplication()).clearAllOnPanic(reconnect = reconnectRelays) } catch (_: Exception) {}
+        try { com.bitchat.android.nostr.NostrRelayManager.getInstance(getApplication()).clearAllOnPanic(reconnect = reconnectRelays && identityCleared) } catch (_: Exception) {}
         try { com.bitchat.android.nostr.LocationNotesManager.getInstance().stop() } catch (_: Exception) {}
         return identityCleared
     }

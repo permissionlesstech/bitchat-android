@@ -93,6 +93,7 @@ class NostrRelayManager internal constructor(
     private val connections = ConcurrentHashMap<String, WebSocket>()
     private val reconnectJobs = ConcurrentHashMap<String, Job>()
     private val desiredConnected = AtomicBoolean(false)
+    private val panicReconnectWithheld = AtomicBoolean(false)
     private val subscriptions = ConcurrentHashMap<String, Set<String>>() // relay URL -> subscription IDs
     private val messageHandlers = ConcurrentHashMap<String, (NostrEvent) -> Unit>()
     
@@ -737,12 +738,14 @@ class NostrRelayManager internal constructor(
      */
     fun clearAllOnPanic(reconnect: Boolean) {
         try {
-            val wasConnected = desiredConnected.get()
+            val wantedConnected = desiredConnected.get() || panicReconnectWithheld.get()
             clearAllSubscriptions()
             clearDeduplicationCache()
             disconnect()
             forgetSessionRelays()
-            if (wasConnected && reconnect) {
+            // Remembered so a retried wipe that is confirmed can still come back online.
+            panicReconnectWithheld.set(wantedConnected && !reconnect)
+            if (wantedConnected && reconnect) {
                 connect()
             }
             Log.w(TAG, "🚨 Cleared NostrRelayManager subscriptions, cache, and connections for panic mode")

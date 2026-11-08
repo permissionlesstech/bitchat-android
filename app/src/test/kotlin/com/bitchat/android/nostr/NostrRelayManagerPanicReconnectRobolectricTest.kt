@@ -102,6 +102,23 @@ class NostrRelayManagerPanicReconnectRobolectricTest {
     }
 
     @Test
+    fun `confirmed panic retry reconnects after earlier wipes withheld reconnect`() {
+        connectAndForgetInitialSockets()
+        manager.clearAllOnPanic(reconnect = false)
+        manager.clearAllOnPanic(reconnect = false)
+        dispatcher.scheduler.runCurrent()
+        assertTrue(factory.openedSinceReset.isEmpty())
+
+        manager.clearAllOnPanic(reconnect = true)
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals(
+            NostrRelayManager.defaultRelays().toSet(),
+            factory.openedSinceReset.map { it.url }.toSet()
+        )
+    }
+
+    @Test
     fun `panic wipe leaves a manager that was never connected offline`() {
         manager.clearAllOnPanic(reconnect = true)
         dispatcher.scheduler.runCurrent()
