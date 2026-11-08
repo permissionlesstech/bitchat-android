@@ -1,0 +1,9 @@
+// Explicit opt-in only. The standard instrumented suite remains offline.
+gradle.beforeProject { project ->
+    if (project.path == ':app') {
+        project.plugins.withId('com.android.application') {
+            project.android.sourceSets.getByName('androidTest').kotlin.srcDir('src/liveRelayProbeCommon/kotlin')
+            project.android.sourceSets.getByName('androidTest').kotlin.srcDir('src/liveRelayAndroidProbe/kotlin')
+        }
+    }
+}
