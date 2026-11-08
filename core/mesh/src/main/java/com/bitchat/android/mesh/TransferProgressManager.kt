@@ -2,7 +2,7 @@ package com.bitchat.android.mesh
 
 import com.bitchat.android.di.IoDispatcher
 import javax.inject.Inject
-import javax.inject.Singleton
+import com.bitchat.android.identity.scope.IdentityScoped
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -18,7 +18,7 @@ data class TransferProgressEvent(
     val failed: Boolean = false
 )
 
-@Singleton
+@IdentityScoped
 class TransferProgressManager @Inject constructor(
     @IoDispatcher ioDispatcher: CoroutineDispatcher,
 ) {

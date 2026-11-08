@@ -12,6 +12,7 @@ import com.bitchat.android.services.ConversationListPreferences
 import com.bitchat.android.services.PrivateMessageArrivalOrder
 import com.bitchat.android.services.SeenMessageStore
 import dagger.Lazy
+import javax.inject.Provider
 import dagger.hilt.android.scopes.ActivityRetainedScoped
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -46,8 +47,8 @@ private data class ConversationLiveIdentityState(
 @ActivityRetainedScoped
 class ConversationDirectory @Inject constructor(
     private val state: ChatState,
-    private val conversationListPreferences: ConversationListPreferences,
-    private val seenMessageStore: Lazy<SeenMessageStore>,
+    @CurrentIdentity private val conversationListPreferences: ConversationListPreferences,
+    @CurrentIdentity private val seenMessageStore: Provider<SeenMessageStore>,
     private val privateChatManager: PrivateChatManager,
     private val notificationManager: NotificationManager,
     private val sessionMesh: ChatSessionMesh,

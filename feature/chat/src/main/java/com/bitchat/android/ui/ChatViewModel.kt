@@ -10,6 +10,7 @@ import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.navigation.Navigator
 import com.bitchat.android.navigation.openPrivateChat
 import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.services.ConversationListPreferences
 import dagger.Lazy
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -34,7 +35,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val sessionMesh: ChatSessionMesh,
-    private val conversationListPreferences: ConversationListPreferences,
+    @CurrentIdentity private val conversationListPreferences: ConversationListPreferences,
     // The unread shortcut opens a private chat from here rather than from a
     // screen, because it has to pick the conversation first.
     private val navigator: Navigator,

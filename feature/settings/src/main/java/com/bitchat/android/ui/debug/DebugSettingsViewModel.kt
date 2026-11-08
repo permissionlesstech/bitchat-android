@@ -1,5 +1,6 @@
 package com.bitchat.android.ui.debug
 
+import com.bitchat.android.identity.scope.CurrentIdentity
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -65,7 +66,7 @@ class DebugSettingsViewModel internal constructor(
     constructor(
         manager: DebugSettingsManager,
         spamFilterPreferences: SpamFilterPreferences,
-        spamFilter: SpamFilter,
+        @CurrentIdentity spamFilter: SpamFilter,
         savedState: SavedStateHandle,
         graph: MeshGraphSource,
         diagnostics: TransportDiagnostics,

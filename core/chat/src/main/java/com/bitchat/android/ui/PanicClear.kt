@@ -48,12 +48,12 @@ class PanicClear @Inject constructor(
     private val mediaSendingManager: MediaSendingManager,
     private val notificationManager: NotificationManager,
     private val geohashSession: GeohashSession,
-    private val conversationListPreferences: ConversationListPreferences,
-    @get:VisibleForTesting val seenMessageStoreLazy: Lazy<SeenMessageStore>,
+    @CurrentIdentity private val conversationListPreferences: ConversationListPreferences,
+    @CurrentIdentity @get:VisibleForTesting val seenMessageStoreProvider: Provider<SeenMessageStore>,
     @CurrentIdentity private val locationChannelManagerProvider: Provider<LocationChannelManager>,
     @CurrentIdentity private val geohashBookmarksStoreProvider: Provider<GeohashBookmarksStore>,
     @get:VisibleForTesting val appStateStore: AppStateStore,
-    @get:VisibleForTesting val spamFilter: SpamFilter,
+    @CurrentIdentity @get:VisibleForTesting val spamFilter: SpamFilter,
     @get:VisibleForTesting val favorites: Lazy<FavoritesPersistenceService>,
     @ChatSessionScope private val scope: CoroutineScope,
 ) {
@@ -63,7 +63,7 @@ class PanicClear @Inject constructor(
     }
 
     private val mesh get() = sessionMesh.unified
-    private val seenMessageStore get() = seenMessageStoreLazy.get()
+    private val seenMessageStore get() = seenMessageStoreProvider.get()
     private val locationChannelManager get() = locationChannelManagerProvider.get()
     private val geohashBookmarksStore get() = geohashBookmarksStoreProvider.get()
 

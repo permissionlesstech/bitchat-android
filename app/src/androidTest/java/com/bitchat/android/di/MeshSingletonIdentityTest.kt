@@ -79,6 +79,6 @@ class MeshSingletonIdentityTest {
         assertSame(graph().appStateStore(), panicClear.appStateStore)
         assertSame(graph().spamFilter(), panicClear.spamFilter)
         assertSame(graph().favorites(), panicClear.favorites.get())
-        assertSame(graph().seenMessageStore(), panicClear.seenMessageStoreLazy.get())
+        assertSame(graph().seenMessageStore(), panicClear.seenMessageStoreProvider.get())
     }
 }

@@ -52,15 +52,15 @@ class BitchatApplication : Application() {
     @Inject lateinit var contactDirectory: Lazy<ContactDirectory>
     @Inject @CurrentIdentity lateinit var nostrIdentityBridge: Provider<NostrIdentityBridge>
     @Inject lateinit var spamFilterPreferences: Lazy<SpamFilterPreferences>
-    @Inject lateinit var spamFilter: Lazy<SpamFilter>
+    @Inject @CurrentIdentity lateinit var spamFilter: Provider<SpamFilter>
     @Inject lateinit var debugPreferences: Lazy<DebugPreferenceManager>
     @Inject @CurrentIdentity lateinit var wifiAwareController: Provider<WifiAwareController>
     @Inject lateinit var debugSettings: Lazy<DebugSettingsManager>
     @Inject @CurrentIdentity lateinit var meshTransportToggles: Provider<MeshTransportToggles>
     @Inject lateinit var geohashAliases: Lazy<GeohashAliasRegistry>
     @Inject @CurrentIdentity lateinit var geohashConversations: Provider<GeohashConversationRegistry>
-    @Inject lateinit var peerFingerprints: Lazy<PeerFingerprintManager>
-    @Inject lateinit var seenMessageStore: Lazy<SeenMessageStore>
+    @Inject @CurrentIdentity lateinit var peerFingerprints: Provider<PeerFingerprintManager>
+    @Inject @CurrentIdentity lateinit var seenMessageStore: Provider<SeenMessageStore>
     @Inject lateinit var meshServicePreferences: Lazy<MeshServicePreferences>
 
     override fun onCreate() {

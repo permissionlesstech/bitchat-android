@@ -21,6 +21,7 @@ import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.spam.SpamFilter
 import dagger.Lazy
+import javax.inject.Provider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -46,7 +47,7 @@ class NostrBackgroundEventProcessor(
     private val geohashConversations: GeohashConversationRegistry,
     private val nostrIdentity: NostrIdentityBridge,
     private val spamFilter: SpamFilter,
-    private val seenMessageStore: Lazy<SeenMessageStore>,
+    private val seenMessageStore: Provider<SeenMessageStore>,
 ) : NostrBackgroundEvents {
     private val scope = CoroutineScope(
         parentScope.coroutineContext + Dispatchers.IO.limitedParallelism(1)

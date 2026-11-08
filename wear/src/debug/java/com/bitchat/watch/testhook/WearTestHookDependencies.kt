@@ -22,8 +22,8 @@ interface WearTestHookDependencies {
     fun appStateStore(): AppStateStore
     @CurrentIdentity fun chatState(): WearChatState
     @CurrentIdentity fun peerIdentity(): WearPeerIdentityState
-    fun liveVoiceManager(): LiveVoiceManager
+    @CurrentIdentity fun liveVoiceManager(): LiveVoiceManager
     @CurrentIdentity fun voiceWaveformCache(): VoiceWaveformCache
-    fun transportBridgeService(): TransportBridgeService
+    @CurrentIdentity fun transportBridgeService(): TransportBridgeService
     @CurrentIdentity fun meshHolder(): WearMeshHolder
 }

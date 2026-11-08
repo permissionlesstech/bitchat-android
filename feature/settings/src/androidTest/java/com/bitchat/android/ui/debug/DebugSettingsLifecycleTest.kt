@@ -104,7 +104,7 @@ class DebugSettingsLifecycleTest {
         },
         defaultDispatcher = background,
         ioDispatcher = background,
-        spamFilterPreferences = SpamFilterPreferences(spamFilter),
+        spamFilterPreferences = SpamFilterPreferences { spamFilter },
         spamFilter = spamFilter,
     )
 

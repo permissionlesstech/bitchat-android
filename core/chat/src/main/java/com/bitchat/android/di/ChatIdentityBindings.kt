@@ -5,6 +5,7 @@ import com.bitchat.android.identity.scope.IdentityComponent
 import com.bitchat.android.identity.scope.IdentityHolder
 import com.bitchat.android.identity.scope.entryPoint
 import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.services.ConversationListPreferences
 import com.bitchat.android.services.MessageRouter
 import com.bitchat.android.services.MessageRouterHolder
 import dagger.Module
@@ -19,6 +20,7 @@ import javax.inject.Provider
 @InstallIn(IdentityComponent::class)
 interface ChatIdentityEntryPoint {
     fun routerHolder(): MessageRouterHolder
+    fun conversationListPreferences(): ConversationListPreferences
 }
 
 /**
@@ -43,4 +45,9 @@ object ChatIdentityBindings {
     @CurrentIdentity
     fun messageRouter(holder: IdentityHolder, @CurrentIdentity mesh: Provider<MeshService>): MessageRouter =
         holder.entryPoint<ChatIdentityEntryPoint>().routerHolder().getOrAttach(mesh.get())
+
+    @Provides
+    @CurrentIdentity
+    fun conversationListPreferences(holder: IdentityHolder): ConversationListPreferences =
+        holder.entryPoint<ChatIdentityEntryPoint>().conversationListPreferences()
 }

@@ -27,10 +27,10 @@ internal interface ChatScreenDependencies {
     @CurrentIdentity fun locationNotesManager(): LocationNotesManager
     @CurrentIdentity fun nearbyNotesController(): NearbyNotesController
     fun torManager(): ArtiTorManager
-    fun liveVoiceManager(): LiveVoiceManager
+    @CurrentIdentity fun liveVoiceManager(): LiveVoiceManager
     fun contactDirectory(): ContactDirectory
     @CurrentIdentity fun voiceWaveformCache(): VoiceWaveformCache
-    fun spamFilter(): SpamFilter
+    @CurrentIdentity fun spamFilter(): SpamFilter
 }
 
 internal fun Context.chatScreenDependencies(): ChatScreenDependencies =

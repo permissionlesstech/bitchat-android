@@ -95,9 +95,10 @@ class MainActivity : OrientationAwareActivity() {
     @CurrentIdentity
     lateinit var nearbyNotesController: Provider<com.bitchat.android.nostr.NearbyNotesController>
 
-    // Lazy: the live voice manager is first built where the foreground effect is composed.
+    // Asked where the foreground effect is composed, which is where it is first built.
     @Inject
-    lateinit var liveVoiceManager: dagger.Lazy<com.bitchat.android.features.voice.LiveVoiceManager>
+    @CurrentIdentity
+    lateinit var liveVoiceManager: Provider<com.bitchat.android.features.voice.LiveVoiceManager>
 
     // Providers, asked when used, so the Activity keeps nothing of the identity's.
     @Inject
@@ -112,7 +113,8 @@ class MainActivity : OrientationAwareActivity() {
     lateinit var contactDirectory: ContactDirectory
 
     @Inject
-    lateinit var verificationService: VerificationService
+    @CurrentIdentity
+    lateinit var verificationService: Provider<VerificationService>
 
     // The chat session's, shared with ChatViewModel; the verify deep link
     // starts a QR verification through it.
@@ -540,7 +542,7 @@ class MainActivity : OrientationAwareActivity() {
         // is not on the stack the result is false and nothing changes.
         navigator.popTo(ChatRoute)
         navigator.goTo(VerificationRoute(chatState.selectedPrivateChatPeer.value))
-        val qr = verificationService.verifyScannedQR(uri.toString())
+        val qr = verificationService.get().verifyScannedQR(uri.toString())
         if (qr != null) {
             verificationHandler.beginQRVerification(qr)
         }

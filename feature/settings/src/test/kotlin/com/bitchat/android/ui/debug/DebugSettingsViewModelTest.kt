@@ -123,7 +123,7 @@ class DebugSettingsViewModelTest {
             inspectDistribution = { distribution },
             defaultDispatcher = background,
             ioDispatcher = background,
-            spamFilterPreferences = SpamFilterPreferences(spamFilter),
+            spamFilterPreferences = SpamFilterPreferences { spamFilter },
             spamFilter = spamFilter,
         )
         // Held in a store so tearDown can clear it, which cancels its poll.

@@ -10,7 +10,7 @@ import java.util.Collections
 import java.util.LinkedHashMap
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
-import javax.inject.Singleton
+import com.bitchat.android.identity.scope.IdentityScoped
 
 /**
  * Central bridge for routing packets between different transport layers
@@ -19,7 +19,7 @@ import javax.inject.Singleton
  * Allows a packet received on one transport to be seamlessly relayed
  * to all other active transports, effectively bridging separate meshes.
  */
-@Singleton
+@IdentityScoped
 class TransportBridgeService @Inject constructor() {
     private companion object {
         const val TAG = "TransportBridgeService"

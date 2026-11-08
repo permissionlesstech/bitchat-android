@@ -50,7 +50,7 @@ class VerificationViewModel @AssistedInject constructor(
     private val verificationHandler: VerificationHandler,
     private val mesh: ChatSessionMesh,
     @CurrentIdentity nostrIdentity: NostrIdentityBridge,
-    private val verificationService: VerificationService,
+    @CurrentIdentity private val verificationService: VerificationService,
 ) : ViewModel() {
 
     @AssistedFactory

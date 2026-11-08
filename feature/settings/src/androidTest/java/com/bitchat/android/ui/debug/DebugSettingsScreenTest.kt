@@ -40,7 +40,7 @@ class DebugSettingsScreenTest {
                 DebugSettingsScreen(
                     uiState = state,
                     onAction = { actions += it },
-                    spamFilterSection = { SpamFilter().let { SpamFilterDebugSection(SpamFilterPreferences(it), it) } },
+                    spamFilterSection = { SpamFilter().let { SpamFilterDebugSection(SpamFilterPreferences { it }, it) } },
                 )
             }
         }

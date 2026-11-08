@@ -25,7 +25,7 @@ import java.util.Date
 import java.util.TreeMap
 import java.util.UUID
 import javax.inject.Inject
-import javax.inject.Singleton
+import com.bitchat.android.identity.scope.IdentityScoped
 
 enum class LiveVoiceScope { DIRECT_MESSAGE, PUBLIC_MESH }
 
@@ -67,7 +67,7 @@ sealed interface LiveVoiceEvent {
 }
 
 /** Shared phone/Wear receiver: bounded assembly, live playback, bubble state and note absorption. */
-@Singleton
+@IdentityScoped
 class LiveVoiceManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val appStateStore: AppStateStore,

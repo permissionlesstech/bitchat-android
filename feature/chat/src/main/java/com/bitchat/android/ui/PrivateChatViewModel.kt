@@ -49,7 +49,7 @@ class PrivateChatViewModel @AssistedInject constructor(
     private val contactFavorites: ContactFavorites,
     private val verificationHandler: VerificationHandler,
     private val geohashSession: GeohashSession,
-    private val conversationListPreferences: ConversationListPreferences,
+    @CurrentIdentity private val conversationListPreferences: ConversationListPreferences,
     private val wifiAwarePeers: WifiAwarePeers,
     private val contactDirectory: ContactDirectory,
     private val favorites: Lazy<FavoritesPersistenceService>,

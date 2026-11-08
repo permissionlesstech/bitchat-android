@@ -28,10 +28,10 @@ import dagger.hilt.components.SingletonComponent
 interface MeshTestAccess {
     fun appStateStore(): AppStateStore
     fun contactDirectory(): ContactDirectory
-    fun transportBridgeService(): TransportBridgeService
+    @CurrentIdentity fun transportBridgeService(): TransportBridgeService
     fun favorites(): FavoritesPersistenceService
-    fun spamFilter(): SpamFilter
-    fun seenMessageStore(): SeenMessageStore
+    @CurrentIdentity fun spamFilter(): SpamFilter
+    @CurrentIdentity fun seenMessageStore(): SeenMessageStore
     @CurrentIdentity fun meshServiceHolder(): MeshServiceHolder
     fun debugSettings(): DebugSettingsManager
     fun identityHolder(): IdentityHolder

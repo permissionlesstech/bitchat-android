@@ -1,6 +1,5 @@
 package com.bitchat.watch
 
-import dagger.Lazy
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import javax.inject.Provider
@@ -103,8 +102,8 @@ class MainActivity : ComponentActivity() {
     // Creates the mesh only on getOrCreate, once permissions and Bluetooth are confirmed.
     @Inject @CurrentIdentity lateinit var meshHolder: Provider<WearMeshHolder>
 
-    // Lazy: built where the first screen or onResume asks for it, as it was before injection.
-    @Inject lateinit var liveVoiceManager: Lazy<LiveVoiceManager>
+    // Asked where the first screen or onResume needs it, as it was before injection.
+    @Inject @CurrentIdentity lateinit var liveVoiceManager: Provider<LiveVoiceManager>
 
     private var hasPermissions by mutableStateOf(false)
     private var bluetoothEnabled by mutableStateOf(false)

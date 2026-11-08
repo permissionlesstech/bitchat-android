@@ -4,7 +4,7 @@ import android.content.Context
 import com.bitchat.android.identity.SecureIdentityStateManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
-import javax.inject.Singleton
+import com.bitchat.android.identity.scope.IdentityScoped
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,7 +17,7 @@ import org.json.JSONObject
  * Message history remains in SQLite; these compact sets and drafts belong in the app's existing
  * Keystore-backed preference store. Panic clearing the identity store also removes these values.
  */
-@Singleton
+@IdentityScoped
 class ConversationListPreferences private constructor(
     private val stateManager: SecureIdentityStateManager,
     private val canonicalize: (String) -> String

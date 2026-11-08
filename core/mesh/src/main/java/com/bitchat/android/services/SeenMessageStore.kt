@@ -7,7 +7,7 @@ import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
-import javax.inject.Singleton
+import com.bitchat.android.identity.scope.IdentityScoped
 
 /**
  * Persistent store for message IDs we've already acknowledged as delivered, read locally, or
@@ -17,7 +17,7 @@ import javax.inject.Singleton
  * Transport delivery is best-effort and retryable, while local read state drives unread UI.
  * Limits to last MAX_IDS entries per set to avoid memory bloat.
  */
-@Singleton
+@IdentityScoped
 class SeenMessageStore @Inject constructor(
     @ApplicationContext private val context: Context,
     private val appStateStore: AppStateStore,

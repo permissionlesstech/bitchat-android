@@ -23,9 +23,9 @@ interface TestHookDependencies {
     fun appStateStore(): AppStateStore
     fun contactDirectory(): ContactDirectory
     fun favorites(): FavoritesPersistenceService
-    fun liveVoiceManager(): LiveVoiceManager
-    fun meshGraphService(): MeshGraphService
+    @CurrentIdentity fun liveVoiceManager(): LiveVoiceManager
+    @CurrentIdentity fun meshGraphService(): MeshGraphService
     @CurrentIdentity fun meshServiceHolder(): MeshServiceHolder
-    fun transferProgressManager(): TransferProgressManager
-    fun transportBridgeService(): TransportBridgeService
+    @CurrentIdentity fun transferProgressManager(): TransferProgressManager
+    @CurrentIdentity fun transportBridgeService(): TransportBridgeService
 }

@@ -16,7 +16,6 @@ import com.bitchat.android.services.MessageRouter
 import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.ui.debug.DebugSettingsManager
 import com.bitchat.android.util.hexEncodedString
-import dagger.Lazy
 import dagger.hilt.android.ActivityRetainedLifecycle
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.scopes.ActivityRetainedScoped
@@ -48,7 +47,7 @@ class ChatSessionStartup @Inject constructor(
     // dagger.Lazy and Provider for the reasons ChatViewModel gave: these were
     // first resolved at the point of use, and MessageRouter has to be
     // re-resolved so it follows the mesh panic-clear replaces.
-    private val seenMessageStoreLazy: Lazy<SeenMessageStore>,
+    @CurrentIdentity private val seenMessageStoreProvider: Provider<SeenMessageStore>,
     @CurrentIdentity private val nostrTransportProvider: Provider<NostrTransport>,
     @CurrentIdentity private val messageRouterProvider: Provider<MessageRouter>,
     private val debugSettingsManager: DebugSettingsManager,
@@ -65,7 +64,7 @@ class ChatSessionStartup @Inject constructor(
     private val conversationDirectory: ConversationDirectory,
     private val appStateStore: AppStateStore,
     private val contactDirectory: ContactDirectory,
-    private val transferProgress: TransferProgressManager,
+    @CurrentIdentity private val transferProgress: TransferProgressManager,
     private val favorites: FavoritesPersistenceService,
 ) {
 
@@ -76,7 +75,7 @@ class ChatSessionStartup @Inject constructor(
     private val mesh: MeshService
         get() = sessionMesh.unified
 
-    private val seenMessageStore: SeenMessageStore get() = seenMessageStoreLazy.get()
+    private val seenMessageStore: SeenMessageStore get() = seenMessageStoreProvider.get()
     private val nostrTransport: NostrTransport get() = nostrTransportProvider.get()
 
     private var started = false

@@ -4,7 +4,7 @@ import android.util.Log
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
-import javax.inject.Singleton
+import com.bitchat.android.identity.scope.IdentityScoped
 
 /**
  * Centralized peer fingerprint management singleton
@@ -21,7 +21,7 @@ import javax.inject.Singleton
  * - Support for peer ID rotation while maintaining persistent identity
  * - Centralized logging for debugging identity management
  */
-@Singleton
+@IdentityScoped
 class PeerFingerprintManager @Inject constructor() {
     
     companion object {

@@ -5,13 +5,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
-import javax.inject.Singleton
+import com.bitchat.android.identity.scope.IdentityScoped
 
 /**
  * Maintains an internal graph of the mesh based on gossip.
  * Nodes are peers (peerID), edges are direct connections.
  */
-@Singleton
+@IdentityScoped
 class MeshGraphService @Inject constructor() {
     data class GraphNode(val peerID: String, val nickname: String?)
     data class GraphEdge(val a: String, val b: String, val isConfirmed: Boolean, val confirmedBy: String? = null)

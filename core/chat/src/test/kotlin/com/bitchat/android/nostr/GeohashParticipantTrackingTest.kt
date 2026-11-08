@@ -11,6 +11,7 @@ import com.bitchat.android.spam.SpamFilter
 import com.bitchat.android.ui.DataManager
 import com.bitchat.android.ui.NostrBackgroundEventProcessor
 import dagger.Lazy
+import javax.inject.Provider
 import java.util.Date
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -72,7 +73,7 @@ class GeohashParticipantTrackingTest {
             geohashConversations = GeohashConversationRegistry(),
             nostrIdentity = NostrIdentityBridge(stores.favorites),
             spamFilter = spamFilter,
-            seenMessageStore = Lazy(lazy { SeenMessageStore(application, stores.appStateStore) }::value),
+            seenMessageStore = Provider(lazy { SeenMessageStore(application, stores.appStateStore) }::value),
         )
     }
 

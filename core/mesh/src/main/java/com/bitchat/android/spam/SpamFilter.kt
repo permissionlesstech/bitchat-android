@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import javax.inject.Inject
-import javax.inject.Singleton
+import com.bitchat.android.identity.scope.IdentityScoped
 import kotlin.math.abs
 
 enum class SpamVerdict {
@@ -35,14 +35,19 @@ enum class SpamVerdict {
  * Verdicts are remembered by message ID, so the same message arriving over BLE and Wi-Fi Aware,
  * or through both geohash handlers, is judged once and counted once.
  */
-@Singleton
+@IdentityScoped
 class SpamFilter(
     config: SpamFilterConfig = SpamFilterConfig(),
     private val clock: () -> Long = System::currentTimeMillis
 ) {
-    /** The injected filter: default limits and the wall clock. */
+    /**
+     * The injected filter: the wall clock, and the user's saved settings, which a new identity's
+     * filter starts with just as the first one did.
+     */
     @Inject
-    constructor() : this(SpamFilterConfig(), System::currentTimeMillis)
+    constructor(preferences: SpamFilterPreferences) : this(SpamFilterConfig(), System::currentTimeMillis) {
+        preferences.applyTo(this)
+    }
 
     @Volatile
     var enabled: Boolean = true

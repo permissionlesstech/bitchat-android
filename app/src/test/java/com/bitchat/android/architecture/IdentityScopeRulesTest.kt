@@ -42,13 +42,9 @@ class IdentityScopeRulesTest {
 
     /** Identity classes not yet moved into the identity scope. Later changes remove names. */
     private val pendingMove: Set<String> = setOf(
-        // :core:chat
-        "ConversationListPreferences",
         // :core:mesh
         "AppStateStore", "ContactDirectory", "FavoritesPersistenceService", "ConversationRepository",
-        "SeenMessageStore", "SpamFilter", "LiveVoiceManager", "PeerFingerprintManager",
-        "TransferProgressManager", "GeohashAliasRegistry", "TransportBridgeService",
-        "PrivateMessageArrivalOrder", "VerificationService", "MeshGraphService",
+        "GeohashAliasRegistry", "PrivateMessageArrivalOrder",
     )
 
     /**

@@ -15,6 +15,7 @@ import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.services.TestMeshStores
 import com.bitchat.android.spam.SpamFilter
 import dagger.Lazy
+import javax.inject.Provider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -66,7 +67,7 @@ class NostrBackgroundEventProcessorTest {
             geohashConversations = GeohashConversationRegistry(),
             nostrIdentity = NostrIdentityBridge(stores.favorites),
             spamFilter = spamFilter,
-            seenMessageStore = Lazy(lazy { SeenMessageStore(application, stores.appStateStore) }::value),
+            seenMessageStore = Provider(lazy { SeenMessageStore(application, stores.appStateStore) }::value),
         )
         val identity = NostrIdentity.generate()
         val expectedIds = mutableSetOf<String>()

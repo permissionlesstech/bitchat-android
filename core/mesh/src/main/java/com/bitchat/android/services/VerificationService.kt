@@ -11,12 +11,12 @@ import java.security.SecureRandom
 import androidx.core.net.toUri
 import java.lang.ref.WeakReference
 import javax.inject.Inject
-import javax.inject.Singleton
+import com.bitchat.android.identity.scope.IdentityScoped
 
 /**
  * QR verification helpers: schema, signing, and basic challenge/response helpers.
  */
-@Singleton
+@IdentityScoped
 class VerificationService @Inject constructor() {
     private companion object {
         const val CONTEXT = "bitchat-verify-v1"

@@ -5,7 +5,9 @@ import android.content.SharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import com.bitchat.android.identity.scope.CurrentIdentity
 import javax.inject.Inject
+import javax.inject.Provider
 import javax.inject.Singleton
 
 /**
@@ -14,7 +16,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class SpamFilterPreferences @Inject constructor(
-    private val spamFilter: SpamFilter,
+    @CurrentIdentity private val spamFilter: Provider<SpamFilter>,
 ) {
     private companion object {
         const val PREFS_NAME = "spam_filter_preferences"
@@ -55,12 +57,19 @@ class SpamFilterPreferences @Inject constructor(
         applyTuning(readTuning(prefs))
     }
 
+    /** Gives a filter built after [init] (a new identity's) the saved settings. */
+    fun applyTo(filter: SpamFilter) {
+        filter.enabled = _enabled.value
+        filter.debugBypass = _debugBypass.value
+        filter.config = _tuning.value.toConfig()
+    }
+
     fun setEnabled(enabled: Boolean) {
         if (_enabled.value == enabled) return
         sharedPrefs?.edit()?.putBoolean(KEY_ENABLED, enabled)?.apply()
         applyEnabled(enabled)
         // Start from a clean slate so budgets don't carry over from before the toggle.
-        spamFilter.reset()
+        spamFilter.get().reset()
     }
 
     fun setDebugBypass(enabled: Boolean) {
@@ -106,16 +115,16 @@ class SpamFilterPreferences @Inject constructor(
 
     private fun applyEnabled(enabled: Boolean) {
         _enabled.value = enabled
-        spamFilter.enabled = enabled
+        spamFilter.get().enabled = enabled
     }
 
     private fun applyDebugBypass(enabled: Boolean) {
         _debugBypass.value = enabled
-        spamFilter.debugBypass = enabled
+        spamFilter.get().debugBypass = enabled
     }
 
     private fun applyTuning(tuning: SpamTuning) {
         _tuning.value = tuning
-        spamFilter.config = tuning.toConfig()
+        spamFilter.get().config = tuning.toConfig()
     }
 }
