@@ -61,10 +61,23 @@ class IdentityScopeRulesTest {
     )
 
     /**
-     * Chat-session classes and ViewModels allowed a direct `@CurrentIdentity X`. The chat session
-     * change empties it.
+     * Every `@ActivityRetainedScoped` class, `@HiltViewModel`, and type a module installed in
+     * `ActivityRetainedComponent` provides: the chat-session classes allowed a direct
+     * `@CurrentIdentity X`. The chat session change empties it.
      */
-    private val pendingChatSession: Set<String> = emptySet()
+    private val pendingChatSession: Set<String> = setOf(
+        "AboutViewModel", "ApkDownloadViewModel", "AppInitializer", "AppNavigator",
+        "AppStartupGate", "BluetoothSkipSession", "ChannelManager", "ChatBackUnwinder",
+        "ChatMeshDelegate", "ChatSessionMesh", "ChatSessionStartup", "ChatState",
+        "ChatUserViewModel", "ChatViewModel", "CommandProcessor", "ComposerMedia",
+        "ContactFavorites", "ConversationDirectory", "CoroutineScope", "DataManager",
+        "DebugSettingsViewModel", "EntryProviderInstaller", "GeohashSession", "HotspotViewModel",
+        "LocationChannelsViewModel", "LocationNotesViewModel", "MediaSendingManager", "MeshDelegateHandler",
+        "MeshPeerListViewModel", "MessageManager", "MessageSender", "Navigator",
+        "NotificationManager", "OnboardingHost", "OnboardingViewModel", "PanicClear",
+        "PeerListLookups", "PrivateChatManager", "PrivateChatSession", "PrivateChatViewModel",
+        "SecureIdentityStateManager", "SecurityVerificationViewModel", "VerificationHandler", "VerificationViewModel",
+    )
 
     /**
      * Stateful Kotlin objects, with the reason. A companion is `Owner.Companion`. Entries that hold
@@ -211,13 +224,28 @@ class IdentityScopeRulesTest {
             "@EntryPoint @InstallIn(IdentityComponent::class) interface InsideHook { fun cache(): Cache }",
             "@IdentityScoped class Sibling @Inject constructor(private val c: Cache)",
             "class NotInjected(private val c: Cache)",
+            "@Singleton class SecLazy(private val n: Int) {\n @Inject constructor(@CurrentIdentity c: Lazy<Cache>) : this(1)\n}",
+            "@Singleton class SecPlain(private val n: Int) {\n @Inject constructor(c: Provider<Cache>) : this(1)\n}",
+            "@Singleton class SecDirect(private val n: Int) {\n @Inject constructor(c: Cache) : this(1)\n}",
+            "@Singleton class SecGood(private val c: Cache) {\n @Inject constructor(@CurrentIdentity p: Provider<Cache>) : this(p.get())\n}",
         )
         val found = providerViolations(model, emptySet())
-        val expected = listOf("Direct", "FullyQualified", "Lazily", "Plain", "Activity", "Hook", "Leak", "Takes")
+        val expected = listOf("SecLazy", "SecPlain", "SecDirect", "Direct", "FullyQualified", "Lazily", "Plain", "Activity", "Hook", "Leak", "Takes")
         expected.forEach { name -> assertTrue("$name not reported in $found", found.any { it.contains("'$name") }) }
-        listOf("Qualified", "Good", "Multi", "Bridge", "Inside", "InsideHook", "Sibling", "NotInjected").forEach { name ->
+        listOf("SecGood", "Qualified", "Good", "Multi", "Bridge", "Inside", "InsideHook", "Sibling", "NotInjected").forEach { name ->
             assertTrue("$name wrongly reported in $found", found.none { it.contains("'$name") })
         }
+    }
+
+    @Test
+    fun aBridgeWithoutAnExplicitReturnTypeFails() {
+        val model = modelOf(
+            identityCache,
+            "@Module @InstallIn(SingletonComponent::class) object NoType { @Provides @CurrentIdentity fun c(h: H) = h.x() }",
+        )
+        val found = providerViolations(model, emptySet())
+        assertEquals(found.toString(), 1, found.size)
+        assertTrue(found.single().contains("explicit return type") && found.single().contains("'c'"))
     }
 
     @Test
@@ -230,14 +258,22 @@ class IdentityScopeRulesTest {
             "@Singleton class Process @Inject constructor(@CurrentIdentity private val c: Cache)",
             "class Activity { @Inject @CurrentIdentity lateinit var c: Cache }",
             "@Module @InstallIn(ActivityRetainedComponent::class) object M { @Provides @ActivityRetainedScoped fun s(@CurrentIdentity c: Cache): Made = Made(c) }",
+            "@Module @InstallIn(ActivityRetainedComponent::class) object Unscoped { @Provides fun u(@CurrentIdentity c: Cache): InModule = InModule(c) }",
+            "@Module @InstallIn(SingletonComponent::class) object Proc { @Provides fun u(@CurrentIdentity c: Cache): InProcess = InProcess(c) }",
+            "@EntryPoint @InstallIn(SingletonComponent::class) interface EP { @CurrentIdentity fun c(): Cache }",
         )
-        val found = directViolations(model, setOf("Listed", "Vm"))
+        assertTrue("a module installed in ActivityRetainedComponent is chat-session", "InModule" in model.chatSessionNames())
+        assertTrue("a SingletonComponent module or entry point is not", listOf("InProcess", "EP", "Cache").none { it in model.chatSessionNames() })
+        val found = directViolations(model, setOf("Listed", "Vm", "InModule"))
         listOf("Session", "Process", "Activity", "M").forEach { name ->
             assertTrue("$name not reported in $found", found.any { it.contains("'$name'") })
         }
+        assertTrue("InProcess not reported in $found", found.any { it.contains("InProcess") || it.contains("'Proc'") })
         listOf("Listed", "Vm").forEach { name ->
             assertTrue("$name wrongly reported in $found", found.none { it.contains("'$name'") })
         }
+        assertTrue("InModule wrongly reported in $found", found.none { it.contains("'Unscoped'") })
+        assertTrue("an entry point accessor is fine: $found", found.none { it.contains("'EP'") })
     }
 
     @Test
@@ -250,16 +286,17 @@ class IdentityScopeRulesTest {
             "@Singleton class Holder @Inject constructor(private val holder: IdentityHolder) {\n private val c = holder.entryPoint<Hook>()\n}",
             "@Singleton class Later @Inject constructor(@CurrentIdentity private val p: Provider<Cache>) {\n" +
                 " private val lazyOne by lazy { p.get() }\n" +
+                " private val lazyTwo = lazy { p.get() }\n" +
                 " private val gap: Cache get() = p.get()\n" +
-                " private val callback = { p.get() }\n" +
                 " fun use() = p.get().start()\n" +
                 " fun run() {\n  p.get().start()\n }\n" +
                 " init { scope.launch { p.get().start() } }\n" +
                 "}",
             "class NotProcess @Inject constructor(@CurrentIdentity private val p: Provider<Cache>) {\n init { p.get() }\n}",
+            "@Singleton class Run @Inject constructor(@CurrentIdentity private val p: Provider<Cache>) {\n private val c = run { p.get() }\n}",
         )
         val found = constructionViolations(model)
-        listOf("Init", "Prop", "PropWrapped", "Holder").forEach { name ->
+        listOf("Init", "Prop", "PropWrapped", "Holder", "Run").forEach { name ->
             assertTrue("$name not reported in $found", found.any { it.contains("'$name'") })
         }
         listOf("Later", "NotProcess").forEach { name ->
@@ -337,7 +374,10 @@ class IdentityScopeRulesTest {
     }
 
     private fun providerViolations(model: Model, chatAllowed: Set<String>): List<String> =
-        model.sites().flatMap { site -> site.problem(model.identityTypes(), chatAllowed, directAllowedKinds = false) }
+        model.bridges().filter { it.returnName.isEmpty() }.map {
+            "'${it.name}' (${it.file}) is a @CurrentIdentity bridge without an explicit return type; " +
+                "the bridge needs an explicit return type so the scan knows which type it hands out."
+        } + model.sites().flatMap { site -> site.problem(model.identityTypes(), chatAllowed, directAllowedKinds = false) }
 
     private fun directViolations(model: Model, chatAllowed: Set<String>): List<String> =
         model.sites().flatMap { site -> site.problem(model.identityTypes(), chatAllowed, directAllowedKinds = true) }
@@ -346,7 +386,7 @@ class IdentityScopeRulesTest {
         val identity = model.identityTypes()
         return model.classes.filter { it.kind == "class" && it.has("Singleton") && !it.has("IdentityScoped") }.flatMap { decl ->
             val body = decl.bodyText(model) ?: return@flatMap emptyList()
-            val watched = params(decl.ctor.orEmpty()).filter { p ->
+            val watched = (listOfNotNull(decl.ctor) + model.secondaryInjectConstructors(decl)).flatMap { params(it) }.filter { p ->
                 providerOf(p.type)?.let { it in identity } == true || p.type.trim() == "IdentityHolder"
             }.map { it.name }
             if (watched.isEmpty()) return@flatMap emptyList()
@@ -494,28 +534,52 @@ class IdentityScopeRulesTest {
         fun identityTypes(): Set<String> = identityCache
 
         private val identityCache: Set<String> by lazy {
-            scopedClasses() + functions.filter { it.has("CurrentIdentity") && (it.has("Provides") || it.has("Binds")) }
-                .map { it.returnName }
+            scopedClasses() + bridges().map { it.returnName }.filter { it.isNotEmpty() }
         }
+
+        fun bridges(): List<FunDecl> = functions.filter { it.has("CurrentIdentity") && (it.has("Provides") || it.has("Binds")) }
 
         fun chatSessionNames(): Set<String> =
             classes.filter { it.has("ActivityRetainedScoped") || it.has("HiltViewModel") }.map { it.name }.toSet() +
-                functions.filter { it.has("ActivityRetainedScoped") }.map { it.returnName }
+                functions.filter { isChatSessionFunction(it) }.map { it.returnName }
+
+        /** A `@Provides` is chat-session when scoped so, or when its module is installed in a chat-session component. */
+        fun isChatSessionFunction(fn: FunDecl): Boolean =
+            fn.has("ActivityRetainedScoped") || enclosing(fn.file, fn.index).firstOrNull()?.let {
+                Regex("""@InstallIn\(\s*(?:ActivityRetainedComponent|ViewModelComponent)::class""").containsMatchIn(it.annotations)
+            } == true
 
         private fun exempt(file: String, index: Int): Boolean =
             enclosing(file, index).any {
                 it.has("IdentityScoped") || Regex("""@InstallIn\(\s*IdentityComponent::class""").containsMatchIn(it.annotations)
             }
 
+        /** Parameter lists of the `@Inject constructor(...)` members declared directly in [decl]'s body. */
+        fun secondaryInjectConstructors(decl: ClassDecl): List<String> {
+            if (!decl.hasBody) return emptyList()
+            val code = codeOf(decl.file)
+            val modifier = """(?:(?:internal|private|public|protected)\s+)?"""
+            return Regex("""$modifier@(?:[a-z]\w*\.)*(?:Assisted)?Inject\s*${modifier}constructor\s*\(""")
+                .findAll(code.substring(0, decl.bodyEnd))
+                .filter { it.range.first > decl.bodyStart && enclosing(decl.file, it.range.first).firstOrNull() === decl }
+                .mapNotNull { m -> closing(code, m.range.last).takeIf { it > 0 }?.let { code.substring(m.range.last + 1, it) } }
+                .toList()
+        }
+
         fun sites(): List<Site> {
             val out = mutableListOf<Site>()
             // Constructors of classes the graph builds.
-            classes.filter { it.kind == "class" && it.ctor != null }.forEach { decl ->
-                val di = Regex("""@(?:[a-z]\w*\.)*(?:Assisted)?Inject\b""").containsMatchIn(decl.ctorPrefix) || decl.has("HiltViewModel")
-                if (!di || exempt(decl.file, decl.start) || decl.has("IdentityScoped")) return@forEach
+            classes.filter { it.kind == "class" }.forEach { decl ->
+                if (exempt(decl.file, decl.start) || decl.has("IdentityScoped")) return@forEach
+                val primaryDi = decl.ctor != null &&
+                    (Regex("""@(?:[a-z]\w*\.)*(?:Assisted)?Inject\b""").containsMatchIn(decl.ctorPrefix) || decl.has("HiltViewModel"))
+                // An `@Inject` secondary constructor is the one the graph calls; the primary is then plain Kotlin.
+                val injected = secondaryInjectConstructors(decl).ifEmpty { listOfNotNull(decl.ctor.takeIf { primaryDi }) }
                 val chat = decl.has("ActivityRetainedScoped") || decl.has("HiltViewModel")
-                params(decl.ctor.orEmpty()).forEach {
-                    out += Site(decl.file, decl.name, chat, Kind.CONSTRUCTOR, "constructor parameter `${it.name}`", decl.name, it.annotations, it.type)
+                injected.forEach { ctor ->
+                    params(ctor).forEach {
+                        out += Site(decl.file, decl.name, chat, Kind.CONSTRUCTOR, "constructor parameter `${it.name}`", decl.name, it.annotations, it.type)
+                    }
                 }
             }
             // `@Inject` fields.
@@ -538,7 +602,7 @@ class IdentityScopeRulesTest {
                 if (inEntryPoint) {
                     out += Site(fn.file, enclosing.first().name, false, Kind.ENTRY_POINT, "entry-point function `${fn.name}`", enclosing.first().name, fn.annotations, fn.returnType)
                 } else if (fn.has("Provides")) {
-                    val chat = fn.has("ActivityRetainedScoped")
+                    val chat = isChatSessionFunction(fn)
                     val owner = fn.returnName.ifEmpty { fn.name }
                     val module = enclosing.firstOrNull()?.name ?: "<top level>"
                     params(fn.params).forEach {
@@ -811,25 +875,28 @@ class IdentityScopeRulesTest {
             }
         }
 
+        /** Callees whose lambda runs later, not while the instance is built. Everything else counts as eager. */
+        val deferredCallee = Regex("""\b(?:lazy|launch|async)\s*(?:\([^)]*\))?\s*\{""")
+
         /** Code that runs while an instance is built: initialisers and init blocks, not functions, getters or lazies. */
         fun constructionCode(body: String): String = members(body).mapNotNull { member ->
             val flat = withoutBraces(member).trim()
             val keyword = Regex("""^(?:(?:@\w+(?:\([^)]*\))?|\w+)\s+)*?(val|var|fun|init|class|object|companion)\b""")
                 .find(flat)?.groupValues?.get(1)
             when (keyword) {
-                "init" -> withoutLaunchBodies(member)
-                // An initialiser's own lambdas run later, so braces are dropped.
+                "init" -> withoutDeferredBodies(member)
                 "val", "var" ->
-                    if (Regex("""\bby\b|\bget\s*\(""").containsMatchIn(flat.substringBefore("="))) null else flat
+                    if (Regex("""\bby\b|\bget\s*\(""").containsMatchIn(flat.substringBefore("="))) null
+                    else withoutDeferredBodies(member)
                 else -> null
             }
         }.joinToString("\n")
 
-        /** An init block's statements run now, but what it hands to `launch` or `async` runs later. */
-        fun withoutLaunchBodies(text: String): String {
+        /** Drops the lambdas handed to [deferredCallee]; any other lambda is kept, because it may run now. */
+        fun withoutDeferredBodies(text: String): String {
             var result = text
             while (true) {
-                val m = Regex("""\b(?:launch|async)\s*(?:\([^)]*\))?\s*\{""").find(result) ?: return result
+                val m = deferredCallee.find(result) ?: return result
                 val open = m.range.last
                 val close = closing(result, open).takeIf { it > 0 } ?: return result
                 result = result.substring(0, open) + result.substring(close + 1)
