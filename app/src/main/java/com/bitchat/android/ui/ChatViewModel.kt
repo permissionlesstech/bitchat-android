@@ -722,8 +722,25 @@ class ChatViewModel(
             setCurrentPrivateChatPeer(conversationID)
             // Clear notifications for this sender since user is now viewing the chat
             clearNotificationsForSender(conversationID)
+        } else {
+            closePrivateChatSheetIfShowing(conversationID)
         }
     }
+
+    /**
+     * A sheet whose chat was refused has nothing to offer, and the reason is posted to the
+     * timeline behind it. A newer sheet for someone else is left alone.
+     */
+    private fun closePrivateChatSheetIfShowing(peerID: String) {
+        val sheetPeer = state.getPrivateChatSheetPeerValue() ?: return
+        if (isSameConversation(sheetPeer, peerID)) {
+            endPrivateChat()
+        }
+    }
+
+    private fun isSameConversation(first: String, second: String): Boolean =
+        ContactDirectory.canonicalConversationId(first)
+            .equals(ContactDirectory.canonicalConversationId(second), ignoreCase = true)
     
     fun endPrivateChat() {
         val conversationID = state.getSelectedPrivateChatPeerValue()
@@ -972,58 +989,11 @@ class ChatViewModel(
         }
         
         val mentions = messageManager.parseMentions(content, mesh.getPeerNicknames().values.toSet(), state.getNicknameValue())
-        var selectedPeer = state.getSelectedPrivateChatPeerValue()
+        val selectedPeer = state.getSelectedPrivateChatPeerValue()
         val currentChannelValue = state.getCurrentChannelValue()
         
         if (selectedPeer != null) {
-            // If the selected peer is a temporary Nostr alias or a noise-hex identity, resolve to a canonical target
-            selectedPeer = ContactDirectory.canonicalConversationId(
-                com.bitchat.android.services.ConversationAliasResolver.resolveCanonicalPeerID(
-                selectedPeerID = selectedPeer,
-                connectedPeers = state.getConnectedPeersValue(),
-                meshNoiseKeyForPeer = { pid -> mesh.getPeerInfo(pid)?.noisePublicKey },
-                nostrPubHexForAlias = { alias -> com.bitchat.android.nostr.GeohashAliasRegistry.get(alias) },
-                findNoiseKeyForNostr = { key -> com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNoiseKey(key) }
-                )
-            ).also { canonical ->
-                if (canonical != state.getSelectedPrivateChatPeerValue()) {
-                    privateChatManager.startPrivateChat(canonical, mesh)
-                    // If we're in the private chat sheet, update its active peer too
-                    if (state.getPrivateChatSheetPeerValue() != null) {
-                        showPrivateChatSheet(canonical)
-                    }
-                }
-            }
-            // Send private message
-            val recipientNickname = nicknameForPeer(selectedPeer)
-            val destination = selectedPeer
-            viewModelScope.launch {
-                val accepted = privateChatManager.sendPrivateMessageDurably(
-                    content,
-                    destination,
-                    recipientNickname,
-                    state.getNicknameValue(),
-                    mesh.myPeerID
-                ) { messageContent, peerID, recipientNicknameParam, messageId ->
-                    val router = com.bitchat.android.services.MessageRouter.getInstance(
-                        getApplication(),
-                        mesh
-                    )
-                    val route = router.sendPrivate(
-                        messageContent,
-                        peerID,
-                        recipientNicknameParam,
-                        messageId
-                    )
-                    if (route == com.bitchat.android.services.MessageRouter.RouteResult.NOSTR) {
-                        messageManager.updateMessageDeliveryStatus(
-                            messageId,
-                            com.bitchat.android.model.DeliveryStatus.Sent
-                        )
-                    }
-                }
-                onAccepted(accepted)
-            }
+            sendPrivateConversationMessage(selectedPeer, content, onAccepted)
         } else {
             // Check if we're in a location channel
             val selectedLocationChannel = state.selectedLocationChannel.value
@@ -1069,6 +1039,100 @@ class ChatViewModel(
                 }
             }
             onAccepted(true)
+        }
+    }
+
+    /**
+     * Sends text typed into the private-chat sheet for [sheetPeerID].
+     *
+     * The sheet's composer is addressed to that peer, so unlike [sendMessage] this has no public
+     * path and never uses a different selected chat: the selection lags the sheet while a chat
+     * starts on IO, and is never set for a blocked peer. The message reaches this peer or is
+     * refused.
+     */
+    fun sendPrivateChatSheetMessage(
+        sheetPeerID: String,
+        content: String,
+        onAccepted: (Boolean) -> Unit = {}
+    ) {
+        if (content.isEmpty()) {
+            onAccepted(false)
+            return
+        }
+
+        if (content.startsWith("/")) {
+            // Commands act on the selected chat, so they wait until that is this sheet's chat.
+            val selectedPeer = state.getSelectedPrivateChatPeerValue()
+            if (selectedPeer != null && isSameConversation(selectedPeer, sheetPeerID)) {
+                sendMessage(content, onAccepted)
+            } else {
+                onAccepted(false)
+            }
+            return
+        }
+
+        val blocked = privateChatManager.isPeerBlocked(sheetPeerID)
+        sendPrivateConversationMessage(sheetPeerID, content) { accepted ->
+            onAccepted(accepted)
+            if (blocked && !accepted) {
+                closePrivateChatSheetIfShowing(sheetPeerID)
+            }
+        }
+    }
+
+    private fun sendPrivateConversationMessage(
+        targetPeerID: String,
+        content: String,
+        onAccepted: (Boolean) -> Unit
+    ) {
+        // If the peer is a temporary Nostr alias or a noise-hex identity, resolve to a canonical target
+        val destination = ContactDirectory.canonicalConversationId(
+            com.bitchat.android.services.ConversationAliasResolver.resolveCanonicalPeerID(
+                selectedPeerID = targetPeerID,
+                connectedPeers = state.getConnectedPeersValue(),
+                meshNoiseKeyForPeer = { pid -> mesh.getPeerInfo(pid)?.noisePublicKey },
+                nostrPubHexForAlias = { alias -> com.bitchat.android.nostr.GeohashAliasRegistry.get(alias) },
+                findNoiseKeyForNostr = { key -> com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNoiseKey(key) }
+            )
+        )
+        if (
+            destination != state.getSelectedPrivateChatPeerValue() &&
+            !privateChatManager.isPeerBlocked(destination)
+        ) {
+            privateChatManager.startPrivateChat(destination, mesh)
+            // If we're in the private chat sheet, update its active peer too
+            if (state.getPrivateChatSheetPeerValue() != null) {
+                showPrivateChatSheet(destination)
+            }
+        }
+
+        val recipientNickname = nicknameForPeer(destination)
+        viewModelScope.launch {
+            val accepted = privateChatManager.sendPrivateMessageDurably(
+                content,
+                destination,
+                recipientNickname,
+                state.getNicknameValue(),
+                mesh.myPeerID
+            ) { messageContent, peerID, recipientNicknameParam, messageId ->
+                val router = com.bitchat.android.services.MessageRouter.getInstance(
+                    getApplication(),
+                    mesh
+                )
+                val route = router.sendPrivate(
+                    messageContent,
+                    peerID,
+                    recipientNicknameParam,
+                    messageId
+                )
+                if (route == com.bitchat.android.services.MessageRouter.RouteResult.NOSTR) {
+                    messageManager.updateMessageDeliveryStatus(
+                        messageId,
+                        com.bitchat.android.model.DeliveryStatus.Sent
+                    )
+                }
+            }
+            onAccepted(accepted)
         }
     }
 
