@@ -25,9 +25,9 @@ import com.bitchat.android.identity.scope.IdentityScoped
 import kotlin.random.asKotlinRandom
 
 /**
- * Process-owned Nostr connectivity and low-volume background subscriptions.
+ * Identity-scoped Nostr connectivity and low-volume background subscriptions.
  *
- * Stable subscriptions dispatch directly to a process-owned event processor. The UI hydrates from
+ * Stable subscriptions dispatch directly to the event processor the application supplies. The UI hydrates from
  * the process state store, so relay events remain useful without retaining a cleared ViewModel.
  */
 @IdentityScoped

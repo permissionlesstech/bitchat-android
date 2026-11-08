@@ -8,7 +8,7 @@ import com.bitchat.android.identity.scope.IdentityScoped
 
 /**
  * GeohashConversationRegistry
- * - Process-wide, thread-safe registry of conversationKey (e.g., "nostr_<pub16>") -> source geohash
+ * - Thread-safe registry, one per identity, of conversationKey (e.g., "nostr_<pub16>") -> source geohash
  * - Enables routing geohash DMs from anywhere by providing the correct geohash identity
  * - Persisted to SharedPreferences to survive app restarts; [initialize] loads them.
  */

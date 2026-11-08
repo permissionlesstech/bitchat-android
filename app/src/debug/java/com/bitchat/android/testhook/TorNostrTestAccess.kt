@@ -13,7 +13,7 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 
 /**
- * The app graph's Nostr singletons, for device tests that check each is built once and shared.
+ * The app graph's Nostr objects, process-wide and identity-scoped, for device tests that check each is built once and shared.
  * Debug builds only.
  */
 @EntryPoint

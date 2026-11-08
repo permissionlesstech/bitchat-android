@@ -2,8 +2,6 @@ package com.bitchat.android.nostr
 
 import javax.inject.Provider
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotSame
-import org.junit.Assert.assertSame
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -36,18 +34,28 @@ class NostrRelayManagerDeduplicatorTest {
     }
 
     @Test
-    fun `a replaced deduplicator is the one used next`() {
-        val first = NostrEventDeduplicator()
-        val second = NostrEventDeduplicator()
-        first.isDuplicate("event-1")
-        val provider = CountingProvider(first)
+    fun `the deduplicator is asked for again on every event the manager receives`() {
+        val provider = CountingProvider(NostrEventDeduplicator())
         val manager = newRelayManager(deduplicator = provider)
-        assertNotSame(first, second)
-        assertEquals(1, manager.getDeduplicationStats().currentSize)
+        // A subscription as subscribe() would record it, without opening a socket.
+        @Suppress("UNCHECKED_CAST")
+        val active = NostrRelayManager::class.java.getDeclaredField("activeSubscriptions")
+            .apply { isAccessible = true }
+            .get(manager) as MutableMap<String, NostrRelayManager.SubscriptionInfo>
+        active["sub"] = NostrRelayManager.SubscriptionInfo(id = "sub", filter = NostrFilter(), handler = { })
+        fun message(id: String) =
+            """["EVENT","sub",{"id":"$id","pubkey":"pk","created_at":1,"kind":1,"tags":[],"content":"x","sig":"s"}]"""
 
-        provider.current = second
+        manager.handleMessage(message("event-1"), "wss://relay.invalid")
+        assertEquals(1, provider.asked)
+        manager.handleMessage(message("event-2"), "wss://relay.invalid")
+        assertEquals(2, provider.asked)
 
-        assertEquals(0, manager.getDeduplicationStats().currentSize)
-        assertSame(second, provider.get())
+        // A replaced deduplicator is the one that sees the next event.
+        val replacement = NostrEventDeduplicator()
+        provider.current = replacement
+        manager.handleMessage(message("event-1"), "wss://relay.invalid")
+        assertEquals(3, provider.asked)
+        assertEquals(1, replacement.getStats().totalChecks)
     }
 }

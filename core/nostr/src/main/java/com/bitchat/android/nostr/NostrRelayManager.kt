@@ -985,7 +985,8 @@ class NostrRelayManager @Inject constructor(
         }
     }
 
-    private fun handleMessage(message: String, relayUrl: String) {
+    @VisibleForTesting
+    internal fun handleMessage(message: String, relayUrl: String) {
         try {
             val jsonElement = JsonParser.parseString(message)
             if (!jsonElement.isJsonArray) {
