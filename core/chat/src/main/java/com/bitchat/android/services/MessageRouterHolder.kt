@@ -3,7 +3,6 @@ package com.bitchat.android.services
 import com.bitchat.android.identity.scope.IdentityScoped
 import com.bitchat.android.mesh.MeshService
 import javax.inject.Inject
-import javax.inject.Provider
 
 /**
  * Owns the identity's one [MessageRouter]. The router outlives any mesh: the foreground service
@@ -12,7 +11,7 @@ import javax.inject.Provider
  */
 @IdentityScoped
 class MessageRouterHolder @Inject constructor(
-    private val create: Provider<MessageRouter>,
+    private val newRouter: MessageRouter.Factory,
 ) {
     @Volatile
     private var router: MessageRouter? = null
@@ -26,7 +25,7 @@ class MessageRouterHolder @Inject constructor(
      */
     fun getOrAttach(mesh: MeshService): MessageRouter {
         val current = router ?: synchronized(this) {
-            router ?: create.get().also { built ->
+            router ?: newRouter.create().also { built ->
                 built.attach(mesh)
                 built.registerFavoritesListener()
                 router = built

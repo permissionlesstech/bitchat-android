@@ -13,7 +13,6 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
-import javax.inject.Provider
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -62,18 +61,20 @@ class MessageRouterHolderTest {
     }
 
     private fun holder(disableScheduler: Boolean = true) = MessageRouterHolder(
-        Provider {
-            builds.incrementAndGet()
-            MessageRouter(
-                RuntimeEnvironment.getApplication(),
-                nostrIdentity,
-                favorites,
-                stores.contactDirectory,
-                stores.geohashAliases,
-                GeohashConversationRegistry(),
-                nostr,
-                disableScheduler,
-            ).also(built::add)
+        object : MessageRouter.Factory {
+            override fun create(): MessageRouter {
+                builds.incrementAndGet()
+                return MessageRouter(
+                    RuntimeEnvironment.getApplication(),
+                    nostrIdentity,
+                    favorites,
+                    stores.contactDirectory,
+                    stores.geohashAliases,
+                    GeohashConversationRegistry(),
+                    nostr,
+                    disableScheduler,
+                ).also(built::add)
+            }
         },
     )
 

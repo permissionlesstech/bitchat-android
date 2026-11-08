@@ -12,6 +12,8 @@ import com.bitchat.android.nostr.GeohashConversationRegistry
 import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.nostr.NostrTransport
 import com.bitchat.android.util.AppConstants
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,13 +23,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
-import javax.inject.Inject
 
 /**
  * Routes messages between local mesh transports and Nostr, matching iOS behavior.
  *
  * Built only by [MessageRouterHolder], which owns the identity's one router and attaches it to a
- * mesh before anyone can see it. Unscoped so the holder alone decides when it is built.
+ * mesh before anyone can see it. An assisted factory rather than a plain `@Inject` constructor, so
+ * the type cannot be injected directly: a direct injection would build a second router with no
+ * mesh, no scheduler, no favourites listener and its own outbox.
  */
 class MessageRouter internal constructor(
     private val context: Context,
@@ -39,8 +42,13 @@ class MessageRouter internal constructor(
     private val nostr: NostrTransport,
     private val disableSchedulerForTesting: Boolean,
 ) {
+    @AssistedFactory
+    interface Factory {
+        fun create(): MessageRouter
+    }
+
     /** What the graph calls: the scheduler always runs. */
-    @Inject
+    @AssistedInject
     constructor(
         @ApplicationContext context: Context,
         nostrIdentity: NostrIdentityBridge,
