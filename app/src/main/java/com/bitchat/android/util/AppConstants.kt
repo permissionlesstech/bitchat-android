@@ -32,6 +32,25 @@ object AppConstants {
 
     object Sync {
         const val CLEANUP_INTERVAL_MS: Long = 60_000L
+
+        // REQUEST_SYNC is a public, unauthenticated packet, so a neighbor decides how often we
+        // decode a filter, hash every stored packet, and transmit whatever it claims to lack.
+        // The budgets below bound that work without touching what an honest peer needs.
+
+        // Shortest spacing between two serviced requests from the same peer. Honest peers ask on
+        // a 30s timer plus one scheduled first request, so only floods are shed.
+        const val REQUEST_INTERVAL_MS: Long = 5_000L
+
+        // Lets the scheduled first sync and a periodic one land back to back.
+        const val REQUEST_BURST: Int = 2
+
+        // Window over which a peer's response allowance refills to seenCapacity() packets — the
+        // most a peer can legitimately be missing in one round.
+        const val RESPONSE_REFILL_WINDOW_MS: Long = 30_000L
+
+        // Requester IDs come off the wire, so the bookkeeping itself has to be bounded or the
+        // mitigation becomes its own memory exhaustion vector.
+        const val MAX_TRACKED_REQUESTERS: Int = 256
     }
 
     object Fragmentation {
