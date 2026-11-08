@@ -4,6 +4,7 @@ import android.content.Context
 import com.bitchat.android.features.voice.LiveVoiceManager
 import com.bitchat.android.features.voice.VoiceWaveformCache
 import com.bitchat.android.geohash.LocationChannelManager
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.nostr.LocationNotesManager
 import com.bitchat.android.nostr.NearbyNotesController
@@ -28,7 +29,7 @@ internal interface ChatScreenDependencies {
     fun torManager(): ArtiTorManager
     fun liveVoiceManager(): LiveVoiceManager
     fun contactDirectory(): ContactDirectory
-    fun voiceWaveformCache(): VoiceWaveformCache
+    @CurrentIdentity fun voiceWaveformCache(): VoiceWaveformCache
     fun spamFilter(): SpamFilter
 }
 

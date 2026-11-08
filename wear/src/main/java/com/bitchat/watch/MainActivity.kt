@@ -3,6 +3,7 @@ package com.bitchat.watch
 import dagger.Lazy
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import javax.inject.Provider
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
@@ -68,6 +69,7 @@ import com.bitchat.watch.ui.WearChatState
 import com.bitchat.watch.ui.WearPeerIdentityState
 import com.bitchat.android.features.voice.LiveVoiceManager
 import com.bitchat.android.features.voice.VoiceWaveformCache
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.watch.ui.FormEdgeButton
 import com.bitchat.watch.ui.WearFormScreen
@@ -95,7 +97,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var appStateStore: AppStateStore
     @Inject lateinit var chatState: WearChatState
     @Inject lateinit var peerIdentity: WearPeerIdentityState
-    @Inject lateinit var voiceWaveformCache: VoiceWaveformCache
+    @Inject @CurrentIdentity lateinit var voiceWaveformCache: Provider<VoiceWaveformCache>
     @Inject lateinit var notificationCoordinator: WearNotificationCoordinator
 
     // Creates the mesh only on getOrCreate, once permissions and Bluetooth are confirmed.
@@ -166,7 +168,7 @@ class MainActivity : ComponentActivity() {
                                 peerIdentity = peerIdentity,
                                 meshHolder = meshHolder,
                                 liveVoiceManager = liveVoiceManager.get(),
-                                voiceWaveformCache = voiceWaveformCache,
+                                voiceWaveformCache = voiceWaveformCache.get(),
                                 notificationCoordinator = notificationCoordinator,
                                 launchRequest = pendingLaunchRequest,
                                 onQuit = ::quit,

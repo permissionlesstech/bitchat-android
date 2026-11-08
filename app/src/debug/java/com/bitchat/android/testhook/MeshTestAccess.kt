@@ -1,7 +1,10 @@
 package com.bitchat.android.testhook
 
 import android.content.Context
+import com.bitchat.android.features.voice.VoiceWaveformCache
 import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.identity.scope.CurrentIdentity
+import com.bitchat.android.identity.scope.IdentityHolder
 import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.services.AppStateStore
@@ -27,6 +30,8 @@ interface MeshTestAccess {
     fun spamFilter(): SpamFilter
     fun seenMessageStore(): SeenMessageStore
     fun meshServiceHolder(): MeshServiceHolder
+    fun identityHolder(): IdentityHolder
+    @CurrentIdentity fun voiceWaveformCache(): VoiceWaveformCache
 
     companion object {
         fun of(context: Context): MeshTestAccess =

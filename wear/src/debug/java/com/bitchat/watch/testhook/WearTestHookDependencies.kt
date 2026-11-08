@@ -2,6 +2,7 @@ package com.bitchat.watch.testhook
 
 import com.bitchat.android.features.voice.LiveVoiceManager
 import com.bitchat.android.features.voice.VoiceWaveformCache
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.watch.mesh.WearMeshHolder
@@ -22,7 +23,7 @@ interface WearTestHookDependencies {
     fun chatState(): WearChatState
     fun peerIdentity(): WearPeerIdentityState
     fun liveVoiceManager(): LiveVoiceManager
-    fun voiceWaveformCache(): VoiceWaveformCache
+    @CurrentIdentity fun voiceWaveformCache(): VoiceWaveformCache
     fun transportBridgeService(): TransportBridgeService
     fun meshHolder(): WearMeshHolder
 }
