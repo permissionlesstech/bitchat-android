@@ -62,7 +62,7 @@ object ContactIdentityResolver {
         val clean = value.trim()
         if (clean.startsWith("npub1", ignoreCase = true)) {
             return try {
-                val (hrp, data) = Bech32.decode(clean.lowercase())
+                val (hrp, data) = Bech32.decode(clean)
                 if (hrp == "npub" && data.size == 32) data.hexEncodedString() else null
             } catch (_: Exception) {
                 null
