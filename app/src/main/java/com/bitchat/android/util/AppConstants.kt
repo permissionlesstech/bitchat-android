@@ -70,13 +70,6 @@ object AppConstants {
         const val MAX_PAYLOAD_LENGTH: Int = 10_485_760
     }
 
-    object StoreForward {
-        const val MESSAGE_CACHE_TIMEOUT_MS: Long = 43_200_000L // 12h
-        const val MAX_CACHED_MESSAGES: Int = 100
-        const val MAX_CACHED_MESSAGES_FAVORITES: Int = 1_000
-        const val CLEANUP_INTERVAL_MS: Long = 600_000L
-    }
-
     object Power {
         const val CRITICAL_BATTERY_PERCENT: Int = 10
         const val LOW_BATTERY_PERCENT: Int = 20
