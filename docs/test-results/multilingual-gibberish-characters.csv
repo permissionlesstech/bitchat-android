@@ -1,0 +1,225 @@
+id,category_or_language,synthetic_chat,content,before_score,after_score,before_hidden,after_hidden
+numbers_in_chat-1,numbers_in_chat,,Please send 2 copies of the synthetic example.,2.861769343747033,3.3754719473698866,False,False
+numbers_in_chat-2,numbers_in_chat,,The sample has 3 pages and 12 diagrams.,3.457502379229194,3.520665111252403,False,False
+numbers_in_chat-3,numbers_in_chat,,I tried this 4 times and it worked every time.,2.68614607585801,3.115406778943733,False,False
+numbers_in_chat-4,numbers_in_chat,,The pretend order contains 24 blue pencils.,3.0103295771848586,3.3187514079365554,False,False
+numbers_in_chat-5,numbers_in_chat,,The example timer runs for 30 seconds.,2.9142312004759505,3.341981162374326,False,False
+numbers_in_chat-6,numbers_in_chat,,There are 128 entries in this demonstration list.,2.9241184319059053,3.146890501142365,False,False
+numbers_in_chat-7,numbers_in_chat,,The sample file contains 4096 bytes.,3.3848615986960273,3.8332105657892,False,False
+numbers_in_chat-8,numbers_in_chat,,The fictional price is EUR 12.50 including delivery.,3.399577469218011,3.7161013234297617,False,False
+numbers_in_chat-9,numbers_in_chat,,The recipe needs 250 g of flour and 100 ml of milk.,3.9161782014369964,3.8392479859156587,False,False
+numbers_in_chat-10,numbers_in_chat,,The example uses a 16:9 image with a 1920x1080 preview.,4.384785226097813,4.455410458719845,True,True
+numbers_in_chat-11,numbers_in_chat,,The progress indicator is at 75% in this fictional example.,2.8101774145816933,3.086074514249605,False,False
+numbers_in_chat-12,numbers_in_chat,,The demonstration temperature is 21.5 degrees.,3.295635191599528,3.7030951192638493,False,False
+numbers_in_chat-13,numbers_in_chat,,Version 2.0.3 fixes the sample menu problem.,3.4203707159951677,3.494700006604297,False,False
+numbers_in_chat-14,numbers_in_chat,,The sample calendar entry uses 2099-01-02 as a fictional date.,3.6782819223208505,3.9735496742560015,False,False
+numbers_in_chat-15,numbers_in_chat,,The example shows 09:30 and 10:45 as pretend time values.,3.9275949831519807,4.110925406729688,False,False
+numbers_in_chat-16,numbers_in_chat,,"Try option 1 first, then compare it with option 2.",3.1723774884428297,3.29784429808151,False,False
+numbers_in_chat-17,numbers_in_chat,,The fictional total is 19.95 + 4.00 = 23.95.,5.742142535919367,4.822501114724925,True,True
+numbers_in_chat-18,numbers_in_chat,,Use a 3 mm drill for the small demonstration piece.,2.8938277411460875,3.4149100847611735,False,False
+numbers_in_chat-19,numbers_in_chat,,"The example battery indicator reads 80%, not a real measurement.",2.964834850458872,3.5002739124547695,False,False
+numbers_in_chat-20,numbers_in_chat,,We need 6 more samples to reach a total of 20.,3.091420371002621,3.346909668600007,False,False
+punctuation_in_chat-1,punctuation_in_chat,,Really? That's the result I was hoping for!,3.068772701990037,3.9808264297322427,False,False
+punctuation_in_chat-2,punctuation_in_chat,,Thanks!!! This makes the explanation much easier to understand.,2.8359989523887634,3.656006082606941,False,False
+punctuation_in_chat-3,punctuation_in_chat,,I'm not sure... could you explain the second part?,3.271339465160759,3.479850962605335,False,False
+punctuation_in_chat-4,punctuation_in_chat,,"The sample is called ""the small example"" in the instructions.",2.6336860646804174,3.1098604080852272,False,False
+punctuation_in_chat-5,punctuation_in_chat,,Try the other option (the one below the preview).,2.715957154209415,3.1940449146462497,False,False
+punctuation_in_chat-6,punctuation_in_chat,,"The choices are [small], [medium], and [large].",4.578355101139649,4.519155438280448,True,True
+punctuation_in_chat-7,punctuation_in_chat,,"Please compare these: red/blue, on/off, and yes/no.",4.134972287416458,3.93850550735022,False,False
+punctuation_in_chat-8,punctuation_in_chat,,That looks good :) thanks for checking it!,2.995084612834744,3.7424460183692134,False,False
+punctuation_in_chat-9,punctuation_in_chat,,Oops :-/ I clicked the wrong button again.,3.2522970510692133,3.8350374029813246,False,False
+punctuation_in_chat-10,punctuation_in_chat,,I think it's ready... unless I've missed something?!,3.888086286245608,4.137082333330683,False,False
+punctuation_in_chat-11,punctuation_in_chat,,Could you check the spelling of 'example' in this paragraph?,2.879469753321955,3.6820854624216817,False,False
+punctuation_in_chat-12,punctuation_in_chat,,The heading uses a colon: here is the explanation.,2.4871560797399406,2.872892980537228,False,False
+punctuation_in_chat-13,punctuation_in_chat,,The first part works; the second part still needs attention.,2.6030375967591497,3.2248247220096316,False,False
+punctuation_in_chat-14,punctuation_in_chat,,Please keep the hyphenated sample-label in the demonstration.,2.6537556995948157,3.453418362900378,False,False
+punctuation_in_chat-15,punctuation_in_chat,,Use the + button to add an item and the - button to remove it.,2.770865922091437,3.2490879626331766,False,False
+punctuation_in_chat-16,punctuation_in_chat,,"This is a pretend quote: ""Can you hear me?""",3.4671594493445896,3.652624721594093,False,False
+punctuation_in_chat-17,punctuation_in_chat,,The sample uses A/B testing to compare two layouts.,2.7420716524124145,3.479350303661947,False,False
+punctuation_in_chat-18,punctuation_in_chat,,I agree -- the shorter explanation is easier to follow.,2.8369653247020863,3.577051935070682,False,False
+punctuation_in_chat-19,punctuation_in_chat,,That's exactly what I meant!!! Thank you so much!!!,3.7487393754720686,4.936151895207,False,True
+punctuation_in_chat-20,punctuation_in_chat,,"The example includes commas, parentheses (like these), and a final period.",3.003100337230996,3.3358382963774655,False,False
+numeric_and_math-1,numeric_and_math,,2 + 2 = 4,9.459307670593262,5.619186115415967,True,True
+numeric_and_math-2,numeric_and_math,,12 * 8 = 96,9.459307670593262,5.975911071786896,True,True
+numeric_and_math-3,numeric_and_math,,144 / 12 = 12,9.459307670593262,5.984271158553484,True,True
+numeric_and_math-4,numeric_and_math,,100 - 37 = 63,9.459307670593262,6.206675406051165,True,True
+numeric_and_math-5,numeric_and_math,,3.14159,9.459307670593262,9.215550073084536,True,True
+numeric_and_math-6,numeric_and_math,,0.125 = 1/8,9.459307670593262,5.788789957126354,True,True
+numeric_and_math-7,numeric_and_math,,50% + 25% = 75%,9.459307670593262,5.637882246293225,True,True
+numeric_and_math-8,numeric_and_math,,(2 + 3) * 4 = 20,9.459307670593262,5.884377038398106,True,True
+numeric_and_math-9,numeric_and_math,,"1, 1, 2, 3, 5, 8, 13, 21",9.459307670593262,6.361325615707103,True,True
+numeric_and_math-10,numeric_and_math,,x^2 + y^2 = r^2,8.723070638520378,7.766247178142928,True,True
+numeric_and_math-11,numeric_and_math,,f(x) = 2*x + 3,8.955814930108877,7.618433044644142,True,True
+numeric_and_math-12,numeric_and_math,,a <= b && b < c,7.178533639226641,6.802895251342538,True,True
+numeric_and_math-13,numeric_and_math,,6.02e23,9.459307670593262,6.170900503404229,True,True
+numeric_and_math-14,numeric_and_math,,0.000001,9.459307670593262,3.8616050612435444,True,False
+numeric_and_math-15,numeric_and_math,,-12.5 + 7.25 = -5.25,9.459307670593262,5.8940531569229,True,True
+numeric_and_math-16,numeric_and_math,,10:15 + 00:45 = 11:00,9.459307670593262,7.2867478180941445,True,True
+numeric_and_math-17,numeric_and_math,,1/2 + 1/3 = 5/6,9.459307670593262,8.124925068372566,True,True
+numeric_and_math-18,numeric_and_math,,sqrt(81) = 9,8.168246550993485,7.803377735963262,True,True
+numeric_and_math-19,numeric_and_math,,2099-01-02,9.459307670593262,8.307883509855028,True,True
+numeric_and_math-20,numeric_and_math,,00:01:30.500,9.459307670593262,8.520744671882827,True,True
+code_and_structured-1,code_and_structured,,val count = 3,4.022098918755849,3.6074557987082723,False,False
+code_and_structured-2,code_and_structured,,"println(""hello"")",5.080015126864115,5.489273293727328,True,True
+code_and_structured-3,code_and_structured,,"fun add(a: Int, b: Int) = a + b",5.756150639057159,4.802018707349135,True,True
+code_and_structured-4,code_and_structured,,if (count > 0) { showExample() },5.232572270977881,4.838659306158943,True,True
+code_and_structured-5,code_and_structured,,items.map { it.name }.sorted(),5.2568198236925845,5.141413793201202,True,True
+code_and_structured-6,code_and_structured,,SELECT sample FROM demo WHERE count > 3;,3.0029913156460495,3.5703070167533166,False,False
+code_and_structured-7,code_and_structured,,"{""example"":true,""count"":3}",5.772091207504272,5.059812007335293,True,True
+code_and_structured-8,code_and_structured,,"[1, 2, 3, 4, 5]",9.459307670593262,7.6614416727507635,True,True
+code_and_structured-9,code_and_structured,,"<sample enabled=""true"">hello</sample>",4.535545484887229,5.264340657431145,True,True
+code_and_structured-10,code_and_structured,,"sample_count: 12
+example_enabled: true",4.463843448742016,4.370158349323874,True,True
+code_and_structured-11,code_and_structured,,demo_key=example_value; mode=test; count=7,4.868345278065379,5.695769937986912,True,True
+code_and_structured-12,code_and_structured,,for (index in 0 until 10) println(index),4.466433968299475,4.289272399368453,True,True
+code_and_structured-13,code_and_structured,,"const sample = { count: 3, enabled: true };",4.478781524158659,3.9482476448444417,True,False
+code_and_structured-14,code_and_structured,,result = [value * 2 for value in range(5)],4.535053730010986,4.466784328773288,True,True
+code_and_structured-15,code_and_structured,,"name,count,enabled
+demo,3,true",4.440120620974179,4.654397199753211,True,True
+code_and_structured-16,code_and_structured,,^example_[a-z]+[0-9]{2}$,7.54173657686814,8.386095913004777,True,True
+code_and_structured-17,code_and_structured,,`sampleValues.map { it + 1 }`,5.326646860156741,4.846495696803069,True,True
+code_and_structured-18,code_and_structured,,"```json
+{""synthetic"":true,""value"":42}
+```",6.427388849854469,6.254024237968661,True,True
+code_and_structured-19,code_and_structured,,config/demo.json,4.542750644683838,4.937188939830508,True,True
+code_and_structured-20,code_and_structured,,value != null && value.length >= 2,5.327967911055594,5.305905398874725,True,True
+urls-1,urls,,https://example.invalid,4.697845870798284,4.161875903207492,True,False
+urls-2,urls,,https://example.invalid/demo,4.8178685417881715,4.347076992194833,True,True
+urls-3,urls,,https://example.invalid/sample?count=3,4.813107242455354,4.345831298679334,True,True
+urls-4,urls,,https://example.invalid/docs#example,4.822150417736599,4.642458318292725,True,True
+urls-5,urls,,https://example.invalid/a/b/c,5.7181591136114935,5.355083725293824,True,True
+urls-6,urls,,https://example.invalid/search?q=sample+text,4.937380117039348,4.956451519548961,True,True
+urls-7,urls,,https://example.invalid/sample%20file.txt,5.144055759906768,4.86967218261152,True,True
+urls-8,urls,,https://example.invalid/demo?enabled=true&count=12,5.064457002951174,5.08459985263759,True,True
+urls-9,urls,,www.example.invalid/demo,4.718611458073491,5.049926783547478,True,True
+urls-10,urls,,example.invalid/sample,3.7221404030209495,3.6531162781440303,False,False
+urls-11,urls,,Please read https://example.invalid/demo for the synthetic explanation.,3.4237429967948367,3.633240131325989,False,False
+urls-12,urls,,The fictional example is documented at https://example.invalid/docs.,3.5416732092401872,3.704176039576198,False,False
+urls-13,urls,,Try https://example.invalid/sample?count=3 for the demonstration.,3.9582341643981636,3.8169477111588193,False,False
+urls-14,urls,,The sample link is https://example.invalid/a/b/c and contains no real service.,3.6327193859335662,3.9609752679366497,False,False
+urls-15,urls,,See https://example.invalid/docs#example for another explanation.,3.7319876309484243,3.928968888334008,False,False
+urls-16,urls,,The pretend download is https://example.invalid/sample.zip.,4.053539403553667,3.977504660833485,False,False
+urls-17,urls,,The synthetic image is https://example.invalid/image.png?size=small.,4.242163216000173,4.39740451001769,True,True
+urls-18,urls,,This is a fictional address: https://example.invalid/test?x=1&y=2.,4.657675394645104,4.523525681215118,True,True
+urls-19,urls,,Open https://example.invalid/help to read the sample instructions.,3.4829827611262982,3.6583583388432936,False,False
+urls-20,urls,,The example website is www.example.invalid and is deliberately nonfunctional.,2.948455849368321,3.6877018804247075,False,False
+hashes_and_identifiers-1,hashes_and_identifiers,,demo_value_0001,6.223148141588483,6.459168709022827,True,True
+hashes_and_identifiers-2,hashes_and_identifiers,,SAMPLE_REFERENCE_1234567890,5.849930456051459,5.032875326395969,True,True
+hashes_and_identifiers-3,hashes_and_identifiers,,demo-0000-1111-2222-3333,8.565103458321612,8.745486729183192,True,True
+hashes_and_identifiers-4,hashes_and_identifiers,,00000000-1111-4222-8333-444444444444,9.459307670593262,9.709611205953639,True,True
+hashes_and_identifiers-5,hashes_and_identifiers,,0x0123456789abcdef,8.077163142316481,5.206325969036864,True,True
+hashes_and_identifiers-6,hashes_and_identifiers,,AAECAwQFBgcICQoLDA0ODw==,6.0627082119817315,6.570930215808924,True,True
+hashes_and_identifiers-7,hashes_and_identifiers,,c3ludGhldGljIGV4YW1wbGU=,6.346209894055906,7.25573882008032,True,True
+hashes_and_identifiers-8,hashes_and_identifiers,,example.user@example.invalid,3.9332781500286527,4.362196361927125,False,True
+hashes_and_identifiers-9,hashes_and_identifiers,,Synthetic reference: DEMO-2099-000123,5.427050822310978,4.78152469589827,True,True
+hashes_and_identifiers-10,hashes_and_identifiers,,The pretend identifier is sample_value_0001.,3.615162942298623,4.145457374692516,False,False
+hashes_and_identifiers-11,hashes_and_identifiers,,The fictional attachment is example_document_v2.3.txt.,3.875018430206011,4.375046478015928,False,True
+hashes_and_identifiers-12,hashes_and_identifiers,,sample.package.ExampleClass,3.668892319385822,4.026908841845047,False,False
+hashes_and_identifiers-13,hashes_and_identifiers,,"exampleFunction(sample_value, count=3)",4.099865974606694,4.760241204273589,False,True
+hashes_and_identifiers-14,hashes_and_identifiers,,Example checksum: 8a4f2c9d6e1b70358c2d4a6f9b1e5073,7.279888089822263,7.6026653746949675,True,True
+hashes_and_identifiers-15,hashes_and_identifiers,,Synthetic digest: 6b3e91a04fd728c59a107e3b2c8d465fb9017a2c5e38d6f04b72c9e135a8fd60,8.177614326830264,7.490061296576224,True,True
+hashes_and_identifiers-16,hashes_and_identifiers,,sample-id: qxjvtpkzmxqvfbjkvxzpqvxjqzmt,5.6759011557227685,7.0781337117244885,True,True
+hashes_and_identifiers-17,hashes_and_identifiers,,`qxjvtpkzmxqvfbjkvxzpqvxjqzmt`,6.12767847653093,7.988484830928724,True,True
+hashes_and_identifiers-18,hashes_and_identifiers,,"{""sample_id"":""qxjvtpkzmxqvfbjkvxzpqvxjqzmt""}",6.2180286507273825,7.51447510299461,True,True
+hashes_and_identifiers-19,hashes_and_identifiers,,The fictional build label is demo_release_1.2.3_debug.,3.8972399380971803,4.479367342167251,False,True
+hashes_and_identifiers-20,hashes_and_identifiers,,This synthetic example token is AAECAwQFBgcICQoLDA0ODw==.,4.055070410881724,4.950955240551209,False,True
+short_replies-1,short_replies,,ok,3.770375967025757,3.395641852593463,False,False
+short_replies-2,short_replies,,yes,2.9217275381088257,1.9820762953752027,False,False
+short_replies-3,short_replies,,no,2.7176260948181152,2.9577180668281398,False,False
+short_replies-4,short_replies,,thanks,2.12501118183136,3.086666350423385,False,False
+short_replies-5,short_replies,,hello,2.1850037574768066,2.823839521016591,False,False
+short_replies-6,short_replies,,hi 1,5.624967813491821,6.118251738722354,True,True
+short_replies-7,short_replies,,ok 2,4.852269212404887,4.944394173381789,True,True
+short_replies-8,short_replies,,v2.0,9.459307670593262,7.969697194500762,True,True
+short_replies-9,short_replies,,42,9.459307670593262,11.056390380886985,True,True
+short_replies-10,short_replies,,3/4,9.459307670593262,10.920856459680769,True,True
+short_replies-11,short_replies,,:),9.459307670593262,4.639929216413758,True,True
+short_replies-12,short_replies,,:-),9.459307670593262,11.763890419336658,True,True
+short_replies-13,short_replies,,:-P,9.459307670593262,6.109320196510525,True,True
+short_replies-14,short_replies,,?!,9.459307670593262,13.221366438049436,True,True
+short_replies-15,short_replies,,...,9.459307670593262,1.753834879914886,True,False
+short_replies-16,short_replies,,brb,4.251490950584412,3.6556089240262812,True,False
+short_replies-17,short_replies,,idk,5.631675124168396,5.64051473480886,True,True
+short_replies-18,short_replies,,hmmmm,5.163103938102722,4.62801100093668,True,True
+short_replies-19,short_replies,,don't,5.851456850767136,4.0890191062528904,True,False
+short_replies-20,short_replies,,can't,5.644679069519043,3.156919736083726,True,False
+unicode-1,unicode,,"Tiếng Việt có dấu, đây là một ví dụ hoàn toàn hư cấu",6.532605306190603,3.221089522184962,True,False
+unicode-2,unicode,,क्या कोई इस काल्पनिक उदाहरण को समझाने में मदद कर सकता है?,9.459307670593262,2.644973603651015,True,False
+unicode-3,unicode,,これは架空の会話を使ったソフトウェアのテストです。,9.459307670593262,2.3387119855201233,True,False
+unicode-4,unicode,,这是一个完全虚构的软件测试示例，不是真实对话。,9.459307670593262,2.85321600184201,True,False
+unicode-5,unicode,,Это вымышленный пример для проверки работы программы.,9.459307670593262,3.061758842545948,True,False
+unicode-6,unicode,,هذا مثال خيالي بالكامل لاختبار سلوك البرنامج.,9.459307670593262,2.8864857330948013,True,False
+unicode-7,unicode,,이 문장은 소프트웨어 테스트를 위한 가상의 예시입니다.,9.459307670593262,2.416103100778837,True,False
+unicode-8,unicode,,Este é um exemplo fictício para testar o comportamento do programa.,3.1532112630930813,3.442180266798713,False,False
+unicode-9,unicode,,Ceci est un exemple fictif pour essayer le fonctionnement du programme.,2.7727114030293056,3.1867566581890148,False,False
+unicode-10,unicode,,Esta es una frase inventada para comprobar el comportamiento del programa.,2.72045821441363,3.195458072044683,False,False
+unicode-11,unicode,,Questo esempio inventato serve a controllare il comportamento del programma.,2.597073096036911,3.2841856369024374,False,False
+unicode-12,unicode,,Dies ist ein erfundener Beispielsatz zum Testen des Programms.,3.0944861544937385,3.592508797578185,False,False
+unicode-13,unicode,,Dit is een verzonnen voorbeeld om het gedrag van het programma te testen.,2.8831302954090967,3.1738071526889753,False,False
+unicode-14,unicode,,Bu tamamen uydurma bir yazilim testi cumlesidir ve gercek veri icermez.,3.3322197301047187,2.8770624602530392,False,False
+unicode-15,unicode,,To jest wymyslony przyklad do sprawdzania dzialania programu.,3.7511857375502586,2.981349267290265,False,False
+unicode-16,unicode,,Privet eto vymyshlennyi primer dlya proverki raboty programmy.,3.361803685543967,4.057924689062827,False,False
+unicode-17,unicode,,Thanks for the example 👍,2.2188525770021523,3.0379532296997622,False,False
+unicode-18,unicode,,😀 🎉 👍 🤖 🐙 🦕,9.459307670593262,13.147827937260988,True,True
+unicode-19,unicode,,The fictional price is €12.50 and the sample length is 3 µm.,3.5815827028226046,4.6034656994264775,False,True
+unicode-20,unicode,,"This synthetic sentence uses café, naïve, and résumé as examples.",3.8105907458812,4.506637770145999,False,True
+english-1,english,,Could somebody help me understand why this option keeps turning itself off?,2.692369283051104,3.64395732885855,False,False
+english-2,english,,I tried the suggestion and the problem went away immediately.,2.465411612888177,3.251592790520452,False,False
+english-3,english,,Would it be possible to make the text a little larger in this view?,2.414035203781995,3.326220947091249,False,False
+english-4,english,,"The attachment arrived correctly, although the preview took a while to appear.",2.7005794652096635,3.398694356023904,False,False
+english-5,english,,Everything seems to be working again after restarting the application.,2.391275653804558,3.1078536207247422,False,False
+english-6,english,,I think we should check the simpler explanation before adding another dependency.,2.3095782049000264,3.014551636101438,False,False
+english-7,english,,"That is an interesting question, and I do not have a confident answer yet.",2.661494701284252,3.2328620091242413,False,False
+english-8,english,,Can we keep this discussion focused on the behavior that actually changed?,2.4117359400612033,3.309081517805458,False,False
+english-9,english,,"The new design feels much cleaner, especially when there are lots of replies.",2.7918107223353887,3.5574411878325334,False,False
+english-10,english,,Please let me know whether you can reproduce this with the default settings.,2.4845540205637615,3.300486598554956,False,False
+english-11,english,,I'm not sure I understand the difference between those two examples.,2.708890511918424,3.534930438904064,False,False
+english-12,english,,You don't have to finish everything at once; the smaller improvement is useful.,2.7598105615530257,3.523757242195987,False,False
+english-13,english,,"We haven't checked the unusual cases, so let's avoid making a strong claim.",3.037660301537127,3.806513029842301,False,False
+english-14,english,,It's much easier to follow the explanation with a concrete example.,2.612497515750654,3.406451644032626,False,False
+english-15,english,,"The notification appeared twice, but there was only one message in the conversation.",2.4222764232790612,2.804920088826538,False,False
+english-16,english,,I accidentally closed the window before the operation had completed.,2.411338748771753,3.1019874936412886,False,False
+english-17,english,,There might be a simpler approach that avoids keeping so much state.,2.5316406559588303,3.348088561094681,False,False
+english-18,english,,The latest change makes scrolling smoother when the list gets longer.,2.2387255377629223,3.0274551100732983,False,False
+english-19,english,,"The picture is slightly blurry, but I can still read the small print.",2.6685946938746117,3.3718974240422055,False,False
+english-20,english,,The recording is understandable even though there is some background noise.,2.323536808426316,3.0386422954667505,False,False
+english-21,english,,I would rather have an honest uncertain result than a misleading confident one.,2.395380805700253,3.1455725404521298,False,False
+english-22,english,,"The two samples look similar, but the second contains an extra blank line.",2.5434695327118653,3.2401952497322064,False,False
+english-23,english,,The first explanation was confusing; the diagram made the relationship clearer.,2.562736865801689,3.2352675293451036,False,False
+english-24,english,,We should leave enough room for the translated version of this sentence.,2.3325531952817675,3.104415471251361,False,False
+english-25,english,,The easiest way to check is to repeat the experiment with fresh input.,2.3498687411563983,3.140071239606575,False,False
+english-26,english,,The old behavior was surprising because it silently discarded the result.,2.4003056979013815,3.2562817165823845,False,False
+english-27,english,,There is probably a missing condition somewhere in the cleanup logic.,2.3011440157013783,3.132228781993654,False,False
+english-28,english,,The reply arrived before the progress indicator had disappeared.,2.3563556335275133,2.975318003926189,False,False
+english-29,english,,The example is deliberately fictional and contains no actual conversation data.,2.3858160846508465,3.1724972493115535,False,False
+english-30,english,,"I expected the small file to finish first, but both completed together.",2.5516201274735586,3.1141628149141307,False,False
+english-31,english,,The tiny dinosaur illustration would look funny beside the serious error message.,2.436615566909313,3.172981224798501,False,False
+english-32,english,,An enormous imaginary octopus borrowed a miniature umbrella from a dragon.,2.798017002540092,3.6209951994855167,False,False
+english-33,english,,The mysterious clockwork penguin carefully rearranged the colorful puzzle pieces.,2.49042053706944,3.3784180628421456,False,False
+english-34,english,,A whimsical wizard examined the extraordinary collection of rubber ducks.,2.793188627809286,3.551325588915799,False,False
+english-35,english,,The curious robot enthusiastically described its favorite imaginary breakfast.,2.6720937320164273,3.515460033682736,False,False
+english-36,english,,My spelling is terrible sometimes but hopefully the meaning is still obvious.,2.412500280298685,3.2106325464030414,False,False
+english-37,english,,honestly this looks pretty good and i cant think of anything else to change,2.4090750144945607,3.3075718812663344,False,False
+english-38,english,,yeah that makes sense now thanks for taking the time to explain it,2.2632574704977184,3.082032389169427,False,False
+english-39,english,,hmm maybe try the other option first and see whether that helps,2.285680467563291,3.0499577549721852,False,False
+english-40,english,,lol i completely missed that detail when i read the question,2.3324223776995123,3.061955397183282,False,False
+english-41,english,,btw does anyone know whether the new setting survives a restart,2.5811152006349256,3.3718325137497343,False,False
+english-42,english,,idk why it failed the first time but it seems fine after trying again,2.445094526252326,3.2978077087416784,False,False
+english-43,english,,the color looks kinda different but the layout is basically the same,2.203786150288226,3.0583984759913423,False,False
+english-44,english,,could u explain that again im still a bit confused about the last part,2.2862623187078945,3.1098272788242713,False,False
+english-45,english,,wow this is soooo much easier to understand with the extra example,2.341744394485767,3.230910191098007,False,False
+english-46,english,,thanks!!! this finally explains the weird behavior i kept seeing,2.8472224762515417,3.810992143299368,False,False
+english-47,english,,PLEASE CHECK THE SMALL EXAMPLE BEFORE TRYING THE FULL EXPERIMENT,2.066845534339784,2.859120337826366,False,False
+english-48,english,,"One, two, three: there are several perfectly ordinary ways to phrase this.",3.0487611783693915,3.399958624309986,False,False
+english-49,english,,Does the original rule still apply when the message contains a question?,2.293599251290442,2.992966929802595,False,False
+english-50,english,,"The hypothetical attacker changes identity, while the text remains complete nonsense.",2.5573643488543376,3.21935523366394,False,False
+english-51,english,,A sufficiently careful test should include ordinary jokes and casual abbreviations.,2.5819009593347224,3.4937944963943477,False,False
+english-52,english,,The approximate result is useful even when the exact measurement is unavailable.,2.4838467391231394,3.268221847432866,False,False
+english-53,english,,The xylophone player quietly improvised a surprisingly jazzy little melody.,2.8399179577827454,3.8973582641746587,False,False
+english-54,english,,The bizarre juxtaposition of fuzzy textures and geometric shapes was delightful.,2.8428241138971306,3.757218483203861,False,False
+english-55,english,,Quizzical expressions appeared as the exceptionally awkward explanation continued.,2.596738941875505,3.397242718941513,False,False
+english-56,english,,We can discuss the tradeoffs without pretending that every case has an easy answer.,2.4381635872329155,3.2186222015892194,False,False
+english-57,english,,This is an entirely plausible sentence even though it is generated for a test.,2.347869158952267,3.152142715974692,False,False
+english-58,english,,A sentence can be grammatically ordinary while still being irrelevant to the discussion.,2.4689297532213144,3.226807517567757,False,False
+english-59,english,,Randomly chosen real words remain a limitation of a character probability model.,2.6399476565892184,3.5125498346984716,False,False
+english-60,english,,The implementation should preserve the original content when calculating its score.,2.2339716597301202,2.968029170823589,False,False

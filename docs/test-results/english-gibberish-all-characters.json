@@ -1,0 +1,249 @@
+{
+  "schema_version": 1,
+  "baseline_commit": "8319212cabf557c27397ff9eca998a7da6d2733d",
+  "experiment": "Remove all content-based exemptions from the existing public-text English character model",
+  "policy": {
+    "threshold": 4.2,
+    "learned_weights": 729,
+    "weight_bytes": 2916,
+    "weights_sha256": "7016654db44393923bacbc078b9e710f6a77fcc494a72433e29c69965ab6f41c",
+    "weights_unchanged": true,
+    "training_corpus_unchanged": true,
+    "unknown_transition_policy": "Highest cost already present in the fixed learned table",
+    "unknown_transition_cost": 9.459308,
+    "minimum_length_removed": true,
+    "technical_token_exemptions_removed": true,
+    "script_exemptions_removed": true,
+    "single_character_policy": "Use preceding-space cost for known characters and unknown-transition cost otherwise",
+    "resource_bounds": {
+      "input_prefix_utf16_units": 4096,
+      "scored_code_points": 1000
+    },
+    "scope": "Incoming public text; existing private/media routing and master/debug controls remain in effect"
+  },
+  "evaluation": {
+    "source": "Original synthetic legitimate examples; no real chats or device data",
+    "sample_count": 220,
+    "primary_numbers_and_symbols": {
+      "total": 120,
+      "blocked_before": 1,
+      "blocked_after": 65,
+      "blocked_after_percent": 54.17,
+      "newly_blocked": 64,
+      "newly_allowed": 0
+    },
+    "all_legitimate_controls": {
+      "total": 220,
+      "blocked_before": 1,
+      "blocked_after": 88,
+      "blocked_after_percent": 40.0,
+      "newly_blocked": 87,
+      "newly_allowed": 0
+    },
+    "by_category": {
+      "numbers_in_chat": {
+        "total": 20,
+        "blocked_before": 0,
+        "blocked_after": 2,
+        "blocked_after_percent": 10.0,
+        "newly_blocked": 2,
+        "newly_allowed": 0
+      },
+      "punctuation_in_chat": {
+        "total": 20,
+        "blocked_before": 0,
+        "blocked_after": 1,
+        "blocked_after_percent": 5.0,
+        "newly_blocked": 1,
+        "newly_allowed": 0
+      },
+      "numeric_and_math": {
+        "total": 20,
+        "blocked_before": 0,
+        "blocked_after": 20,
+        "blocked_after_percent": 100.0,
+        "newly_blocked": 20,
+        "newly_allowed": 0
+      },
+      "code_and_structured": {
+        "total": 20,
+        "blocked_before": 0,
+        "blocked_after": 18,
+        "blocked_after_percent": 90.0,
+        "newly_blocked": 18,
+        "newly_allowed": 0
+      },
+      "urls": {
+        "total": 20,
+        "blocked_before": 0,
+        "blocked_after": 11,
+        "blocked_after_percent": 55.0,
+        "newly_blocked": 11,
+        "newly_allowed": 0
+      },
+      "hashes_and_identifiers": {
+        "total": 20,
+        "blocked_before": 1,
+        "blocked_after": 13,
+        "blocked_after_percent": 65.0,
+        "newly_blocked": 12,
+        "newly_allowed": 0
+      },
+      "short_replies": {
+        "total": 20,
+        "blocked_before": 0,
+        "blocked_after": 15,
+        "blocked_after_percent": 75.0,
+        "newly_blocked": 15,
+        "newly_allowed": 0
+      },
+      "unicode": {
+        "total": 20,
+        "blocked_before": 0,
+        "blocked_after": 8,
+        "blocked_after_percent": 40.0,
+        "newly_blocked": 8,
+        "newly_allowed": 0
+      },
+      "english": {
+        "total": 60,
+        "blocked_before": 0,
+        "blocked_after": 0,
+        "blocked_after_percent": 0.0,
+        "newly_blocked": 0,
+        "newly_allowed": 0
+      }
+    },
+    "primary_length_groups": {
+      "under_24_code_points": {
+        "total": 27,
+        "blocked_before": 0,
+        "blocked_after": 25,
+        "blocked_after_percent": 92.59,
+        "newly_blocked": 25,
+        "newly_allowed": 0
+      },
+      "24_or_more_code_points": {
+        "total": 93,
+        "blocked_before": 1,
+        "blocked_after": 40,
+        "blocked_after_percent": 43.01,
+        "newly_blocked": 39,
+        "newly_allowed": 0
+      }
+    },
+    "unscored_before": 102,
+    "unscored_after": 0,
+    "phone_watch_results_identical": true,
+    "paired_cases": "docs/test-results/english-gibberish-all-characters-cases.csv",
+    "baseline_mode": "Original content exemptions enabled",
+    "current_mode": "No content exemptions; learned table and threshold unchanged"
+  },
+  "flood_seed": 999,
+  "flood_results": [
+    {
+      "transport": "mesh",
+      "style": "mixed_ascii",
+      "sent": 10000,
+      "english_rule_disabled_admitted": 9994,
+      "model_hidden": 10000,
+      "model_admitted": 0,
+      "hidden_percent": 100.0
+    },
+    {
+      "transport": "nostr",
+      "style": "mixed_ascii",
+      "sent": 10000,
+      "english_rule_disabled_admitted": 9994,
+      "model_hidden": 10000,
+      "model_admitted": 0,
+      "hidden_percent": 100.0
+    },
+    {
+      "transport": "mesh",
+      "style": "spaced_letters",
+      "sent": 10000,
+      "english_rule_disabled_admitted": 10000,
+      "model_hidden": 9932,
+      "model_admitted": 68,
+      "hidden_percent": 99.32
+    },
+    {
+      "transport": "mesh",
+      "style": "unbroken_letters",
+      "sent": 10000,
+      "english_rule_disabled_admitted": 10000,
+      "model_hidden": 9998,
+      "model_admitted": 2,
+      "hidden_percent": 99.98
+    },
+    {
+      "transport": "nostr",
+      "style": "spaced_letters",
+      "sent": 10000,
+      "english_rule_disabled_admitted": 10000,
+      "model_hidden": 9945,
+      "model_admitted": 55,
+      "hidden_percent": 99.45
+    },
+    {
+      "transport": "nostr",
+      "style": "unbroken_letters",
+      "sent": 10000,
+      "english_rule_disabled_admitted": 10000,
+      "model_hidden": 9999,
+      "model_admitted": 1,
+      "hidden_percent": 99.99
+    }
+  ],
+  "unit_tests": {
+    "app": {
+      "tests": 774,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 3,
+      "passed": 771
+    },
+    "wear": {
+      "tests": 302,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 302
+    }
+  },
+  "debug_builds": {
+    "app": "pass",
+    "wear": "pass"
+  },
+  "lint": {
+    "tasks": "completed under repository nonblocking configuration",
+    "new_model_and_evaluation_findings": 0,
+    "reported": {
+      "app": {
+        "hint": 19,
+        "warning": 335,
+        "error": 311
+      },
+      "wear": {
+        "error": 37,
+        "warning": 51,
+        "hint": 10
+      }
+    }
+  },
+  "physical_validation": {
+    "result": "not_run",
+    "scenario": "broadcast_gibberish",
+    "physical_evidence": false
+  },
+  "detector_source_sha256": "2a8d3c6ad45ee6190b788c8c33a6528eddcb0a9b1e623cf59b77901f1d00ff8e",
+  "fixture_source_sha256": "a6681824d50091af02ae9a6d54df64baa0ca1206b586e47c9399a3c0624363b8",
+  "limits": [
+    "Hand-picked synthetic format controls are not a representative sample of real chat",
+    "False-positive percentages describe this dataset only",
+    "Untrained-character costs are a deliberate fallback, not learned probabilities for numbers or symbols",
+    "No physical-device result claimed"
+  ],
+  "reproduction": "TEST_SEED=999 ./gradlew :app:testDebugUnitTest --tests 'com.bitchat.android.spam.*' --tests '*GeohashMessageHandlerSpamTest' --tests '*IncomingMessageAdmissionTest' :wear:testDebugUnitTest --tests 'com.bitchat.android.spam.*'"
+}

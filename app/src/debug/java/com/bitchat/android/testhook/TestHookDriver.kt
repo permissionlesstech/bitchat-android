@@ -270,6 +270,8 @@ object TestHookDriver {
         val timeoutMs = intent.getLongExtra("timeout_ms", DEFAULT_RECV_TIMEOUT_MS)
         val contains = intent.getStringExtra("contains")
         val channel = intent.getStringExtra("channel")
+        // Only opt in with unique synthetic content; preserve the arrival-based default.
+        val includeExisting = intent.getBooleanExtra("include_existing", false)
         val mesh = mesh(context)
         val accepts: (com.bitchat.android.model.BitchatMessage) -> Boolean = { msg ->
             msg.senderPeerID != mesh.myPeerID &&
@@ -278,10 +280,12 @@ object TestHookDriver {
         }
         val found = withTimeoutOrNull(timeoutMs) {
             if (channel != null) {
-                val matcher = ArrivedMessageMatcher(AppStateStore.channelMessages.value.values.flatten(), accepts)
+                val initial = if (includeExisting) emptyList() else AppStateStore.channelMessages.value.values.flatten()
+                val matcher = ArrivedMessageMatcher(initial, accepts)
                 AppStateStore.channelMessages.mapNotNull { m -> matcher.firstArrived(m.values.flatten()) }.first()
             } else {
-                val matcher = ArrivedMessageMatcher(AppStateStore.publicMessages.value, accepts)
+                val initial = if (includeExisting) emptyList() else AppStateStore.publicMessages.value
+                val matcher = ArrivedMessageMatcher(initial, accepts)
                 AppStateStore.publicMessages.mapNotNull(matcher::firstArrived).first()
             }
         } ?: return err("msg_recv", "timeout after ${timeoutMs}ms")
