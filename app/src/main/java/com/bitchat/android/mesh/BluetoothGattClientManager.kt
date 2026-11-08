@@ -214,7 +214,9 @@ class BluetoothGattClientManager(
         
         val scanFilters = listOf(scanFilter)
 
-        scanCallback = object : ScanCallback() {
+        // Reuse one callback: the stack tracks scans by callback identity, so a replaced callback
+        // could never stop or recognize a scan registered under the previous one.
+        scanCallback = scanCallback ?: object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
                 handleScanResult(result)
             }
@@ -228,12 +230,14 @@ class BluetoothGattClientManager(
             override fun onScanFailed(errorCode: Int) {
                 isCurrentlyScanning = false
                 lastScanStopTime = System.currentTimeMillis()
+                // The stack keeps a registration that fails after startScan; release it regardless
+                // of the flag so the next start doesn't report already-started.
+                stopScanning(force = true)
 
                 when (errorCode) {
                     1 -> {
-                        // Already started: the stack thinks a scan is running. Re-arm from a clean
-                        // state so we don't stay wedged (stop then restart with backoff).
-                        stopScanning()
+                        // Already started: the stack thought a scan was running. It was stopped
+                        // above, so re-arm with backoff from a clean state.
                         scheduleScanRestart("already-started", SCAN_RETRY_BASE_MS)
                     }
                     2 -> {
@@ -277,10 +281,10 @@ class BluetoothGattClientManager(
      * Stop scanning
      */
     @Suppress("DEPRECATION")
-    private fun stopScanning() {
+    private fun stopScanning(force: Boolean = false) {
         if (!permissionManager.hasBluetoothPermissions() || bleScanner == null) return
         
-        if (isCurrentlyScanning) {
+        if (isCurrentlyScanning || force) {
             try {
                 scanCallback?.let {
                     bleScanner.stopScan(it)
