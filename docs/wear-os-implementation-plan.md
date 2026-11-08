@@ -59,7 +59,7 @@ sourceSets["main"].java.srcDir("../app/src/main/java") // with include filters (
 - `identity/**` — `SecureIdentityStateManager`
 - `mesh/**` — BLE stack (`BluetoothConnectionManager`, GATT server/client managers, broadcaster,
   tracker, permission manager), `FragmentManager`, `SecurityManager`, `PacketProcessor`,
-  `MessageHandler`, `PeerManager`, `StoreForwardManager`, `MeshTransport`, `MeshService`,
+  `MessageHandler`, `PeerManager`, `MeshTransport`, `MeshService`,
   `TransferProgressManager`, `PrivateMediaTransfer`, `PowerManager`
 - `services/AppStateStore.kt` — process-wide state store
 - `util/AppConstants.kt` — shared constants (GATT UUIDs, fragmentation sizes)

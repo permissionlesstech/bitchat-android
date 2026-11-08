@@ -57,7 +57,6 @@ import java.util.concurrent.atomic.AtomicLong
  * - PeerManager: Peer lifecycle management
  * - FragmentManager: Message fragmentation and reassembly
  * - SecurityManager: Security, duplicate detection, encryption
- * - StoreForwardManager: Offline message caching
  * - MessageHandler: Message type processing and relay logic
  * - PacketProcessor: Incoming packet routing
  */
