@@ -161,6 +161,13 @@ val syncSharedAppTests = tasks.register<Sync>("syncSharedAppTests") {
     into(layout.buildDirectory.dir("sharedTestSrc"))
 }
 
+// Test fixtures those shared tests load from the classpath (the wire-format vectors under
+// contracts/) come along too, so a shared test sees the same resources on both targets.
+val syncSharedAppTestResources = tasks.register<Sync>("syncSharedAppTestResources") {
+    from("../app/src/test/resources")
+    into(layout.buildDirectory.dir("sharedTestResources"))
+}
+
 android {
     sourceSets {
         getByName("main") {
@@ -170,6 +177,7 @@ android {
         getByName("test") {
             java.srcDir("build/sharedTestSrc")
             kotlin.srcDir("build/sharedTestSrc")
+            resources.srcDir("build/sharedTestResources")
         }
     }
 }
@@ -178,7 +186,7 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
     dependsOn(syncSharedAppSources)
 }
 tasks.matching { it.name.contains("UnitTest", ignoreCase = true) }.configureEach {
-    dependsOn(syncSharedAppTests)
+    dependsOn(syncSharedAppTests, syncSharedAppTestResources)
 }
 
 kotlin {
