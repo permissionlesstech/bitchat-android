@@ -55,13 +55,41 @@ type is `0x21`, followed by this canonical byte sequence:
 01                         version
 01 <len 1...8> <value>     capabilities, minimal little-endian
 02 20 <32 bytes>           Ed25519 signing public key
+03 02 <high> <low>         optional reassembly fragment ceiling, big-endian
 ```
 
-Both known TLVs are required exactly once. Decoders reject an unknown version,
-truncated TLV, duplicate known TLV, a capability length outside `1...8`, a
-non-minimal capability value, or an Ed25519 key whose length is not 32. Unknown
-TLVs are skipped for forward compatibility, and the two known TLVs may arrive
-in either order.
+Capabilities (`0x01`) and the signing key (`0x02`) are required exactly once.
+The ceiling (`0x03`) is optional and may occur at most once. Known TLVs may
+arrive in any order; the encoder emits them in the order shown above. Android
+rejects an unknown version, truncated TLV, duplicate known TLV, a capability
+length outside `1...8`, a non-minimal capability value, or an Ed25519 key whose
+length is not 32. Unknown TLVs are skipped for forward compatibility.
+
+The ceiling is an unsigned two-byte big-endian count in `1...65535`, unlike the
+little-endian capabilities bitfield. Android advertises `03 02 01 00` (256),
+matching `FragmentManager`'s `MAX_FRAGMENTS_PER_ID` for every packet type.
+Absence decodes as not advertised, not as zero or unlimited capacity. Older
+peer-state decoders can skip this extension while retaining the required fields.
+Android rejects the entire peer-state payload if a present ceiling is zero,
+not two bytes wide, or duplicated; it does not silently ignore a malformed
+known ceiling. This is Android's rejection policy, not a claim that every
+other client's malformed-input policy is identical.
+
+For a synthetic signing key containing bytes `00` through `1f`, private-media
+capability bit 8 and a 256-fragment ceiling have this canonical payload
+(excluding the outer Noise payload type `21`):
+
+```text
+01 01 02 00 01 02 20
+00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f
+10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f
+03 02 01 00
+```
+
+This ceiling is authenticated session metadata, not a persistent identity pin
+or authorization to increase local limits. Android advertises its bound but
+continues to cap its own sends locally; applying a remote ceiling to Android's
+send admission is a separate change.
 
 Each endpoint sends `0x21` when the generation authenticates and echoes its
 local state at most once after accepting the peer's first valid proof for that
@@ -138,7 +166,8 @@ must also fit their unsigned 16-bit wire fields without truncation. A rejected
 plan creates no local echo and sends no fragments.
 
 The 256-fragment limit is a transport/reassembly safety bound, not a capability
-negotiated through bit 8. A future larger transfer protocol needs a separate
+negotiated through bit 8. Peer-state TLV `0x03` advertises that existing bound;
+it does not increase it. A future larger transfer protocol needs a separate
 capability and bounded streaming design.
 
 ## Compatibility summary
