@@ -100,6 +100,7 @@ kept out of the refactor so it changes no behaviour it did not have to. Details 
 | Wear DI (10c-2a-1) | Hand-built objects and static holders | A Hilt app like the phone. Its mesh is still created only after permissions are granted, through `WearMeshHolder`, so identity keys are never generated early |
 | Wear send helpers (10c-2a-2a) | Took the concrete watch mesh, so no test could run them | Generic over the mesh roles. `SendHelpersTest` and `WearPeerIdentityStateMeshRolesTest` run them with fakes for the first time |
 | Mesh interface (10c-2a-2a) | One `MeshService` with 7 members nothing called through it, two with empty default bodies | Eight role interfaces. A client implements only the roles it supports, and `MeshRoleImplementationsTest` fails on a stub override |
+| Identity lifetime (10c-2a-2b) | Identity data sat in process-wide singletons and one static router (`getInstance`) | A Hilt identity scope holds it, and the router is built only by its holder. There is no static router left |
 | Module rules | Unwritten | `FeatureDependencyRulesTest` fails when a feature depends on another feature, an `:api` module grows dependencies, or `:core:tor` gains one |
 | Watch crypto | Tink 1.8.0 | Tink 1.23.0, the phone's version |
 | Watch theme | Its own copy of the palette, peer-color hash and fonts | The shared `:core:designsystem` base |
@@ -111,8 +112,12 @@ Safety rails added on the way:
   instead of by injection.
 - `NoStaticMeshAccessTest` does the same for the mesh, app and Wear singletons, and fails on any new
   static holder, on one of those classes turning back into an `object`, on hand-building a shared store, and on anything but
-  `WearMeshHolder` taking the watch's mesh. `MessageRouter` is its one exemption, until the
-  identity scope replaces it (10c-2a-1).
+  `WearMeshHolder` taking the watch's mesh. It has no exemptions now: `MessageRouter` moved into the
+  identity scope (10c-2a-2b).
+- `IdentityScopeRulesTest` fails the build when a singleton is not on a short process-wide list
+  with a reason, so a class that holds identity data must declare its lifetime. A reference to an
+  identity class from outside the scope has to go through a qualified `Provider`; an unqualified
+  one does not compile (10c-2a-2b).
 - `MeshSingletonIdentityTest` (device) shows that the mesh and the panic wipe hold the same single
   instance of each shared store as the rest of the app, so a second `AppStateStore` or favourites
   store cannot silently drop messages or favourites (10c-2a-1).

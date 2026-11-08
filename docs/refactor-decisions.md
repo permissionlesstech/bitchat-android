@@ -174,7 +174,7 @@ installer type. Back at the root destination was fixed.
 | Bridge the singletons into Hilt with `@Provides`; keep them as `getInstance(context)` singletons. | `SeenMessageStore` was compiled into `:wear`, which has no Hilt or KSP. | Converting them to `@Inject` classes. | — |
 | Provide only singletons that injectable code already reached statically. | Bindings nothing consumes would be speculative. Converting the rest cascades. | Converting the whole inventory. | About 17 `object` singletons in `services/` and `ui/` were left as they were. |
 | Inject them as `dagger.Lazy`. | Each was resolved at the point of use. Eager injection would construct them earlier. | Eager injection. | — |
-| `MessageRouter` is unscoped and injected as `Provider<MessageRouter>`. | `getInstance` re-points the router at the current mesh. A cached binding would skip that after a panic clear replaces the mesh. | A scoped binding. The deeper fix, a mesh service with a stable identity, reaches into the mesh layer shared with Wear. | The deeper fix is still open. |
+| `MessageRouter` is unscoped and injected as `Provider<MessageRouter>`. | `getInstance` re-points the router at the current mesh. A cached binding would skip that after a panic clear replaces the mesh. | A scoped binding. The deeper fix, a mesh service with a stable identity, reaches into the mesh layer shared with Wear. | The deeper fix landed in 10c-2a-2b: a holder in the identity scope. |
 | `DebugSettingsManager` and `ConversationListPreferences` injected after all. | Re-examined: the first reason given for excluding them was wrong. | Leaving them out. | — |
 
 ### Phase 4: sheets become destinations
@@ -575,7 +575,7 @@ or 9.
 
 Phase 9 moved to section 3 when it finished. What it left open is in section 5.
 
-### Phase 10: MVI on every screen (10a, 10b, 10c-1, 10c-2a-1 and 10c-2a-2a done; the rest of 10c to come)
+### Phase 10: MVI on every screen (10a, 10b, 10c-1, 10c-2a-1, 10c-2a-2a and 10c-2a-2b done; the rest of 10c to come)
 
 #### MVI shape
 
@@ -807,7 +807,7 @@ Owed: the Mesh Lab and the second-phone pass wait for 10c. Phase 10 is complete 
 
 For 10c-2 (10c-2a-1 converted or deleted every class named here except `MessageRouter`; `PoWPreferenceManager` keeps its `load()`):
 - Stateful singletons outside this run's list stay static: `GeohashConversationRegistry`, `NostrIdentityBridge`, `TorPreferenceManager`. `ArtiNative` is a JNI binding.
-- `MessageRouter` is still a static `getInstance`.
+- `MessageRouter` is still a static `getInstance` (moved to the identity scope in 10c-2a-2b).
 - `PowerManager.getInstance` is static and now reached by the relay-manager JVM tests, shared across Robolectric tests. Inject it.
 - `PoWPreferenceManager` keeps its explicit `load()`.
 - `NostrClient` was an injected singleton that nothing injected. Deleted in 10c-2a-1.
@@ -833,7 +833,7 @@ Deferred from reviews, none blocking:
 | (R) `BluetoothMeshService` is built through a no-argument assisted factory, and `UnifiedMeshService` through one that takes the Bluetooth mesh. Only `MeshServiceHolder` takes them. The unscoped `BluetoothMeshService` binding in `MeshModule` is gone. | The holder taking a `Provider<BluetoothMeshService>` while that binding asked the holder is a cycle. It compiles and recurses at run time. | Keeping the binding. | Nothing can inject `BluetoothMeshService` directly; trying fails to compile. |
 | (R) `FavoritesPersistenceService`, `AppStateStore` and `ContactDirectory` flip in one commit. | Their static reads form a cycle (favourites → app state → contact directory → favourites), so no consumer-first order exists. Handing the directory favourites later through `initialize` would file favourites under raw peer IDs before the chat session starts, and always on the watch. | Splitting the commit. | One large commit that bisects as a unit. `FavoriteConversationCanonicalizationTest` was written green on the static form first, then kept green. |
 | (R) Favourites keep their pre-init contract. The constructor does no I/O, and `initialize()` does what the old constructor did: it is synchronized and idempotent, and it is retried after a failure. Every public method throws the same "not initialized" until then. The callers that initialised or retried before still do, at the same moments. | Consumers relied on that throw inside their own `try`. Initialising in the constructor would move Keystore work into the first injection. | Loading at construction. | The separate retry helper is gone. |
-| (P) `MessageRouter` stays static until 10c-2a-2. Its `getInstance` also takes each singleton it used to reach statically as a parameter, passed by its three callers. | It is the mesh-replacement machinery the identity holder replaces. Converting it now would mean converting it twice. The parameters let its dependencies flip. | Converting it now. | The scan's only exemption. The signature shrinks when it moves. |
+| (P) `MessageRouter` stays static until 10c-2a-2. Its `getInstance` also takes each singleton it used to reach statically as a parameter, passed by its three callers. | It is the mesh-replacement machinery the identity holder replaces. Converting it now would mean converting it twice. The parameters let its dependencies flip. | Converting it now. | The scan's only exemption, removed in 10c-2a-2b. |
 | (P) The dispatcher `@Provides` module moved from `:core:nostr` to `:core:mesh`. | Wear does not depend on `:core:nostr`, and the mesh services now take their dispatchers by qualifier. | A second module in Wear. | None. |
 | (P) Wear composables take their dependencies as parameters from `MainActivity`, which field-injects them. | It keeps the composables free of the graph. | An entry point in each composable. | `MainActivity` holds every field the screens need. |
 | (R) `LocationChannelManager`, `GeohashBookmarksStore`, `GeocoderFactory` and `OpenStreetMapGeocoderProvider` take a plain `NostrHttpClients`, not a `Provider` of it. | The binding is a singleton, so the `Provider` always returned the same object. Each lookup still asks it for the current client, so a Tor mode change still applies to the next request. | Keeping the `Provider`. | Tor routing is unchanged, and the port still fails closed: there is no default binding. |
@@ -846,7 +846,7 @@ Deferred from reviews, none blocking:
 - Wear is a Hilt app: `@HiltAndroidApp` on `BitchatWatchApplication`, and `@AndroidEntryPoint` on `MainActivity` and `WearMeshForegroundService`.
 - These became injected `@Singleton`s, in their old packages and modules: `PowerManager`, `PeerFingerprintManager`, `DebugSettingsManager`, `SpamFilter`, `SpamFilterPreferences`, `FavoritesPersistenceService`, `LiveVoiceManager`, `SeenMessageStore`, `ConversationRepository`, `MeshGraphService`, `AppStateStore`, `ContactDirectory`, `TransportBridgeService`, `PrivateMessageArrivalOrder`, `VoiceWaveformCache`, `TransferProgressManager`, `DebugPreferenceManager`, `GeohashAliasRegistry`, `VerificationService`, `WifiAwareController`, `MeshServiceHolder`, `MeshServicePreferences`, `MeshTransportToggles`, `ConversationListPreferences`, `NostrIdentityBridge`, `GeohashConversationRegistry`, `TorPreferenceManager`, `WearChatState`, `WearPeerIdentityState` and `WearNotificationCoordinator`. `WearMeshHolder` is new.
 - The mesh services (`BluetoothMeshService`, `UnifiedMeshService`, `WifiAwareMeshService`, `WearMeshService`) are injectable and unscoped, and still created only by their holders. The hand-built mesh parts take the singletons by constructor from whoever builds them.
-- Every project `getInstance()` and `.shared` accessor is gone except `MessageRouter`'s, and so is every bridge module. The stateful `object`s left are outside this phase's scope: the theme and chat UI-mode preferences in `:core:designsystem:phone`, `FileShareDispatcher` in `:feature:chat` and the globe's `LandData` cache in `:feature:location`.
+- Every project `getInstance()` and `.shared` accessor is gone except `MessageRouter`'s (gone in 10c-2a-2b), and so is every bridge module. The stateful `object`s left are outside this phase's scope: the theme and chat UI-mode preferences in `:core:designsystem:phone`, `FileShareDispatcher` in `:feature:chat` and the globe's `LandData` cache in `:feature:location`.
 - Behaviour is unchanged: no persisted key, log line, dispatcher, thread or start-up step moved. The panic wipe keeps its steps and their order, and now resets the injected instances.
 - Tests that reset static state now build their own instances (see `docs/refactor-benefits.md`). `MeshSingletonIdentityTest` (device) shows the mesh and the panic wipe hold the graph's one instance of each shared store.
 - Every class is classified identity or process in the local planning inventory, for 10c-2a-2.
@@ -889,7 +889,7 @@ Owed: the Mesh Lab on physical devices, for 10c-1 and this phase.
 | (P) The watch's send helpers are generic over the roles. They take the nickname as a parameter, and the private voice note, which is Wear-only, as a send lambda. | Fakes of the roles can stand in for the mesh. | Taking `WearMeshService`. | `WearPeerIdentityState` takes `MeshPeers?`. |
 | (R) No stubs. No role member has a default body. No override of a role member has an empty body, returns a constant without doing the work, or only logs. `MeshRoleImplementationsTest` scans for these, including a nested `Log` call. | A stub that compiles hides a missing feature. If a class cannot do a member, it should not implement that role. | Review alone. | It is a text scan. |
 | (P) `PowerManager` and `LiveVoiceManager` take their dispatcher by injection. `WearApplicationInjectsLazilyTest` pins that the watch's application resolves its fields lazily. | The mesh services already took their dispatchers by qualifier. This removes the two that 10c-2a-1 left over. | Leaving them. | None. |
-| (D) `MessageRouter` moved to 10c-2a-2b. (2026-10-31) | Its accessor re-points it at the current mesh each time it is resolved. A plain singleton now would need a temporary mesh-swap design that the holder replaces. | Converting it now. | It stays the scan's one exemption. |
+| (D) `MessageRouter` moved to 10c-2a-2b. (2026-10-31) | Its accessor re-points it at the current mesh each time it is resolved. A plain singleton now would need a temporary mesh-swap design that the holder replaces. | Converting it now. | It stayed the scan's one exemption until 10c-2a-2b. |
 | (D) The panic rebuild of the chat session moved to 10c-2b. Panic keeps clearing in place and replacing only the mesh until then. (2026-10-31) | 10c-2b moves the chat session into the scope and switches panic to rebuilding it. This avoids a `Provider` change that the move would undo, and no screen points at a wiped identity. | Rebuilding the session in 10c-2a-2b. | Nothing new until 10c-2b. |
 | (D) Private messages to a peer that restarted are dropped until that peer sends something and a new handshake runs. The bug stays recorded; a fix was tried and not kept. A receiver-side handshake kick was rejected. (2026-10-31) | Encrypted packets are not signature-checked. A receiver that started a handshake on a failed decrypt would act on a sender ID anyone can set. An upstream test also pins "no handshake without a session" on purpose. | The receiver-side kick. | Deferred to its own upstream change. Until then the first message after a restart may be lost. |
 
@@ -922,6 +922,49 @@ Merged #1027 (panic clears the unsent text) and #1042 (password-protected channe
 | `ChannelPasswordPrompt` | `ChatScreen`, taking values from `uiState` instead of `StateFlow`s; the ViewModel closes the prompt |
 
 Tests: `PasswordProtectedChannelRobolectricTest` moved to `:core:chat`, `ChannelPasswordPromptRobolectricTest` stayed with the screen in `:feature:chat`, and the nine opt-in composer tests (`-PcomposerUiTests=true`) now reach the session through `ChatSessionTestAccess` and swap its mesh with `ChatSessionMesh.replace`. All nine pass on an emulator. `PasswordProtectedChannelSendTest` is new: upstream's tests do not cover the refusal in the plain send path, and it fails when that refusal is removed.
+
+### Phase 10c-2a-2b: the identity scope
+
+#### Phase 10c-2a-2b decisions
+
+| Decision | Why | Alternatives rejected | Cost / what to watch |
+|---|---|---|---|
+| (P) Every identity-bound mesh and Nostr class lives in a Hilt `IdentityComponent` (a child of `SingletonComponent`), reached through an `IdentityHolder`. The watch uses it too. Nothing ends an identity yet. (2026-11-08) | Panic and a changed identity need one place that owns what an identity holds. | Moving only the mesh group. | A holder-backed binding costs one more hop per lookup. |
+| (R) Code outside the scope reaches an identity class through a `@CurrentIdentity`-qualified `@Provides` that asks the holder. There is no unqualified binding. | Dagger resolves a child component's request for a type to an ancestor's explicit binding first. An unqualified holder-backed binding in the singleton component would be handed to scope members too, and building it would call the holder for itself: it compiles and recurses at run time. A qualified binding is a different key, and a direct reference to the type outside the scope is a compile error. | Unqualified bindings. | Every bridge is a method on an entry point plus one qualified `@Provides`. |
+| (R) Process-lived consumers (`@Singleton`s, `Application`, services, activities) take `@CurrentIdentity Provider<X>` and call `get()` when they use it, never in a constructor or `init`. Chat-session classes and ViewModels may take a direct `@CurrentIdentity X` until 10c-2b. | Nothing ends the identity before 10c-2b, and 10c-2b moves the chat session inside the scope, where a `Provider` would be churn the next run undoes. A `get()` during construction can ask for an identity class that is being built (Dagger throws "Scoped provider was invoked recursively"). | `Provider` everywhere. | `IdentityScopeRulesTest` fails on a violation. Its `PENDING_CHAT_SESSION` list is the allowance. |
+| (R) `MessageRouterHolder` is an identity-scoped class with `getOrAttach(mesh)` and `peek()`, which keep what `getInstance` and `tryGetInstance` did: re-point the router at the current mesh, and return it only if built. The router is built through an assisted factory with no parameters, so only the holder can build one. | Reading the mesh itself would recreate a mesh after the foreground service stops. The plan said an unscoped `@Inject` constructor, but that lets any class inject a second router with no mesh, scheduler or listener, and it compiles. `BluetoothMeshService` already uses the factory form. | Unscoped `@Inject`. | A class can still take the factory and call it on purpose; the scan lists the router with the other built-inside classes. |
+| (P) `VoiceWaveformCache` was the pilot. `PrivateMessageArrivalOrder` and `GeohashAliasRegistry` moved with the stores in the last commit. | A `@Singleton` cannot take an identity type directly, so a class can flip only when its `@Singleton` consumers do. `AppStateStore` and `ContactDirectory` take those two, and they flipped last. | Temporary `Provider`s that the last commit would undo. | Order follows the consumer graph. |
+| (P) `PowerManager` collects direct peers from `start()`, not `init`, and a new `SpamFilter` applies the saved settings in its constructor. | Building a process singleton must not touch an identity class, and a rebuilt filter must not start with defaults. Both clients already called `start()` first in `onCreate`, pinned by order tests, and the filter had its settings pushed in once at start-up. | Reading in `init`; a separate reset call. | Behaviour is unchanged. |
+| (D) The injected identity `CoroutineScope` waits for 10c-2b, with the teardown. (2026-11-08) | A scope nothing cancels only adds constructor changes. | Adding it now. | `MessageRouter`'s scheduler scope and the like stay as they are. |
+| (P) `WifiAwareController` is in the identity scope. | It holds connected peers. | Process scope. | None. |
+| (P) `IdentityScopeRulesTest` fails when a singleton is not on a short process-wide list with a reason, when an identity type is taken outside the scope without a `Provider`, and when a stateful `object` is not listed with a reason. `NoStaticMeshAccessTest` scans `MessageRouter` like the rest. | A class that holds identity data should have to declare its lifetime. | Review alone. | It is a text scan. Two identity objects, the pin epoch counter and the notification manager registry, are listed as unmoved. |
+
+#### What Phase 10c-2a-2b changed
+
+- `IdentityComponent`, `IdentityHolder`, `@IdentityScoped` and `@CurrentIdentity` are in `:core:mesh` (`identity/scope`). Each module that owns identity classes has a bindings file with its entry point and qualified bridges.
+- Identity scope now holds the mesh classes and their holders, the router and its holder, the stores and favourites, the voice, transfer and verification classes, the Nostr identity, transport, location and bookmark classes, and the watch's mesh and chat state.
+- `MessageRouter.getInstance` and its companion state are gone, and so is the exemption for them.
+- Behaviour is unchanged: first use, start-up order and the panic wipe's steps are as before. The watch still creates its mesh only after permissions are granted.
+- Tests: JVM 1455 to 1496 (3 skipped) at the stores' commit. Device: app 74 to 79; chat 6, settings 5, location 4, share 3 unchanged; composer 9 of 9 with `-PcomposerUiTests=true`. These numbers are from that commit, before the final gate. The holder, the scope rules and one instance across entry paths are covered by `IdentityHolderTest`, `IdentityScopeRulesTest` and `IdentityScopeWiringTest`. The watch was not run on a device. The emulator check is recorded separately.
+
+#### Follow-ups from Phase 10c-2a-2b
+
+For 10c-2b (the chat session in the scope, panic as a rebuild, and the teardown that lets an identity end):
+- Empty `PENDING_CHAT_SESSION` (every `@ActivityRetainedScoped` chat-session class and `@HiltViewModel`, including `ChatSessionMesh`, `PanicClear`, `ChatSessionStartup`, `AppInitializer` and the ViewModels) by moving them inside the scope, and add the injected identity `CoroutineScope`.
+- Identity-holder flows: replacing the component, and everything that outlives one must follow it.
+- `LocationChannelManager` and `LocationNotesManager` add listeners to the process-wide location gate and never remove them (`LocationChannelManager` also registers a system receiver). Replacing an identity must unregister them, or the old manager keeps invalidating the gate and writing the saved channel.
+- `DebugSettingsManager.transportToggles` is set once in `BitchatApplication` to the identity's toggles; re-register when the component is replaced.
+- `PowerManager.start()` captures one identity's `directPeers`; it must re-point.
+- `MainActivity` keeps `meshService` and `unifiedMeshService` fields, and its comment says it keeps nothing of the identity's. Re-read them.
+- `MessageRouterHolder` has no teardown (the router's scheduler scope and its favourites listener).
+- `BitchatApplication` captures `peerFingerprints` and `spamFilter` into the Nostr event processor at initialize time. Stale once the component is replaced.
+- Wear screens take identity instances as composable parameters at composition; stale if switching ever reaches the watch.
+
+Deferred from reviews, none blocking:
+- `IdentityScopeRulesTest`'s state pattern misses some collection types, its parser skips some shapes silently, and a process-wide entry that loses `@Singleton` stays listed.
+- A few comments still say "one instance per process" for classes now in the scope.
+
+Owed: the Mesh Lab on physical devices, as for 10c-1 and 10c-2a-1.
 
 ### Phase 11: Wear shares UI with the phone (not started)
 
