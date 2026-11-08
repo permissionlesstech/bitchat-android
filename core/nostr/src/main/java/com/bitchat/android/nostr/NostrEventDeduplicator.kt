@@ -3,7 +3,7 @@ package com.bitchat.android.nostr
 import android.util.Log
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
-import javax.inject.Singleton
+import com.bitchat.android.identity.scope.IdentityScoped
 
 /**
  * Efficient LRU-based Nostr event deduplication system
@@ -19,7 +19,7 @@ import javax.inject.Singleton
  * - Efficient O(1) lookup and insertion
  * - Memory-bounded to prevent unbounded growth
  */
-@Singleton
+@IdentityScoped
 class NostrEventDeduplicator(
     private val maxCapacity: Int
 ) {

@@ -11,14 +11,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.UUID
 import javax.inject.Inject
-import javax.inject.Singleton
+import com.bitchat.android.identity.scope.IdentityScoped
 
 /**
  * Manages location notes (kind=1 text notes with geohash tags)
  * iOS-compatible implementation with StateFlow for Android UI binding
  */
 @MainThread
-@Singleton
+@IdentityScoped
 class LocationNotesManager @Inject constructor(
     @get:VisibleForTesting val liveLocationGate: LiveLocationPrivacyGate,
     private val relayDirectory: RelayDirectory,

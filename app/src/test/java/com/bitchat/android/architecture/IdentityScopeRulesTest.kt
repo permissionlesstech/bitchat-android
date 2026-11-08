@@ -44,10 +44,6 @@ class IdentityScopeRulesTest {
     private val pendingMove: Set<String> = setOf(
         // :core:chat
         "ConversationListPreferences",
-        // :core:nostr
-        "NostrIdentityBridge", "NostrTransport", "NostrEventDeduplicator", "NostrBackgroundRuntime",
-        "LocationChannelManager", "LocationNotesManager", "LocationNotesInitializer",
-        "NearbyNotesController", "GeohashBookmarksStore", "GeohashConversationRegistry",
         // :core:mesh
         "AppStateStore", "ContactDirectory", "FavoritesPersistenceService", "ConversationRepository",
         "SeenMessageStore", "SpamFilter", "LiveVoiceManager", "PeerFingerprintManager",
@@ -62,6 +58,7 @@ class IdentityScopeRulesTest {
     private val builtInsideTheScope: Map<String, String> = mapOf(
         "BluetoothMeshService" to "@AssistedInject, which Dagger refuses to scope; built only by MeshServiceHolder",
         "UnifiedMeshService" to "@AssistedInject, which Dagger refuses to scope; built only by MeshServiceHolder",
+        "MessageRouter" to "@AssistedInject, which Dagger refuses to scope; built only by MessageRouterHolder",
         "WifiAwareMeshService" to "a fresh instance per start, so unscoped; built only by WifiAwareController",
     )
 

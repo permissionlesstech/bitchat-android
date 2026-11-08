@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
-import javax.inject.Singleton
+import com.bitchat.android.identity.scope.IdentityScoped
 
 /**
  * GeohashConversationRegistry
@@ -12,7 +12,7 @@ import javax.inject.Singleton
  * - Enables routing geohash DMs from anywhere by providing the correct geohash identity
  * - Persisted to SharedPreferences to survive app restarts; [initialize] loads them.
  */
-@Singleton
+@IdentityScoped
 class GeohashConversationRegistry @Inject constructor() {
     private companion object {
         const val PREFS_NAME = "geohash_conversation_registry"

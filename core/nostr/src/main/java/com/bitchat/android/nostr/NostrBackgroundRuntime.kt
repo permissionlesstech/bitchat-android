@@ -21,7 +21,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.security.SecureRandom
 import javax.inject.Inject
-import javax.inject.Singleton
+import com.bitchat.android.identity.scope.IdentityScoped
 import kotlin.random.asKotlinRandom
 
 /**
@@ -30,7 +30,7 @@ import kotlin.random.asKotlinRandom
  * Stable subscriptions dispatch directly to a process-owned event processor. The UI hydrates from
  * the process state store, so relay events remain useful without retaining a cleared ViewModel.
  */
-@Singleton
+@IdentityScoped
 class NostrBackgroundRuntime @Inject constructor(
     @IoDispatcher ioDispatcher: CoroutineDispatcher,
     // Lazy: each is first touched in initialize, where the runtime asked for it before.

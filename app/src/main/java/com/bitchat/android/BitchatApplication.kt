@@ -42,15 +42,15 @@ class BitchatApplication : Application() {
     // super.onCreate(), before the init calls below.
     @Inject lateinit var torManager: Lazy<ArtiTorManager>
     @Inject lateinit var relayDirectory: Lazy<RelayDirectory>
-    @Inject lateinit var locationNotesInitializer: Lazy<LocationNotesInitializer>
-    @Inject lateinit var nostrBackgroundRuntime: Lazy<NostrBackgroundRuntime>
+    @Inject @CurrentIdentity lateinit var locationNotesInitializer: Provider<LocationNotesInitializer>
+    @Inject @CurrentIdentity lateinit var nostrBackgroundRuntime: Provider<NostrBackgroundRuntime>
     @Inject lateinit var powPreferences: Lazy<PoWPreferenceManager>
-    @Inject lateinit var nostrTransport: Lazy<NostrTransport>
+    @Inject @CurrentIdentity lateinit var nostrTransport: Provider<NostrTransport>
     @Inject lateinit var powerManager: Lazy<PowerManager>
     @Inject lateinit var favoritesPersistence: Lazy<FavoritesPersistenceService>
     @Inject lateinit var appStateStore: Lazy<AppStateStore>
     @Inject lateinit var contactDirectory: Lazy<ContactDirectory>
-    @Inject lateinit var nostrIdentityBridge: Lazy<NostrIdentityBridge>
+    @Inject @CurrentIdentity lateinit var nostrIdentityBridge: Provider<NostrIdentityBridge>
     @Inject lateinit var spamFilterPreferences: Lazy<SpamFilterPreferences>
     @Inject lateinit var spamFilter: Lazy<SpamFilter>
     @Inject lateinit var debugPreferences: Lazy<DebugPreferenceManager>
@@ -58,7 +58,7 @@ class BitchatApplication : Application() {
     @Inject lateinit var debugSettings: Lazy<DebugSettingsManager>
     @Inject @CurrentIdentity lateinit var meshTransportToggles: Provider<MeshTransportToggles>
     @Inject lateinit var geohashAliases: Lazy<GeohashAliasRegistry>
-    @Inject lateinit var geohashConversations: Lazy<GeohashConversationRegistry>
+    @Inject @CurrentIdentity lateinit var geohashConversations: Provider<GeohashConversationRegistry>
     @Inject lateinit var peerFingerprints: Lazy<PeerFingerprintManager>
     @Inject lateinit var seenMessageStore: Lazy<SeenMessageStore>
     @Inject lateinit var meshServicePreferences: Lazy<MeshServicePreferences>

@@ -5,6 +5,7 @@ import com.bitchat.android.geohash.LiveLocationPrivacyGate
 import com.bitchat.android.mesh.PowerManager
 import com.bitchat.android.services.TestMeshStores
 import dagger.Lazy
+import javax.inject.Provider
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -20,6 +21,7 @@ internal object NoHttpClients : NostrHttpClients {
 internal fun newRelayManager(
     clients: NostrHttpClients = NoHttpClients,
     dispatcher: CoroutineDispatcher = UnconfinedTestDispatcher(),
+    deduplicator: Provider<NostrEventDeduplicator> = NostrEventDeduplicator().let { shared -> Provider { shared } },
 ): NostrRelayManager {
     val powerManager by lazy {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
@@ -30,7 +32,7 @@ internal fun newRelayManager(
         httpClients = clients,
         relayDirectory = RelayDirectory(NoHttpClients, dispatcher),
         liveLocationGate = LiveLocationPrivacyGate(),
-        eventDeduplicator = NostrEventDeduplicator(),
+        eventDeduplicator = deduplicator,
         ioDispatcher = dispatcher,
         powerManagerSource = Lazy { powerManager },
     )

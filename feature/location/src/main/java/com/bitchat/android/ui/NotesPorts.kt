@@ -5,6 +5,7 @@ import com.bitchat.android.geohash.GeohashChannel
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.geohash.LocationChannelManager.PermissionState
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.nostr.LocationNotesManager
 import com.bitchat.android.nostr.NearbyNotesController
 import com.bitchat.android.nostr.NoteSendResult
@@ -13,6 +14,7 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Inject
+import javax.inject.Provider
 import kotlinx.coroutines.flow.StateFlow
 
 /** The part of [LocationChannelManager] the notes and channels screens read and drive. */
@@ -80,61 +82,64 @@ fun interface NotesClock {
 }
 
 internal class ManagerNotesLocationSource @Inject constructor(
-    private val manager: LocationChannelManager,
+    // Asked on each use: the port outlives an identity.
+    @CurrentIdentity private val manager: Provider<LocationChannelManager>,
 ) : NotesLocationSource {
-    override val permissionState: StateFlow<PermissionState> get() = manager.permissionState
-    override val effectiveLocationEnabled: StateFlow<Boolean> get() = manager.effectiveLocationEnabled
-    override val availableChannels: StateFlow<List<GeohashChannel>> get() = manager.availableChannels
-    override val isLoadingLocation: StateFlow<Boolean> get() = manager.isLoadingLocation
-    override val locationNames: StateFlow<Map<GeohashChannelLevel, String>> get() = manager.locationNames
-    override val selectedChannel: StateFlow<ChannelID> get() = manager.selectedChannel
-    override val locationServicesEnabled: StateFlow<Boolean> get() = manager.locationServicesEnabled
-    override val systemLocationEnabled: StateFlow<Boolean> get() = manager.systemLocationEnabled
+    override val permissionState: StateFlow<PermissionState> get() = manager.get().permissionState
+    override val effectiveLocationEnabled: StateFlow<Boolean> get() = manager.get().effectiveLocationEnabled
+    override val availableChannels: StateFlow<List<GeohashChannel>> get() = manager.get().availableChannels
+    override val isLoadingLocation: StateFlow<Boolean> get() = manager.get().isLoadingLocation
+    override val locationNames: StateFlow<Map<GeohashChannelLevel, String>> get() = manager.get().locationNames
+    override val selectedChannel: StateFlow<ChannelID> get() = manager.get().selectedChannel
+    override val locationServicesEnabled: StateFlow<Boolean> get() = manager.get().locationServicesEnabled
+    override val systemLocationEnabled: StateFlow<Boolean> get() = manager.get().systemLocationEnabled
 
-    override fun refreshChannels() = manager.refreshChannels()
-    override fun enableLocationServices() = manager.enableLocationServices()
-    override fun disableLocationServices() = manager.disableLocationServices()
-    override fun enableLocationChannels() = manager.enableLocationChannels()
-    override fun syncPermissionState(): PermissionState = manager.syncPermissionState()
-    override fun beginLiveRefresh() = manager.beginLiveRefresh()
-    override fun endLiveRefresh() = manager.endLiveRefresh()
-    override fun select(channel: ChannelID) = manager.select(channel)
-    override fun selectNearby(channel: GeohashChannel): Boolean = manager.selectNearby(channel)
+    override fun refreshChannels() = manager.get().refreshChannels()
+    override fun enableLocationServices() = manager.get().enableLocationServices()
+    override fun disableLocationServices() = manager.get().disableLocationServices()
+    override fun enableLocationChannels() = manager.get().enableLocationChannels()
+    override fun syncPermissionState(): PermissionState = manager.get().syncPermissionState()
+    override fun beginLiveRefresh() = manager.get().beginLiveRefresh()
+    override fun endLiveRefresh() = manager.get().endLiveRefresh()
+    override fun select(channel: ChannelID) = manager.get().select(channel)
+    override fun selectNearby(channel: GeohashChannel): Boolean = manager.get().selectNearby(channel)
     override fun selectManual(channel: GeohashChannel, teleported: Boolean) =
-        manager.selectManual(channel, teleported)
+        manager.get().selectManual(channel, teleported)
 }
 
 internal class ManagerNotesStore @Inject constructor(
-    private val manager: LocationNotesManager,
+    // Asked on each use: the port outlives an identity.
+    @CurrentIdentity private val manager: Provider<LocationNotesManager>,
 ) : NotesStore {
 
-    override val notes: StateFlow<List<LocationNotesManager.Note>> get() = manager.notes
-    override val state: StateFlow<LocationNotesManager.State> get() = manager.state
-    override val errorMessage: StateFlow<String?> get() = manager.errorMessage
-    override val initialLoadComplete: StateFlow<Boolean> get() = manager.initialLoadComplete
+    override val notes: StateFlow<List<LocationNotesManager.Note>> get() = manager.get().notes
+    override val state: StateFlow<LocationNotesManager.State> get() = manager.get().state
+    override val errorMessage: StateFlow<String?> get() = manager.get().errorMessage
+    override val initialLoadComplete: StateFlow<Boolean> get() = manager.get().initialLoadComplete
 
     override suspend fun send(content: String, nickname: String?): NoteSendResult =
-        manager.send(content, nickname)
-    override fun refresh() = manager.refresh()
-    override fun clearError() = manager.clearError()
+        manager.get().send(content, nickname)
+    override fun refresh() = manager.get().refresh()
+    override fun clearError() = manager.get().clearError()
 }
 
 internal class ControllerNearbyNotesGate @Inject constructor(
-    private val controller: NearbyNotesController,
+    // Asked on each use: the port outlives an identity.
+    @CurrentIdentity private val controller: Provider<NearbyNotesController>,
 ) : NearbyNotesGate {
 
-    override val revealed: StateFlow<Boolean> get() = controller.revealed
+    override val revealed: StateFlow<Boolean> get() = controller.get().revealed
 
     override fun updateAvailability(enabled: Boolean, authorized: Boolean, geohash: String?) =
-        controller.updateAvailability(
+        controller.get().updateAvailability(
             locationEnabled = enabled,
             locationAuthorized = authorized,
             buildingGeohash = geohash,
         )
 
-    override fun activate() = controller.activate()
-    override fun deactivate() = controller.deactivate()
-    override fun reveal() = controller.reveal()
+    override fun activate() = controller.get().activate()
+    override fun deactivate() = controller.get().deactivate()
+    override fun reveal() = controller.get().reveal()
 }
 
 internal class SystemNotesClock @Inject constructor() : NotesClock {

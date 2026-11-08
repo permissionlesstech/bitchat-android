@@ -34,8 +34,8 @@ class TorNostrSingletonIdentityTest {
 
         assertSame(gate, onMain { it.liveLocationPrivacyGate() })
         assertSame(gate, onMain { it.nostrRelayManager().liveLocationGate })
-        assertSame(gate, onMain { it.locationChannelManager().liveLocationGate })
-        assertSame(gate, onMain { it.locationNotesManager().liveLocationGate })
+        assertSame(gate, onMain { it.identityLocationChannelManager().liveLocationGate })
+        assertSame(gate, onMain { it.identityLocationNotesManager().liveLocationGate })
     }
 
     @Test

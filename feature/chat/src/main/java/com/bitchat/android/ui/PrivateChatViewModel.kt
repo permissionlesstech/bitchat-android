@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.identity.scope.CurrentIdentity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bitchat.android.features.voice.VoiceRecorder
@@ -52,7 +53,7 @@ class PrivateChatViewModel @AssistedInject constructor(
     private val wifiAwarePeers: WifiAwarePeers,
     private val contactDirectory: ContactDirectory,
     private val favorites: Lazy<FavoritesPersistenceService>,
-    private val geohashConversations: GeohashConversationRegistry,
+    @CurrentIdentity private val geohashConversations: GeohashConversationRegistry,
     private val geohashAliases: GeohashAliasRegistry,
 ) : ViewModel() {
 

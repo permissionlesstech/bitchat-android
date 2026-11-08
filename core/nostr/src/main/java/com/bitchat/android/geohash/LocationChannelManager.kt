@@ -16,7 +16,7 @@ import com.bitchat.android.nostr.NostrHttpClients
 import com.bitchat.android.nostr.NostrIdentityBridge
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
-import javax.inject.Singleton
+import com.bitchat.android.identity.scope.IdentityScoped
 import kotlinx.coroutines.*
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
@@ -30,7 +30,7 @@ import kotlinx.coroutines.flow.stateIn
  * Manages location permissions, one-shot location retrieval, and computing geohash channels.
  * Direct port from iOS LocationChannelManager for 100% compatibility
  */
-@Singleton
+@IdentityScoped
 class LocationChannelManager @Inject constructor(
     @ApplicationContext private val context: Context,
     @get:VisibleForTesting val liveLocationGate: LiveLocationPrivacyGate,

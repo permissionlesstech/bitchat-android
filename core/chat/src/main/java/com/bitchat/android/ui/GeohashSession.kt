@@ -57,9 +57,9 @@ class GeohashSession(
     private val geohashConversations: GeohashConversationRegistry,
     private val nostrIdentity: NostrIdentityBridge,
     // Lazy: each is touched only where the session used to ask for it, not when it is built.
-    private val locationChannelManagerSource: Lazy<com.bitchat.android.geohash.LocationChannelManager>,
+    private val locationChannelManagerSource: javax.inject.Provider<com.bitchat.android.geohash.LocationChannelManager>,
     private val relayManagerSource: Lazy<NostrRelayManager>,
-    private val locationNotesManagerSource: Lazy<com.bitchat.android.nostr.LocationNotesManager>,
+    private val locationNotesManagerSource: javax.inject.Provider<com.bitchat.android.nostr.LocationNotesManager>,
 ) : DefaultLifecycleObserver {
 
     companion object { private const val TAG = "GeohashSession" }

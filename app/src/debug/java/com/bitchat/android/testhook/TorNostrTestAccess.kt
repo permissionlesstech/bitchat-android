@@ -3,6 +3,7 @@ package com.bitchat.android.testhook
 import android.content.Context
 import com.bitchat.android.geohash.LiveLocationPrivacyGate
 import com.bitchat.android.geohash.LocationChannelManager
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.nostr.LocationNotesManager
 import com.bitchat.android.nostr.NostrHttpClients
 import com.bitchat.android.nostr.NostrRelayManager
@@ -19,8 +20,8 @@ import dagger.hilt.components.SingletonComponent
 @InstallIn(SingletonComponent::class)
 interface TorNostrTestAccess {
     fun nostrRelayManager(): NostrRelayManager
-    fun locationChannelManager(): LocationChannelManager
-    fun locationNotesManager(): LocationNotesManager
+    @CurrentIdentity fun identityLocationChannelManager(): LocationChannelManager
+    @CurrentIdentity fun identityLocationNotesManager(): LocationNotesManager
     fun liveLocationPrivacyGate(): LiveLocationPrivacyGate
     fun nostrHttpClients(): NostrHttpClients
 

@@ -18,14 +18,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.Locale
 import javax.inject.Inject
-import javax.inject.Singleton
+import com.bitchat.android.identity.scope.IdentityScoped
 
 /**
  * Stores a user-maintained list of bookmarked geohash channels.
  * - Persistence: SharedPreferences (JSON string array)
  * - Semantics: geohashes are normalized to lowercase base32 and de-duplicated
  */
-@Singleton
+@IdentityScoped
 class GeohashBookmarksStore @Inject constructor(
     @ApplicationContext private val context: Context,
     private val liveLocationGate: LiveLocationPrivacyGate,

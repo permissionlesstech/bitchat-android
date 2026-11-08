@@ -24,7 +24,8 @@ class DefaultAppInitializer @Inject constructor(
     // Re-reads the holder each time, as MeshModule's bindings do.
     @CurrentIdentity private val meshService: Provider<MeshService>,
     private val powPreferences: PoWPreferenceManager,
-    private val locationNotesInitializer: LocationNotesInitializer,
+    // Asked when used, as the application asks it.
+    @CurrentIdentity private val locationNotesInitializer: Provider<LocationNotesInitializer>,
 ) : AppInitializer {
 
     override fun initializeLibraries() {
@@ -32,7 +33,7 @@ class DefaultAppInitializer @Inject constructor(
         powPreferences.load()
 
         // Initialize Location Notes Manager (extracted to separate file)
-        locationNotesInitializer.initialize(context)
+        locationNotesInitializer.get().initialize(context)
     }
 
     override fun startServices() {

@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.identity.scope.CurrentIdentity
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -48,7 +49,7 @@ class VerificationViewModel @AssistedInject constructor(
     state: ChatState,
     private val verificationHandler: VerificationHandler,
     private val mesh: ChatSessionMesh,
-    nostrIdentity: NostrIdentityBridge,
+    @CurrentIdentity nostrIdentity: NostrIdentityBridge,
     private val verificationService: VerificationService,
 ) : ViewModel() {
 

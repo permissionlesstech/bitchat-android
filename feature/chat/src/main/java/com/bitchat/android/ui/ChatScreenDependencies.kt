@@ -23,9 +23,9 @@ import dagger.hilt.components.SingletonComponent
 @EntryPoint
 @InstallIn(SingletonComponent::class)
 internal interface ChatScreenDependencies {
-    fun locationChannelManager(): LocationChannelManager
-    fun locationNotesManager(): LocationNotesManager
-    fun nearbyNotesController(): NearbyNotesController
+    @CurrentIdentity fun locationChannelManager(): LocationChannelManager
+    @CurrentIdentity fun locationNotesManager(): LocationNotesManager
+    @CurrentIdentity fun nearbyNotesController(): NearbyNotesController
     fun torManager(): ArtiTorManager
     fun liveVoiceManager(): LiveVoiceManager
     fun contactDirectory(): ContactDirectory

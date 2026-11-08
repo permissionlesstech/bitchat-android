@@ -68,6 +68,7 @@ import com.bitchat.android.feature.location.R
 import com.bitchat.android.geohash.Geohash
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
+import com.bitchat.android.identity.scope.CurrentIdentity
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import javax.inject.Provider
@@ -97,8 +98,10 @@ import kotlinx.coroutines.withContext
 @AndroidEntryPoint
 class GeohashPickerActivity : OrientationAwareActivity() {
 
+    // A Provider, asked when used, so the Activity keeps nothing of the identity's.
     @Inject
-    lateinit var locationChannelManager: LocationChannelManager
+    @CurrentIdentity
+    lateinit var locationChannelManager: Provider<LocationChannelManager>
 
     // One monitor per picker, built on first use as before.
     @Inject
@@ -137,7 +140,7 @@ class GeohashPickerActivity : OrientationAwareActivity() {
             } catch (_: Throwable) {}
         } else {
             // If no initial geohash, try to use the user's coarsest location
-            val channels = locationChannelManager.availableChannels.value
+            val channels = locationChannelManager.get().availableChannels.value
             if (!channels.isNullOrEmpty()) {
                 val coarsestChannel = channels.minByOrNull { it.geohash.length }
                 if (coarsestChannel != null) {

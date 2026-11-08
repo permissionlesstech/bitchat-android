@@ -8,7 +8,7 @@ import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
-import javax.inject.Singleton
+import com.bitchat.android.identity.scope.IdentityScoped
 
 /**
  * Manages Nostr identity (secp256k1 keypair) for NIP-17 private messaging
@@ -97,7 +97,7 @@ data class NostrIdentity(
  * Bridge between Noise and Nostr identities
  * Manages persistent storage and per-geohash identity derivation
  */
-@Singleton
+@IdentityScoped
 class NostrIdentityBridge @Inject constructor(
     private val favorites: FavoritesPersistenceService,
 ) {

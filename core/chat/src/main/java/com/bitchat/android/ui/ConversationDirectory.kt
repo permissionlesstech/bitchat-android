@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.di.ChatSessionScope
 import com.bitchat.android.favorites.FavoritesChangeListener
@@ -53,7 +54,7 @@ class ConversationDirectory @Inject constructor(
     private val appStateStore: AppStateStore,
     private val contactDirectory: ContactDirectory,
     private val arrivalOrder: PrivateMessageArrivalOrder,
-    private val geohashConversations: GeohashConversationRegistry,
+    @CurrentIdentity private val geohashConversations: GeohashConversationRegistry,
     private val favorites: Lazy<FavoritesPersistenceService>,
     @ChatSessionScope private val scope: CoroutineScope,
 ) {

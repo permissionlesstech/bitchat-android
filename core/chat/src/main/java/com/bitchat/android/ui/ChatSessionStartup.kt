@@ -49,7 +49,7 @@ class ChatSessionStartup @Inject constructor(
     // first resolved at the point of use, and MessageRouter has to be
     // re-resolved so it follows the mesh panic-clear replaces.
     private val seenMessageStoreLazy: Lazy<SeenMessageStore>,
-    private val nostrTransportLazy: Lazy<NostrTransport>,
+    @CurrentIdentity private val nostrTransportProvider: Provider<NostrTransport>,
     @CurrentIdentity private val messageRouterProvider: Provider<MessageRouter>,
     private val debugSettingsManager: DebugSettingsManager,
     private val state: ChatState,
@@ -77,7 +77,7 @@ class ChatSessionStartup @Inject constructor(
         get() = sessionMesh.unified
 
     private val seenMessageStore: SeenMessageStore get() = seenMessageStoreLazy.get()
-    private val nostrTransport: NostrTransport get() = nostrTransportLazy.get()
+    private val nostrTransport: NostrTransport get() = nostrTransportProvider.get()
 
     private var started = false
 

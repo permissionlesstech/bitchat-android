@@ -83,14 +83,17 @@ class MainActivity : OrientationAwareActivity() {
     // the instance state: a recreated Activity gets the same intent back.
     private var intentHandled = false
 
+    // Providers, asked when used, so the Activity keeps nothing of the identity's.
     @Inject
-    lateinit var locationChannelManager: LocationChannelManager
+    @CurrentIdentity
+    lateinit var locationChannelManager: Provider<LocationChannelManager>
 
     @Inject
     lateinit var shutdownCoordinator: com.bitchat.android.service.AppShutdownCoordinator
 
     @Inject
-    lateinit var nearbyNotesController: com.bitchat.android.nostr.NearbyNotesController
+    @CurrentIdentity
+    lateinit var nearbyNotesController: Provider<com.bitchat.android.nostr.NearbyNotesController>
 
     // Lazy: the live voice manager is first built where the foreground effect is composed.
     @Inject
@@ -202,7 +205,7 @@ class MainActivity : OrientationAwareActivity() {
 
         setContent {
             BitchatTheme {
-                AppForegroundEffect(nearbyNotesController, liveVoiceManager.get())
+                AppForegroundEffect(nearbyNotesController.get(), liveVoiceManager.get())
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     containerColor = MaterialTheme.colorScheme.background
@@ -431,7 +434,7 @@ class MainActivity : OrientationAwareActivity() {
     override fun onResume() {
         super.onResume()
         // Revoke stale live-location work before any resumed UI can use cached channels.
-        locationChannelManager.syncPermissionState()
+        locationChannelManager.get().syncPermissionState()
 
         // Check Bluetooth and Location status on resume and handle accordingly
         // Reattach the session's mesh delegate, detached in onPause. Also while

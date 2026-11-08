@@ -5,13 +5,13 @@ import android.util.Log
 import com.bitchat.android.geohash.LiveLocationPrivacyGate
 import dagger.Lazy
 import javax.inject.Inject
-import javax.inject.Singleton
+import com.bitchat.android.identity.scope.IdentityScoped
 
 /**
  * Initializer for LocationNotesManager with all dependencies
  * Extracts initialization logic from MainActivity for better separation of concerns
  */
-@Singleton
+@IdentityScoped
 class LocationNotesInitializer @Inject constructor(
     // Lazy: each is first touched where initialize asked for it before.
     private val notesManager: Lazy<LocationNotesManager>,

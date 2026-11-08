@@ -2,6 +2,7 @@ package com.bitchat.android.ui
 
 import android.content.Context
 import com.bitchat.android.geohash.GeohashBookmarksStore
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.net.TorMode
 import com.bitchat.android.net.TorPreferenceManager
@@ -12,6 +13,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Inject
+import javax.inject.Provider
 import kotlinx.coroutines.flow.StateFlow
 
 /** The part of [GeohashBookmarksStore] the location channels screen reads and drives. */
@@ -33,13 +35,14 @@ interface TorRouting {
 }
 
 internal class StoreChannelBookmarks @Inject constructor(
-    private val store: GeohashBookmarksStore,
+    // Asked on each use: the port outlives an identity.
+    @CurrentIdentity private val store: Provider<GeohashBookmarksStore>,
 ) : ChannelBookmarks {
-    override val bookmarks: StateFlow<List<String>> get() = store.bookmarks
-    override val bookmarkNames: StateFlow<Map<String, String>> get() = store.bookmarkNames
+    override val bookmarks: StateFlow<List<String>> get() = store.get().bookmarks
+    override val bookmarkNames: StateFlow<Map<String, String>> get() = store.get().bookmarkNames
 
-    override fun toggle(geohash: String) = store.toggle(geohash)
-    override fun resolveNameIfNeeded(geohash: String) = store.resolveNameIfNeeded(geohash)
+    override fun toggle(geohash: String) = store.get().toggle(geohash)
+    override fun resolveNameIfNeeded(geohash: String) = store.get().resolveNameIfNeeded(geohash)
 }
 
 internal class PreferenceTorRouting @Inject constructor(

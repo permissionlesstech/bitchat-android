@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.annotation.VisibleForTesting
 import com.bitchat.android.di.IoDispatcher
 import com.bitchat.android.geohash.LiveLocationPrivacyGate
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.mesh.PowerManager
 import dagger.Lazy
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -21,6 +22,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
+import javax.inject.Provider
 import javax.inject.Singleton
 
 /**
@@ -34,8 +36,9 @@ class NostrRelayManager @Inject constructor(
     @get:VisibleForTesting val httpClients: NostrHttpClients,
     private val relayDirectory: RelayDirectory,
     @get:VisibleForTesting val liveLocationGate: LiveLocationPrivacyGate,
-    // Event deduplication system
-    private val eventDeduplicator: NostrEventDeduplicator,
+    // Event deduplication system. The cache belongs to the current identity, so each use asks
+    // for it: the manager is process-wide and must not keep one identity's cache past that identity.
+    @CurrentIdentity private val eventDeduplicator: Provider<NostrEventDeduplicator>,
     @IoDispatcher ioDispatcher: CoroutineDispatcher,
     // Lazy: the power profile is first read where the manager used to ask for it.
     private val powerManagerSource: Lazy<PowerManager>,
@@ -788,14 +791,14 @@ class NostrRelayManager @Inject constructor(
      * Get event deduplication statistics
      */
     fun getDeduplicationStats(): DeduplicationStats {
-        return eventDeduplicator.getStats()
+        return eventDeduplicator.get().getStats()
     }
     
     /**
      * Clear the event deduplication cache (useful for testing or debugging)
      */
     fun clearDeduplicationCache() {
-        eventDeduplicator.clear()
+        eventDeduplicator.get().clear()
     }
     
     /**
@@ -1018,7 +1021,7 @@ class NostrRelayManager @Inject constructor(
                     }
 
                     // DEDUPLICATION: Check if we've already processed this event
-                    eventDeduplicator.processEvent(response.event) { event ->
+                    eventDeduplicator.get().processEvent(response.event) { event ->
                         // Call handler for new events only
                         val handler = messageHandlers[response.subscriptionId]
                         if (handler != null) {

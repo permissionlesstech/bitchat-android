@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.identity.scope.CurrentIdentity
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.favorites.FavoriteRelationship
@@ -15,6 +16,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.components.ViewModelComponent
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import javax.inject.Provider
 
 /**
  * The reads the peer list makes that are not snapshot state: favourites, cached Noise keys,
@@ -77,7 +79,7 @@ internal class RealPeerListLookups @Inject constructor(
     private val sessionMesh: ChatSessionMesh,
     private val contactDirectory: ContactDirectory,
     private val favorites: Lazy<FavoritesPersistenceService>,
-    private val nostrIdentity: NostrIdentityBridge,
+    @CurrentIdentity private val nostrIdentity: Provider<NostrIdentityBridge>,
 ) : PeerListLookups {
 
     private val identityStateManager = SecureIdentityStateManager(appContext)
@@ -115,7 +117,7 @@ internal class RealPeerListLookups @Inject constructor(
 
     override fun geohashIdentityPublicKeyHex(geohash: String): String? =
         try {
-            nostrIdentity.deriveIdentity(
+            nostrIdentity.get().deriveIdentity(
                 forGeohash = geohash,
                 context = appContext
             ).publicKeyHex

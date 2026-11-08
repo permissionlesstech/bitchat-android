@@ -40,7 +40,7 @@ class AppStartupOrderTest {
             context = context,
             meshService = Provider<MeshService> { error("not started here") },
             powPreferences = pow,
-            locationNotesInitializer = notes,
+            locationNotesInitializer = Provider { notes },
         )
 
         initializer.initializeLibraries()

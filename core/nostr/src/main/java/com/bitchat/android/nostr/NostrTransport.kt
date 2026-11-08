@@ -16,12 +16,12 @@ import kotlinx.coroutines.*
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
 import javax.inject.Inject
-import javax.inject.Singleton
+import com.bitchat.android.identity.scope.IdentityScoped
 
 /**
  * Nostr transport for offline private messages and receipts.
  */
-@Singleton
+@IdentityScoped
 class NostrTransport @Inject constructor(
     @ApplicationContext private val context: Context,
     // Lazy: each is first touched by the send that needs it, as before.
