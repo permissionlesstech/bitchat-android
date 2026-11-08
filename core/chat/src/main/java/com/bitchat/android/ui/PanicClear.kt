@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.spam.SpamFilter
 import com.bitchat.android.services.AppStateStore
 import android.content.Context
@@ -35,7 +36,7 @@ class PanicClear @Inject constructor(
     @ApplicationContext private val context: Context,
     private val state: ChatState,
     private val sessionMesh: ChatSessionMesh,
-    private val meshSource: SessionMeshSource,
+    @CurrentIdentity private val meshSource: SessionMeshSource,
     private val meshDelegate: ChatMeshDelegate,
     private val messageManager: MessageManager,
     private val channelManager: ChannelManager,

@@ -2,6 +2,7 @@ package com.bitchat.android
 
 import android.app.Application
 import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.mesh.PowerManager
 import com.bitchat.android.nostr.GeohashAliasRegistry
@@ -28,6 +29,7 @@ import com.bitchat.android.net.ArtiTorManager
 import dagger.Lazy
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
+import javax.inject.Provider
 
 /**
  * Main application class for bitchat Android
@@ -35,7 +37,7 @@ import javax.inject.Inject
 @HiltAndroidApp
 class BitchatApplication : Application() {
 
-    // Lazy, so each is first touched where onCreate touched it before Hilt injected them. That
+    // Lazy or Provider, so each is first touched where onCreate touched it before Hilt injected them. That
     // matters most for the stores that read persisted state: Hilt injects these fields inside
     // super.onCreate(), before the init calls below.
     @Inject lateinit var torManager: Lazy<ArtiTorManager>
@@ -52,9 +54,9 @@ class BitchatApplication : Application() {
     @Inject lateinit var spamFilterPreferences: Lazy<SpamFilterPreferences>
     @Inject lateinit var spamFilter: Lazy<SpamFilter>
     @Inject lateinit var debugPreferences: Lazy<DebugPreferenceManager>
-    @Inject lateinit var wifiAwareController: Lazy<WifiAwareController>
+    @Inject @CurrentIdentity lateinit var wifiAwareController: Provider<WifiAwareController>
     @Inject lateinit var debugSettings: Lazy<DebugSettingsManager>
-    @Inject lateinit var meshTransportToggles: Lazy<MeshTransportToggles>
+    @Inject @CurrentIdentity lateinit var meshTransportToggles: Provider<MeshTransportToggles>
     @Inject lateinit var geohashAliases: Lazy<GeohashAliasRegistry>
     @Inject lateinit var geohashConversations: Lazy<GeohashConversationRegistry>
     @Inject lateinit var peerFingerprints: Lazy<PeerFingerprintManager>

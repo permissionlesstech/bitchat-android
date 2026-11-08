@@ -17,6 +17,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.bitchat.android.MainActivity
 import com.bitchat.android.R
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.wifiaware.WifiAwareController
@@ -26,6 +27,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Inject
+import javax.inject.Provider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -42,11 +44,16 @@ class MeshForegroundService : Service() {
     @Inject
     lateinit var meshServicePreferences: MeshServicePreferences
 
+    // Providers, asked when used, so the service keeps nothing of the identity's.
     @Inject
-    lateinit var meshServiceHolder: MeshServiceHolder
+    @CurrentIdentity
+    lateinit var meshServiceHolderProvider: Provider<MeshServiceHolder>
+    private val meshServiceHolder: MeshServiceHolder get() = meshServiceHolderProvider.get()
 
     @Inject
-    lateinit var wifiAwareController: WifiAwareController
+    @CurrentIdentity
+    lateinit var wifiAwareControllerProvider: Provider<WifiAwareController>
+    private val wifiAwareController: WifiAwareController get() = wifiAwareControllerProvider.get()
 
     @Inject
     lateinit var appStateStore: AppStateStore

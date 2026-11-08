@@ -1,6 +1,7 @@
 package com.bitchat.android.di
 
 import com.bitchat.android.BuildConfig
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.share.AppBuildInfo
 import com.bitchat.android.share.HotspotRadioLease
 import com.bitchat.android.wifiaware.WifiAwareController
@@ -8,6 +9,7 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import javax.inject.Provider
 
 /**
  * This build's facts for APK sharing, read from the app's BuildConfig: the only
@@ -28,6 +30,7 @@ object ShareBindingsModule {
 
     // Wi-Fi Aware holds the NAN interface the hotspot's P2P group needs.
     @Provides
-    fun provideHotspotRadioLease(wifiAwareController: WifiAwareController): HotspotRadioLease =
-        HotspotRadioLease { wifiAwareController.acquireHotspotLease() }
+    fun provideHotspotRadioLease(
+        @CurrentIdentity wifiAwareController: Provider<WifiAwareController>,
+    ): HotspotRadioLease = HotspotRadioLease { wifiAwareController.get().acquireHotspotLease() }
 }

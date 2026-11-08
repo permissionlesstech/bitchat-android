@@ -3,6 +3,7 @@ package com.bitchat.android
 import android.util.Log
 import androidx.annotation.VisibleForTesting
 import com.bitchat.android.di.AppStartupScope
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.onboarding.BluetoothSkipSession
 import com.bitchat.android.onboarding.BluetoothStatus
 import com.bitchat.android.onboarding.DeviceReadiness
@@ -15,6 +16,7 @@ import com.bitchat.android.onboarding.nextStep
 import com.bitchat.android.wifiaware.WifiAwareController
 import dagger.hilt.android.scopes.ActivityRetainedScoped
 import javax.inject.Inject
+import javax.inject.Provider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -60,7 +62,7 @@ class AppStartupGate @Inject constructor(
     private val skip: BluetoothSkipSession,
     private val initializer: AppInitializer,
     @AppStartupScope private val scope: CoroutineScope,
-    private val wifiAwareController: WifiAwareController,
+    @CurrentIdentity private val wifiAwareController: Provider<WifiAwareController>,
 ) : OnboardingHost {
 
     private companion object {
@@ -176,7 +178,7 @@ class AppStartupGate @Inject constructor(
     }
 
     // Wi-Fi Aware waits on location services.
-    override fun locationServicesEnabled() = wifiAwareController.startIfPossible()
+    override fun locationServicesEnabled() = wifiAwareController.get().startIfPossible()
 
     /** Try again on an error step: back to CHECKING, then the checks (T40). */
     override suspend fun retry(): Boolean {

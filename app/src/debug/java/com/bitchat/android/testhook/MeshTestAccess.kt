@@ -11,6 +11,7 @@ import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.spam.SpamFilter
+import com.bitchat.android.ui.debug.DebugSettingsManager
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -29,7 +30,8 @@ interface MeshTestAccess {
     fun favorites(): FavoritesPersistenceService
     fun spamFilter(): SpamFilter
     fun seenMessageStore(): SeenMessageStore
-    fun meshServiceHolder(): MeshServiceHolder
+    @CurrentIdentity fun meshServiceHolder(): MeshServiceHolder
+    fun debugSettings(): DebugSettingsManager
     fun identityHolder(): IdentityHolder
     @CurrentIdentity fun voiceWaveformCache(): VoiceWaveformCache
 

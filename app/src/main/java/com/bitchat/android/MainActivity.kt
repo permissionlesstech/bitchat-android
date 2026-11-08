@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.Lifecycle
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.geohash.LocationChannelManager
@@ -32,6 +33,7 @@ import com.bitchat.android.ui.GeohashSession
 import com.bitchat.android.ui.VerificationHandler
 import com.bitchat.android.ui.OrientationAwareActivity
 import com.bitchat.android.ui.theme.BitchatTheme
+import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.wifiaware.WifiAwareController
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.serialization.NavKeySerializer
@@ -50,6 +52,7 @@ import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.VerificationService
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import javax.inject.Provider
 import kotlinx.coroutines.launch
 import kotlinx.serialization.builtins.ListSerializer
 
@@ -93,11 +96,14 @@ class MainActivity : OrientationAwareActivity() {
     @Inject
     lateinit var liveVoiceManager: dagger.Lazy<com.bitchat.android.features.voice.LiveVoiceManager>
 
+    // Providers, asked when used, so the Activity keeps nothing of the identity's.
     @Inject
-    lateinit var meshServiceHolder: com.bitchat.android.service.MeshServiceHolder
+    @CurrentIdentity
+    lateinit var meshServiceHolder: Provider<MeshServiceHolder>
 
     @Inject
-    lateinit var wifiAwareController: WifiAwareController
+    @CurrentIdentity
+    lateinit var wifiAwareController: Provider<WifiAwareController>
 
     @Inject
     lateinit var contactDirectory: ContactDirectory
@@ -189,8 +195,8 @@ class MainActivity : OrientationAwareActivity() {
 
         // Start the foreground service when allowed, then get mesh instances from the holder.
         startMeshForegroundServiceBestEffort()
-        meshService = meshServiceHolder.getOrCreate(applicationContext)
-        unifiedMeshService = meshServiceHolder.getUnifiedOrCreate(applicationContext)
+        meshService = meshServiceHolder.get().getOrCreate(applicationContext)
+        unifiedMeshService = meshServiceHolder.get().getUnifiedOrCreate(applicationContext)
         // Expose BLE mesh to Wi‑Fi Aware controller for cross-transport relays - DEPRECATED
         // Bridging is now handled by TransportBridgeService automatically
 
@@ -343,7 +349,7 @@ class MainActivity : OrientationAwareActivity() {
         // Keep the unified mesh delegate attached when Wi-Fi Aware starts after the UI.
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                wifiAwareController.running.collect { running ->
+                wifiAwareController.get().running.collect { running ->
                     if (running && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
                         meshDelegateBinding.attach()
                     }
@@ -441,7 +447,7 @@ class MainActivity : OrientationAwareActivity() {
             startupGate.onResumed()
             if (startupGate.phase.value == AppPhase.READY) {
                 // If location is enabled, ensure Wi-Fi Aware starts if it was blocked by location earlier
-                wifiAwareController.startIfPossible()
+                wifiAwareController.get().startIfPossible()
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.mesh.MeshService
 import dagger.hilt.android.scopes.ActivityRetainedScoped
 import javax.inject.Inject
@@ -16,7 +17,7 @@ import javax.inject.Inject
  */
 @ActivityRetainedScoped
 class ChatSessionMesh @Inject constructor(
-    unified: MeshService,
+    @CurrentIdentity unified: MeshService,
 ) : NoiseSessionDelegate {
 
     /** Every transport behind one interface; what the session sends through. */

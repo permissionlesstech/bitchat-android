@@ -6,6 +6,7 @@ import com.bitchat.android.onboarding.BluetoothStatus
 import com.bitchat.android.onboarding.FakeDeviceReadiness
 import com.bitchat.android.onboarding.LocationStatus
 import com.bitchat.android.onboarding.SystemEvent
+import javax.inject.Provider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
@@ -36,7 +37,7 @@ class AppStartupGateTest {
     private val wifiAwareController = testWifiAwareController()
 
     private fun TestScope.gate(scope: CoroutineScope = this) =
-        AppStartupGate(readiness, skip, initializer, scope, wifiAwareController)
+        AppStartupGate(readiness, skip, initializer, scope, Provider { wifiAwareController })
 
     private fun TestScope.advance(ms: Long) {
         advanceTimeBy(ms)

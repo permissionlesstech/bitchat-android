@@ -1,6 +1,7 @@
 package com.bitchat.android.di
 
 import android.content.Context
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.onboarding.DeviceReadiness
 import com.bitchat.android.service.MeshForegroundService
@@ -19,6 +20,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
+import javax.inject.Provider
 
 /** What :feature:settings needs from the app: the background mesh switch and Debug's transports. */
 @Module
@@ -50,27 +52,25 @@ class AppBackgroundMeshSetting @Inject constructor(
 
 class AppTransportDiagnostics @Inject constructor(
     private val deviceReadiness: DeviceReadiness,
-    private val wifiAwareController: WifiAwareController,
-    private val meshServiceHolder: MeshServiceHolder,
+    @CurrentIdentity private val wifiAwareController: Provider<WifiAwareController>,
+    @CurrentIdentity private val meshServiceHolder: Provider<MeshServiceHolder>,
 ) : TransportDiagnostics {
 
-    override val wifiAwareStatus: StateFlow<WifiAwareStatus> = combineStates(
-        wifiAwareController.supported,
-        wifiAwareController.available,
-        wifiAwareController.running,
-        wifiAwareController.supportStatus,
-    ) { supported, available, running, supportStatus ->
-        WifiAwareStatus(supported, available, running, supportStatus?.reason)
-    }
-    override val wifiAwareConnectedPeers: StateFlow<Map<String, String>> = wifiAwareController.connectedPeers
-    override val wifiAwareDiscoveredPeers: StateFlow<Map<String, String>> = combineStates(
-        wifiAwareController.discoveredPeers,
-        wifiAwareController.knownPeers,
-        ::discoveredWithNicknames,
-    )
+    override val wifiAwareStatus: StateFlow<WifiAwareStatus>
+        get() = wifiAwareController.get().run {
+            combineStates(supported, available, running, supportStatus) { supported, available, running, supportStatus ->
+                WifiAwareStatus(supported, available, running, supportStatus?.reason)
+            }
+        }
+    override val wifiAwareConnectedPeers: StateFlow<Map<String, String>>
+        get() = wifiAwareController.get().connectedPeers
+    override val wifiAwareDiscoveredPeers: StateFlow<Map<String, String>>
+        get() = wifiAwareController.get().run {
+            combineStates(discoveredPeers, knownPeers, ::discoveredWithNicknames)
+        }
 
     override fun sendWifiAwareAnnounce() {
-        wifiAwareController.getService()?.sendBroadcastAnnounce()
+        wifiAwareController.get().getService()?.sendBroadcastAnnounce()
     }
 
     override fun wifiAwarePermissions(): List<String> = deviceReadiness.wifiAwarePermissions()
@@ -84,7 +84,7 @@ class AppTransportDiagnostics @Inject constructor(
      * when none is. Debug never creates or replaces a mesh (B1).
      */
     override fun openMesh(): MeshDiagnostics? {
-        val current = meshServiceHolder.meshService ?: return null
+        val current = meshServiceHolder.get().meshService ?: return null
         opened?.takeIf { it.mesh === current }?.let { return it }
         return BluetoothMeshDiagnostics(current).also { opened = it }
     }

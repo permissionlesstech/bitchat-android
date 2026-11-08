@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.app.RemoteInput
 import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.nostr.GeohashAliasRegistry
@@ -40,7 +41,7 @@ class ConversationNotificationReceiver : BroadcastReceiver() {
         fun geohashConversations(): GeohashConversationRegistry
         fun contactDirectory(): ContactDirectory
         fun appStateStore(): AppStateStore
-        fun meshServiceHolder(): MeshServiceHolder
+        @CurrentIdentity fun meshServiceHolder(): MeshServiceHolder
     }
 
     override fun onReceive(context: Context, intent: Intent) {

@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import com.bitchat.android.di.IoDispatcher
+import com.bitchat.android.identity.scope.IdentityScoped
 import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.ui.debug.DebugSettingsManager
@@ -21,7 +22,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Provider
-import javax.inject.Singleton
 
 /**
  * WifiAwareController manages lifecycle and debug surfacing for the WifiAwareMeshService.
@@ -30,7 +30,7 @@ import javax.inject.Singleton
  * The only builder of [WifiAwareMeshService]: [newMesh] is asked for a fresh instance each time a
  * start cannot reuse the current one.
  */
-@Singleton
+@IdentityScoped
 class WifiAwareController @Inject constructor(
     private val newMesh: Provider<WifiAwareMeshService>,
     private val meshServiceHolder: MeshServiceHolder,

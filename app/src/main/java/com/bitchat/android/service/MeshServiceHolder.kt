@@ -1,24 +1,24 @@
 package com.bitchat.android.service
 
 import android.content.Context
+import com.bitchat.android.identity.scope.IdentityScoped
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.mesh.UnifiedMeshService
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.sync.GossipSyncManager
 import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
- * Process-wide holder to share a single BluetoothMeshService instance
- * between the foreground service and UI (MainActivity/ViewModels).
+ * Holds the identity's single BluetoothMeshService instance, shared between
+ * the foreground service and UI (MainActivity/ViewModels).
  *
  * The only builder of the mesh services: [newBluetooth] is asked for a fresh
  * [BluetoothMeshService] and [newUnified] wraps the current one. The `context` the
  * accessors take is kept for their callers; the services are built with the
  * application context either way.
  */
-@Singleton
+@IdentityScoped
 class MeshServiceHolder @Inject constructor(
     private val newBluetooth: BluetoothMeshService.Factory,
     private val newUnified: UnifiedMeshService.Factory,

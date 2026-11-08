@@ -1,33 +1,32 @@
 package com.bitchat.android.di
 
 import android.content.Context
+import com.bitchat.android.identity.scope.IdentityComponent
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.ui.SessionMeshSource
-import com.bitchat.android.ui.WifiAwarePeers
-import com.bitchat.android.wifiaware.WifiAwareController
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
-import dagger.hilt.components.SingletonComponent
 
 /**
- * Bridges the process-wide mesh instances into the injection graph.
+ * Binds the identity's mesh instances inside its component; `AppIdentityBindings` hands them to
+ * the process-wide graph.
  *
  * [MeshServiceHolder] remains the single source of truth: it is shared with the
  * foreground service, it synchronises creation, and it supports replacing the
  * mesh service after a panic clear. These bindings are therefore deliberately
- * unscoped — each injection re-reads the holder. Caching them with @Singleton
- * would pin the first instance for the process lifetime and hand out a stale
- * mesh service after a replacement.
+ * unscoped — each injection re-reads the holder. Caching them with a scope
+ * would pin the first instance and hand out a stale mesh service after a
+ * replacement.
  *
  * `BluetoothMeshService` itself has no binding: it is built only through its
  * assisted factory, which only the holder takes, so injecting it directly does
  * not compile. Code that needs the Bluetooth mesh asks the holder.
  */
 @Module
-@InstallIn(SingletonComponent::class)
+@InstallIn(IdentityComponent::class)
 object MeshModule {
 
     @Provides
@@ -49,11 +48,4 @@ object MeshModule {
             return meshServiceHolder.getUnifiedOrCreate(context)
         }
     }
-
-    @Provides
-    fun provideWifiAwarePeers(wifiAwareController: WifiAwareController): WifiAwarePeers =
-        object : WifiAwarePeers {
-            override val connected = wifiAwareController.connectedPeers
-            override val enabled = wifiAwareController.enabled
-        }
 }

@@ -2,16 +2,24 @@ package com.bitchat.android.di
 
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import com.bitchat.android.MainActivity
 import com.bitchat.android.identity.scope.MeshIdentityEntryPoint
 import com.bitchat.android.identity.scope.entryPoint
 import com.bitchat.android.navigation.OnboardedApp
 import com.bitchat.android.navigation.awaitChat
+import com.bitchat.android.service.MeshServiceHolder
+import com.bitchat.android.testhook.ChatSessionTestAccess
 import com.bitchat.android.testhook.MeshTestAccess
+import com.bitchat.android.ui.ChatSessionMesh
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertSame
 import org.junit.BeforeClass
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.ExternalResource
 import org.junit.runner.RunWith
 
 /**
@@ -23,7 +31,27 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class IdentityScopeWiringTest {
 
-    @get:Rule
+    /**
+     * What a receiver or service that starts with no Activity sees. Runs before [rule] launches
+     * the Activity, on a background thread, because neither of those starts on the main one.
+     */
+    private lateinit var holderBeforeAnyActivity: MeshServiceHolder
+
+    @get:Rule(order = 0)
+    val readBeforeAnyActivity = object : ExternalResource() {
+        override fun before() {
+            val context = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
+            val background = Executors.newSingleThreadExecutor()
+            try {
+                holderBeforeAnyActivity =
+                    background.submit(Callable { MeshTestAccess.of(context).meshServiceHolder() }).get()
+            } finally {
+                background.shutdown()
+            }
+        }
+    }
+
+    @get:Rule(order = 1)
     val rule = createAndroidComposeRule<MainActivity>()
 
     companion object {
@@ -37,9 +65,30 @@ class IdentityScopeWiringTest {
     private fun identityEntry(): MeshIdentityEntryPoint =
         graph().identityHolder().entryPoint()
 
+    private fun appIdentityEntry(): AppIdentityEntryPoint =
+        graph().identityHolder().entryPoint()
+
     @Test
     fun theBridgeAndTheScopeGiveTheSameInstance() {
         rule.awaitChat()
         assertSame(graph().voiceWaveformCache(), identityEntry().voiceWaveformCache())
+    }
+
+    @Test
+    fun aServiceThatStartsFirstAndTheUiShareTheOneMeshHolder() {
+        rule.awaitChat()
+
+        assertSame(holderBeforeAnyActivity, rule.activity.meshServiceHolder.get())
+        assertSame(holderBeforeAnyActivity, appIdentityEntry().meshServiceHolder())
+
+        lateinit var sessionMesh: ChatSessionMesh
+        rule.runOnUiThread { sessionMesh = ChatSessionTestAccess.of(rule.activity).sessionMesh() }
+        assertNotNull(holderBeforeAnyActivity.unifiedMeshService)
+        assertSame(holderBeforeAnyActivity.unifiedMeshService, sessionMesh.unified)
+    }
+
+    @Test
+    fun theTransportTogglesRegisteredAtStartUpAreTheCurrentIdentitys() {
+        assertSame(appIdentityEntry().meshTransportToggles(), graph().debugSettings().transportToggles)
     }
 }

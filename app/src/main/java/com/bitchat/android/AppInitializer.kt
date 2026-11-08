@@ -1,6 +1,7 @@
 package com.bitchat.android
 
 import android.content.Context
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.nostr.LocationNotesInitializer
 import com.bitchat.android.nostr.PoWPreferenceManager
@@ -21,7 +22,7 @@ interface AppInitializer {
 class DefaultAppInitializer @Inject constructor(
     @ApplicationContext private val context: Context,
     // Re-reads the holder each time, as MeshModule's bindings do.
-    private val meshService: Provider<MeshService>,
+    @CurrentIdentity private val meshService: Provider<MeshService>,
     private val powPreferences: PoWPreferenceManager,
     private val locationNotesInitializer: LocationNotesInitializer,
 ) : AppInitializer {

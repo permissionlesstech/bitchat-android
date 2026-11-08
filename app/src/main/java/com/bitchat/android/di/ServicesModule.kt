@@ -2,6 +2,7 @@ package com.bitchat.android.di
 
 import android.content.Context
 import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.nostr.GeohashConversationRegistry
@@ -15,6 +16,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import javax.inject.Provider
 
 /**
  * Bridges [MessageRouter], which is deliberately left static until 10c-2a-2, into the graph.
@@ -44,7 +46,7 @@ object ServicesModule {
     @Provides
     fun provideMessageRouter(
         @ApplicationContext context: Context,
-        mesh: MeshService,
+        @CurrentIdentity mesh: Provider<MeshService>,
         nostrIdentity: NostrIdentityBridge,
         favorites: FavoritesPersistenceService,
         contactDirectory: ContactDirectory,
@@ -52,6 +54,6 @@ object ServicesModule {
         geohashConversations: GeohashConversationRegistry,
         nostrTransport: Lazy<NostrTransport>,
     ): MessageRouter = MessageRouter.getInstance(
-        context, mesh, nostrIdentity, favorites, contactDirectory, geohashAliases, geohashConversations
+        context, mesh.get(), nostrIdentity, favorites, contactDirectory, geohashAliases, geohashConversations
     ) { nostrTransport.get() }
 }

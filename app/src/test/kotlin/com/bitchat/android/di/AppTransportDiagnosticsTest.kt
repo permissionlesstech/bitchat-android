@@ -4,6 +4,7 @@ import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.onboarding.DeviceReadiness
 import com.bitchat.android.service.testMeshServiceHolder
 import com.bitchat.android.service.testWifiAwareController
+import javax.inject.Provider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -20,8 +21,8 @@ class AppTransportDiagnosticsTest {
     private val meshServiceHolder = testMeshServiceHolder()
     private val diagnostics = AppTransportDiagnostics(
         mock<DeviceReadiness>(),
-        testWifiAwareController(meshServiceHolder),
-        meshServiceHolder,
+        testWifiAwareController(meshServiceHolder).let { controller -> Provider { controller } },
+        Provider { meshServiceHolder },
     )
 
     @Test

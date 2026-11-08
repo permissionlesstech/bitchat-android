@@ -2,6 +2,7 @@ package com.bitchat.android.testhook
 
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.features.voice.LiveVoiceManager
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.mesh.TransferProgressManager
 import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.service.TransportBridgeService
@@ -24,7 +25,7 @@ interface TestHookDependencies {
     fun favorites(): FavoritesPersistenceService
     fun liveVoiceManager(): LiveVoiceManager
     fun meshGraphService(): MeshGraphService
-    fun meshServiceHolder(): MeshServiceHolder
+    @CurrentIdentity fun meshServiceHolder(): MeshServiceHolder
     fun transferProgressManager(): TransferProgressManager
     fun transportBridgeService(): TransportBridgeService
 }

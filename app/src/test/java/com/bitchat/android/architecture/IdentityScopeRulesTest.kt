@@ -42,9 +42,6 @@ class IdentityScopeRulesTest {
 
     /** Identity classes not yet moved into the identity scope. Later changes remove names. */
     private val pendingMove: Set<String> = setOf(
-        // :app
-        "MeshServiceHolder", "BluetoothMeshService", "UnifiedMeshService", "WifiAwareController",
-        "WifiAwareMeshService", "MeshTransportToggles",
         // :core:chat
         "MessageRouter", "ConversationListPreferences",
         // :core:nostr
@@ -58,6 +55,16 @@ class IdentityScopeRulesTest {
         "PrivateMessageArrivalOrder", "VerificationService", "MeshGraphService",
         // :wear
         "WearMeshHolder", "WearMeshService", "WearChatState", "WearPeerIdentityState",
+    )
+
+    /**
+     * Unscoped classes the identity scope builds, which take identity types like an `@IdentityScoped`
+     * class does but cannot carry the annotation, with the reason.
+     */
+    private val builtInsideTheScope: Map<String, String> = mapOf(
+        "BluetoothMeshService" to "@AssistedInject, which Dagger refuses to scope; built only by MeshServiceHolder",
+        "UnifiedMeshService" to "@AssistedInject, which Dagger refuses to scope; built only by MeshServiceHolder",
+        "WifiAwareMeshService" to "a fresh instance per start, so unscoped; built only by WifiAwareController",
     )
 
     /**
@@ -113,6 +120,12 @@ class IdentityScopeRulesTest {
     }
 
     @Test
+    fun aClassBuiltInsideTheScopeIsUnscopedAndGivesItsReason() {
+        val problems = insideScopeProblems(realModel(), builtInsideTheScope)
+        assertTrue(problems.joinToString("\n"), problems.isEmpty())
+    }
+
+    @Test
     fun aStatefulObjectIsAllowlistedWithAReason() {
         val model = realModel()
         val offenders = statefulObjectViolations(model, statefulObjects)
@@ -123,13 +136,13 @@ class IdentityScopeRulesTest {
     fun outsideTheScopeAnIdentityTypeIsTakenAsACurrentIdentityProvider() {
         val model = realModel()
         assertTrue("No identity type found; the scan is broken", model.identityTypes().isNotEmpty())
-        val offenders = providerViolations(model, pendingChatSession)
+        val offenders = providerViolations(model, pendingChatSession, builtInsideTheScope.keys)
         assertTrue(offenders.joinToString("\n"), offenders.isEmpty())
     }
 
     @Test
     fun onlyTheChatSessionAndViewModelsMayTakeAnIdentityTypeDirectly() {
-        val offenders = directViolations(realModel(), pendingChatSession)
+        val offenders = directViolations(realModel(), pendingChatSession, builtInsideTheScope.keys)
         assertTrue(offenders.joinToString("\n"), offenders.isEmpty())
     }
 
@@ -235,6 +248,24 @@ class IdentityScopeRulesTest {
         listOf("SecGood", "Qualified", "Good", "Multi", "Bridge", "Inside", "InsideHook", "Sibling", "NotInjected").forEach { name ->
             assertTrue("$name wrongly reported in $found", found.none { it.contains("'$name") })
         }
+    }
+
+    @Test
+    fun aClassBuiltInsideTheScopeMayTakeAnIdentityTypeOnlyWhenListedAndUnscoped() {
+        val model = modelOf(
+            identityCache,
+            "class Listed @AssistedInject constructor(private val c: Cache, @Assisted n: Int)",
+            "class Unlisted @AssistedInject constructor(private val c: Cache, @Assisted n: Int)",
+            "@Singleton class Scoped @Inject constructor(private val c: Provider<Cache>)",
+        )
+        val found = providerViolations(model, emptySet(), setOf("Listed"))
+        assertTrue("Listed wrongly reported in $found", found.none { it.contains("'Listed") })
+        assertTrue("Unlisted not reported in $found", found.any { it.contains("'Unlisted") })
+        val problems = insideScopeProblems(model, mapOf("Listed" to "why", "Scoped" to "why", "Gone" to "why", "Cache" to "why", "Unlisted" to " "))
+        listOf("Scoped", "Gone", "Cache", "Unlisted").forEach { name ->
+            assertTrue("no problem named for $name in $problems", problems.any { name in it })
+        }
+        assertTrue("Listed wrongly reported in $problems", problems.none { "Listed" in it.replace("Unlisted", "") })
     }
 
     @Test
@@ -373,14 +404,25 @@ class IdentityScopeRulesTest {
         return unlisted + stale + blank
     }
 
-    private fun providerViolations(model: Model, chatAllowed: Set<String>): List<String> =
+    private fun insideScopeProblems(model: Model, table: Map<String, String>): List<String> =
+        table.flatMap { (name, reason) ->
+            val decl = model.classes.firstOrNull { it.name == name && it.kind == "class" }
+            listOfNotNull(
+                "'$name' is built inside the scope by the table but no such class exists; remove the entry.".takeIf { decl == null },
+                "'$name' carries a scope; a scoped class does not belong in the built-inside table."
+                    .takeIf { decl != null && (decl.has("Singleton") || decl.has("IdentityScoped")) },
+                "'$name' is built inside the scope by the table without a reason.".takeIf { reason.isBlank() },
+            )
+        }
+
+    private fun providerViolations(model: Model, chatAllowed: Set<String>, insideScope: Set<String> = emptySet()): List<String> =
         model.bridges().filter { it.returnName.isEmpty() }.map {
             "'${it.name}' (${it.file}) is a @CurrentIdentity bridge without an explicit return type; " +
                 "the bridge needs an explicit return type so the scan knows which type it hands out."
-        } + model.sites().flatMap { site -> site.problem(model.identityTypes(), chatAllowed, directAllowedKinds = false) }
+        } + model.sites().filter { it.owner !in insideScope }.flatMap { site -> site.problem(model.identityTypes(), chatAllowed, directAllowedKinds = false) }
 
-    private fun directViolations(model: Model, chatAllowed: Set<String>): List<String> =
-        model.sites().flatMap { site -> site.problem(model.identityTypes(), chatAllowed, directAllowedKinds = true) }
+    private fun directViolations(model: Model, chatAllowed: Set<String>, insideScope: Set<String> = emptySet()): List<String> =
+        model.sites().filter { it.owner !in insideScope }.flatMap { site -> site.problem(model.identityTypes(), chatAllowed, directAllowedKinds = true) }
 
     private fun constructionViolations(model: Model): List<String> {
         val identity = model.identityTypes()
