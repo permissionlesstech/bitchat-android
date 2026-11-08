@@ -249,13 +249,22 @@ object WifiAwareController {
             // publishes anyway — resurrecting NAN while the hotspot owns the radio.
             // Ordering holds because acquireHotspotLease() increments before calling
             // stop(): either we see the flag here, or stop() sees our published service.
+            //
+            // stop() withdraws an instance by clearing `service`. A reused instance it took
+            // during this attempt is being torn down and must not be published again.
+            var retainedForRetry = false
             val published = synchronized(lifecycleLock) {
-                val canPublish = !heldForHotspot() && startedService.isRunning()
+                val withdrawn = reusableService != null && service !== reusableService
+                val canPublish = !heldForHotspot() && !withdrawn && startedService.isRunning()
                 if (canPublish) {
                     service = startedService
                     _running.value = true
                 } else {
-                    if (service === startedService) service = null
+                    if (heldForHotspot() && service === startedService) service = null
+                    // A reused instance can defer its start while recovery cleanup finishes.
+                    // Keep it for the next attempt: it was never shut down, so replacing it
+                    // would orphan it next to a second instance.
+                    retainedForRetry = service === startedService
                     _running.value = false
                 }
                 canPublish
@@ -268,7 +277,7 @@ object WifiAwareController {
             } else {
                 // stopServices() can block, so keep it out of the lock.
                 val heldForHotspot = heldForHotspot()
-                if (heldForHotspot || reusableService == null) {
+                if (!retainedForRetry) {
                     try { startedService.stopServices() } catch (_: Exception) { }
                 }
                 if (heldForHotspot) {
@@ -306,6 +315,21 @@ object WifiAwareController {
             service = null
             _running.value = false
             try { com.bitchat.android.services.AppStateStore.clearTransportPeers("WIFI") } catch (_: Exception) { }
+            clearDebugSnapshot()
+        }
+    }
+
+    /**
+     * Records that the published service lost its sessions but was not shut down.
+     *
+     * Unlike [onServiceStopped] this keeps the reference: the instance still owns its scope
+     * and core, and [startIfPossible] resumes it. Clearing [running] is what lets
+     * [restartIfStillEnabled] act.
+     */
+    internal fun onServiceInterrupted(interruptedService: WifiAwareMeshService) {
+        synchronized(lifecycleLock) {
+            if (service !== interruptedService) return
+            _running.value = false
             clearDebugSnapshot()
         }
     }
