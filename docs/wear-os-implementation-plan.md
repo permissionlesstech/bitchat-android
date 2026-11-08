@@ -154,6 +154,9 @@ composes its own service in M2). Two tiny wear-owned shims satisfy the only unre
 references from shared code: `com.bitchat.android.service.MeshServiceHolder` (BLE-toggle
 interface, null) and `com.bitchat.android.wifiaware.WifiAwareController` (no-op).
 
+**Superseded:** the shared stack is now the `:core:mesh` library module, which `:app` and `:wear`
+both depend on. The source sync, the three same-name shims and the copied test run are gone.
+
 **Success criteria**: the entire shared stack (protocol, noise, crypto, identity, mesh, model,
 AppStateStore) compiles into `:wear`; both modules' unit tests pass; `app/src/` untouched.
 **Result**: PASSED — `:wear` compiles the full shared stack; 172 shared unit tests pass on

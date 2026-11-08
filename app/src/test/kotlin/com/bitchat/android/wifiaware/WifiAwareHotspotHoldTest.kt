@@ -1,9 +1,8 @@
 package com.bitchat.android.wifiaware
 
-import org.junit.After
+import com.bitchat.android.service.testWifiAwareController
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -15,59 +14,53 @@ import org.robolectric.RobolectricTestRunner
  *
  * Teardown is asynchronous, so sessions overlap and releases arrive out of order. These
  * cover the counting rules that make that safe.
+ *
+ * Each test has its own controller, so no hold leaks from one test into the next.
  */
 @RunWith(RobolectricTestRunner::class)
 class WifiAwareHotspotHoldTest {
 
-    @Before
-    fun clearAnyLeftoverHolds() {
-        WifiAwareController.resetHotspotLeasesForTest()
-    }
-
-    @After
-    fun clearTestHolds() {
-        WifiAwareController.resetHotspotLeasesForTest()
-    }
+    private val controller = testWifiAwareController()
 
     @Test
     fun `a single session holds and then releases`() {
-        val lease = WifiAwareController.acquireHotspotLease()
-        assertTrue(WifiAwareController.isHeldForHotspot())
+        val lease = controller.acquireHotspotLease()
+        assertTrue(controller.isHeldForHotspot())
 
         lease.close()
-        assertFalse(WifiAwareController.isHeldForHotspot())
+        assertFalse(controller.isHeldForHotspot())
     }
 
     @Test
     fun `a second session starting before the first finishes keeps the radio held`() {
-        val first = WifiAwareController.acquireHotspotLease()
-        val second = WifiAwareController.acquireHotspotLease()
+        val first = controller.acquireHotspotLease()
+        val second = controller.acquireHotspotLease()
 
         // The first session's asynchronous teardown completes.
         first.close()
 
         assertTrue(
             "the second session still needs the radio",
-            WifiAwareController.isHeldForHotspot()
+            controller.isHeldForHotspot()
         )
 
         second.close()
-        assertFalse(WifiAwareController.isHeldForHotspot())
+        assertFalse(controller.isHeldForHotspot())
     }
 
     @Test
     fun `closing one lease twice cannot release another session`() {
-        val first = WifiAwareController.acquireHotspotLease()
-        val second = WifiAwareController.acquireHotspotLease()
+        val first = controller.acquireHotspotLease()
+        val second = controller.acquireHotspotLease()
 
         first.close()
         first.close()
-        assertTrue(WifiAwareController.isHeldForHotspot())
+        assertTrue(controller.isHeldForHotspot())
 
         second.close()
         assertFalse(
             "only the matching session can release its radio claim",
-            WifiAwareController.isHeldForHotspot()
+            controller.isHeldForHotspot()
         )
     }
 }

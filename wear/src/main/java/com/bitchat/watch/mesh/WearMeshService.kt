@@ -1,23 +1,45 @@
 package com.bitchat.watch.mesh
 
+import com.bitchat.android.di.IoDispatcher
+import kotlinx.coroutines.CoroutineDispatcher
 import android.bluetooth.BluetoothDevice
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.crypto.EncryptionService
+import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.identity.scope.IdentityScoped
+import com.bitchat.android.features.voice.LiveVoiceManager
 import com.bitchat.android.favorites.FavoriteControlMessage
 import com.bitchat.android.mesh.BluetoothConnectionManager
 import com.bitchat.android.mesh.BluetoothConnectionManagerDelegate
+import com.bitchat.android.mesh.BluetoothPermissionManager
 import com.bitchat.android.mesh.DirectLinkAnnouncementPolicy
 import com.bitchat.android.mesh.MeshCore
+import com.bitchat.android.mesh.MeshDiagnostics
+import com.bitchat.android.mesh.MeshLifecycle
+import com.bitchat.android.mesh.MeshMessaging
+import com.bitchat.android.mesh.MeshPeers
 import com.bitchat.android.mesh.MeshTransport
+import com.bitchat.android.mesh.PeerFingerprintManager
+import com.bitchat.android.mesh.PowerManager
+import com.bitchat.android.mesh.TransferProgressManager
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
+import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.SeenMessageStore
+import com.bitchat.android.services.VerificationService
+import com.bitchat.android.services.meshgraph.MeshGraphService
 import com.bitchat.android.spam.SpamFilter
 import com.bitchat.android.sync.GossipSyncManager
+import com.bitchat.android.ui.debug.DebugPreferenceManager
+import com.bitchat.android.ui.debug.DebugSettingsManager
 import com.bitchat.android.util.AppConstants
+import dagger.Lazy
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -26,29 +48,43 @@ import kotlinx.coroutines.launch
  * Watch mesh service: composes the shared BLE transport (BluetoothConnectionManager) with the
  * shared mesh coordinator (MeshCore), mirroring how the phone's Wi-Fi Aware service is built.
  * Bluetooth mesh only — no internet, no other transports.
+ *
+ * Built only by [WearMeshHolder]: creating one loads or generates the identity keys, so it must
+ * wait until permissions and Bluetooth are confirmed, never happen at injection time.
  */
-class WearMeshService private constructor(private val context: Context) {
+@IdentityScoped
+class WearMeshService @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val appStateStore: AppStateStore,
+    private val spamFilter: SpamFilter,
+    private val debugSettingsManager: Lazy<DebugSettingsManager>,
+    private val debugPreferenceManager: DebugPreferenceManager,
+    private val powerManager: PowerManager,
+    private val transferProgressManager: TransferProgressManager,
+    peerFingerprintManager: PeerFingerprintManager,
+    liveVoiceManager: Lazy<LiveVoiceManager>,
+    meshGraphService: MeshGraphService,
+    favoritesPersistenceService: Lazy<FavoritesPersistenceService>,
+    contactDirectory: ContactDirectory,
+    transportBridgeService: TransportBridgeService,
+    verificationService: VerificationService,
+    seenMessageStore: Lazy<SeenMessageStore>,
+    @IoDispatcher ioDispatcher: CoroutineDispatcher,
+) : MeshLifecycle, MeshPeers, MeshMessaging, MeshDiagnostics {
 
     companion object {
         private const val TAG = "WearMeshService"
         private val MAX_TTL: UByte = AppConstants.MESSAGE_TTL_HOPS
         private val PEER_DISCONNECT_GRACE_MS: Long = AppConstants.Mesh.PEER_DISCONNECT_GRACE_MS
-
-        @Volatile
-        private var instance: WearMeshService? = null
-
-        fun getOrCreate(context: Context): WearMeshService {
-            return instance ?: synchronized(this) {
-                instance ?: WearMeshService(context.applicationContext).also { instance = it }
-            }
-        }
-
-        fun peek(): WearMeshService? = instance
     }
 
-    val encryptionService = EncryptionService(context)
-    val myPeerID: String = encryptionService.getIdentityFingerprint().take(16)
-    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    val encryptionService = EncryptionService(context, peerFingerprintManager, favoritesPersistenceService)
+
+    // The watch declares Bluetooth permissions only; see BluetoothPermissionManager.
+    private val permissionManager = BluetoothPermissionManager(context, requireLocation = false)
+
+    override val myPeerID: String = encryptionService.getIdentityFingerprint().take(16)
+    private val serviceScope = CoroutineScope(ioDispatcher + SupervisorJob())
 
     private val bleTransport = BleTransport()
     private val meshCore: MeshCore
@@ -78,6 +114,16 @@ class WearMeshService private constructor(private val context: Context) {
                 override fun gcsMaxBytes(): Int = 400
                 override fun gcsTargetFpr(): Double = 0.01
             },
+            peerFingerprintManager = peerFingerprintManager,
+            debugSettingsManager = debugSettingsManager,
+            liveVoiceManager = liveVoiceManager,
+            meshGraphService = meshGraphService,
+            favoritesPersistenceService = favoritesPersistenceService,
+            contactDirectory = contactDirectory,
+            appStateStore = appStateStore,
+            transportBridgeService = transportBridgeService,
+            verificationService = verificationService,
+            seenMessageStore = seenMessageStore,
             hooks = MeshCore.Hooks(
                 onMessageReceived = { message -> handleMessageReceived(message) },
                 onAnnounceProcessed = { routed, _ ->
@@ -107,7 +153,7 @@ class WearMeshService private constructor(private val context: Context) {
                 leavePayloadProvider = { nickname.toByteArray(Charsets.UTF_8) }
             )
         )
-        connectionManager = BluetoothConnectionManager(context, myPeerID, meshCore.fragmentManager)
+        connectionManager = newConnectionManager()
         bleTransport.connectionManager = connectionManager
         wireBluetoothDelegate()
     }
@@ -141,6 +187,17 @@ class WearMeshService private constructor(private val context: Context) {
         override fun getTransportDebugInfo(): String = connectionManager.getDebugInfo()
     }
 
+    private fun newConnectionManager() = BluetoothConnectionManager(
+        context,
+        myPeerID,
+        permissionManager,
+        meshCore.fragmentManager,
+        powerManager,
+        debugSettingsManager,
+        debugPreferenceManager,
+        transferProgressManager,
+    )
+
     private fun wireBluetoothDelegate() {
         connectionManager.delegate = object : BluetoothConnectionManagerDelegate {
             override fun onPacketReceived(
@@ -150,7 +207,7 @@ class WearMeshService private constructor(private val context: Context) {
                 ingressLinkID: String
             ) {
                 try {
-                    com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logIncoming(
+                    debugSettingsManager.get().logIncoming(
                         packet = packet,
                         fromPeerID = peerID,
                         fromNickname = null,
@@ -232,21 +289,24 @@ class WearMeshService private constructor(private val context: Context) {
     private fun handleMessageReceived(
         message: com.bitchat.android.model.BitchatMessage
     ): Boolean = try {
+        // Read once: BitchatMessage comes from :core:domain, and Kotlin does not
+        // smart-cast a property declared in another module.
+        val channel = message.channel
         when {
             message.isPrivate -> {
                 val peer = message.senderPeerID ?: return false
-                if (!AppStateStore.addPrivateMessage(peer, message)) return false
+                if (!appStateStore.addPrivateMessage(peer, message)) return false
                 try { onPrivateMessage?.invoke(message) } catch (_: Exception) { }
                 true
             }
             !SpamFilter.isLocalNotice(message) &&
-                SpamFilter.shared.shouldHide(message, SpamFilter.meshSenderKey(message)) -> false
-            message.channel != null -> {
-                AppStateStore.addChannelMessage(message.channel, message)
+                spamFilter.shouldHide(message, SpamFilter.meshSenderKey(message)) -> false
+            channel != null -> {
+                appStateStore.addChannelMessage(channel, message)
                 true
             }
             else -> {
-                AppStateStore.addPublicMessage(message)
+                appStateStore.addPublicMessage(message)
                 true
             }
         }
@@ -254,7 +314,7 @@ class WearMeshService private constructor(private val context: Context) {
         !message.isPrivate
     }
 
-    fun startServices() {
+    override fun startServices() {
         if (isActive) {
             Log.w(TAG, "Mesh already active, ignoring duplicate start")
             return
@@ -264,7 +324,7 @@ class WearMeshService private constructor(private val context: Context) {
             // API marks such managers single-use, so build a fresh one instead of starting
             // a zombie mesh that reports active while scanning nothing.
             Log.i(TAG, "Recreating BluetoothConnectionManager after terminal stop")
-            connectionManager = BluetoothConnectionManager(context, myPeerID, meshCore.fragmentManager)
+            connectionManager = newConnectionManager()
             bleTransport.connectionManager = connectionManager
             wireBluetoothDelegate()
         }
@@ -282,7 +342,7 @@ class WearMeshService private constructor(private val context: Context) {
         }
     }
 
-    fun stopServices() {
+    override fun stopServices() {
         if (!isActive) return
         isActive = false
         meshCore.stopCore()
@@ -300,14 +360,6 @@ class WearMeshService private constructor(private val context: Context) {
         if (isActive) {
             serviceScope.launch { meshCore.sendBroadcastAnnounce() }
         }
-    }
-
-    fun sendMessage(content: String, mentions: List<String> = emptyList()) {
-        meshCore.sendMessage(content, mentions, null)
-    }
-
-    fun sendPrivateMessage(content: String, recipientPeerID: String, recipientNickname: String) {
-        meshCore.sendPrivateMessage(content, recipientPeerID, recipientNickname)
     }
 
     /**
@@ -336,25 +388,25 @@ class WearMeshService private constructor(private val context: Context) {
         }
     }
 
-    fun initiateNoiseHandshake(peerID: String) = meshCore.initiateNoiseHandshake(peerID)
+    override fun initiateNoiseHandshake(peerID: String) = meshCore.initiateNoiseHandshake(peerID)
 
-    fun hasEstablishedSession(peerID: String): Boolean = meshCore.hasEstablishedSession(peerID)
+    override fun hasEstablishedSession(peerID: String): Boolean = meshCore.hasEstablishedSession(peerID)
 
-    fun getSessionState(peerID: String) = meshCore.getSessionState(peerID)
+    override fun getSessionState(peerID: String) = meshCore.getSessionState(peerID)
 
-    fun getPeerInfo(peerID: String) = meshCore.getPeerInfo(peerID)
+    override fun getPeerInfo(peerID: String) = meshCore.getPeerInfo(peerID)
 
-    fun getIdentityFingerprint(): String = encryptionService.getIdentityFingerprint()
+    override fun getIdentityFingerprint(): String = encryptionService.getIdentityFingerprint()
 
-    fun getStaticNoisePublicKey(): ByteArray? = meshCore.getStaticNoisePublicKey()
+    override fun getStaticNoisePublicKey(): ByteArray? = meshCore.getStaticNoisePublicKey()
 
-    fun sendBroadcastAnnounce() = meshCore.sendBroadcastAnnounce()
+    override fun sendBroadcastAnnounce() = meshCore.sendBroadcastAnnounce()
 
-    fun sendChannelMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null) {
+    override fun sendMessage(content: String, mentions: List<String>, channel: String?) {
         meshCore.sendMessage(content, mentions, channel)
     }
 
-    fun sendPrivateMessageWithId(
+    override fun sendPrivateMessage(
         content: String,
         recipientPeerID: String,
         recipientNickname: String,
@@ -363,20 +415,20 @@ class WearMeshService private constructor(private val context: Context) {
         meshCore.sendPrivateMessage(content, recipientPeerID, recipientNickname, messageID)
     }
 
-    fun getDeviceAddressForPeer(peerID: String): String? = meshCore.getDeviceAddressForPeer(peerID)
+    override fun getDeviceAddressForPeer(peerID: String): String? = meshCore.getDeviceAddressForPeer(peerID)
 
-    fun getDeviceAddressToPeerMapping(): Map<String, String> = meshCore.getDeviceAddressToPeerMapping()
+    override fun getDeviceAddressToPeerMapping(): Map<String, String> = meshCore.getDeviceAddressToPeerMapping()
 
     fun connectToPeer(peerID: String): Boolean {
         val address = getDeviceAddressForPeer(peerID) ?: return false
         return connectionManager.connectToAddress(address)
     }
 
-    fun sendFileBroadcast(file: com.bitchat.android.model.BitchatFilePacket) {
+    override fun sendFileBroadcast(file: com.bitchat.android.model.BitchatFilePacket) {
         meshCore.sendFileBroadcast(file)
     }
 
-    fun sendVoiceFrame(recipientPeerID: String?, payload: ByteArray) {
+    override fun sendVoiceFrame(recipientPeerID: String?, payload: ByteArray) {
         meshCore.sendVoiceFrame(recipientPeerID, payload)
     }
 
@@ -419,15 +471,19 @@ class WearMeshService private constructor(private val context: Context) {
         }
     }
 
-    fun getPeerFingerprint(peerID: String): String? = meshCore.getPeerFingerprint(peerID)
+    override fun getActivePeerCount(): Int = meshCore.getActivePeerCount()
 
-    fun getPeerNicknames(): Map<String, String> = meshCore.getPeerNicknames()
+    override fun sendAnnouncementToPeer(peerID: String) = meshCore.sendAnnouncementToPeer(peerID)
 
-    fun getPeerRSSI(): Map<String, Int> = meshCore.getPeerRSSI()
+    override fun getPeerFingerprint(peerID: String): String? = meshCore.getPeerFingerprint(peerID)
+
+    override fun getPeerNicknames(): Map<String, String> = meshCore.getPeerNicknames()
+
+    override fun getPeerRSSI(): Map<String, Int> = meshCore.getPeerRSSI()
 
     fun getPeerNickname(peerID: String): String? = meshCore.getPeerNickname(peerID)
 
-    fun getDebugStatus(): String = meshCore.getDebugStatus(
+    override fun getDebugStatus(): String = meshCore.getDebugStatus(
         transportInfo = connectionManager.getDebugInfo(),
         deviceMap = connectionManager.addressPeerMap.toMap(),
         title = "Wear BLE Mesh Debug Status"

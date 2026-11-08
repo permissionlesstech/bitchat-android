@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="battery_optimization_not_required">无需电池优化</string>
+    <string name="battery_optimization_not_supported_message">你的设备不需要电池优化设置。bitchat 将正常运行。</string>
+    <string name="battery_optimization_success_message">bitchat 可在后台可靠运行</string>
+    <string name="battery_optimization_skip">暂时跳过</string>
+    <string name="skip">跳过</string>
+
+    <string name="cd_location_services">定位服务</string>
+    <string name="cd_privacy">隐私</string>
+    <string name="cd_error">错误</string>
+    <string name="cd_battery_optimization">电池优化</string>
+    <string name="cd_benefits">好处</string>
+    <string name="cd_checking_battery_optimization">检查电池优化</string>
+    <string name="cd_not_supported_battery_optimization">不支持</string>
+    <string name="cd_bluetooth">Bluetooth</string>
+    <!-- 入门屏幕 -->
+    <string name="location_services_required">需要定位服务</string>
+    <string name="privacy_first">隐私优先</string>
+    <string name="location_explanation">bitchat 不会跟踪你的位置。\n\n蓝牙扫描和 geohash 聊天功能需要定位服务。</string>
+    <string name="location_needs_for">bitchat 需要定位服务用于：</string>
+    <string name="location_needs_bullets">• 蓝牙设备扫描\n• 在 mesh 网络发现附近用户\n• Geohash 聊天\n• 不跟踪或收集位置</string>
+    <string name="open_location_settings">打开定位设置</string>
+    <string name="check_again">再次检查</string>
+    <string name="location_services_unavailable">定位服务不可用</string>
+    <string name="location_unavailable_explanation">此设备上定位服务不可用。这不常见，因为 Android 设备通常具备此功能。\n\n为使蓝牙扫描正常工作（Android 要求），需要定位服务。否则无法发现附近用户。</string>
+    <string name="checking_location_services">正在检查定位服务…</string>
+    <string name="bluetooth_needs_for">bitchat 需要 Bluetooth 以：</string>
+    <string name="bluetooth_needs_bullets">• 发现附近用户\n• 建立 mesh 连接\n• 发送和接收消息\n• 在无网络和服务器时工作</string>
+    <string name="enable_bluetooth">启用 Bluetooth</string>
+    <string name="bluetooth_not_supported">不支持 Bluetooth</string>
+    <string name="bluetooth_unsupported_explanation">此设备不支持 Bluetooth Low Energy (BLE)，而 bitchat 需要它。\n\nbitchat 需要 BLE 以建立 mesh 并在无网络时与附近设备通信。</string>
+    <string name="checking_bluetooth_status">正在检查 Bluetooth 状态…</string>
+    <string name="battery_optimization_detected_title">检测到电池优化</string>
+    <string name="battery_optimization_enabled_title">电池优化已启用</string>
+    <string name="battery_optimization_explanation_short">bitchat 需要在后台运行以维持连接；电池优化可能会中断。</string>
+    <string name="benefits_of_disabling">禁用的好处</string>
+    <string name="battery_benefits_short">• 可靠投递\n• 维持连接\n• 避免中断</string>
+    <string name="disable_battery_optimization">禁用优化</string>
+    <string name="battery_optimization_disabled_title">已禁用优化</string>
+    <string name="continue_btn">继续</string>
+    <string name="initializing_mesh_network">正在初始化 mesh 网络</string>
+    <string name="dot">.</string>
+    <string name="setting_up_bluetooth">正在设置 Bluetooth mesh…</string>
+    <string name="should_take_seconds">只需几秒钟</string>
+    <string name="warning_emoji">⚠️</string>
+    <string name="setup_not_complete">设置未完成</string>
+    <string name="try_again">重试</string>
+    <string name="privacy_protected">你的隐私已受保护</string>
+    <string name="privacy_bullets">• 不跟踪不收集\n• 蓝牙 mesh 聊天完全离线\n• geohash 聊天使用互联网</string>
+    <string name="permissions_header">权限</string>
+    <string name="grant_permissions">授予权限</string>
+    <string name="bluetooth_recommended">建议开启蓝牙</string>
+</resources>

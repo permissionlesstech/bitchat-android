@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+
+    <string name="send_message">Gửi</string>
+    <string name="back">Quay lại</string>
+    <string name="cd_teleported">Đã dịch chuyển</string>
+    <string name="close_plain">Đóng</string>
+    <string name="open_settings">Mở Cài đặt</string>
+  <string name="fingerprint_verified_label">verified</string>
+    <string name="cancel">Hủy</string>
+
+  <string name="nearby_notes_one">có 1 ghi chú để lại ở đây — chạm để đọc</string>
+  <string name="nearby_notes_many">có %d ghi chú để lại ở đây — chạm để đọc</string>
+</resources>

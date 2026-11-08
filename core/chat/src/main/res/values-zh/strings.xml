@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="notification_messages_from_people">来自 %2$d 位的 %1$d 条消息</string>
+    <string name="notification_more_conversations">以及另外 %1$d 个会话</string>
+    <string name="notification_new_messages">新消息</string>
+    <string name="notification_new_location_messages">新的地点消息</string>
+    <string name="notification_mentions_in">在 %1$s 中被提及</string>
+    <string name="notification_mentions_in_more">在 %1$s 中被提及（另有 %2$d 条）</string>
+    <string name="notification_mentions_in_plural">在 %2$s 中有 %1$d 次提及</string>
+    <string name="notification_new_activity_in">%1$s 中有新动态</string>
+    <string name="notification_messages_in">%1$s 中的消息</string>
+    <string name="notification_joined_conversation">%1$s 加入了会话</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d 次提及</string>
+    <string name="notification_geohash_summary_title">bitchat – 地点聊天</string>
+    <string name="notification_geohash_summary_text">来自 %2$d 个地点的 %1$d 条消息</string>
+    <string name="notification_mesh_mention_title_singular">在 Mesh 聊天中被提及</string>
+    <string name="notification_mesh_mention_title_plural">在 Mesh 聊天中有 %1$d 次提及</string>
+    <string name="notification_more_locations">以及另外 %1$d 个地点</string>
+    <plurals name="notification_and_more">
+        <item quantity="one">以及另外 %d 条</item>
+        <item quantity="other">以及另外 %d 条</item>
+    </plurals>
+  <string name="verify_mutual_match_title">相互验证</string>
+  <string name="verify_mutual_match_body">你和 %1$s 已相互验证</string>
+  <string name="verify_mutual_system_message">与 %1$s 相互验证</string>
+  <string name="verify_success_title">已验证</string>
+  <string name="verify_success_body">你已验证 %1$s</string>
+  <string name="verify_success_system_message">已验证 %1$s</string>
+</resources>

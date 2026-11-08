@@ -6,7 +6,10 @@ import org.junit.Test
 import java.io.File
 
 class LanguageCatalogContractTest {
+    // The app's locale packs define what ships; the locale config and the
+    // language picker's strings live with About in :feature:settings.
     private val resourcesDirectory = File("src/main/res")
+    private val settingsResourcesDirectory = File("../feature/settings/src/main/res")
 
     @Test
     fun `locale config contains every shipped locale exactly once`() {
@@ -18,7 +21,7 @@ class LanguageCatalogContractTest {
             .toSet()
 
         val configuredLanguageTags = Regex("""android:name="([^"]+)"""")
-            .findAll(File(resourcesDirectory, "xml/locales_config.xml").readText())
+            .findAll(File(settingsResourcesDirectory, "xml/locales_config.xml").readText())
             .map { match -> match.groupValues[1] }
             .toList()
 
@@ -47,7 +50,7 @@ class LanguageCatalogContractTest {
                     (directory.name == "values" || directory.name.toLanguageTagOrNull() != null)
             }
             .forEach { directory ->
-                val strings = File(directory, "strings.xml").readText()
+                val strings = File(File(settingsResourcesDirectory, directory.name), "strings.xml").readText()
                 requiredKeys.forEach { key ->
                     assertTrue(
                         "$key is missing from ${directory.name}/strings.xml",

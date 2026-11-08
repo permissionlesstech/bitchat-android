@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+  <string name="verify_mutual_match_title">אימות הדדי</string>
+  <string name="verify_mutual_match_body">אתה ו-%1$s אימתתם זה את זה</string>
+  <string name="verify_mutual_system_message">אימות הדדי עם %1$s</string>
+  <string name="verify_success_title">מאומת</string>
+  <string name="verify_success_body">אימתת את %1$s</string>
+  <string name="verify_success_system_message">אימת את %1$s</string>
+  <string name="notification_messages_from_people">%1$d הודעות מ-%2$d אנשים</string>
+  <string name="notification_more_conversations">ועוד %1$d שיחות</string>
+  <string name="notification_new_messages">הודעות חדשות</string>
+  <string name="notification_new_location_messages">הודעות מיקום חדשות</string>
+  <string name="notification_mentions_in">אוזכרת ב-%1$s</string>
+  <string name="notification_mentions_in_more">אוזכרת ב-%1$s (+%2$d נוספים)</string>
+  <string name="notification_mentions_in_plural">%1$d אזכורים ב-%2$s</string>
+  <string name="notification_new_activity_in">פעילות חדשה ב-%1$s</string>
+  <string name="notification_messages_in">הודעות ב-%1$s</string>
+  <string name="notification_joined_conversation">%1$s הצטרף/ה לשיחה</string>
+  <string name="notification_geohash_summary_title_mentions">bitchat - %1$d אזכורים</string>
+  <string name="notification_geohash_summary_title">bitchat - צ׳אטים לפי מיקום</string>
+  <string name="notification_geohash_summary_text">%1$d הודעות מ-%2$d מיקומים</string>
+  <string name="notification_mesh_mention_title_singular">אוזכרת בצ׳אט Mesh</string>
+  <string name="notification_mesh_mention_title_plural">%1$d אזכורים בצ׳אט Mesh</string>
+  <string name="notification_more_locations">ועוד %1$d מיקומים</string>
+  <plurals name="notification_and_more">
+    <item quantity="one">ועוד %1$d</item>
+    <item quantity="other">ועוד %1$d</item>
+  </plurals>
+</resources>

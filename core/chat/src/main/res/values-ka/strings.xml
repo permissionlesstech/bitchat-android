@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="notification_messages_from_people">%2$d ადამიანიდან %1$d შეტყობინება</string>
+    <string name="notification_more_conversations">და კიდევ %1$d საუბარი</string>
+    <string name="notification_new_messages">ახალი შეტყობინებები</string>
+    <string name="notification_new_location_messages">მდებარეობის ახალი შეტყობინებები</string>
+    <string name="notification_mentions_in">ხსენება %1$s-ში</string>
+    <string name="notification_mentions_in_more">ხსენება %1$s-ში (+%2$d)</string>
+    <string name="notification_mentions_in_plural">%2$s-ში %1$d ხსენება</string>
+    <string name="notification_new_activity_in">ახალი აქტივობა %1$s-ში</string>
+    <string name="notification_messages_in">შეტყობინებები %1$s-ში</string>
+    <string name="notification_joined_conversation">%1$s შეუერთდა საუბარს</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d ხსენება</string>
+    <string name="notification_geohash_summary_title">bitchat – მდებარეობის ჩათები</string>
+    <string name="notification_geohash_summary_text">%2$d ადგილიდან %1$d შეტყობინება</string>
+    <string name="notification_mesh_mention_title_singular">mesh-ჩათში ხსენება</string>
+    <string name="notification_mesh_mention_title_plural">mesh-ჩათში %1$d ხსენება</string>
+    <string name="notification_more_locations">და კიდევ %1$d ადგილი</string>
+    <plurals name="notification_and_more">
+        <item quantity="one">და კიდევ %d</item>
+        <item quantity="other">და კიდევ %d</item>
+    </plurals>
+  <string name="verify_mutual_match_title">Mutual verification</string>
+  <string name="verify_mutual_match_body">You and %1$s verified each other</string>
+  <string name="verify_mutual_system_message">mutual verification with %1$s</string>
+  <string name="verify_success_title">Verified</string>
+  <string name="verify_success_body">You verified %1$s</string>
+  <string name="verify_success_system_message">verified %1$s</string>
+</resources>

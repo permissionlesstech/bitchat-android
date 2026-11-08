@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="fingerprint_verified_label">підтверджено</string>
+    <!-- Newly translated strings -->
+    <string name="app_name">bitchat</string>
+    <string name="send_message">Надіслати</string>
+    <string name="back">Назад</string>
+    <string name="cd_location_notes">Нотатки про місце</string>
+    <string name="cd_teleported">Телепортовано</string>
+    <string name="about_tagline">децентралізований mesh-обмін повідомленнями з наскрізним шифруванням</string>
+    <string name="close_plain">Закрити</string>
+    <string name="open_settings">Відкрити налаштування</string>
+    <string name="cancel">Скасувати</string>
+    <string name="tor_not_available_in_this_build">Tor недоступний у цій збірці</string>
+
+</resources>

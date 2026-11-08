@@ -5,6 +5,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import androidx.wear.compose.material3.ColorScheme
 import androidx.wear.compose.material3.MaterialTheme
+import com.bitchat.android.ui.theme.DarkBitchatPalette
+import com.bitchat.android.ui.theme.LocalBitchatPalette
 
 val BitchatWearColorScheme = ColorScheme(
     primary = Color(0xFF32D74B),

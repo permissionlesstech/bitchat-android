@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+
+    <string name="send_message">Invia</string>
+    <string name="back">Indietro</string>
+    <string name="cd_teleported">Teletrasportato</string>
+    <string name="close_plain">Chiudi</string>
+    <string name="open_settings">Apri impostazioni</string>
+  <string name="fingerprint_verified_label">verificato</string>
+    <string name="cancel">Annulla</string>
+
+  <string name="nearby_notes_one">1 nota lasciata qui — tocca per leggere</string>
+  <string name="nearby_notes_many">%d note lasciate qui — tocca per leggere</string>
+</resources>

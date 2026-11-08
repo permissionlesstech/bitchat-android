@@ -1,5 +1,8 @@
 package com.bitchat.watch
 
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
+import javax.inject.Provider
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
@@ -50,7 +53,7 @@ import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.SwipeToDismissBox
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.TimeText
-import com.bitchat.watch.mesh.WearMeshService
+import com.bitchat.watch.mesh.WearMeshHolder
 import com.bitchat.watch.notification.WearNotificationCoordinator
 import com.bitchat.watch.service.WearMeshForegroundService
 import com.bitchat.watch.ui.ChatHomePager
@@ -62,14 +65,19 @@ import com.bitchat.watch.ui.PeopleScreen
 import com.bitchat.watch.ui.UserDetailScreen
 import com.bitchat.watch.ui.VerificationCodeScreen
 import com.bitchat.watch.ui.WearChatState
+import com.bitchat.watch.ui.WearPeerIdentityState
+import com.bitchat.android.features.voice.LiveVoiceManager
+import com.bitchat.android.features.voice.VoiceWaveformCache
+import com.bitchat.android.identity.scope.CurrentIdentity
+import com.bitchat.android.services.AppStateStore
 import com.bitchat.watch.ui.FormEdgeButton
 import com.bitchat.watch.ui.WearFormScreen
 import com.bitchat.watch.ui.formHeader
 import com.bitchat.watch.ui.sendPrivateMessage
 import com.bitchat.watch.ui.sendPublicMessage
-import com.bitchat.watch.ui.theme.BitchatMotion
+import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.watch.ui.theme.BitchatWearTheme
-import com.bitchat.watch.ui.theme.LocalBitchatPalette
+import com.bitchat.android.ui.theme.LocalBitchatPalette
 
 sealed interface WearScreen {
     data object Chat : WearScreen
@@ -81,7 +89,22 @@ sealed interface WearScreen {
     data class TextInput(val peerID: String?) : WearScreen
 }
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    // What the screens read and write, handed down to them as parameters.
+    @Inject @CurrentIdentity lateinit var appStateStore: Provider<AppStateStore>
+    @Inject @CurrentIdentity lateinit var chatState: Provider<WearChatState>
+    @Inject @CurrentIdentity lateinit var peerIdentity: Provider<WearPeerIdentityState>
+    // Read it only after permissions and Bluetooth are confirmed.
+    @Inject @CurrentIdentity lateinit var voiceWaveformCache: Provider<VoiceWaveformCache>
+    @Inject lateinit var notificationCoordinator: WearNotificationCoordinator
+
+    // Creates the mesh only on getOrCreate, once permissions and Bluetooth are confirmed.
+    @Inject @CurrentIdentity lateinit var meshHolder: Provider<WearMeshHolder>
+
+    // Asked where the first screen or onResume needs it, as it was before injection.
+    @Inject @CurrentIdentity lateinit var liveVoiceManager: Provider<LiveVoiceManager>
 
     private var hasPermissions by mutableStateOf(false)
     private var bluetoothEnabled by mutableStateOf(false)
@@ -124,9 +147,9 @@ class MainActivity : ComponentActivity() {
                                 BluetoothEnableScreen(onEnabled = { refreshState() })
                             !nicknameChosen -> NicknameSetupScreen(
                                 initialNickname =
-                                    WearMeshService.getOrCreate(applicationContext).nickname
+                                    meshHolder.get().getOrCreate().nickname
                             ) { name ->
-                                WearMeshService.getOrCreate(applicationContext).setNickname(name)
+                                meshHolder.get().getOrCreate().setNickname(name)
                                 getSharedPreferences("bitchat_watch_prefs", Context.MODE_PRIVATE)
                                     .edit().putBoolean("nickname_chosen", true).apply()
                                 nicknameChosen = true
@@ -140,6 +163,13 @@ class MainActivity : ComponentActivity() {
                                     onSkip = { notificationPromptDismissed = true }
                                 )
                             else -> WearNavHost(
+                                appStateStore = appStateStore.get(),
+                                chatState = chatState.get(),
+                                peerIdentity = peerIdentity.get(),
+                                meshHolder = meshHolder.get(),
+                                liveVoiceManager = liveVoiceManager.get(),
+                                voiceWaveformCache = voiceWaveformCache.get(),
+                                notificationCoordinator = notificationCoordinator,
                                 launchRequest = pendingLaunchRequest,
                                 onQuit = ::quit,
                                 onLaunchRequestHandled = { requestID ->
@@ -168,20 +198,19 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        com.bitchat.android.features.voice.LiveVoiceManager.getInstance(applicationContext)
-            .setAppForeground(true)
-        WearChatState.setAppInForeground(true)
-        WearChatState.openDmPeer?.let { peerID ->
-            WearChatState.openDm(peerID)
-            WearNotificationCoordinator.getInstance(applicationContext).clearConversation(peerID)
+        liveVoiceManager.get().setAppForeground(true)
+        val chat = chatState.get()
+        chat.setAppInForeground(true)
+        chat.openDmPeer?.let { peerID ->
+            chat.openDm(peerID)
+            notificationCoordinator.clearConversation(peerID)
         }
         refreshState()
     }
 
     override fun onPause() {
-        com.bitchat.android.features.voice.LiveVoiceManager.getInstance(applicationContext)
-            .setAppForeground(false)
-        WearChatState.setAppInForeground(false)
+        liveVoiceManager.get().setAppForeground(false)
+        chatState.get().setAppInForeground(false)
         super.onPause()
     }
 
@@ -207,7 +236,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startMeshService() {
-        WearMeshService.getOrCreate(applicationContext)
+        meshHolder.get().getOrCreate()
         startForegroundService(Intent(this, WearMeshForegroundService::class.java))
     }
 
@@ -420,6 +449,13 @@ internal class WearNavigationState(
 
 @Composable
 internal fun WearNavHost(
+    appStateStore: AppStateStore,
+    chatState: WearChatState,
+    peerIdentity: WearPeerIdentityState,
+    meshHolder: WearMeshHolder,
+    liveVoiceManager: LiveVoiceManager,
+    voiceWaveformCache: VoiceWaveformCache,
+    notificationCoordinator: WearNotificationCoordinator,
     launchRequest: WearLaunchRequest?,
     onQuit: () -> Unit,
     onLaunchRequestHandled: (Long) -> Unit
@@ -487,6 +523,13 @@ internal fun WearNavHost(
                 move = if (isBackground) WearNavMove.Swipe else lastMove
             ) {
                 WearScreenContent(
+                    appStateStore = appStateStore,
+                    chatState = chatState,
+                    peerIdentity = peerIdentity,
+                    meshHolder = meshHolder,
+                    liveVoiceManager = liveVoiceManager,
+                    voiceWaveformCache = voiceWaveformCache,
+                    notificationCoordinator = notificationCoordinator,
                     screen = screen,
                     active = !isBackground,
                     onNavigate = if (isBackground) { _ -> } else ::push,
@@ -540,6 +583,13 @@ private val WearEnterEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
  */
 @Composable
 private fun WearScreenContent(
+    appStateStore: AppStateStore,
+    chatState: WearChatState,
+    peerIdentity: WearPeerIdentityState,
+    meshHolder: WearMeshHolder,
+    liveVoiceManager: LiveVoiceManager,
+    voiceWaveformCache: VoiceWaveformCache,
+    notificationCoordinator: WearNotificationCoordinator,
     screen: WearScreen,
     active: Boolean,
     onNavigate: (WearScreen) -> Unit,
@@ -552,9 +602,14 @@ private fun WearScreenContent(
             var chatOwnsGesture by remember { mutableStateOf(false) }
             ChatHomePager(
                 swipeEnabled = !chatOwnsGesture,
-                menu = { ChatMenuScreen(onQuit = onQuit) },
+                menu = { ChatMenuScreen(appStateStore = appStateStore, onQuit = onQuit) },
                 chat = {
                     ChatScreen(
+                        appStateStore = appStateStore,
+                        chatState = chatState,
+                        meshHolder = meshHolder,
+                        liveVoiceManager = liveVoiceManager,
+                        voiceWaveformCache = voiceWaveformCache,
                         active = active,
                         onOpenPeople = { onNavigate(WearScreen.People) },
                         onOpenTextInput = { onNavigate(WearScreen.TextInput(null)) },
@@ -564,11 +619,15 @@ private fun WearScreenContent(
             )
         }
         is WearScreen.People -> PeopleScreen(
+            appStateStore = appStateStore,
+            chatState = chatState,
+            peerIdentity = peerIdentity,
+            meshHolder = meshHolder,
             onOpenDm = { onNavigate(WearScreen.Dm(it)) },
             onEditNickname = { onNavigate(WearScreen.Nickname) }
         )
         is WearScreen.Nickname -> {
-            val mesh = WearMeshService.peek()
+            val mesh = meshHolder.peek()
             NicknameSetupScreen(
                 initialNickname = mesh?.nickname ?: "",
                 title = "Nickname",
@@ -582,6 +641,13 @@ private fun WearScreenContent(
             )
         }
         is WearScreen.Dm -> DmScreen(
+            appStateStore = appStateStore,
+            chatState = chatState,
+            peerIdentity = peerIdentity,
+            meshHolder = meshHolder,
+            liveVoiceManager = liveVoiceManager,
+            voiceWaveformCache = voiceWaveformCache,
+            notificationCoordinator = notificationCoordinator,
             peerID = screen.peerID,
             active = active,
             onOpenUserDetail = { onNavigate(WearScreen.UserDetail(screen.peerID)) },
@@ -589,12 +655,18 @@ private fun WearScreenContent(
             onHorizontalGestureActive = onGestureOwned
         )
         is WearScreen.UserDetail -> UserDetailScreen(
+            peerIdentity = peerIdentity,
+            meshHolder = meshHolder,
             peerID = screen.peerID,
             onOpenVerification = { onNavigate(WearScreen.Verification(screen.peerID)) }
         )
-        is WearScreen.Verification -> VerificationCodeScreen(peerID = screen.peerID)
+        is WearScreen.Verification -> VerificationCodeScreen(
+            peerIdentity = peerIdentity,
+            meshHolder = meshHolder,
+            peerID = screen.peerID,
+        )
         is WearScreen.TextInput -> {
-            val mesh = WearMeshService.peek()
+            val mesh = meshHolder.peek()
             val sendScope = androidx.compose.runtime.rememberCoroutineScope()
             val recipient = screen.peerID?.let { peerID ->
                 mesh?.getPeerNickname(peerID) ?: peerID.take(8)
@@ -605,10 +677,10 @@ private fun WearScreenContent(
                 onSend = { text ->
                     mesh?.let { m ->
                         if (screen.peerID == null) {
-                            sendPublicMessage(m, text)
+                            sendPublicMessage(appStateStore, m, m.nickname, text)
                         } else {
                             val nick = m.getPeerNickname(screen.peerID) ?: screen.peerID
-                            sendPrivateMessage(m, screen.peerID, nick, text, sendScope)
+                            sendPrivateMessage(appStateStore, m, m.nickname, screen.peerID, nick, text, sendScope)
                         }
                     }
                     onBack()

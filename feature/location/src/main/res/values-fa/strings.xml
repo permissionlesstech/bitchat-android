@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retry">تلاش دوباره</string>
+    <string name="cd_add_bookmark">افزودن نشانک</string>
+
+    <string name="about_network">شبکه</string>
+    <string name="cd_open_map">باز کردن نقشه</string>
+    <string name="cd_remove_bookmark">حذف نشانک</string>
+    <string name="cd_decrease_precision">کاهش دقت</string>
+    <string name="cd_increase_precision">افزایش دقت</string>
+    <!-- برگهٔ کانال‌های geohash -->
+    <string name="location_channels_title">#کانال‌های مکانی</string>
+    <string name="location_channels_desc">از طریق کانال‌های geohash با افراد نزدیک خود چت کنید. فقط geohash کلی به اشتراک گذاشته می‌شود، نه دادهٔ GPS دقیق. برای حفظ حریم خصوصی، لطفاً از این نما اسکرین‌شات نگیرید یا آن را به اشتراک نگذارید.</string>
+    <string name="location_permission_denied">مجوز مکان رد شد. برای استفاده از کانال‌های مکانی، آن را در تنظیمات فعال کنید.</string>
+    <string name="finding_nearby_channels">در حال یافتن کانال‌های نزدیک …</string>
+    <string name="bookmarked">نشانک شده</string>
+    <string name="geohash_placeholder">Geohash</string>
+    <string name="invalid_geohash">geohash نامعتبر است</string>
+    <string name="teleport">انتقال مکانی</string>
+    <string name="disable_location_services">غیرفعال‌کردن خدمات مکان</string>
+    <string name="enable_location_services">فعال‌کردن خدمات مکان</string>
+    <string name="location_level_block">بلوک</string>
+    <string name="location_level_neighborhood">محله</string>
+    <string name="location_level_city">شهر</string>
+    <string name="location_level_province">استان</string>
+    <string name="location_level_region">منطقه</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <plurals name="people_count">
+        <item quantity="one">۱ نفر</item>
+        <item quantity="other">%d نفر</item>
+    </plurals>
+
+  <string name="nearby_notes_reveal">یادداشت‌های باقی‌مانده در اینجا را بررسی کنید</string>
+    <string name="globe_live">زنده</string>
+    <string name="globe_connecting">در حال اتصال</string>
+    <string name="globe_offline">آفلاین</string>
+    <string name="globe_hint_drag">چرخش</string>
+    <string name="globe_hint_pinch">بزرگ‌نمایی</string>
+    <string name="globe_hint_tap">روی یک نقطه بزنید</string>
+    <string name="globe_no_activity">فعالیت اخیری نیست</string>
+    <string name="cd_show_whole_globe">نمایش کل کره زمین</string>
+    <string name="cd_globe_activity">%1$d گفتگوی فعال، %2$d نفر آنلاین</string>
+    <string name="cd_channel_activity">%1$d نفر، %2$d پیام در ساعت گذشته</string>
+    <string name="join">پیوستن</string>
+    <string name="cd_close">بستن</string>
+</resources>

@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- About sheet: tabs -->
+    <string name="about_tab_info">Informazioa</string>
+    <string name="about_tab_settings">Ezarpenak</string>
+
+    <!-- About sheet: how-to-use instructions -->
+    <string name="about_how_to_use_heading">Nola erabili</string>
+    <string name="about_howto_nickname">Ezarri zure ezizena hura sakatuta</string>
+    <string name="about_howto_channels">Sakatu kanalaren izena kanalez aldatzeko</string>
+    <string name="about_howto_people">Sakatu jendearen ikonoa kanalean nor dagoen ikusteko</string>
+    <string name="about_howto_bookmark">Gehitu laster-marka kanal bati zure zerrendan gordetzeko</string>
+    <string name="about_howto_mention">Idatzi @ norbait aipatzeko</string>
+    <string name="about_howto_commands">Idatzi / komando erabilgarriak ikusteko</string>
+    <string name="about_howto_panic">Sakatu logoa hiru aldiz datu guztiak ezabatzeko</string>
+
+    <!-- About sheet: section labels -->
+    <string name="about_section_about">Honi buruz</string>
+    <string name="about_section_theme">Gaia</string>
+    <string name="about_section_settings">Ezarpenak</string>
+
+    <!-- About sheet: feature list -->
+    <string name="about_no_tracking_title">Jarraipenik ez</string>
+    <string name="about_no_tracking_desc">Ez zerbitzaririk, ez konturik, ez datu-bilketarik.</string>
+    <!-- About sheet: settings labels -->
+    <string name="about_tor_title">Tor sarea</string>
+    <string name="about_difficulty">Zailtasuna</string>
+    <string name="about_difficulty_value">%1$d bit • %2$s</string>
+    <string name="about_tor_connected">Konektatuta (%%%1$d)</string>
+    <string name="about_tor_disconnected">Deskonektatuta</string>
+
+    <string name="about_offline_mesh_title">Lineaz kanpoko komunikazioa</string>
+    <string name="about_offline_mesh_desc">Txateatu Bluetooth mesh sare baten bidez, internetik eta zerbitzaririk gabe. Mezuak inguruko gailuen bidez birbidaltzen dira irismena zabaltzeko.</string>
+    <string name="about_online_geohash_title">Tokiko kanalak</string>
+    <string name="about_online_geohash_desc">Geohash kanalek inguruko jendearekin konektatzen zaituzte, mesh sarea errele publikoen bidez zabalduz.</string>
+    <string name="about_e2e_title">Muturretik muturrerako zifratzea</string>
+    <string name="about_e2e_desc">Mezu pribatuak zifratuta daude. Kanaletako mezuak publikoak dira.</string>
+    <string name="about_system">Sistema</string>
+    <string name="about_light">Argia</string>
+    <string name="about_dark">Iluna</string>
+    <string name="chat_ui_matrix">Matrix</string>
+    <string name="chat_ui_bubbles">Burbuilak</string>
+    <string name="about_pow">Lan-froga</string>
+    <string name="about_pow_tip">Gehitu lan-froga geohash mezuei spama saihesteko.</string>
+    <string name="about_pow_desc_none">Ez da lan-frogarik behar</string>
+    <string name="about_pow_desc_very_low">Oso baxua – spamaren aurkako gutxieneko babesa</string>
+    <string name="about_pow_desc_low">Baxua – spamaren aurkako oinarrizko babesa</string>
+    <string name="about_pow_desc_medium">Ertaina – spamaren aurkako babes ona</string>
+    <string name="about_pow_desc_high">Altua – spamaren aurkako babes sendoa</string>
+    <string name="about_pow_desc_very_high">Oso altua – atzerapenak eragin ditzake</string>
+    <string name="about_pow_desc_extreme">Muturrekoa – kalkulu handia behar da</string>
+    <string name="about_tor_route">Bideratu internet Tor bidez pribatutasun handiagoa izateko.</string>
+    <string name="about_debug_settings">Arazketa-ezarpenak</string>
+    <string name="about_footer">Kode irekia • Pribatutasuna lehenik • Deszentralizatua</string>
+    <string name="about_background_title">Exekutatu atzeko planoan</string>
+    <string name="about_background_desc">Mantendu mesh sarea aktibo aplikazioa itxita dagoenean (aurreko planoko zerbitzua)</string>
+    <string name="unknown">Ezezaguna</string>
+
+    <!-- Debug / Diagnostics -->
+    <string name="debug_tools">Arazketa-tresnak</string>
+    <string name="debug_tools_desc">Garatzaileentzako diagnostiko- eta kontrol-tresnak</string>
+    <string name="debug_verbose_logging">Erregistro xehatua</string>
+    <string name="debug_verbose_hint">Kideen sarrerak/irteerak, konexioaren norabidea, paketeen bideratzea eta birbidalketak erregistratzen ditu</string>
+    <string name="debug_bluetooth_roles">Bluetooth rolak</string>
+    <string name="debug_gatt_server">GATT zerbitzaria</string>
+    <string name="debug_connections_fmt">Konexioak: %1$d / %2$d</string>
+    <string name="debug_max_server">Zerbitzari max.</string>
+    <string name="debug_gatt_client">GATT bezeroa</string>
+    <string name="debug_max_client">Bezero max.</string>
+    <string name="debug_overall_connections_fmt">Konexioak: %1$d / %2$d</string>
+    <string name="debug_max_overall">Guztira max.</string>
+    <string name="debug_packet_relay">Paketeen birbidalketa</string>
+    <string name="debug_roles_hint">Aktibatu/desaktibatu rolak eta itxi konexio guztiak desgaitzean</string>
+    <string name="debug_max_packets_per_sync_fmt">Pakete max. sinkronizazio bakoitzeko: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">GCS iragazkiaren tamaina max.: %1$d byte (128–1024)</string>
+    <string name="debug_target_fpr_fmt">FPR helburua: %%%1$.2f</string>
+    <string name="debug_connected_devices">Konektatutako gailuak</string>
+    <string name="debug_our_device_id_fmt">Gure gailuaren IDa: %1$s</string>
+    <string name="debug_none">Bat ere ez</string>
+    <string name="debug_disconnect">Deskonektatu</string>
+    <string name="debug_recent_scan_results">Azken eskaneatze-emaitzak</string>
+
+    <string name="debug_connect">Konektatu</string>
+    <string name="debug_debug_console">Arazketa-kontsola</string>
+    <string name="debug_clear">Garbitu</string>
+    <string name="debug_derived_p_fmt">P eratorria: %1$s • gehienezko elementu kopurua (gutxi gorabehera): %2$s</string>
+    <string name="debug_direct_suffix"> • zuzena</string>
+    <string name="debug_role_server">Zerbitzari gisa (guk ostatatzen dugu)</string>
+    <string name="debug_role_client">Bezero gisa (gu konektatzen gara)</string>
+
+    <string name="about_language">Hizkuntza</string>
+    <string name="about_app_language">Aplikazioaren hizkuntza</string>
+    <string name="about_system_default">Sistemaren lehenetsia</string>
+    <string name="about_select_language">Hautatu hizkuntza</string>
+    <string name="version_prefix">v%1$s</string>
+    <string name="about_spam_filter_title">Spam-iragazkia</string>
+    <string name="about_spam_filter_desc">Ezkutatu azkarregi idazten duten, mezuak errepikatzen dituzten edo esteka gehiegi bidaltzen dituzten pertsonen mezu publikoak.</string>
+</resources>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+  <string name="notification_messages_from_people">%1$d mesej daripada %2$d orang</string>
+  <string name="notification_more_conversations">dan %1$d perbualan lagi</string>
+  <string name="notification_new_messages">Mesej Baharu</string>
+  <string name="notification_new_location_messages">Mesej Lokasi Baharu</string>
+  <string name="notification_mentions_in">Disebut dalam %1$s</string>
+  <string name="notification_mentions_in_more">Disebut dalam %1$s (+%2$d lagi)</string>
+  <string name="notification_mentions_in_plural">%1$d sebutan dalam %2$s</string>
+  <string name="notification_new_activity_in">Aktiviti baharu dalam %1$s</string>
+  <string name="notification_messages_in">Mesej dalam %1$s</string>
+  <string name="notification_joined_conversation">%1$s telah menyertai perbualan</string>
+  <string name="notification_geohash_summary_title_mentions">bitchat - %1$d sebutan</string>
+  <string name="notification_geohash_summary_title">bitchat - sembang lokasi</string>
+  <string name="notification_geohash_summary_text">%1$d mesej daripada %2$d lokasi</string>
+  <string name="notification_mesh_mention_title_singular">Disebut dalam Sembang Mesh</string>
+  <string name="notification_mesh_mention_title_plural">%1$d sebutan dalam Sembang Mesh</string>
+  <string name="notification_more_locations">dan %1$d lokasi lagi</string>
+  <string name="verify_mutual_match_title">Pengesahan bersama</string>
+  <string name="verify_mutual_match_body">Anda dan %1$s telah saling mengesahkan</string>
+  <string name="verify_mutual_system_message">pengesahan bersama dengan %1$s</string>
+  <string name="verify_success_title">Disahkan</string>
+  <string name="verify_success_body">Anda telah mengesahkan %1$s</string>
+  <string name="verify_success_system_message">telah mengesahkan %1$s</string>
+  <plurals name="notification_and_more">
+    <item quantity="other">dan %d lagi</item>
+  </plurals>
+</resources>

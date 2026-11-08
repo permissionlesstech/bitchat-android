@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="notification_messages_from_people">%1$d messages de %2$d personnes</string>
+    <string name="notification_more_conversations">et %1$d conversations de plus</string>
+    <string name="notification_new_messages">Nouveaux messages</string>
+    <string name="notification_new_location_messages">Nouveaux messages de lieu</string>
+    <string name="notification_mentions_in">Mentionné dans %1$s</string>
+    <string name="notification_mentions_in_more">Mentionné dans %1$s (+%2$d de plus)</string>
+    <string name="notification_mentions_in_plural">%1$d mentions dans %2$s</string>
+    <string name="notification_new_activity_in">Nouvelle activité dans %1$s</string>
+    <string name="notification_messages_in">Messages dans %1$s</string>
+    <string name="notification_joined_conversation">%1$s a rejoint la conversation</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d mentions</string>
+    <string name="notification_geohash_summary_title">bitchat – discussions par lieu</string>
+    <string name="notification_geohash_summary_text">%1$d messages depuis %2$d lieux</string>
+    <string name="notification_mesh_mention_title_singular">Mentionné dans le chat Mesh</string>
+    <string name="notification_mesh_mention_title_plural">%1$d mentions dans le chat Mesh</string>
+    <string name="notification_more_locations">et %1$d lieux de plus</string>
+    <plurals name="notification_and_more">
+        <item quantity="one">et %d de plus</item>
+        <item quantity="other">et %d de plus</item>
+    </plurals>
+  <string name="verify_mutual_match_title">Vérification mutuelle</string>
+  <string name="verify_mutual_match_body">Vous et %1$s êtes vérifiés</string>
+  <string name="verify_mutual_system_message">vérification mutuelle avec %1$s</string>
+  <string name="verify_success_title">Vérifié</string>
+  <string name="verify_success_body">Vous avez vérifié %1$s</string>
+  <string name="verify_success_system_message">vérifié %1$s</string>
+</resources>

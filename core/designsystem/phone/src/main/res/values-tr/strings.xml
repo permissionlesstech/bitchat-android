@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+    <string name="send_message">Gönder</string>
+    <string name="back">Geri</string>
+    <string name="cd_teleported">Teleport edildi</string>
+    <string name="close_plain">Kapat</string>
+    <string name="open_settings">Ayarları aç</string>
+  <string name="fingerprint_verified_label">verified</string>
+    <string name="cancel">İptal</string>
+
+  <string name="nearby_notes_one">buraya 1 not bırakıldı — okumak için dokun</string>
+  <string name="nearby_notes_many">buraya %d not bırakıldı — okumak için dokun</string>
+</resources>

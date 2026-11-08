@@ -26,19 +26,23 @@ import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
-import com.bitchat.watch.mesh.WearMeshService
-import com.bitchat.watch.ui.theme.BitchatFontFamily
+import com.bitchat.watch.mesh.WearMeshHolder
+import com.bitchat.android.ui.theme.BitchatFontFamily
 import com.bitchat.watch.ui.theme.ChatVisualTokens
-import com.bitchat.watch.ui.theme.LocalBitchatPalette
+import com.bitchat.android.ui.theme.LocalBitchatPalette
 
 @Composable
-fun VerificationCodeScreen(peerID: String) {
-    val mesh = WearMeshService.peek()
-    val revision by WearPeerIdentityState.revision.collectAsState()
+fun VerificationCodeScreen(
+    peerIdentity: WearPeerIdentityState,
+    meshHolder: WearMeshHolder,
+    peerID: String,
+) {
+    val mesh = meshHolder.peek()
+    val revision by peerIdentity.revision.collectAsState()
     val identity = androidx.compose.runtime.remember(peerID, revision) {
-        WearPeerIdentityState.snapshot(peerID, mesh)
+        peerIdentity.snapshot(peerID, mesh)
     }
-    val myFingerprint = WearPeerIdentityState.myFingerprint(mesh)
+    val myFingerprint = peerIdentity.myFingerprint(mesh)
     val listState = rememberScalingLazyListState()
     val palette = LocalBitchatPalette.current
     // Icon and title share one state color, so the header reads as a single status.
@@ -54,7 +58,7 @@ fun VerificationCodeScreen(peerID: String) {
                 label = if (identity.isVerified) "Unverify" else "Verify",
                 enabled = identity.fingerprint != null,
                 onClick = {
-                    WearPeerIdentityState.setVerified(
+                    peerIdentity.setVerified(
                         peerID = peerID,
                         verified = !identity.isVerified,
                         mesh = mesh

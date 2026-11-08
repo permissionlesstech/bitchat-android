@@ -4,7 +4,7 @@ Receive-side admission rules for the decoded payload of a mesh packet. They
 match iOS `PacketPayloadLimits` (bitchat iOS #1719). Senders and the wire
 format are unchanged; these rules only decide which frames a receiver decodes.
 
-Implementation: `app/src/main/java/com/bitchat/android/protocol/PacketPayloadLimits.kt`,
+Implementation: `core/mesh/src/main/java/com/bitchat/android/protocol/PacketPayloadLimits.kt`,
 enforced in `BinaryProtocol.decodeCore`.
 
 ## Why per type

@@ -6,12 +6,12 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
-import androidx.lifecycle.ViewModelProvider
 import android.view.KeyEvent
 import androidx.test.platform.app.InstrumentationRegistry
 import com.bitchat.android.MainActivity
 import com.bitchat.android.R
-import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.testhook.ChatSessionTestAccess
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -21,6 +21,9 @@ class ComposerEdgeCasesInstrumentedTest {
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private val editor = hasSetTextAction() and SemanticsMatcher.expectValue(SemanticsProperties.ImeAction, ImeAction.Send)
     private fun field() = compose.onNode(editor)
+    private fun session() = ChatSessionTestAccess.of(compose.activity)
+    private fun store() = session().panicClear().appStateStore
+    private fun state() = session().chatState()
     private fun start() {
         compose.waitUntil(30_000) { compose.onAllNodes(editor).fetchSemanticsNodes().size == 1 }
         field().assertTextEquals("")
@@ -32,10 +35,10 @@ class ComposerEdgeCasesInstrumentedTest {
         compose.onNodeWithText(context.getString(R.string.panic_confirm_title)).assertIsDisplayed()
     }
     private fun confirmAndWait() {
-        val prior = AppStateStore.publicMessages.value.map { it.id }.toSet()
+        val prior = store().publicMessages.value.map { it.id }.toSet()
         compose.onNodeWithText(context.getString(R.string.panic_confirm_action)).performClick()
         compose.waitUntil(30_000) {
-            AppStateStore.publicMessages.value.any {
+            store().publicMessages.value.any {
                 it.id !in prior && it.content == context.getString(R.string.system_panic_completed)
             }
         }
@@ -64,7 +67,7 @@ class ComposerEdgeCasesInstrumentedTest {
     }
     @Test fun confirmedWipeDismissesCommandSuggestions() {
         start(); field().performTextInput("/w")
-        val vm = ViewModelProvider(compose.activity)[ChatViewModel::class.java]
+        val vm = state()
         compose.waitUntil(5_000) { vm.showCommandSuggestions.value && vm.commandSuggestions.value.isNotEmpty() }
         val command = vm.commandSuggestions.value.first().command
         compose.onNode(hasText(command) and !hasSetTextAction(), useUnmergedTree = true).assertIsDisplayed()
@@ -76,15 +79,15 @@ class ComposerEdgeCasesInstrumentedTest {
         compose.waitUntil(5_000) { vm.showCommandSuggestions.value }
         compose.onNode(hasText(command) and !hasSetTextAction(), useUnmergedTree = true).assertIsDisplayed()
     }
-    private fun seedMention(nickname: String = "SyntheticMentionPeer"): ChatViewModel {
-        val vm = ViewModelProvider(compose.activity)[ChatViewModel::class.java]
+    private fun seedMention(nickname: String = "SyntheticMentionPeer"): com.bitchat.android.ui.ChatState {
+        val session = session()
+        val vm = session.chatState()
         compose.runOnIdle {
-            vm.meshService.updatePeerInfo(
-                peerID = "aaaabbbbccccdddd", nickname = nickname,
-                noisePublicKey = ByteArray(32) { 1 }, signingPublicKey = ByteArray(32) { 2 },
-                isVerified = false
-            )
-            assertEquals(nickname, vm.meshServiceFacade.getPeerNicknames()["aaaabbbbccccdddd"])
+            val mesh = session.sessionMesh().unified
+            session.sessionMesh().replace(object : MeshService by mesh {
+                override fun getPeerNicknames() = mesh.getPeerNicknames() + ("aaaabbbbccccdddd" to nickname)
+            })
+            assertEquals(nickname, session.sessionMesh().unified.getPeerNicknames()["aaaabbbbccccdddd"])
         }
         field().performTextInput("@" + nickname.dropLast(4))
         compose.waitUntil(5_000) { vm.showMentionSuggestions.value }
@@ -94,7 +97,7 @@ class ComposerEdgeCasesInstrumentedTest {
     @Test fun confirmedWipeDismissesMentionSuggestions() {
         start(); val vm = seedMention()
         openConfirmation(); confirmAndWait(); field().assertTextEquals("")
-        assertFalse("synthetic peer must be removed from fresh mesh", vm.meshServiceFacade.getPeerNicknames().containsKey("aaaabbbbccccdddd"))
+        assertFalse("synthetic peer must be removed from fresh mesh", session().sessionMesh().unified.getPeerNicknames().containsKey("aaaabbbbccccdddd"))
         compose.onNodeWithText("SyntheticMentionPeer", substring = true).assertDoesNotExist()
         assertFalse("pre-wipe mention suggestion popup must be dismissed", vm.showMentionSuggestions.value)
         seedMention("FreshSyntheticPeer")
@@ -123,8 +126,8 @@ class ComposerEdgeCasesInstrumentedTest {
             compose.mainClock.autoAdvance = true
         }
         compose.waitUntil(30_000) {
-            !ChatViewModel::class.java.getDeclaredField("panicClearInProgress")
-                .apply { isAccessible = true }.getBoolean(vm)
+            !PanicClear::class.java.getDeclaredField("panicClearInProgress")
+                .apply { isAccessible = true }.getBoolean(session().panicClear())
         }
         for (frames in listOf(1, 2)) {
             field().performTextReplacement("")

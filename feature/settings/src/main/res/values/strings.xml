@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+  <!-- About sheet: tabs -->
+  <string name="about_tab_info">Info</string>
+  <string name="about_tab_settings">Settings</string>
+
+  <!-- About sheet: how-to-use instructions -->
+  <string name="about_how_to_use_heading">How To Use</string>
+  <string name="about_howto_nickname">Set your nickname by tapping it</string>
+  <string name="about_howto_channels">Tap the channel name to change channels</string>
+  <string name="about_howto_people">Tap the people icon to see who\'s in the channel</string>
+  <string name="about_howto_bookmark">Bookmark a channel to keep it in your list</string>
+  <string name="about_howto_mention">Type @ to mention someone</string>
+  <string name="about_howto_commands">Type / to see the available commands</string>
+  <string name="about_howto_panic">Triple-tap the logo to wipe all data</string>
+
+  <!-- About sheet: section labels -->
+  <string name="about_section_about">About</string>
+  <string name="about_section_theme">Theme</string>
+  <string name="about_section_settings">Settings</string>
+
+  <!-- About sheet: feature list -->
+  <string name="about_no_tracking_title">No Tracking</string>
+  <string name="about_no_tracking_desc">No servers, accounts, or data collection.</string>
+  <!-- About sheet: settings labels -->
+  <string name="about_tor_title">Tor Network</string>
+  <string name="about_difficulty">Difficulty</string>
+  <string name="about_difficulty_value">%1$d bits • %2$s</string>
+  <string name="about_tor_connected">Connected (%1$d%%)</string>
+  <string name="about_tor_disconnected">Disconnected</string>
+
+  <string name="about_offline_mesh_title">Offline Communication</string>
+  <string name="about_offline_mesh_desc">Chat over a Bluetooth mesh with no internet and no servers. Messages relay through nearby devices to extend range.</string>
+  <string name="about_online_geohash_title">Local Channels</string>
+  <string name="about_online_geohash_desc">Geohash channels connect you with people nearby, extending the mesh over public relays.</string>
+  <string name="about_e2e_title">End-to-End Encryption</string>
+  <string name="about_e2e_desc">Private messages are encrypted. Channel messages are public.</string>
+  <string name="about_system">System</string>
+  <string name="about_light">Light</string>
+  <string name="about_dark">Dark</string>
+  <string name="chat_ui_matrix">Matrix</string>
+  <string name="chat_ui_bubbles">Bubbles</string>
+  <string name="about_pow">Proof of Work</string>
+  <string name="about_pow_tip">Add proof of work to geohash messages for spam deterrence.</string>
+  <string name="about_pow_desc_none">No proof of work required</string>
+  <string name="about_pow_desc_very_low">Very low – minimal spam protection</string>
+  <string name="about_pow_desc_low">Low – basic spam protection</string>
+  <string name="about_pow_desc_medium">Medium – good spam protection</string>
+  <string name="about_pow_desc_high">High – strong spam protection</string>
+  <string name="about_pow_desc_very_high">Very high – may cause delays</string>
+  <string name="about_pow_desc_extreme">Extreme – significant computation required</string>
+  <string name="about_tor_route">Route internet over Tor for enhanced privacy.</string>
+  <string name="about_debug_settings">Debug Settings</string>
+  <string name="about_footer">Open Source • Privacy First • Decentralized</string>
+  <string name="about_background_title">Run in Background</string>
+  <string name="about_background_desc">Keep mesh active when app is closed (foreground service)</string>
+  <string name="unknown">Unknown</string>
+
+  <!-- Debug / Diagnostics -->
+  <string name="debug_tools">Debug Tools</string>
+  <string name="debug_tools_desc">Developer utilities for diagnostics and control</string>
+  <string name="debug_verbose_logging">Verbose logging</string>
+  <string name="debug_verbose_hint">Logs peer joins/leaves, connection direction, packet routing and relays</string>
+  <string name="debug_bluetooth_roles">Bluetooth roles</string>
+  <string name="debug_gatt_server">GATT server</string>
+  <string name="debug_connections_fmt">Connections: %1$d / %2$d</string>
+  <string name="debug_max_server">Max server</string>
+  <string name="debug_gatt_client">GATT client</string>
+  <string name="debug_max_client">Max client</string>
+  <string name="debug_overall_connections_fmt">Connections: %1$d / %2$d</string>
+  <string name="debug_max_overall">Max overall</string>
+  <string name="debug_packet_relay">Packet relay</string>
+  <string name="debug_roles_hint">Turn roles on/off and close all connections when disabled</string>
+  <string name="debug_max_packets_per_sync_fmt">Max packets per sync: %1$d</string>
+  <string name="debug_max_gcs_filter_size_fmt">Max GCS filter size: %1$d bytes (128–1024)</string>
+  <string name="debug_target_fpr_fmt">Target FPR: %1$.2f%%</string>
+  <string name="debug_connected_devices">Connected devices</string>
+  <string name="debug_our_device_id_fmt">Our device ID: %1$s</string>
+  <string name="debug_none">None</string>
+  <string name="debug_disconnect">Disconnect</string>
+  <string name="debug_recent_scan_results">Recent scan results</string>
+
+  <string name="debug_connect">Connect</string>
+  <string name="debug_debug_console">Debug console</string>
+  <string name="debug_clear">Clear</string>
+  <string name="debug_derived_p_fmt">Derived P: %1$s • est. max elements: %2$s</string>
+  <string name="debug_direct_suffix"> • direct</string>
+  <string name="debug_rssi_fmt">RSSI: %1$s</string>
+  <string name="debug_question_mark">?</string>
+  <string name="debug_role_server">As server (we host)</string>
+  <string name="debug_role_client">As client (we connect)</string>
+
+  <string name="version_prefix">v%1$s</string>
+  <string name="about_language">Language</string>
+  <string name="about_app_language">App language</string>
+  <string name="about_system_default">System default</string>
+  <string name="about_select_language">Select language</string>
+  <string name="about_spam_filter_title">Spam Filter</string>
+  <string name="about_spam_filter_desc">Hide public messages from people who post too fast, repeat themselves, or flood links.</string>
+</resources>

@@ -11,12 +11,11 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.text.input.ImeAction
-import androidx.lifecycle.ViewModelProvider
-import com.bitchat.android.services.AppStateStore
 import androidx.test.platform.app.InstrumentationRegistry
 import com.bitchat.android.BitchatApplication
 import com.bitchat.android.MainActivity
 import com.bitchat.android.R
+import com.bitchat.android.testhook.ChatSessionTestAccess
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -26,6 +25,8 @@ class ComposerPanicInstrumentedTest {
     val compose = createAndroidComposeRule<MainActivity>()
 
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
+    private fun session() = ChatSessionTestAccess.of(compose.activity)
+    private fun store() = session().panicClear().appStateStore
     private val editor = hasSetTextAction() and
         SemanticsMatcher.expectValue(SemanticsProperties.ImeAction, ImeAction.Send)
 
@@ -37,9 +38,8 @@ class ComposerPanicInstrumentedTest {
         assertTrue(context.applicationContext is BitchatApplication)
         compose.onNode(editor).assertTextEquals("")
         // Retain a real earlier completion so the confirmation cannot pass on a stale banner.
-        val previousIds = AppStateStore.publicMessages.value.map { it.id }.toSet()
-        val viewModel = ViewModelProvider(compose.activity)[ChatViewModel::class.java]
-        compose.runOnIdle { viewModel.panicClearAllData() }
+        val previousIds = store().publicMessages.value.map { it.id }.toSet()
+        compose.runOnIdle { session().panicClear().run() }
         awaitNewCompletion(previousIds)
         compose.onNode(editor).performTextInput("SYNTHETIC_UNSENT_DRAFT")
 
@@ -48,7 +48,7 @@ class ComposerPanicInstrumentedTest {
         compose.onNode(editor).assertTextEquals("SYNTHETIC_UNSENT_DRAFT")
 
         openPanicConfirmation()
-        val beforeConfirmation = AppStateStore.publicMessages.value.map { it.id }.toSet()
+        val beforeConfirmation = store().publicMessages.value.map { it.id }.toSet()
         compose.onNodeWithText(context.getString(R.string.panic_confirm_action)).performClick()
         awaitNewCompletion(beforeConfirmation)
         compose.onNode(editor).assertTextEquals("")
@@ -58,7 +58,7 @@ class ComposerPanicInstrumentedTest {
 
     private fun awaitNewCompletion(previousIds: Set<String>) {
         compose.waitUntil(30_000) {
-            AppStateStore.publicMessages.value.any {
+            store().publicMessages.value.any {
                 it.id !in previousIds && it.content == context.getString(R.string.system_panic_completed)
             }
         }
