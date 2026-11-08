@@ -43,7 +43,7 @@ class IdentityScopeRulesTest {
     /** Identity classes not yet moved into the identity scope. Later changes remove names. */
     private val pendingMove: Set<String> = setOf(
         // :core:chat
-        "MessageRouter", "ConversationListPreferences",
+        "ConversationListPreferences",
         // :core:nostr
         "NostrIdentityBridge", "NostrTransport", "NostrEventDeduplicator", "NostrBackgroundRuntime",
         "LocationChannelManager", "LocationNotesManager", "LocationNotesInitializer",
@@ -91,7 +91,6 @@ class IdentityScopeRulesTest {
      * an identity's data are marked identity: they are still to be moved into the scope.
      */
     private val statefulObjects: Map<String, String> = mapOf(
-        "MessageRouter.Companion" to "identity: the router instance cache, still to move into the scope",
         "SecureIdentityStateManager.Companion" to "identity: private-media pin epoch counter, still to be reviewed",
         "NotificationManager.Companion" to "identity: registry of live managers; chat-session lifetime",
         "ChatUiModeManager" to "process: display preference flow",

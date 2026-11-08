@@ -2,6 +2,7 @@ package com.bitchat.android.services
 
 import android.content.Context
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import com.bitchat.android.favorites.FavoriteControlMessage
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.mesh.MeshService
@@ -11,6 +12,7 @@ import com.bitchat.android.nostr.GeohashConversationRegistry
 import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.nostr.NostrTransport
 import com.bitchat.android.util.AppConstants
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -19,20 +21,45 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
+import javax.inject.Inject
 
 /**
  * Routes messages between local mesh transports and Nostr, matching iOS behavior.
+ *
+ * Built only by [MessageRouterHolder], which owns the identity's one router and attaches it to a
+ * mesh before anyone can see it. Unscoped so the holder alone decides when it is built.
  */
-class MessageRouter private constructor(
+class MessageRouter internal constructor(
     private val context: Context,
-    private var mesh: MeshService,
     private val nostrIdentity: NostrIdentityBridge,
     private val favorites: FavoritesPersistenceService,
     private val contactDirectory: ContactDirectory,
     private val geohashAliases: GeohashAliasRegistry,
     private val geohashConversations: GeohashConversationRegistry,
-    private val nostr: NostrTransport
+    private val nostr: NostrTransport,
+    private val disableSchedulerForTesting: Boolean,
 ) {
+    /** What the graph calls: the scheduler always runs. */
+    @Inject
+    constructor(
+        @ApplicationContext context: Context,
+        nostrIdentity: NostrIdentityBridge,
+        favorites: FavoritesPersistenceService,
+        contactDirectory: ContactDirectory,
+        geohashAliases: GeohashAliasRegistry,
+        geohashConversations: GeohashConversationRegistry,
+        nostr: NostrTransport,
+    ) : this(
+        context,
+        nostrIdentity,
+        favorites,
+        contactDirectory,
+        geohashAliases,
+        geohashConversations,
+        nostr,
+        disableSchedulerForTesting = false,
+    )
+
     enum class RouteResult {
         MESH,
         NOSTR,
@@ -58,58 +85,10 @@ class MessageRouter private constructor(
         private const val OUTBOX_MESSAGE_TTL_MS = AppConstants.Router.OUTBOX_MESSAGE_TTL_MS
         private const val OUTBOX_MAX_PER_PEER = AppConstants.Router.OUTBOX_MAX_PER_PEER
         private val HANDSHAKE_RETRY_BACKOFF_MS = AppConstants.Router.HANDSHAKE_RETRY_BACKOFF_MS
-
-        @Volatile private var INSTANCE: MessageRouter? = null
-        internal var disableSchedulerForTesting = false
-        fun tryGetInstance(): MessageRouter? = INSTANCE
-
-        /**
-         * [nostr] is asked for only when the router does not exist yet, so a caller can pass an
-         * injected `dagger.Lazy` and leave the transport unbuilt until then.
-         */
-        fun getInstance(
-            context: Context,
-            mesh: MeshService,
-            nostrIdentity: NostrIdentityBridge,
-            favorites: FavoritesPersistenceService,
-            contactDirectory: ContactDirectory,
-            geohashAliases: GeohashAliasRegistry,
-            geohashConversations: GeohashConversationRegistry,
-            nostr: () -> NostrTransport,
-        ): MessageRouter {
-            val instance = INSTANCE ?: synchronized(this) {
-                INSTANCE ?: run {
-                    MessageRouter(
-                        context.applicationContext,
-                        mesh,
-                        nostrIdentity,
-                        favorites,
-                        contactDirectory,
-                        geohashAliases,
-                        geohashConversations,
-                        nostr(),
-                    ).also { instance ->
-                        // Register for favorites changes to flush outbox
-                        try {
-                            favorites.addListener(instance.favoriteListener)
-                        } catch (_: Exception) {}
-                        INSTANCE = instance
-                    }
-                }
-            }
-            // Always update mesh reference and sync peer ID, and make sure the retry
-            // scheduler is running (it is stopped together with MeshForegroundService).
-            instance.mesh = mesh
-            instance.nostr.senderPeerID = mesh.myPeerID
-            instance.startOutboxScheduler()
-            return instance
-        }
-
-        internal fun resetForTesting() {
-            INSTANCE?.schedulerScope?.cancel()
-            INSTANCE = null
-        }
     }
+
+    // The mesh sends go through. Set by attach before the holder hands the router to anyone.
+    private lateinit var mesh: MeshService
 
     // Outbox: conversationID -> queued messages, oldest first
     private val outbox = ConcurrentHashMap<String, MutableList<QueuedMessage>>()
@@ -126,8 +105,24 @@ class MessageRouter private constructor(
     // Called with the messageID of queued messages that expired or were evicted
     var onMessageExpired: ((String) -> Unit)? = null
 
-    init {
+    /**
+     * Points the router at [mesh] and syncs the peer ID, and makes sure the retry scheduler is
+     * running (it is stopped together with MeshForegroundService).
+     */
+    internal fun attach(mesh: MeshService) {
+        this.mesh = mesh
+        nostr.senderPeerID = mesh.myPeerID
         startOutboxScheduler()
+    }
+
+    /**
+     * Flushes the outbox when a favourite's npub mapping appears or changes. Tried once: a store
+     * that is not initialized yet refuses the listener, and the router works without it.
+     */
+    internal fun registerFavoritesListener() {
+        try {
+            favorites.addListener(favoriteListener)
+        } catch (_: Exception) {}
     }
 
     fun clearAll() {
@@ -314,15 +309,16 @@ class MessageRouter private constructor(
 
     /**
      * Stop retrying while the mesh transports are down. Persistent network work must
-     * follow the MeshForegroundService lifecycle; getInstance restarts the scheduler
-     * and rebinds the mesh reference when the service comes back.
+     * follow the MeshForegroundService lifecycle; attach restarts the scheduler and
+     * rebinds the mesh reference when the service comes back.
      */
     fun stopOutboxScheduler() {
         schedulerJob?.cancel()
         schedulerJob = null
     }
 
-    internal val isSchedulerRunning: Boolean get() = schedulerJob?.isActive == true
+    @get:VisibleForTesting
+    val isSchedulerRunning: Boolean get() = schedulerJob?.isActive == true
 
     /**
      * One scheduler pass over the outbox: expire old entries, flush what can be sent,

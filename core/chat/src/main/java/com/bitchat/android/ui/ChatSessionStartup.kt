@@ -7,6 +7,7 @@ import android.util.Log
 import com.bitchat.android.di.ChatSessionScope
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.identity.SecureIdentityStateManager
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.noise.NoiseSession
 import com.bitchat.android.nostr.NostrTransport
@@ -45,11 +46,11 @@ class ChatSessionStartup @Inject constructor(
     @ChatSessionScope private val scope: CoroutineScope,
     private val sessionMesh: ChatSessionMesh,
     // dagger.Lazy and Provider for the reasons ChatViewModel gave: these were
-    // reached through getInstance(...) at the point of use, and MessageRouter
-    // has to be re-resolved so it follows the mesh panic-clear replaces.
+    // first resolved at the point of use, and MessageRouter has to be
+    // re-resolved so it follows the mesh panic-clear replaces.
     private val seenMessageStoreLazy: Lazy<SeenMessageStore>,
     private val nostrTransportLazy: Lazy<NostrTransport>,
-    private val messageRouterProvider: Provider<MessageRouter>,
+    @CurrentIdentity private val messageRouterProvider: Provider<MessageRouter>,
     private val debugSettingsManager: DebugSettingsManager,
     private val state: ChatState,
     private val dataManager: DataManager,

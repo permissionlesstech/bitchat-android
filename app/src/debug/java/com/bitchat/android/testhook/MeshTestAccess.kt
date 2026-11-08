@@ -9,6 +9,8 @@ import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ContactDirectory
+import com.bitchat.android.services.MessageRouter
+import com.bitchat.android.services.MessageRouterHolder
 import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.spam.SpamFilter
 import com.bitchat.android.ui.debug.DebugSettingsManager
@@ -34,6 +36,8 @@ interface MeshTestAccess {
     fun debugSettings(): DebugSettingsManager
     fun identityHolder(): IdentityHolder
     @CurrentIdentity fun voiceWaveformCache(): VoiceWaveformCache
+    @CurrentIdentity fun messageRouterHolder(): MessageRouterHolder
+    @CurrentIdentity fun messageRouter(): MessageRouter
 
     companion object {
         fun of(context: Context): MeshTestAccess =

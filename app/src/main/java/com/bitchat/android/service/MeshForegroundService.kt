@@ -20,6 +20,7 @@ import com.bitchat.android.R
 import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.MessageRouterHolder
 import com.bitchat.android.wifiaware.WifiAwareController
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -54,6 +55,10 @@ class MeshForegroundService : Service() {
     @CurrentIdentity
     lateinit var wifiAwareControllerProvider: Provider<WifiAwareController>
     private val wifiAwareController: WifiAwareController get() = wifiAwareControllerProvider.get()
+
+    @Inject
+    @CurrentIdentity
+    lateinit var messageRouterHolder: Provider<MessageRouterHolder>
 
     @Inject
     lateinit var appStateStore: AppStateStore
@@ -196,7 +201,7 @@ class MeshForegroundService : Service() {
                 // Stop FGS and mesh cleanly
                 updateJob?.cancel()
                 updateJob = null
-                try { com.bitchat.android.services.MessageRouter.tryGetInstance()?.stopOutboxScheduler() } catch (_: Exception) { }
+                try { messageRouterHolder.get().peek()?.stopOutboxScheduler() } catch (_: Exception) { }
                 try { unifiedMeshService?.stopServices() ?: meshService?.stopServices() } catch (_: Exception) { }
                 try { meshServiceHolder.clear() } catch (_: Exception) { }
                 try { stopForeground(true) } catch (_: Exception) { }

@@ -30,6 +30,7 @@ class MeshDelegateHandler(
     private val onHapticFeedback: () -> Unit,
     private val getMyPeerID: () -> String,
     private val getMeshService: () -> MeshService,
+    private val peekMessageRouter: () -> com.bitchat.android.services.MessageRouter?,
     private val appStateStore: AppStateStore,
     private val contactDirectory: ContactDirectory,
     private val markMessageReadLocally: (messageID: String) -> Unit = {},
@@ -139,7 +140,7 @@ class MeshDelegateHandler(
         state.setIsConnected(mergedPeers.isNotEmpty())
         
         // Flush router outbox for any peers that just connected (and their noiseHex aliases)
-        runCatching { com.bitchat.android.services.MessageRouter.tryGetInstance()?.onPeersUpdated(mergedPeers) }
+        runCatching { peekMessageRouter()?.onPeersUpdated(mergedPeers) }
 
         // Clean up channel members who disconnected
         channelManager.cleanupDisconnectedMembers(mergedPeers, getMyPeerID())

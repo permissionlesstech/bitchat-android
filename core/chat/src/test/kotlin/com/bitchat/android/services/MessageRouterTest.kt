@@ -8,10 +8,8 @@ import com.bitchat.android.mesh.PeerInfo
 import com.bitchat.android.nostr.GeohashConversationRegistry
 import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.nostr.NostrTransport
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -63,20 +61,12 @@ class MessageRouterTest {
 
         stores.contactDirectory.initialize(context) { mesh }
 
-        MessageRouter.disableSchedulerForTesting = true
-        MessageRouter.resetForTesting()
         fakeTime = 1_000_000L
         expired.clear()
 
-        router = routerFor(context, mesh)
+        router = newRouter(disableScheduler = true).also { it.attach(mesh) }
         router.clock = { fakeTime }
         router.onMessageExpired = { expired.add(it) }
-    }
-
-    @After
-    fun tearDown() {
-        MessageRouter.resetForTesting()
-        MessageRouter.disableSchedulerForTesting = false
     }
 
     @Test
@@ -183,22 +173,25 @@ class MessageRouterTest {
 
     @Test
     fun `scheduler stops with the mesh service and restarts on rebind`() {
-        MessageRouter.disableSchedulerForTesting = false
-        MessageRouter.resetForTesting()
-        val context = RuntimeEnvironment.getApplication()
-        val running = routerFor(context, mesh)
-        assertTrue(running.isSchedulerRunning)
+        val running = newRouter(disableScheduler = false)
+        try {
+            assertFalse("nothing runs before the first attach", running.isSchedulerRunning)
 
-        running.stopOutboxScheduler()
-        assertFalse(running.isSchedulerRunning)
+            running.attach(mesh)
+            assertTrue(running.isSchedulerRunning)
 
-        val rebound = routerFor(context, mesh)
-        assertTrue(rebound.isSchedulerRunning)
+            running.stopOutboxScheduler()
+            assertFalse(running.isSchedulerRunning)
+
+            running.attach(mesh)
+            assertTrue(running.isSchedulerRunning)
+        } finally {
+            running.stopOutboxScheduler()
+        }
     }
 
     @Test
-    fun `resolving again after the mesh is replaced routes sends to the new mesh`() {
-        val context = RuntimeEnvironment.getApplication()
+    fun `attaching again after the mesh is replaced routes sends to the new mesh`() {
         val replacementMesh: MeshService = mock()
         whenever(replacementMesh.myPeerID).thenReturn(myPeerID)
         whenever(replacementMesh.getPeerNicknames()).thenReturn(mapOf(peerID to "peer"))
@@ -207,10 +200,9 @@ class MessageRouterTest {
         peerReady()
 
         // What Provider<MessageRouter> does after recreateMeshServiceAfterPanic().
-        val rebound = routerFor(context, replacementMesh)
-        assertSame(router, rebound)
+        router.attach(replacementMesh)
 
-        val result = rebound.sendPrivate("after-panic", peerID, "peer", "msg-after-panic")
+        val result = router.sendPrivate("after-panic", peerID, "peer", "msg-after-panic")
 
         assertEquals(MessageRouter.RouteResult.MESH, result)
         verify(replacementMesh, times(1))
@@ -244,9 +236,14 @@ class MessageRouterTest {
         lastSeen = System.currentTimeMillis()
     )
 
-    private fun routerFor(context: Context, mesh: MeshService): MessageRouter =
-        MessageRouter.getInstance(
-            context, mesh, nostrIdentity, stores.favorites, stores.contactDirectory, stores.geohashAliases,
-            GeohashConversationRegistry(),
-        ) { nostr }
+    private fun newRouter(disableScheduler: Boolean) = MessageRouter(
+        RuntimeEnvironment.getApplication(),
+        nostrIdentity,
+        stores.favorites,
+        stores.contactDirectory,
+        stores.geohashAliases,
+        GeohashConversationRegistry(),
+        nostr,
+        disableScheduler,
+    )
 }

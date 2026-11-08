@@ -3,6 +3,7 @@ package com.bitchat.android.ui
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import android.content.Context
 import android.util.Log
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.services.MessageRouter
@@ -24,7 +25,7 @@ class ContactFavorites @Inject constructor(
     private val dataManager: DataManager,
     private val privateChatManager: PrivateChatManager,
     private val sessionMesh: ChatSessionMesh,
-    private val messageRouterProvider: Provider<MessageRouter>,
+    @CurrentIdentity private val messageRouterProvider: Provider<MessageRouter>,
     private val contactDirectory: ContactDirectory,
     private val favorites: Lazy<FavoritesPersistenceService>,
 ) {

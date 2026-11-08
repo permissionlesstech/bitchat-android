@@ -27,6 +27,7 @@ import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ConversationListPreferences
+import com.bitchat.android.services.MessageRouterHolder
 import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.services.VerificationService
 import com.bitchat.android.services.meshgraph.MeshGraphService
@@ -69,6 +70,7 @@ class BluetoothMeshService @AssistedInject constructor(
     @get:VisibleForTesting val transportBridgeService: TransportBridgeService,
     private val verificationService: VerificationService,
     private val meshServiceHolder: MeshServiceHolder,
+    private val messageRouterHolder: MessageRouterHolder,
     private val meshGraphService: MeshGraphService,
     private val debugSettingsManager: Lazy<DebugSettingsManager>,
     private val debugPreferenceManager: DebugPreferenceManager,
@@ -216,9 +218,7 @@ class BluetoothMeshService @AssistedInject constructor(
         encryptionService.onSessionEstablished = { peerID ->
             Log.d(TAG, "BLE Noise session established with ${peerID.take(8)}")
             try {
-                com.bitchat.android.services.MessageRouter
-                    .tryGetInstance()
-                    ?.onSessionEstablished(peerID)
+                messageRouterHolder.peek()?.onSessionEstablished(peerID)
             } catch (_: Exception) { }
         }
 
@@ -1168,7 +1168,7 @@ class BluetoothMeshService @AssistedInject constructor(
     fun sendReadReceipt(messageID: String, recipientPeerID: String, readerNickname: String) {
         serviceScope.launch {
             // Route geohash read receipts via MessageRouter instead of here
-            val geo = runCatching { com.bitchat.android.services.MessageRouter.tryGetInstance() }.getOrNull()
+            val geo = messageRouterHolder.peek()
             val isGeoAlias = try {
                 val map = geohashAliasRegistry.snapshot()
                 map.containsKey(recipientPeerID)

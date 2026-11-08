@@ -61,6 +61,7 @@ class MeshDelegateHandlerStateContractTest {
             onHapticFeedback = { haptics.incrementAndGet() },
             getMyPeerID = { "self" },
             getMeshService = { mesh },
+            peekMessageRouter = { null },
             markMessageReadLocally = locallyReadMessageIDs::add,
             reconciliationDispatcher = UnconfinedTestDispatcher(scope.testScheduler),
             appStateStore = stores.appStateStore,

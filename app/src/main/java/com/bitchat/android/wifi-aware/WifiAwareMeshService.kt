@@ -85,6 +85,7 @@ import java.util.concurrent.atomic.AtomicLong
 class WifiAwareMeshService @Inject constructor(
     @ApplicationContext private val context: Context,
     private val meshServiceHolder: MeshServiceHolder,
+    private val messageRouterHolder: com.bitchat.android.services.MessageRouterHolder,
     private val wifiAwareController: WifiAwareController,
     private val appStateStore: AppStateStore,
     private val transportBridgeService: TransportBridgeService,
@@ -188,9 +189,7 @@ class WifiAwareMeshService @Inject constructor(
         encryptionService.onSessionEstablished = { peerID ->
             Log.d(TAG, "Wi-Fi Aware Noise session established with ${peerID.take(8)}")
             try {
-                com.bitchat.android.services.MessageRouter
-                    .tryGetInstance()
-                    ?.onSessionEstablished(peerID)
+                messageRouterHolder.peek()?.onSessionEstablished(peerID)
             } catch (_: Exception) { }
         }
         meshCore = MeshCore(

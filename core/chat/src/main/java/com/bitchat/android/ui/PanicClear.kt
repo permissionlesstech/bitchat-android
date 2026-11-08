@@ -13,11 +13,13 @@ import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.core.chat.R
 import com.bitchat.android.services.ConversationListPreferences
+import com.bitchat.android.services.MessageRouterHolder
 import com.bitchat.android.services.SeenMessageStore
 import dagger.Lazy
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.scopes.ActivityRetainedScoped
 import javax.inject.Inject
+import javax.inject.Provider
 import kotlin.random.Random
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -37,6 +39,7 @@ class PanicClear @Inject constructor(
     private val state: ChatState,
     private val sessionMesh: ChatSessionMesh,
     @CurrentIdentity private val meshSource: SessionMeshSource,
+    @CurrentIdentity private val messageRouterHolder: Provider<MessageRouterHolder>,
     private val meshDelegate: ChatMeshDelegate,
     private val messageManager: MessageManager,
     private val channelManager: ChannelManager,
@@ -114,7 +117,7 @@ class PanicClear @Inject constructor(
             wipeComplete = false
         }
         try {
-            com.bitchat.android.services.MessageRouter.tryGetInstance()?.clearAll()
+            messageRouterHolder.get().peek()?.clearAll()
         } catch (_: Exception) {
             wipeComplete = false
         }

@@ -8,14 +8,18 @@ import com.bitchat.android.identity.scope.MeshIdentityEntryPoint
 import com.bitchat.android.identity.scope.entryPoint
 import com.bitchat.android.navigation.OnboardedApp
 import com.bitchat.android.navigation.awaitChat
+import com.bitchat.android.service.MeshForegroundService
 import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.testhook.ChatSessionTestAccess
 import com.bitchat.android.testhook.MeshTestAccess
 import com.bitchat.android.ui.ChatSessionMesh
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.BeforeClass
 import org.junit.Rule
 import org.junit.Test
@@ -90,5 +94,35 @@ class IdentityScopeWiringTest {
     @Test
     fun theTransportTogglesRegisteredAtStartUpAreTheCurrentIdentitys() {
         assertSame(appIdentityEntry().meshTransportToggles(), graph().debugSettings().transportToggles)
+    }
+
+    @Test
+    fun stoppingTheServiceAndReopeningKeepsTheStoresAndRouterAndBuildsANewMesh() {
+        rule.awaitChat()
+        val context = rule.activity.applicationContext
+        val routerHolder = graph().messageRouterHolder()
+        val meshHolder = graph().meshServiceHolder()
+        val store = graph().appStateStore()
+
+        // Chat start-up resolves the router.
+        rule.waitUntil(timeoutMillis = 10_000) { routerHolder.peek()?.isSchedulerRunning == true }
+        val router = routerHolder.peek()!!
+        val meshBefore = meshHolder.unifiedMeshService
+        assertNotNull(meshBefore)
+
+        MeshForegroundService.stop(context)
+        rule.waitUntil(timeoutMillis = 10_000) {
+            !router.isSchedulerRunning && meshHolder.unifiedMeshService !== meshBefore
+        }
+
+        assertSame(router, routerHolder.peek())
+        assertFalse(router.isSchedulerRunning)
+        assertSame(store, graph().appStateStore())
+
+        // What the next reader of the router does: it attaches, and that asks for a mesh.
+        assertSame(router, graph().messageRouter())
+        assertTrue(router.isSchedulerRunning)
+        assertNotNull(meshHolder.unifiedMeshService)
+        assertNotSame(meshBefore, meshHolder.unifiedMeshService)
     }
 }

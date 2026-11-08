@@ -3,6 +3,7 @@ package com.bitchat.android.ui
 import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.di.ChatSessionScope
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.MessageRouter
@@ -34,7 +35,7 @@ class MessageSender @Inject constructor(
     private val sessionMesh: ChatSessionMesh,
     // Provider, not a cached instance: each get() re-points the router at the
     // current mesh, as it did in ChatViewModel.
-    private val messageRouterProvider: Provider<MessageRouter>,
+    @CurrentIdentity private val messageRouterProvider: Provider<MessageRouter>,
     private val contactDirectory: ContactDirectory,
     private val favorites: Lazy<FavoritesPersistenceService>,
     private val geohashAliases: GeohashAliasRegistry,

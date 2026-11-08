@@ -4,17 +4,12 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import androidx.core.app.RemoteInput
-import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
-import com.bitchat.android.nostr.GeohashAliasRegistry
-import com.bitchat.android.nostr.GeohashConversationRegistry
-import com.bitchat.android.nostr.NostrIdentityBridge
-import com.bitchat.android.nostr.NostrTransport
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ContactDirectory
-import com.bitchat.android.services.MessageRouter
+import com.bitchat.android.services.MessageRouterHolder
 import com.bitchat.android.ui.NotificationManager
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -34,14 +29,10 @@ class ConversationNotificationReceiver : BroadcastReceiver() {
     @EntryPoint
     @InstallIn(SingletonComponent::class)
     interface Dependencies {
-        fun nostrTransport(): NostrTransport
-        fun nostrIdentity(): NostrIdentityBridge
-        fun favorites(): FavoritesPersistenceService
-        fun geohashAliases(): GeohashAliasRegistry
-        fun geohashConversations(): GeohashConversationRegistry
         fun contactDirectory(): ContactDirectory
         fun appStateStore(): AppStateStore
         @CurrentIdentity fun meshServiceHolder(): MeshServiceHolder
+        @CurrentIdentity fun messageRouterHolder(): MessageRouterHolder
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -94,17 +85,7 @@ class ConversationNotificationReceiver : BroadcastReceiver() {
                             forceRead = true
                         )
                         if (persisted) {
-                            MessageRouter.getInstance(
-                                context.applicationContext,
-                                mesh,
-                                dependencies.nostrIdentity(),
-                                dependencies.favorites(),
-                                contactDirectory,
-                                dependencies.geohashAliases(),
-                                dependencies.geohashConversations(),
-                            ) {
-                                dependencies.nostrTransport()
-                            }
+                            dependencies.messageRouterHolder().getOrAttach(mesh)
                                 .sendPrivate(
                                     content = reply,
                                     toPeerID = conversationID,

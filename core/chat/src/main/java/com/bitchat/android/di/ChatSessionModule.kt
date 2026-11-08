@@ -7,6 +7,7 @@ import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.identity.SecureIdentityStateManager
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.geohash.LiveLocationPrivacyGate
 import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.nostr.GeohashAliasRegistry
@@ -15,12 +16,11 @@ import com.bitchat.android.nostr.LocationNotesManager
 import com.bitchat.android.nostr.NostrBackgroundRuntime
 import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.nostr.NostrRelayManager
-import com.bitchat.android.nostr.NostrTransport
 import com.bitchat.android.nostr.PoWPreferenceManager
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ConversationListPreferences
-import com.bitchat.android.services.MessageRouter
+import com.bitchat.android.services.MessageRouterHolder
 import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.services.VerificationService
 import com.bitchat.android.spam.SpamFilter
@@ -46,6 +46,7 @@ import dagger.hilt.android.ActivityRetainedLifecycle
 import dagger.hilt.android.components.ActivityRetainedComponent
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.scopes.ActivityRetainedScoped
+import javax.inject.Provider
 import javax.inject.Qualifier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -176,19 +177,13 @@ object ChatSessionModule {
     @Provides
     @ActivityRetainedScoped
     fun provideCommandProcessor(
-        @ApplicationContext context: Context,
         state: ChatState,
         messageManager: MessageManager,
         channelManager: ChannelManager,
         privateChatManager: PrivateChatManager,
         @ChatSessionScope scope: CoroutineScope,
         geohashSession: Lazy<GeohashSession>,
-        nostrIdentity: NostrIdentityBridge,
-        favorites: FavoritesPersistenceService,
-        contactDirectory: ContactDirectory,
-        geohashAliases: GeohashAliasRegistry,
-        geohashConversations: GeohashConversationRegistry,
-        nostrTransport: Lazy<NostrTransport>,
+        @CurrentIdentity messageRouterHolder: Provider<MessageRouterHolder>,
     ): CommandProcessor = CommandProcessor(
         state,
         messageManager,
@@ -196,11 +191,7 @@ object ChatSessionModule {
         privateChatManager,
         scope,
         routePrivateMessage = { mesh, content, peerID, recipientNickname, messageId ->
-            MessageRouter.getInstance(
-                context, mesh, nostrIdentity, favorites, contactDirectory, geohashAliases, geohashConversations
-            ) {
-                nostrTransport.get()
-            }
+            messageRouterHolder.get().getOrAttach(mesh)
                 .sendPrivate(content, peerID, recipientNickname, messageId)
         },
         geohashPeople = { geohashSession.get().geohashPeople.value },
@@ -299,6 +290,7 @@ object ChatSessionModule {
         seenMessageStore: Lazy<SeenMessageStore>,
         appStateStore: AppStateStore,
         contactDirectory: ContactDirectory,
+        @CurrentIdentity messageRouterHolder: Provider<MessageRouterHolder>,
     ): MeshDelegateHandler = MeshDelegateHandler(
         state = state,
         messageManager = messageManager,
@@ -309,6 +301,7 @@ object ChatSessionModule {
         onHapticFeedback = { ChatViewModelUtils.triggerHapticFeedback(context) },
         getMyPeerID = { mesh.unified.myPeerID },
         getMeshService = { mesh.unified },
+        peekMessageRouter = { messageRouterHolder.get().peek() },
         appStateStore = appStateStore,
         contactDirectory = contactDirectory,
         markMessageReadLocally = { messageID ->

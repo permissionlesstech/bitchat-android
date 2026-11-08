@@ -8,20 +8,15 @@ import org.junit.Test
 /**
  * The mesh singletons are built by Hilt, so callers take them by injection and never reach one
  * through its class name, and none keeps a static holder. Read from every module's main and debug
- * sources, comments and string text dropped. The one exemption is [allowedClasses].
+ * sources, comments and string text dropped.
  */
 class NoStaticMeshAccessTest {
 
     private val root = generateSequence(File("").absoluteFile) { it.parentFile }
         .first { File(it, "settings.gradle.kts").isFile }
 
-    /** Classes allowed to keep a static holder and be reached statically, with the reason. */
-    private val allowedClasses = mapOf(
-        "MessageRouter" to "deferred to 10c-2a-2: mesh-replacement machinery the identity holder replaces",
-    )
-
     /**
-     * The Scope classes of 10c-2a-1: each is an injected `@Singleton`, so a lower-case member
+     * The Scope classes of 10c-2a-1 and the router: each is injected, so a lower-case member
      * reached through the class name (`Name.foo`, `Name::foo`, `Name.Companion.foo`) is a static
      * reach, unless it is one of [companionFunctions].
      */
@@ -34,7 +29,7 @@ class NoStaticMeshAccessTest {
         "TransferProgressManager", "DebugPreferenceManager", "GeohashAliasRegistry", "VerificationService",
         "WifiAwareController", "MeshServiceHolder", "MeshServicePreferences", "MeshTransportToggles",
         "NostrIdentityBridge", "GeohashConversationRegistry", "TorPreferenceManager", "WearChatState",
-        "WearPeerIdentityState",
+        "WearPeerIdentityState", "MessageRouter",
     )
 
     /** Pure companion functions, which hold no state and may be called through the class name. */
@@ -60,12 +55,12 @@ class NoStaticMeshAccessTest {
     )
 
     private val importAlias = Regex(
-        """^\s*import\s+[\w.]*\.(${(scopeClasses + allowedClasses.keys).joinToString("|")})\s+as\s+\w+""",
+        """^\s*import\s+[\w.]*\.(${scopeClasses.joinToString("|")})\s+as\s+\w+""",
         RegexOption.MULTILINE,
     )
 
     private val typeAlias = Regex(
-        """\btypealias\s+\w+[^=\n]*=[^\n]*\b(${(scopeClasses + allowedClasses.keys).joinToString("|")})\b"""
+        """\btypealias\s+\w+[^=\n]*=[^\n]*\b(${scopeClasses.joinToString("|")})\b"""
     )
 
     @Test
@@ -79,8 +74,7 @@ class NoStaticMeshAccessTest {
 
     @Test
     fun noFileKeepsAStaticHolder() {
-        val offenders = mainSources().filterNot { (file, _) -> file.nameWithoutExtension in allowedClasses }
-            .flatMap { (file, code) -> holders(file, code) }
+        val offenders = mainSources().flatMap { (file, code) -> holders(file, code) }
         assertTrue("Static singleton holders remain:\n" + offenders.joinToString("\n"), offenders.isEmpty())
     }
 
@@ -169,7 +163,7 @@ class NoStaticMeshAccessTest {
                 .shared
             val e = com.bitchat.android.services.AppStateStore.peers
             val f = SpamFilter.Companion.shared
-            val g = MessageRouter.getInstance(context)
+            val g = MessageRouter.shared
             val h = SpamFilter.meshSenderKey(message)
             val i = AppStateStore::class.java
             val j = BluetoothMeshService.Factory
@@ -180,7 +174,7 @@ class NoStaticMeshAccessTest {
         )
         assertEquals(
             listOf("AppStateStore.setNickname", "ContactDirectory.someVal", "GeohashAliasRegistry::get",
-                "FavoritesPersistenceService.shared", "AppStateStore.peers", "SpamFilter.shared"),
+                "FavoritesPersistenceService.shared", "AppStateStore.peers", "SpamFilter.shared", "MessageRouter.shared"),
             reaches(File(root, "Sample.kt"), code).map { it.substringAfter(": ") },
         )
     }
