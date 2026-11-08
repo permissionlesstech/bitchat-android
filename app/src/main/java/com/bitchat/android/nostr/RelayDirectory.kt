@@ -97,12 +97,31 @@ object RelayDirectory {
         }
 
         val (lat, lon) = center
-        return snapshot
-            .asSequence()
-            .sortedBy { haversineMeters(lat, lon, it.latitude, it.longitude) }
-            .take(nRelays.coerceAtLeast(0))
-            .map { it.url }
-            .toList()
+        return selectClosest(snapshot, lat, lon, nRelays)
+    }
+
+    /**
+     * Same distance order as iOS, with the host as the tie-break, after
+     * `host` and `host:443` have been collapsed to one URL.
+     */
+    internal fun selectClosest(
+        entries: List<RelayInfo>,
+        lat: Double,
+        lon: Double,
+        count: Int
+    ): List<String> {
+        if (entries.isEmpty() || count <= 0) return emptyList()
+        val seen = LinkedHashSet<String>()
+        entries
+            .map { it.copy(url = canonicalRelayUrl(it.url)) }
+            .sortedWith(
+                compareBy<RelayInfo> { haversineMeters(lat, lon, it.latitude, it.longitude) }
+                    .thenBy { relaySortKey(it.url) }
+            )
+            .forEach { entry ->
+                if (entry.url.isNotEmpty()) seen.add(entry.url)
+            }
+        return seen.take(count).toList()
     }
 
     private fun haversineMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
@@ -114,11 +133,27 @@ object RelayDirectory {
         return R * c
     }
 
-    private fun normalizeRelayUrl(raw: String): String {
+    internal fun canonicalRelayUrl(raw: String): String {
         val trimmed = raw.trim()
         if (trimmed.isEmpty()) return trimmed
-        return if ("://" in trimmed) trimmed else "wss://$trimmed"
+        val withScheme = if ("://" in trimmed) trimmed else "wss://$trimmed"
+        val schemeEnd = withScheme.indexOf("://")
+        if (schemeEnd < 0) return withScheme
+        val scheme = withScheme.substring(0, schemeEnd).lowercase()
+        val rest = withScheme.substring(schemeEnd + 3)
+        val authority = rest.substringBefore('/').substringBefore('?').substringBefore('#')
+        val tail = rest.removePrefix(authority)
+        val host = authority.substringBefore(':').lowercase()
+        if (host.isEmpty()) return withScheme
+        val port = authority.substringAfter(':', "")
+        val authorityOut = if (port.isEmpty() || port == "443") host else "$host:$port"
+        return "$scheme://$authorityOut$tail"
     }
+
+    private fun relaySortKey(url: String): String =
+        url.substringAfter("://", url).substringBefore('/').substringBefore(':')
+
+    private fun normalizeRelayUrl(raw: String): String = canonicalRelayUrl(raw)
 
     // ===== Implementation details =====
 
