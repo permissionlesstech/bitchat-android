@@ -22,6 +22,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.CompletableDeferred
 
 import java.net.InetSocketAddress
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.atomic.AtomicLong
 
@@ -92,6 +93,7 @@ class ArtiTorManager private constructor() {
     private var bindRetryAttempts = 0
     private var inactivityJob: Job? = null
     private var retryJob: Job? = null
+    private val restartInFlight = AtomicBoolean(false)
     private var currentApplication: Application? = null
 
     private enum class LifecycleState { STOPPED, STARTING, RUNNING, STOPPING }
@@ -376,6 +378,30 @@ class ArtiTorManager private constructor() {
         startArti(application, useDelay = false)
     }
 
+    /**
+     * Runs an automatic restart in its own coroutine. The watchdog and retry jobs request restarts,
+     * and stopping Arti cancels both jobs, so a restart running inside either would cancel itself.
+     * Holding [applyMutex] serializes the restart with mode changes, so turning Tor off always
+     * ends with Arti stopped.
+     */
+    private fun launchRestart(application: Application) {
+        if (!restartInFlight.compareAndSet(false, true)) return
+        appScope.launch {
+            try {
+                applyMutex.withLock {
+                    if (
+                        desiredMode == TorMode.ON &&
+                        (lifecycleState == LifecycleState.STARTING || lifecycleState == LifecycleState.RUNNING)
+                    ) {
+                        restartArti(application)
+                    }
+                }
+            } finally {
+                restartInFlight.set(false)
+            }
+        }
+    }
+
     private fun startInactivityMonitoring() {
         armBootstrapInactivityWatchdog()
     }
@@ -400,7 +426,7 @@ class ArtiTorManager private constructor() {
                 lifecycleState == LifecycleState.RUNNING
             ) {
                 Log.w(TAG, "Bootstrap inactivity detected (${timeSinceLastActivity}ms), restarting Arti")
-                currentApplication?.let { restartArti(it) }
+                currentApplication?.let { launchRestart(it) }
             }
         }
     }
@@ -420,7 +446,7 @@ class ArtiTorManager private constructor() {
                 delay(delayMs)
                 val currentMode = _statusFlow.value.mode
                 if (currentMode == TorMode.ON) {
-                    restartArti(application)
+                    launchRestart(application)
                 }
             }
         } else {
