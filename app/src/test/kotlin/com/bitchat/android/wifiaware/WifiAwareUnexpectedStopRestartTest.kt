@@ -15,6 +15,8 @@ import com.bitchat.android.mesh.FragmentingPacketSender
 import com.bitchat.android.mesh.MeshCore
 import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.ui.NotificationManager
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -156,6 +158,36 @@ class WifiAwareUnexpectedStopRestartTest {
     }
 
     @Test
+    fun `a cooldown requested during a restart attempt delays the next attempt`() {
+        withStubbedService { constructed, isRunning ->
+            val service = constructed.constructed().single()
+            WifiAwareController.onServiceInterrupted(service)
+            val attemptTimesNs = CopyOnWriteArrayList<Long>()
+            whenever(service.startServices()).thenAnswer {
+                attemptTimesNs += System.nanoTime()
+                if (attemptTimesNs.size == 1) {
+                    // An attach failure answered before the attempt finishes publishing.
+                    WifiAwareController.restartIfStillEnabled(COALESCED_COOLDOWN_MS)
+                } else {
+                    // Ends the loop so it cannot run into the next test.
+                    isRunning.set(true)
+                }
+            }
+
+            WifiAwareController.restartIfStillEnabled()
+            runBlocking {
+                withTimeout(RESTART_TIMEOUT_MS) { WifiAwareController.running.first { it } }
+            }
+
+            val gapMs = TimeUnit.NANOSECONDS.toMillis(attemptTimesNs[1] - attemptTimesNs[0])
+            assertTrue(
+                "next attempt came after ${gapMs}ms, inside the ${COALESCED_COOLDOWN_MS}ms cooldown",
+                gapMs >= COALESCED_COOLDOWN_MS
+            )
+        }
+    }
+
+    @Test
     fun `repeated attach failures back off to a capped retry interval`() {
         val delays = (1..8).map(WifiAwareMeshService::attachRetryDelayMs)
 
@@ -180,6 +212,8 @@ class WifiAwareUnexpectedStopRestartTest {
     private companion object {
         // Longer than the service's restart delay plus one controller retry.
         const val RESTART_TIMEOUT_MS = 20_000L
+        // Longer than the controller's fixed retry delay, so ignoring it is detectable.
+        const val COALESCED_COOLDOWN_MS = 4_500L
         const val SYNTHETIC_FINGERPRINT = "00112233445566778899aabbccddeeff"
     }
 }

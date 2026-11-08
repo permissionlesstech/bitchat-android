@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import androidx.annotation.VisibleForTesting
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * WifiAwareController manages lifecycle and debug surfacing for the WifiAwareMeshService.
@@ -30,6 +31,9 @@ object WifiAwareController {
     private var starting = false
     private val restartInFlight = AtomicBoolean(false)
     private val restartRequested = AtomicBoolean(false)
+    // Monotonic. A deadline rather than a delay, so a request coalesced into a running loop
+    // still holds that loop back; the latest deadline requested wins.
+    private val restartNotBeforeMs = AtomicLong(Long.MIN_VALUE)
     private var awareReceiverRegistered = false
     private var lastBlockedReason: String? = null
 
@@ -346,6 +350,9 @@ object WifiAwareController {
         // burning attempts against the hold — would otherwise be dropped, and the old
         // loop would exhaust MAX_RESTART_ATTEMPTS without ever seeing the cleared hold,
         // leaving Aware down despite the user's setting.
+        restartNotBeforeMs.accumulateAndGet(monotonicNowMs() + delayMs) { current, requested ->
+            maxOf(current, requested)
+        }
         restartRequested.set(true)
 
         if (!restartInFlight.compareAndSet(false, true)) {
@@ -354,13 +361,16 @@ object WifiAwareController {
         }
         scope.launch {
             try {
-                if (delayMs > 0L) delay(delayMs)
+                awaitRestartDeadline()
                 do {
                     // Consume the request before working, so anything arriving during
                     // the attempts below schedules another pass.
                     restartRequested.set(false)
                     var attempt = 0
                     while (_enabled.value && !_running.value && attempt < MAX_RESTART_ATTEMPTS) {
+                        // A failure answered during the previous attempt may have moved this.
+                        awaitRestartDeadline()
+                        if (!_enabled.value || _running.value) break
                         val ctx = appContext
                         if (ctx != null && !refreshSupportStatus(ctx).supported) break
                         startIfPossible()
@@ -379,6 +389,20 @@ object WifiAwareController {
             if (restartRequested.get() && _enabled.value && !_running.value) {
                 restartIfStillEnabled()
             }
+        }
+    }
+
+    private fun monotonicNowMs(): Long = System.nanoTime() / 1_000_000L
+
+    /** Re-reads the deadline after each wait, since a coalesced request can extend it. */
+    private suspend fun awaitRestartDeadline() {
+        while (true) {
+            val remainingMs = restartNotBeforeMs.get().let { deadline ->
+                val now = monotonicNowMs()
+                if (deadline <= now) 0L else deadline - now
+            }
+            if (remainingMs == 0L) return
+            delay(remainingMs)
         }
     }
 
