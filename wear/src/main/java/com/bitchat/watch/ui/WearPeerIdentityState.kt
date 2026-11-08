@@ -5,6 +5,7 @@ import com.bitchat.android.favorites.FavoriteRelationship
 import com.bitchat.android.favorites.FavoritesChangeListener
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.identity.SecureIdentityStateManager
+import com.bitchat.android.identity.scope.IdentityScoped
 import com.bitchat.android.mesh.MeshPeers
 import com.bitchat.watch.mesh.WearMeshService
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,7 +13,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import javax.inject.Inject
-import javax.inject.Singleton
 
 enum class FavoriteIndicator {
     None,
@@ -38,13 +38,13 @@ fun favoriteIndicator(
 }
 
 /**
- * Process-wide bridge between the shared identity stores and the Watch Compose UI.
+ * Bridge between the shared identity stores and the Watch Compose UI.
  *
  * Favorites are keyed by the authenticated Noise public key, while screens navigate with the
  * short mesh peer ID. The shared persistence service resolves that mapping and notifies this
  * state whenever either side changes the relationship.
  */
-@Singleton
+@IdentityScoped
 class WearPeerIdentityState @Inject constructor(
     private val favorites: FavoritesPersistenceService,
 ) : FavoritesChangeListener {

@@ -12,6 +12,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.content.ContextCompat
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.ui.NotificationTextUtils
 import com.bitchat.watch.MainActivity
@@ -20,6 +21,7 @@ import com.bitchat.watch.ui.WearChatState
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
+import javax.inject.Provider
 import javax.inject.Singleton
 
 /**
@@ -33,7 +35,7 @@ import javax.inject.Singleton
 @Singleton
 class WearNotificationCoordinator @Inject constructor(
     @ApplicationContext context: Context,
-    private val chatState: WearChatState,
+    @CurrentIdentity private val chatState: Provider<WearChatState>,
 ) {
 
     companion object {
@@ -64,11 +66,12 @@ class WearNotificationCoordinator @Inject constructor(
         senderPeerID: String,
         senderNickname: String
     ) {
+        val state = chatState.get()
         val shouldNotify = WearNotificationPolicy.shouldNotifyPrivateMessage(
             senderPeerID = senderPeerID,
             senderIsSystem = message.sender == "system",
-            appInForeground = chatState.appInForeground,
-            openDmPeer = chatState.openDmPeer
+            appInForeground = state.appInForeground,
+            openDmPeer = state.openDmPeer
         )
         if (!shouldNotify || !canPostNotifications()) return
 

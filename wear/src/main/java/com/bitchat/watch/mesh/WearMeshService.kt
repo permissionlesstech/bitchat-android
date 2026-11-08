@@ -7,6 +7,7 @@ import android.content.Context
 import android.util.Log
 import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.identity.scope.IdentityScoped
 import com.bitchat.android.features.voice.LiveVoiceManager
 import com.bitchat.android.favorites.FavoriteControlMessage
 import com.bitchat.android.mesh.BluetoothConnectionManager
@@ -51,6 +52,7 @@ import kotlinx.coroutines.launch
  * Built only by [WearMeshHolder]: creating one loads or generates the identity keys, so it must
  * wait until permissions and Bluetooth are confirmed, never happen at injection time.
  */
+@IdentityScoped
 class WearMeshService @Inject constructor(
     @ApplicationContext private val context: Context,
     private val appStateStore: AppStateStore,

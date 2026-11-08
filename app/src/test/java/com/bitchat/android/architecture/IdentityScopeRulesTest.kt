@@ -53,8 +53,6 @@ class IdentityScopeRulesTest {
         "SeenMessageStore", "SpamFilter", "LiveVoiceManager", "PeerFingerprintManager",
         "TransferProgressManager", "GeohashAliasRegistry", "TransportBridgeService",
         "PrivateMessageArrivalOrder", "VerificationService", "MeshGraphService",
-        // :wear
-        "WearMeshHolder", "WearMeshService", "WearChatState", "WearPeerIdentityState",
     )
 
     /**

@@ -20,10 +20,10 @@ import dagger.hilt.components.SingletonComponent
 @InstallIn(SingletonComponent::class)
 interface WearTestHookDependencies {
     fun appStateStore(): AppStateStore
-    fun chatState(): WearChatState
-    fun peerIdentity(): WearPeerIdentityState
+    @CurrentIdentity fun chatState(): WearChatState
+    @CurrentIdentity fun peerIdentity(): WearPeerIdentityState
     fun liveVoiceManager(): LiveVoiceManager
     @CurrentIdentity fun voiceWaveformCache(): VoiceWaveformCache
     fun transportBridgeService(): TransportBridgeService
-    fun meshHolder(): WearMeshHolder
+    @CurrentIdentity fun meshHolder(): WearMeshHolder
 }

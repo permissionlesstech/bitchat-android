@@ -15,6 +15,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.wear.ongoing.OngoingActivity
 import androidx.wear.ongoing.Status
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.watch.MainActivity
@@ -33,6 +34,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import javax.inject.Provider
 
 /**
  * Keeps the BLE mesh (scan + advertise + GATT) alive while the app is backgrounded or the watch
@@ -51,14 +53,14 @@ class WearMeshForegroundService : Service() {
     private lateinit var ongoingActivity: OngoingActivity
     @Inject lateinit var notificationCoordinator: WearNotificationCoordinator
     @Inject lateinit var appStateStore: AppStateStore
-    @Inject lateinit var chatState: WearChatState
-    @Inject lateinit var meshHolder: WearMeshHolder
+    @Inject @CurrentIdentity lateinit var chatState: Provider<WearChatState>
+    @Inject @CurrentIdentity lateinit var meshHolder: Provider<WearMeshHolder>
     private lateinit var mesh: WearMeshService
     private var peerCountJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
-        mesh = meshHolder.getOrCreate()
+        mesh = meshHolder.get().getOrCreate()
         createChannel()
         startForeground(WearNotificationPolicy.activePeerCount(appStateStore.peers.value))
         observePeerCount()
@@ -132,7 +134,7 @@ class WearMeshForegroundService : Service() {
         val senderPeerID = message.senderPeerID ?: return
         if (message.sender == "system") return
 
-        chatState.onPrivateMessageArrived(senderPeerID)
+        chatState.get().onPrivateMessageArrived(senderPeerID)
         val senderNickname = mesh.getPeerNickname(senderPeerID)
             ?: message.sender.takeIf { it.isNotBlank() && it != senderPeerID }
             ?: senderPeerID.take(8)

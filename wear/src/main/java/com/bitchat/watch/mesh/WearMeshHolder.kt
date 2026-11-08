@@ -1,15 +1,15 @@
 package com.bitchat.watch.mesh
 
+import com.bitchat.android.identity.scope.IdentityScoped
 import javax.inject.Inject
 import javax.inject.Provider
-import javax.inject.Singleton
 
 /**
  * Owns the watch's one [WearMeshService]. Creating the mesh loads or generates the identity keys,
  * so it happens only on the first [getOrCreate], which callers make after permissions and
  * Bluetooth are confirmed; injecting the holder creates nothing.
  */
-@Singleton
+@IdentityScoped
 class WearMeshHolder @Inject constructor(
     private val create: Provider<WearMeshService>,
 ) {

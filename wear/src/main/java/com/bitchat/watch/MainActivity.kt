@@ -95,13 +95,13 @@ class MainActivity : ComponentActivity() {
 
     // What the screens read and write, handed down to them as parameters.
     @Inject lateinit var appStateStore: AppStateStore
-    @Inject lateinit var chatState: WearChatState
-    @Inject lateinit var peerIdentity: WearPeerIdentityState
+    @Inject @CurrentIdentity lateinit var chatState: Provider<WearChatState>
+    @Inject @CurrentIdentity lateinit var peerIdentity: Provider<WearPeerIdentityState>
     @Inject @CurrentIdentity lateinit var voiceWaveformCache: Provider<VoiceWaveformCache>
     @Inject lateinit var notificationCoordinator: WearNotificationCoordinator
 
     // Creates the mesh only on getOrCreate, once permissions and Bluetooth are confirmed.
-    @Inject lateinit var meshHolder: WearMeshHolder
+    @Inject @CurrentIdentity lateinit var meshHolder: Provider<WearMeshHolder>
 
     // Lazy: built where the first screen or onResume asks for it, as it was before injection.
     @Inject lateinit var liveVoiceManager: Lazy<LiveVoiceManager>
@@ -147,9 +147,9 @@ class MainActivity : ComponentActivity() {
                                 BluetoothEnableScreen(onEnabled = { refreshState() })
                             !nicknameChosen -> NicknameSetupScreen(
                                 initialNickname =
-                                    meshHolder.getOrCreate().nickname
+                                    meshHolder.get().getOrCreate().nickname
                             ) { name ->
-                                meshHolder.getOrCreate().setNickname(name)
+                                meshHolder.get().getOrCreate().setNickname(name)
                                 getSharedPreferences("bitchat_watch_prefs", Context.MODE_PRIVATE)
                                     .edit().putBoolean("nickname_chosen", true).apply()
                                 nicknameChosen = true
@@ -164,9 +164,9 @@ class MainActivity : ComponentActivity() {
                                 )
                             else -> WearNavHost(
                                 appStateStore = appStateStore,
-                                chatState = chatState,
-                                peerIdentity = peerIdentity,
-                                meshHolder = meshHolder,
+                                chatState = chatState.get(),
+                                peerIdentity = peerIdentity.get(),
+                                meshHolder = meshHolder.get(),
                                 liveVoiceManager = liveVoiceManager.get(),
                                 voiceWaveformCache = voiceWaveformCache.get(),
                                 notificationCoordinator = notificationCoordinator,
@@ -199,9 +199,10 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         liveVoiceManager.get().setAppForeground(true)
-        chatState.setAppInForeground(true)
-        chatState.openDmPeer?.let { peerID ->
-            chatState.openDm(peerID)
+        val chat = chatState.get()
+        chat.setAppInForeground(true)
+        chat.openDmPeer?.let { peerID ->
+            chat.openDm(peerID)
             notificationCoordinator.clearConversation(peerID)
         }
         refreshState()
@@ -209,7 +210,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         liveVoiceManager.get().setAppForeground(false)
-        chatState.setAppInForeground(false)
+        chatState.get().setAppInForeground(false)
         super.onPause()
     }
 
@@ -235,7 +236,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startMeshService() {
-        meshHolder.getOrCreate()
+        meshHolder.get().getOrCreate()
         startForegroundService(Intent(this, WearMeshForegroundService::class.java))
     }
 
