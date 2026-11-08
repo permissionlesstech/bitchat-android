@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -255,6 +256,7 @@ private fun ChatBody(
     var fingerActive by remember { mutableStateOf(false) }
     val hoveringCancel = fingerActive &&
         cancelBounds?.inflate(CANCEL_HOVER_SLANT_PX)?.contains(fingerPos) == true
+    SideEffect { voice.hoveringCancel = hoveringCancel }
 
     // Magnetic attraction: as the finger approaches the target (but is not on it yet), the
     // button leans toward the finger and blushes red in proportion to the closeness;
@@ -283,6 +285,9 @@ private fun ChatBody(
     LaunchedEffect(hoveringCancel, voice.recording) {
         if (!voice.recording) {
             hoverHapticState = false
+            // The release watcher ignores events once recording ends, so a stop it did not
+            // initiate (the 10 s cap) would otherwise leave the finger marked as down.
+            fingerActive = false
         } else if (hoveringCancel != hoverHapticState) {
             WearHaptics.tick(context)
             hoverHapticState = hoveringCancel
