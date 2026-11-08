@@ -191,24 +191,20 @@ data class NostrFilter(
             return false
         }
         
-        // Check tag filters
+        // Nearby-note geohashes tolerate case for cross-client compatibility.
+        // Other Nostr tags retain exact names and values (for example p/P and
+        // case-sensitive address identifiers are not interchangeable).
         if (tagFilters != null) {
             for ((tagName, requiredValues) in tagFilters) {
-                val eventTags = event.tags.filter { it.isNotEmpty() && it[0] == tagName }
-                val eventValues = eventTags.mapNotNull { tag ->
-                    if (tag.size > 1) tag[1] else null
+                val geohashTag = tagName.equals("g", ignoreCase = true)
+                val hasMatch = event.tags.any { tag ->
+                    tag.size > 1 && tag[0].equals(tagName, ignoreCase = geohashTag) &&
+                        requiredValues.any { it.equals(tag[1], ignoreCase = geohashTag) }
                 }
-                
-                val hasMatch = requiredValues.any { requiredValue ->
-                    eventValues.contains(requiredValue)
-                }
-                
-                if (!hasMatch) {
-                    return false
-                }
+                if (!hasMatch) return false
             }
         }
-        
+
         return true
     }
     
