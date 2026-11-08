@@ -441,6 +441,10 @@ merge first, expect a Back-handling conflict in `MainActivity`. Keep this branch
 
 ### Pre-existing upstream bugs found, not fixed
 
+- `BootCompletedReceiver` calls `MeshForegroundService.start` with no guard, so the system refusing
+  the foreground start throws `ForegroundServiceStartNotAllowedException` and crashes the process.
+  Seen once on an emulator during Phase 10c-2a-2b, some time after a boot, and not reproduced. What
+  delivered the broadcast that late is not established. A normal reboot auto-started correctly.
 - `NostrRelayManager.resetAllConnections` iterates `relaysList` unsynchronized. A concurrent add
   or remove can throw `ConcurrentModificationException` mid-reset. `disconnect()` has already
   closed every socket, so the effect is relays left disconnected, not sockets on the old route.
@@ -945,7 +949,9 @@ Tests: `PasswordProtectedChannelRobolectricTest` moved to `:core:chat`, `Channel
 - Identity scope now holds the mesh classes and their holders, the router and its holder, the stores and favourites, the voice, transfer and verification classes, the Nostr identity, transport, location and bookmark classes, and the watch's mesh and chat state.
 - `MessageRouter.getInstance` and its companion state are gone, and so is the exemption for them.
 - Behaviour is unchanged: first use, start-up order and the panic wipe's steps are as before. The watch still creates its mesh only after permissions are granted.
-- Tests: the final gate on the docs commit gave JVM 1496 tests (from 1455) with 0 failures (3 skipped). Device suites: app 79 (from 74); chat 6, settings 5, location 4, share 3 unchanged. The opt-in composer suite (`-PcomposerUiTests=true`) was 9 of 9 on the stores' commit. Whole-branch Codex and the whole-branch review found no Critical or Important issues. The holder, the scope rules and one instance across entry paths are covered by `IdentityHolderTest`, `IdentityScopeRulesTest` and `IdentityScopeWiringTest`. The watch was not run on a device. The emulator check is recorded separately.
+- Tests: the final gate on the docs commit gave JVM 1496 tests (from 1455) with 0 failures (3 skipped). Device suites: app 79 (from 74); chat 6, settings 5, location 4, share 3 unchanged. The opt-in composer suite (`-PcomposerUiTests=true`) was 9 of 9 on the stores' commit. Whole-branch Codex and the whole-branch review found no Critical or Important issues. The holder, the scope rules and one instance across entry paths are covered by `IdentityHolderTest`, `IdentityScopeRulesTest` and `IdentityScopeWiringTest`. The watch was not run on a device.
+- Two emulators over simulated Bluetooth, synthetic data: public message and private message with a read receipt after a cold start, a favourite surviving a restart, reply and mark-read from a notification, reboot auto-start, and panic followed by messaging the new identity all passed. All 13 Mesh Lab scenarios passed on those emulators, launching through `am start` because the tool's `monkey` launch fails on these images. Physical-device Mesh Lab remains owed.
+- A `ForegroundServiceStartNotAllowedException` from `MeshForegroundService.start`, called by `BootCompletedReceiver`, crashed the process once on an emulator. The receiver and that path are unchanged here, so it predates this phase. It is logged in §5.
 
 #### Follow-ups from Phase 10c-2a-2b
 
