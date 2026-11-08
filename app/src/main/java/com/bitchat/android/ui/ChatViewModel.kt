@@ -680,6 +680,10 @@ class ChatViewModel(
         return channelManager.joinChannel(channel, password, mesh.myPeerID)
     }
     
+    fun hidePasswordPrompt() {
+        channelManager.hidePasswordPrompt()
+    }
+
     fun switchToChannel(channel: String?) {
         channelManager.switchToChannel(channel)
     }
@@ -949,20 +953,8 @@ class ChatViewModel(
                         mesh.myPeerID,
                         state.getNicknameValue()
                     )
-                } else if (channel != null && channelManager.hasChannelKey(channel)) {
-                    channelManager.sendEncryptedChannelMessage(
-                        messageContent,
-                        mentions,
-                        channel,
-                        state.getNicknameValue(),
-                        mesh.myPeerID,
-                        onEncryptedPayload = {
-                            mesh.sendMessage(messageContent, mentions, channel)
-                        },
-                        onFallback = {
-                            mesh.sendMessage(messageContent, mentions, channel)
-                        }
-                    )
+                } else if (channel != null && channelManager.refuseSendIfPasswordProtected(channel)) {
+                    // Refused with a visible notice; never falls back to plaintext.
                 } else {
                     mesh.sendMessage(messageContent, mentions, channel)
                 }
@@ -1032,6 +1024,13 @@ class ChatViewModel(
                 geohashViewModel.sendGeohashMessage(content, selectedLocationChannel.channel, mesh.myPeerID, state.getNicknameValue())
             } else {
                 // Send public/channel message via mesh
+                if (currentChannelValue != null &&
+                    channelManager.refuseSendIfPasswordProtected(currentChannelValue)
+                ) {
+                    onAccepted(false)
+                    return
+                }
+
                 val message = BitchatMessage(
                     sender = state.getNicknameValue() ?: mesh.myPeerID,
                     content = content,
@@ -1044,25 +1043,7 @@ class ChatViewModel(
 
                 if (currentChannelValue != null) {
                     channelManager.addChannelMessage(currentChannelValue, message, mesh.myPeerID)
-
-                    // Check if encrypted channel
-                    if (channelManager.hasChannelKey(currentChannelValue)) {
-                        channelManager.sendEncryptedChannelMessage(
-                            content,
-                            mentions,
-                            currentChannelValue,
-                            state.getNicknameValue(),
-                            mesh.myPeerID,
-                            onEncryptedPayload = { encryptedData ->
-                                mesh.sendMessage(content, mentions, currentChannelValue)
-                            },
-                            onFallback = {
-                                mesh.sendMessage(content, mentions, currentChannelValue)
-                            }
-                        )
-                    } else {
-                        mesh.sendMessage(content, mentions, currentChannelValue)
-                    }
+                    mesh.sendMessage(content, mentions, currentChannelValue)
                 } else {
                     messageManager.addMessage(message)
                     mesh.sendMessage(content, mentions, null)
