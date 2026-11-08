@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import androidx.annotation.VisibleForTesting
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * WifiAwareController manages lifecycle and debug surfacing for the WifiAwareMeshService.
@@ -30,6 +31,9 @@ object WifiAwareController {
     private var starting = false
     private val restartInFlight = AtomicBoolean(false)
     private val restartRequested = AtomicBoolean(false)
+    // Monotonic. A deadline rather than a delay, so a request coalesced into a running loop
+    // still holds that loop back; the latest deadline requested wins.
+    private val restartNotBeforeMs = AtomicLong(Long.MIN_VALUE)
     private var awareReceiverRegistered = false
     private var lastBlockedReason: String? = null
 
@@ -249,13 +253,22 @@ object WifiAwareController {
             // publishes anyway — resurrecting NAN while the hotspot owns the radio.
             // Ordering holds because acquireHotspotLease() increments before calling
             // stop(): either we see the flag here, or stop() sees our published service.
+            //
+            // stop() withdraws an instance by clearing `service`. A reused instance it took
+            // during this attempt is being torn down and must not be published again.
+            var retainedForRetry = false
             val published = synchronized(lifecycleLock) {
-                val canPublish = !heldForHotspot() && startedService.isRunning()
+                val withdrawn = reusableService != null && service !== reusableService
+                val canPublish = !heldForHotspot() && !withdrawn && startedService.isRunning()
                 if (canPublish) {
                     service = startedService
                     _running.value = true
                 } else {
-                    if (service === startedService) service = null
+                    if (heldForHotspot() && service === startedService) service = null
+                    // A reused instance can defer its start while recovery cleanup finishes.
+                    // Keep it for the next attempt: it was never shut down, so replacing it
+                    // would orphan it next to a second instance.
+                    retainedForRetry = service === startedService
                     _running.value = false
                 }
                 canPublish
@@ -268,7 +281,7 @@ object WifiAwareController {
             } else {
                 // stopServices() can block, so keep it out of the lock.
                 val heldForHotspot = heldForHotspot()
-                if (heldForHotspot || reusableService == null) {
+                if (!retainedForRetry) {
                     try { startedService.stopServices() } catch (_: Exception) { }
                 }
                 if (heldForHotspot) {
@@ -311,6 +324,21 @@ object WifiAwareController {
     }
 
     /**
+     * Records that the published service lost its sessions but was not shut down.
+     *
+     * Unlike [onServiceStopped] this keeps the reference: the instance still owns its scope
+     * and core, and [startIfPossible] resumes it. Clearing [running] is what lets
+     * [restartIfStillEnabled] act.
+     */
+    internal fun onServiceInterrupted(interruptedService: WifiAwareMeshService) {
+        synchronized(lifecycleLock) {
+            if (service !== interruptedService) return
+            _running.value = false
+            clearDebugSnapshot()
+        }
+    }
+
+    /**
      * Schedules a restart of the Wi-Fi Aware transport. Concurrent requests are coalesced into
      * a single in-flight loop that retries with backoff. This is important because a single fixed
      * delay can land while the service is still tearing down (recoveryInProgress), in which case
@@ -322,6 +350,9 @@ object WifiAwareController {
         // burning attempts against the hold — would otherwise be dropped, and the old
         // loop would exhaust MAX_RESTART_ATTEMPTS without ever seeing the cleared hold,
         // leaving Aware down despite the user's setting.
+        restartNotBeforeMs.accumulateAndGet(monotonicNowMs() + delayMs) { current, requested ->
+            maxOf(current, requested)
+        }
         restartRequested.set(true)
 
         if (!restartInFlight.compareAndSet(false, true)) {
@@ -330,13 +361,16 @@ object WifiAwareController {
         }
         scope.launch {
             try {
-                if (delayMs > 0L) delay(delayMs)
+                awaitRestartDeadline()
                 do {
                     // Consume the request before working, so anything arriving during
                     // the attempts below schedules another pass.
                     restartRequested.set(false)
                     var attempt = 0
                     while (_enabled.value && !_running.value && attempt < MAX_RESTART_ATTEMPTS) {
+                        // A failure answered during the previous attempt may have moved this.
+                        awaitRestartDeadline()
+                        if (!_enabled.value || _running.value) break
                         val ctx = appContext
                         if (ctx != null && !refreshSupportStatus(ctx).supported) break
                         startIfPossible()
@@ -355,6 +389,20 @@ object WifiAwareController {
             if (restartRequested.get() && _enabled.value && !_running.value) {
                 restartIfStillEnabled()
             }
+        }
+    }
+
+    private fun monotonicNowMs(): Long = System.nanoTime() / 1_000_000L
+
+    /** Re-reads the deadline after each wait, since a coalesced request can extend it. */
+    private suspend fun awaitRestartDeadline() {
+        while (true) {
+            val remainingMs = restartNotBeforeMs.get().let { deadline ->
+                val now = monotonicNowMs()
+                if (deadline <= now) 0L else deadline - now
+            }
+            if (remainingMs == 0L) return
+            delay(remainingMs)
         }
     }
 
