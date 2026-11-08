@@ -40,6 +40,29 @@ class MessageManager(
         addMessage(sys)
     }
     
+    /** Adds a system message to whichever conversation the user is currently looking at. */
+    fun addSystemMessageToActiveTimeline(content: String) {
+        val message = BitchatMessage(
+            sender = "system",
+            content = content,
+            timestamp = Date(),
+            isRelay = false
+        )
+        val selectedPeer = state.getSelectedPrivateChatPeerValue()
+        val selectedLocationChannel = state.selectedLocationChannel.value
+        val channel = state.getCurrentChannelValue()
+        when {
+            selectedPeer != null -> {
+                addPrivateMessageNoUnread(selectedPeer, message.copy(isPrivate = true))
+            }
+            selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location -> {
+                addChannelMessage("geo:${selectedLocationChannel.channel.geohash}", message)
+            }
+            channel != null -> addChannelMessage(channel, message)
+            else -> addMessage(message)
+        }
+    }
+
     fun clearMessages() {
         appStateStore.clearPublicTimelines()
         state.setMessages(emptyList())

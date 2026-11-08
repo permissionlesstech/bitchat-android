@@ -84,7 +84,6 @@ fun ChatScreen(
     val selectedLocationChannel = timeline.selectedLocationChannel
 
     var messageText by rememberComposerText(selectedPrivatePeer, viewModel::conversationDraft)
-    var passwordInput by remember { mutableStateOf("") }
     // Triple-tapping the logo asks first: the same logo opens App Info on a
     // single tap, so a fumbled tap must never be able to wipe the device.
     var showPanicConfirmation by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
@@ -93,11 +92,6 @@ fun ChatScreen(
     var initialViewerIndex by remember { mutableStateOf(0) }
     var forceScrollToBottom by remember { mutableStateOf(false) }
     var isScrolledUp by remember { mutableStateOf(false) }
-
-    // A prompt that closed, by a join or a dismissal, leaves no password behind.
-    LaunchedEffect(dialogs.showPasswordPrompt) {
-        if (!dialogs.showPasswordPrompt) passwordInput = ""
-    }
 
     ObserveAsEvents(viewModel.events) { event ->
         when (event) {
@@ -452,18 +446,13 @@ fun ChatScreen(
     }
 
     // Dialogs and Sheets
-    ChatDialogs(
-        showPasswordDialog = dialogs.showPasswordPrompt,
-        passwordPromptChannel = dialogs.passwordPromptChannel,
-        passwordInput = passwordInput,
-        onPasswordChange = { passwordInput = it },
-        onPasswordConfirm = {
-            val channel = dialogs.passwordPromptChannel
-            if (passwordInput.isNotEmpty() && channel != null) {
-                onAction(ChatAction.SubmitChannelPassword(channel, passwordInput))
-            }
+    ChannelPasswordPrompt(
+        showPrompt = dialogs.showPasswordPrompt,
+        promptChannel = dialogs.passwordPromptChannel,
+        onSubmit = { channel, password ->
+            onAction(ChatAction.SubmitChannelPassword(channel, password))
         },
-        onPasswordDismiss = { onAction(ChatAction.DismissPasswordPrompt) },
+        onDismiss = { onAction(ChatAction.DismissPasswordPrompt) },
     )
 
     if (showPanicConfirmation) {
@@ -475,6 +464,7 @@ fun ChatScreen(
                 TextButton(
                     onClick = {
                         showPanicConfirmation = false
+                        messageText = TextFieldValue("")
                         onAction(ChatAction.PanicClear)
                     },
                     colors = ButtonDefaults.textButtonColors(
@@ -643,7 +633,9 @@ fun ChatInputSection(
                 MentionSuggestionsBox(
                     suggestions = displayedMentionSuggestions,
                     mentionPeerIdentities = mentionPeerIdentities,
-                    onSuggestionClick = onMentionSuggestionClick,
+                    onSuggestionClick = { nickname ->
+                        if (mentionPickerVisible) onMentionSuggestionClick(nickname)
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
                 HorizontalDivider(thickness = 1.dp, color = colorScheme.outlineVariant)
@@ -746,23 +738,39 @@ private fun ChatFloatingHeader(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Shows the channel password dialog for as long as the prompt state asks for it. The typed
+ * password lives only while the prompt is open.
+ */
 @Composable
-private fun ChatDialogs(
-    showPasswordDialog: Boolean,
-    passwordPromptChannel: String?,
-    passwordInput: String,
-    onPasswordChange: (String) -> Unit,
-    onPasswordConfirm: () -> Unit,
-    onPasswordDismiss: () -> Unit,
+internal fun ChannelPasswordPrompt(
+    showPrompt: Boolean,
+    promptChannel: String?,
+    onSubmit: (channel: String, password: String) -> Unit,
+    onDismiss: () -> Unit,
+    dialog: @Composable (
+        show: Boolean,
+        channelName: String?,
+        passwordInput: String,
+        onPasswordChange: (String) -> Unit,
+        onConfirm: () -> Unit,
+        onDismiss: () -> Unit
+    ) -> Unit = { show, channelName, passwordInput, onPasswordChange, onConfirm, dismiss ->
+        PasswordPromptDialog(show, channelName, passwordInput, onPasswordChange, onConfirm, dismiss)
+    }
 ) {
-    // Password dialog
-    PasswordPromptDialog(
-        show = showPasswordDialog,
-        channelName = passwordPromptChannel,
-        passwordInput = passwordInput,
-        onPasswordChange = onPasswordChange,
-        onConfirm = onPasswordConfirm,
-        onDismiss = onPasswordDismiss
+    var passwordInput by remember(showPrompt, promptChannel) { mutableStateOf("") }
+
+    dialog(
+        showPrompt,
+        promptChannel,
+        passwordInput,
+        { passwordInput = it },
+        {
+            if (promptChannel != null && passwordInput.isNotEmpty()) {
+                onSubmit(promptChannel, passwordInput)
+            }
+        },
+        onDismiss
     )
 }

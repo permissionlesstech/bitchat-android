@@ -180,11 +180,18 @@ class ChatViewModel @Inject constructor(
                     commandProcessor.selectCommandSuggestion(action.suggestion)
                 )
             )
-            is ChatAction.SelectMentionSuggestion -> emit(
-                ChatEvent.ReplaceComposerText(
-                    commandProcessor.selectMentionSuggestion(action.nickname, action.currentText)
-                )
-            )
+            is ChatAction.SelectMentionSuggestion -> {
+                // A retained callback may run before visibility has recomposed.
+                if (state.getShowMentionSuggestionsValue() &&
+                    action.nickname in state.getMentionSuggestionsValue()
+                ) {
+                    emit(
+                        ChatEvent.ReplaceComposerText(
+                            commandProcessor.selectMentionSuggestion(action.nickname, action.currentText)
+                        )
+                    )
+                }
+            }
             is ChatAction.SendVoiceNote ->
                 composerMedia.sendVoiceNote(action.peerID, action.channel, action.path)
             is ChatAction.SendImageNote ->
@@ -216,7 +223,10 @@ class ChatViewModel @Inject constructor(
             }
             ChatAction.ExitChannel -> channelManager.switchToChannel(null)
             ChatAction.OpenLatestUnreadPrivateChat -> openLatestUnreadPrivateChat()
-            ChatAction.PanicClear -> panicClear.run()
+            ChatAction.PanicClear -> {
+                commandProcessor.clearSuggestions()
+                panicClear.run()
+            }
         }
     }
 

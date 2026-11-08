@@ -909,6 +909,20 @@ For 10c-2b: the chat session in the scope, and panic as a rebuild.
 
 Owed: the Mesh Lab on physical devices, as for 10c-1 and 10c-2a-1.
 
+#### Upstream sync after Phase 10c-2a-2a (2026-11-08)
+
+Merged #1027 (panic clears the unsent text) and #1042 (password-protected channels fail closed). The refactor had moved the code both change, so they were ported by hand:
+
+| Upstream change | Where it went |
+|---|---|
+| Sends to a protected channel are refused, with no plaintext fallback | `MessageSender` |
+| Stale mention selections are rejected | `ChatViewModel`, on `SelectMentionSuggestion` |
+| Confirming a panic clears the suggestions | `ChatViewModel`, on `PanicClear` |
+| Confirming a panic clears the text | `ChatScreen`, which owns the composer text |
+| `ChannelPasswordPrompt` | `ChatScreen`, taking values from `uiState` instead of `StateFlow`s; the ViewModel closes the prompt |
+
+Tests: `PasswordProtectedChannelRobolectricTest` moved to `:core:chat`, `ChannelPasswordPromptRobolectricTest` stayed with the screen in `:feature:chat`, and the nine opt-in composer tests (`-PcomposerUiTests=true`) now reach the session through `ChatSessionTestAccess` and swap its mesh with `ChatSessionMesh.replace`. All nine pass on an emulator. `PasswordProtectedChannelSendTest` is new: upstream's tests do not cover the refusal in the plain send path, and it fails when that refusal is removed.
+
 ### Phase 11: Wear shares UI with the phone (not started)
 
 Planned scope: Wear shares UI with the phone beyond the design system base that Phase 8 added.
