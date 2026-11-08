@@ -188,7 +188,9 @@ class FragmentManager {
             // iOS: let fragmentID = packet.payload[0..<8].map { String(format: "%02x", $0) }.joined()
             val fragmentIDString = fragmentPayload.getFragmentIDString()
 
-            val maxFragments = com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENTS_PER_ID
+            // 256 is the private-media send cap. iOS public files use more
+            // fragments than that and still fit the byte ceiling below.
+            val maxFragments = com.bitchat.android.util.AppConstants.Fragmentation.MAX_REASSEMBLY_FRAGMENTS
             if (fragmentPayload.total > maxFragments) {
                 Log.w(TAG, "Rejecting fragment with excessive total count: ${fragmentPayload.total} > $maxFragments")
                 return null

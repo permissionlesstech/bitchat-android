@@ -12,6 +12,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.shadows.ShadowLog
 import java.util.Random
 
 @RunWith(RobolectricTestRunner::class)
@@ -371,6 +372,39 @@ class FragmentManagerTest {
         assertNull(fragmentManager.handleFragment(fragments[0]))
 
         assertCompletes(original, fragments.last())
+    }
+
+    @Test
+    fun `a file above the private-media fragment cap still reassembles`() {
+        fun fragment(total: Int): BitchatPacket {
+            return BitchatPacket(
+                version = 1u,
+                type = MessageType.FRAGMENT.value,
+                senderID = hexStringToByteArray(senderID),
+                recipientID = hexStringToByteArray(recipientID),
+                timestamp = 1u,
+                payload = FragmentPayload(
+                    fragmentID = ByteArray(8) { total.toByte() },
+                    index = 0,
+                    total = total,
+                    originalType = MessageType.FILE_TRANSFER.value,
+                    data = byteArrayOf(1)
+                ).encode(),
+                ttl = 7u
+            )
+        }
+
+        ShadowLog.clear()
+        assertNull(fragmentManager.handleFragment(fragment(257)))
+        assertTrue(
+            ShadowLog.getLogs().none { it.msg.contains("excessive total count") }
+        )
+
+        ShadowLog.clear()
+        assertNull(fragmentManager.handleFragment(fragment(10_001)))
+        assertTrue(
+            ShadowLog.getLogs().any { it.msg.contains("excessive total count") }
+        )
     }
 
     @Test
