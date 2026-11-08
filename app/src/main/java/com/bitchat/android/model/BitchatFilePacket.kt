@@ -7,12 +7,17 @@ import java.nio.ByteOrder
  * BitchatFilePacket: TLV-encoded file transfer payload for BLE mesh.
  * TLVs:
  *  - 0x01: filename (UTF-8)
- *  - 0x02: file size (8 bytes, UInt64)
+ *  - 0x02: file size (4 bytes, UInt32)
  *  - 0x03: mime type (UTF-8)
- *  - 0x04: content (bytes) — may appear multiple times for large files
+ *  - 0x04: content (bytes)
  *
- * Length field for TLV is 2 bytes (UInt16, big-endian) for all TLVs.
- * For large files, CONTENT is chunked into multiple TLVs of up to 65535 bytes each.
+ * Length fields are 2 bytes (UInt16, big-endian), except CONTENT, which uses 4 bytes so a
+ * payload can exceed 64 KiB without TLV-level chunking. This matches `docs/file_transfer.md`;
+ * the previous text here described neither what `encode` writes nor what `decode` reads.
+ *
+ * v2 writes exactly one CONTENT TLV. `decode` still accepts several and concatenates them in
+ * order as defensive tolerance for legacy senders, but the chunk count is the sender's to
+ * choose, so that reassembly must stay linear in the payload rather than in chunks x bytes.
  *
  * Unknown TLV types are SKIPPED, not rejected: the tag list above is a floor,
  * not a ceiling, and a decoder that bails on the first tag it does not know
@@ -104,7 +109,9 @@ data class BitchatFilePacket(
                 var name: String? = null
                 var size: Long? = null
                 var mime: String? = null
-                var contentBytes: ByteArray? = null
+                val contentChunks = ArrayList<ByteArray>(1)
+                var contentLength = 0
+                var sawContent = false
                 var skippedUnknownTLVs = 0
                 while (off < data.size) {
                     // Every TLV needs at least a type and a 2-byte length.
@@ -150,10 +157,18 @@ data class BitchatFilePacket(
                         }
                         TLVType.MIME_TYPE -> mime = String(value, Charsets.UTF_8)
                         TLVType.CONTENT -> {
-                            // Expect a single CONTENT TLV
-                            if (contentBytes == null) contentBytes = value else {
-                                // If multiple CONTENT TLVs appear, concatenate for tolerance
-                                contentBytes = (contentBytes!! + value)
+                            // Expect a single CONTENT TLV, but tolerate a split one.
+                            //
+                            // `contentBytes + value` reallocates and copies the whole
+                            // accumulator per chunk, so k chunks totalling N bytes cost
+                            // O(k*N). The chunk count is the sender's to choose — a 6-byte
+                            // TLV carries one content byte — so at the 1 MB BLE reassembly
+                            // ceiling one packet buys ~10^10 byte copies on the mesh handler
+                            // thread. Collect the chunks and join once instead.
+                            sawContent = true
+                            if (value.isNotEmpty()) {
+                                contentChunks.add(value)
+                                contentLength += value.size
                             }
                         }
                     }
@@ -162,7 +177,18 @@ data class BitchatFilePacket(
                     android.util.Log.d("BitchatFilePacket", "⏭️ Skipped $skippedUnknownTLVs unknown TLV(s)")
                 }
                 val n = name ?: return null
-                val c = contentBytes ?: return null
+                if (!sawContent) return null
+                val c = when (contentChunks.size) {
+                    0 -> ByteArray(0)
+                    1 -> contentChunks[0]
+                    else -> ByteArray(contentLength).also { joined ->
+                        var at = 0
+                        for (chunk in contentChunks) {
+                            System.arraycopy(chunk, 0, joined, at, chunk.size)
+                            at += chunk.size
+                        }
+                    }
+                }
                 val s = size ?: c.size.toLong()
                 val m = mime ?: "application/octet-stream"
                 val result = BitchatFilePacket(n, s, m, c)
