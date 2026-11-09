@@ -7,8 +7,8 @@ import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.identity.SecureIdentityStateManager
-import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.geohash.LiveLocationPrivacyGate
+import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.nostr.GeohashConversationRegistry
@@ -20,6 +20,7 @@ import com.bitchat.android.nostr.PoWPreferenceManager
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ConversationListPreferences
+import com.bitchat.android.services.MessageRouter
 import com.bitchat.android.services.MessageRouterHolder
 import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.services.VerificationService
@@ -42,16 +43,12 @@ import dagger.Lazy
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
-import dagger.hilt.android.ActivityRetainedLifecycle
-import dagger.hilt.android.components.ActivityRetainedComponent
 import dagger.hilt.android.qualifiers.ApplicationContext
-import dagger.hilt.android.scopes.ActivityRetainedScoped
 import javax.inject.Provider
 import javax.inject.Qualifier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 
 /**
  * The coroutine scope of the chat session: the state and managers behind the
@@ -62,75 +59,90 @@ import kotlinx.coroutines.cancel
 annotation class ChatSessionScope
 
 /**
- * The chat session, retained across configuration changes and cleared with
- * the Activity.
+ * The session's router, always the one of the identity the session belongs to. Every resolution
+ * re-points it at the current mesh, so take it as a `Provider`. A qualifier because Dagger refuses an
+ * unqualified request for an `@AssistedInject` type.
+ */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class SessionRouter
+
+/**
+ * The chat session: the state and managers behind the chat screens, one set per
+ * [ChatSessionComponent]. Inside the identity, so identity objects are taken directly.
  *
- * ActivityRetainedComponent rather than SingletonComponent, because this used
- * to live inside ChatViewModel and that is the lifetime it keeps: the retained
- * component is cleared from the Activity's ViewModelStore, where ChatViewModel
- * lived before it was scoped to its navigation entry. The mesh
- * foreground service runs without the UI and does not see any of it.
+ * It lived inside ChatViewModel once, and it keeps that lifetime: it ends when the retained lifecycle
+ * clears, from the Activity's ViewModelStore. A configuration change keeps it, and so does the mesh
+ * foreground service, which runs without the UI and does not see any of it.
  */
 @Module
-@InstallIn(ActivityRetainedComponent::class)
+@InstallIn(ChatSessionComponent::class)
 object ChatSessionModule {
 
-    /** What viewModelScope was: a supervisor on the main thread, cancelled when cleared. */
+    /** What viewModelScope was: a supervisor on the main thread, cancelled when the session ends. */
     @Provides
-    @ActivityRetainedScoped
+    @ChatSessionScoped
     @ChatSessionScope
-    fun provideChatSessionScope(lifecycle: ActivityRetainedLifecycle): CoroutineScope {
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-        lifecycle.addOnClearedListener { scope.cancel() }
-        return scope
-    }
+    fun provideChatSessionScope(): CoroutineScope =
+        CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     @Provides
-    @ActivityRetainedScoped
+    @SessionRouter
+    fun provideSessionRouter(holder: MessageRouterHolder, mesh: Provider<MeshService>): MessageRouter =
+        holder.getOrAttach(mesh.get())
+
+    @Provides
+    @ChatSessionScoped
+    fun provideSecureIdentityStateManager(@ApplicationContext context: Context): SecureIdentityStateManager =
+        SecureIdentityStateManager(context)
+
+    @Provides
+    @ChatSessionScoped
     fun provideChatState(
         @ChatSessionScope scope: CoroutineScope,
-        @CurrentIdentity appStateStore: AppStateStore,
+        appStateStore: AppStateStore,
     ): ChatState = ChatState(scope, appStateStore)
 
     // The managers keep plain constructors, which their unit tests call
     // directly, so they are provided here rather than annotated for injection.
 
     @Provides
-    @ActivityRetainedScoped
+    @ChatSessionScoped
     fun provideDataManager(@ApplicationContext context: Context): DataManager =
         DataManager(context)
 
     @Provides
-    @ActivityRetainedScoped
+    @ChatSessionScoped
     fun provideMessageManager(
         state: ChatState,
-        @CurrentIdentity appStateStore: AppStateStore,
-        @CurrentIdentity contactDirectory: ContactDirectory,
+        appStateStore: AppStateStore,
+        contactDirectory: ContactDirectory,
     ): MessageManager = MessageManager(state, appStateStore, contactDirectory)
 
     @Provides
-    @ActivityRetainedScoped
+    @ChatSessionScoped
     fun provideNotificationManager(
         @ApplicationContext context: Context,
         targets: NotificationTargets,
-        @CurrentIdentity contactDirectory: ContactDirectory,
-        @CurrentIdentity conversationListPreferences: ConversationListPreferences,
+        contactDirectory: ContactDirectory,
+        conversationListPreferences: ConversationListPreferences,
+        teardown: ChatSessionTeardown,
     ): NotificationManager = NotificationManager(
         context,
         NotificationManagerCompat.from(context),
         targets,
         contactDirectory,
         conversationListPreferences,
-    )
+    ).also { manager -> teardown.register("NotificationManager", manager::close) }
 
     @Provides
-    @ActivityRetainedScoped
+    @ChatSessionScoped
     fun provideChannelManager(
         state: ChatState,
         messageManager: MessageManager,
         dataManager: DataManager,
         @ChatSessionScope scope: CoroutineScope,
-        @CurrentIdentity locationChannelManager: Provider<LocationChannelManager>,
+        locationChannelManager: Provider<LocationChannelManager>,
     ): ChannelManager = ChannelManager(
         state,
         messageManager,
@@ -140,17 +152,17 @@ object ChatSessionModule {
     )
 
     @Provides
-    @ActivityRetainedScoped
+    @ChatSessionScoped
     fun providePrivateChatManager(
         state: ChatState,
         messageManager: MessageManager,
         dataManager: DataManager,
         mesh: ChatSessionMesh,
-        @CurrentIdentity seenMessageStore: Provider<SeenMessageStore>,
-        @CurrentIdentity contactDirectory: ContactDirectory,
-        @CurrentIdentity appStateStore: AppStateStore,
-        @CurrentIdentity favorites: Provider<FavoritesPersistenceService>,
-        @CurrentIdentity peerFingerprints: PeerFingerprintManager,
+        seenMessageStore: Provider<SeenMessageStore>,
+        contactDirectory: ContactDirectory,
+        appStateStore: AppStateStore,
+        favorites: Provider<FavoritesPersistenceService>,
+        peerFingerprints: PeerFingerprintManager,
     ): PrivateChatManager = PrivateChatManager(
         state,
         messageManager,
@@ -169,7 +181,7 @@ object ChatSessionModule {
     )
 
     @Provides
-    @ActivityRetainedScoped
+    @ChatSessionScoped
     fun provideCommandProcessor(
         state: ChatState,
         messageManager: MessageManager,
@@ -177,7 +189,7 @@ object ChatSessionModule {
         privateChatManager: PrivateChatManager,
         @ChatSessionScope scope: CoroutineScope,
         geohashSession: Lazy<GeohashSession>,
-        @CurrentIdentity messageRouterHolder: Provider<MessageRouterHolder>,
+        messageRouterHolder: Provider<MessageRouterHolder>,
     ): CommandProcessor = CommandProcessor(
         state,
         messageManager,
@@ -192,18 +204,18 @@ object ChatSessionModule {
     )
 
     @Provides
-    @ActivityRetainedScoped
+    @ChatSessionScoped
     fun provideVerificationHandler(
         @ApplicationContext context: Context,
         @ChatSessionScope scope: CoroutineScope,
         mesh: ChatSessionMesh,
-        @CurrentSession identityManager: Provider<SecureIdentityStateManager>,
+        identityManager: Provider<SecureIdentityStateManager>,
         state: ChatState,
         notificationManager: NotificationManager,
         messageManager: MessageManager,
-        @CurrentIdentity favorites: Provider<FavoritesPersistenceService>,
-        @CurrentIdentity geohashAliases: GeohashAliasRegistry,
-        @CurrentIdentity verificationService: VerificationService,
+        favorites: Provider<FavoritesPersistenceService>,
+        geohashAliases: GeohashAliasRegistry,
+        verificationService: VerificationService,
     ): VerificationHandler = VerificationHandler(
         context = context,
         scope = scope,
@@ -218,14 +230,14 @@ object ChatSessionModule {
     )
 
     @Provides
-    @ActivityRetainedScoped
+    @ChatSessionScoped
     fun provideMediaSendingManager(
         state: ChatState,
         messageManager: MessageManager,
         channelManager: ChannelManager,
         @ChatSessionScope scope: CoroutineScope,
         mesh: ChatSessionMesh,
-        @CurrentIdentity contactDirectory: ContactDirectory,
+        contactDirectory: ContactDirectory,
     ): MediaSendingManager = MediaSendingManager(
         state,
         messageManager,
@@ -235,23 +247,24 @@ object ChatSessionModule {
     ) { mesh.unified }
 
     @Provides
-    @ActivityRetainedScoped
+    @ChatSessionScoped
     fun provideGeohashSession(
         application: Application,
         state: ChatState,
         messageManager: MessageManager,
         dataManager: DataManager,
         notificationManager: NotificationManager,
-        @CurrentIdentity nostrBackgroundRuntime: NostrBackgroundRuntime,
+        nostrBackgroundRuntime: NostrBackgroundRuntime,
         liveLocationPrivacyGate: LiveLocationPrivacyGate,
         powPreferences: PoWPreferenceManager,
-        @CurrentIdentity locationChannelManager: Provider<LocationChannelManager>,
+        locationChannelManager: Provider<LocationChannelManager>,
         relayManager: Lazy<NostrRelayManager>,
-        @CurrentIdentity locationNotesManager: Provider<LocationNotesManager>,
-        @CurrentIdentity geohashAliases: GeohashAliasRegistry,
-        @CurrentIdentity geohashConversations: GeohashConversationRegistry,
-        @CurrentIdentity nostrIdentity: NostrIdentityBridge,
-        @CurrentIdentity spamFilter: SpamFilter,
+        locationNotesManager: Provider<LocationNotesManager>,
+        geohashAliases: GeohashAliasRegistry,
+        geohashConversations: GeohashConversationRegistry,
+        nostrIdentity: NostrIdentityBridge,
+        spamFilter: SpamFilter,
+        teardown: ChatSessionTeardown,
     ): GeohashSession = GeohashSession(
         application = application,
         state = state,
@@ -268,10 +281,10 @@ object ChatSessionModule {
         locationChannelManagerSource = locationChannelManager,
         relayManagerSource = relayManager,
         locationNotesManagerSource = locationNotesManager,
-    )
+    ).also { session -> teardown.register("GeohashSession", session::shutdownUiSubscriptions) }
 
     @Provides
-    @ActivityRetainedScoped
+    @ChatSessionScoped
     fun provideMeshDelegateHandler(
         @ApplicationContext context: Context,
         state: ChatState,
@@ -281,10 +294,10 @@ object ChatSessionModule {
         notificationManager: NotificationManager,
         @ChatSessionScope scope: CoroutineScope,
         mesh: ChatSessionMesh,
-        @CurrentIdentity seenMessageStore: Provider<SeenMessageStore>,
-        @CurrentIdentity appStateStore: AppStateStore,
-        @CurrentIdentity contactDirectory: ContactDirectory,
-        @CurrentIdentity messageRouterHolder: Provider<MessageRouterHolder>,
+        seenMessageStore: Provider<SeenMessageStore>,
+        appStateStore: AppStateStore,
+        contactDirectory: ContactDirectory,
+        messageRouterHolder: Provider<MessageRouterHolder>,
     ): MeshDelegateHandler = MeshDelegateHandler(
         state = state,
         messageManager = messageManager,

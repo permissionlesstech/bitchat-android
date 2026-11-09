@@ -1,6 +1,6 @@
 package com.bitchat.android.ui
 
-import com.bitchat.android.identity.scope.CurrentIdentity
+import com.bitchat.android.di.ChatSessionScoped
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.di.ChatSessionScope
 import com.bitchat.android.favorites.FavoritesChangeListener
@@ -12,7 +12,6 @@ import com.bitchat.android.services.ConversationListPreferences
 import com.bitchat.android.services.PrivateMessageArrivalOrder
 import com.bitchat.android.services.SeenMessageStore
 import javax.inject.Provider
-import dagger.hilt.android.scopes.ActivityRetainedScoped
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -43,19 +42,19 @@ private data class ConversationLiveIdentityState(
  * listener are started by ChatSessionStartup at the points they always started,
  * because the listener needs FavoritesPersistenceService initialised first.
  */
-@ActivityRetainedScoped
+@ChatSessionScoped
 class ConversationDirectory @Inject constructor(
     private val state: ChatState,
-    @CurrentIdentity private val conversationListPreferences: ConversationListPreferences,
-    @CurrentIdentity private val seenMessageStore: Provider<SeenMessageStore>,
+    private val conversationListPreferences: ConversationListPreferences,
+    private val seenMessageStore: Provider<SeenMessageStore>,
     private val privateChatManager: PrivateChatManager,
     private val notificationManager: NotificationManager,
     private val sessionMesh: ChatSessionMesh,
-    @CurrentIdentity private val appStateStore: AppStateStore,
-    @CurrentIdentity private val contactDirectory: ContactDirectory,
-    @CurrentIdentity private val arrivalOrder: PrivateMessageArrivalOrder,
-    @CurrentIdentity private val geohashConversations: GeohashConversationRegistry,
-    @CurrentIdentity private val favorites: Provider<FavoritesPersistenceService>,
+    private val appStateStore: AppStateStore,
+    private val contactDirectory: ContactDirectory,
+    private val arrivalOrder: PrivateMessageArrivalOrder,
+    private val geohashConversations: GeohashConversationRegistry,
+    private val favorites: Provider<FavoritesPersistenceService>,
     @ChatSessionScope private val scope: CoroutineScope,
 ) {
 

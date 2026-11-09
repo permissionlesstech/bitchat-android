@@ -1,14 +1,15 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.di.ChatSessionScoped
+import com.bitchat.android.di.SessionRouter
 import com.bitchat.android.mesh.TransferProgressManager
 import com.bitchat.android.services.AppStateStore
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.di.ChatSessionScope
-import com.bitchat.android.di.CurrentSession
+import com.bitchat.android.di.ChatSessionTeardown
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.identity.SecureIdentityStateManager
-import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.noise.NoiseSession
 import com.bitchat.android.nostr.NostrTransport
@@ -17,9 +18,7 @@ import com.bitchat.android.services.MessageRouter
 import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.ui.debug.DebugSettingsManager
 import com.bitchat.android.util.hexEncodedString
-import dagger.hilt.android.ActivityRetainedLifecycle
 import dagger.hilt.android.qualifiers.ApplicationContext
-import dagger.hilt.android.scopes.ActivityRetainedScoped
 import javax.inject.Inject
 import javax.inject.Provider
 import kotlinx.coroutines.CoroutineScope
@@ -36,37 +35,38 @@ import kotlinx.coroutines.withContext
  * establishes.
  *
  * Moved out of ChatViewModel unchanged and in the same order. It lives in the
- * retained scope so the chat screen's ViewModel can be scoped to its
- * navigation entry without restarting the session each time it is created.
+ * session so the chat screen's ViewModel can be scoped to its navigation entry
+ * without restarting the session each time it is created, and a new session
+ * starts all of this again.
  */
-@ActivityRetainedScoped
+@ChatSessionScoped
 class ChatSessionStartup @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val lifecycle: ActivityRetainedLifecycle,
     @ChatSessionScope private val scope: CoroutineScope,
+    private val teardown: ChatSessionTeardown,
     private val sessionMesh: ChatSessionMesh,
     // dagger.Lazy and Provider for the reasons ChatViewModel gave: these were
     // first resolved at the point of use, and MessageRouter has to be
     // re-resolved so it follows the mesh panic-clear replaces.
-    @CurrentIdentity private val seenMessageStoreProvider: Provider<SeenMessageStore>,
-    @CurrentIdentity private val nostrTransportProvider: Provider<NostrTransport>,
-    @CurrentIdentity private val messageRouterProvider: Provider<MessageRouter>,
+    private val seenMessageStoreProvider: Provider<SeenMessageStore>,
+    private val nostrTransportProvider: Provider<NostrTransport>,
+    @SessionRouter private val messageRouterProvider: Provider<MessageRouter>,
     private val debugSettingsManager: DebugSettingsManager,
     private val state: ChatState,
     private val dataManager: DataManager,
     private val messageManager: MessageManager,
     private val channelManager: ChannelManager,
     private val privateChatManager: PrivateChatManager,
-    @CurrentSession private val identityManagerProvider: Provider<SecureIdentityStateManager>,
+    private val identityManagerProvider: Provider<SecureIdentityStateManager>,
     private val verificationHandler: VerificationHandler,
     private val mediaSendingManager: MediaSendingManager,
     private val geohashSession: GeohashSession,
     private val contactFavorites: ContactFavorites,
     private val conversationDirectory: ConversationDirectory,
-    @CurrentIdentity private val appStateStore: AppStateStore,
-    @CurrentIdentity private val contactDirectory: ContactDirectory,
-    @CurrentIdentity private val transferProgress: TransferProgressManager,
-    @CurrentIdentity private val favorites: FavoritesPersistenceService,
+    private val appStateStore: AppStateStore,
+    private val contactDirectory: ContactDirectory,
+    private val transferProgress: TransferProgressManager,
+    private val favorites: FavoritesPersistenceService,
 ) {
 
     private companion object {
@@ -81,12 +81,11 @@ class ChatSessionStartup @Inject constructor(
 
     private var started = false
 
-    /** Starts the session once; later calls, from a recreated ViewModel, do nothing. */
+    /** Starts this session once; later calls, from a recreated ViewModel, do nothing. */
     fun start() {
         if (started) return
         started = true
         Log.d(TAG, "Starting chat session")
-        lifecycle.addOnClearedListener { stop() }
 
         conversationDirectory.observePresenceWithDisconnectGrace()
         // Note: Mesh service delegate is now set by MainActivity
@@ -165,12 +164,23 @@ class ChatSessionStartup @Inject constructor(
                 mediaSendingManager.handleTransferProgressEvent(evt)
             }
         }
+        // Last, so that if the session has already ended, what this just started stops at once.
+        teardown.register("ChatSessionStartup", ::stop)
     }
 
+    /** Every step runs, so a failing one leaves no listener or subscription behind. */
     private fun stop() {
-        conversationDirectory.stopFavoriteTracking()
-        geohashSession.shutdownUiSubscriptions()
-        appStateStore.setSelectedPrivateChatPeer(null)
+        listOf(
+            conversationDirectory::stopFavoriteTracking,
+            geohashSession::shutdownUiSubscriptions,
+            { appStateStore.setSelectedPrivateChatPeer(null) },
+        ).forEach { step ->
+            try {
+                step()
+            } catch (e: Exception) {
+                Log.e(TAG, "A stop step failed: ${e.javaClass.simpleName}")
+            }
+        }
     }
 
     private fun loadAndInitialize() {

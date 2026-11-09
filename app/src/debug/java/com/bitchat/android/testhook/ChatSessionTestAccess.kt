@@ -6,7 +6,9 @@ import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.ui.ChatSessionHolder
 import com.bitchat.android.ui.ChatSessionMesh
 import com.bitchat.android.ui.ChatState
+import com.bitchat.android.ui.GeohashSession
 import com.bitchat.android.ui.MessageSender
+import com.bitchat.android.ui.NotificationManager
 import com.bitchat.android.ui.PanicClear
 import com.bitchat.android.ui.PrivateChatSession
 import dagger.hilt.EntryPoint
@@ -19,18 +21,32 @@ import dagger.hilt.android.components.ActivityComponent
  * directly rather than through a screen. Debug builds only.
  *
  * The chat screen's ViewModel belongs to its navigation entry, so a test
- * cannot fetch it from the Activity; these are the retained instances every
- * screen shares.
+ * cannot fetch it from the Activity; these are the instances every screen of
+ * the current session shares.
  */
 @EntryPoint
 @InstallIn(ActivityComponent::class)
 interface ChatSessionTestAccess {
-    fun chatState(): ChatState
-    fun messageSender(): MessageSender
     fun panicClear(): PanicClear
-    fun privateChatSession(): PrivateChatSession
-    fun sessionMesh(): ChatSessionMesh
     fun chatSessionHolder(): ChatSessionHolder
+
+    @CurrentSession
+    fun chatState(): ChatState
+
+    @CurrentSession
+    fun messageSender(): MessageSender
+
+    @CurrentSession
+    fun privateChatSession(): PrivateChatSession
+
+    @CurrentSession
+    fun sessionMesh(): ChatSessionMesh
+
+    @CurrentSession
+    fun geohashSession(): GeohashSession
+
+    @CurrentSession
+    fun notificationManager(): NotificationManager
 
     @CurrentSession
     fun secureIdentityStateManager(): SecureIdentityStateManager

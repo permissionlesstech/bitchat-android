@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.di.CurrentSession
 import com.bitchat.android.identity.scope.CurrentIdentity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -41,14 +42,14 @@ import kotlinx.coroutines.launch
 @HiltViewModel(assistedFactory = PrivateChatViewModel.Factory::class)
 class PrivateChatViewModel @AssistedInject constructor(
     @Assisted private val routeConversationID: String,
-    private val state: ChatState,
-    private val sessionMesh: ChatSessionMesh,
-    private val privateChatSession: PrivateChatSession,
-    private val messageSender: MessageSender,
-    private val composerMedia: ComposerMedia,
-    private val contactFavorites: ContactFavorites,
-    private val verificationHandler: VerificationHandler,
-    private val geohashSession: GeohashSession,
+    @CurrentSession private val state: ChatState,
+    @CurrentSession private val sessionMesh: ChatSessionMesh,
+    @CurrentSession private val privateChatSession: PrivateChatSession,
+    @CurrentSession private val messageSender: MessageSender,
+    @CurrentSession private val composerMedia: ComposerMedia,
+    @CurrentSession private val contactFavorites: ContactFavorites,
+    @CurrentSession private val verificationHandler: VerificationHandler,
+    @CurrentSession private val geohashSession: GeohashSession,
     @CurrentIdentity private val conversationListPreferences: ConversationListPreferences,
     private val wifiAwarePeers: WifiAwarePeers,
     @CurrentIdentity private val contactDirectory: ContactDirectory,

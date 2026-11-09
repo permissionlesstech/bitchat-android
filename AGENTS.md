@@ -70,10 +70,11 @@ in a `PrivateMessageInbox` the session implements, and HTTP clients come from a
 so relay traffic cannot bypass Tor.
 
 `core/chat/` holds the chat session behind the chat screens: `ChatState`, the
-managers, private conversations, notifications and QR verification, in the
-Activity-retained scope. It takes what is the app's own through ports the app
-binds (`NotificationTargets`, `SessionMeshSource`, `WifiAwarePeers`). Screens and
-their ViewModels live in the `feature/` modules.
+managers, private conversations, notifications and QR verification, in a scope
+inside the identity that ends when the Activity-retained lifecycle clears. It
+takes what is the app's own through ports the app binds (`NotificationTargets`,
+`SessionMeshSource`, `WifiAwarePeers`). Screens and their ViewModels live in the
+`feature/` modules.
 
 `core/domain/` holds the domain models that Android library modules
 need (Gradle forbids a library module depending on an application module).

@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.di.CurrentSession
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bitchat.android.geohash.ChannelID
@@ -39,10 +40,10 @@ sealed interface ChatUserAction {
 class ChatUserViewModel @AssistedInject constructor(
     @Assisted("nickname") private val nickname: String,
     @Assisted("messageId") messageId: String?,
-    private val state: ChatState,
-    private val mesh: ChatSessionMesh,
-    private val geohashSession: GeohashSession,
-    private val messageSender: MessageSender,
+    @CurrentSession private val state: ChatState,
+    @CurrentSession private val mesh: ChatSessionMesh,
+    @CurrentSession private val geohashSession: GeohashSession,
+    @CurrentSession private val messageSender: MessageSender,
     private val navigator: Navigator,
     @CurrentIdentity private val contactDirectory: ContactDirectory,
 ) : ViewModel() {

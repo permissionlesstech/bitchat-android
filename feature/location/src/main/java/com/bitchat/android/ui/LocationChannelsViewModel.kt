@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.di.CurrentSession
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bitchat.android.geohash.ChannelID
@@ -78,9 +79,9 @@ class LocationChannelsViewModel internal constructor(
 
     @Inject
     constructor(
-        state: ChatState,
-        mesh: ChatSessionMesh,
-        geohashSession: GeohashSession,
+        @CurrentSession state: ChatState,
+        @CurrentSession mesh: ChatSessionMesh,
+        @CurrentSession geohashSession: GeohashSession,
         wifiAwarePeers: WifiAwarePeers,
         location: NotesLocationSource,
         notes: NotesStore,

@@ -65,8 +65,8 @@ fun ChatScreen(
     // stack, and covers the moment between opening the chat and the ViewModel
     // selecting it, when the selection is still empty.
     openPrivateChatID: String?,
-    // Scoped to the chat's navigation entry. The session it reads lives in the
-    // Activity's retained scope, so recreating this loses nothing.
+    // Scoped to the chat's navigation entry. The session it reads outlives the
+    // entry, so recreating this loses nothing.
     viewModel: ChatViewModel = hiltViewModel(),
 ) {
     val colorScheme = MaterialTheme.colorScheme

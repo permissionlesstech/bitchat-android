@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.di.CurrentSession
 import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import android.util.Log
@@ -28,27 +29,27 @@ import kotlinx.coroutines.launch
  * The chat screen's state holder: one [ChatUiState] out, [ChatAction]s in, and
  * [ChatEvent]s for the composer's local text.
  *
- * The session behind the screen, its state and managers, lives in the
- * Activity's retained scope and is shared with the other screens' ViewModels;
+ * The session behind the screen, its state and managers, lives in the chat
+ * session's scope and is shared with the other screens' ViewModels;
  * this class only reads it and forwards the screen's requests.
  */
 @HiltViewModel
 class ChatViewModel @Inject constructor(
-    private val sessionMesh: ChatSessionMesh,
+    @CurrentSession private val sessionMesh: ChatSessionMesh,
     @CurrentIdentity private val conversationListPreferences: ConversationListPreferences,
     // The unread shortcut opens a private chat from here rather than from a
     // screen, because it has to pick the conversation first.
     private val navigator: Navigator,
-    private val state: ChatState,
-    private val dataManager: DataManager,
-    private val channelManager: ChannelManager,
-    private val commandProcessor: CommandProcessor,
-    private val mediaSendingManager: MediaSendingManager,
-    private val geohashSession: GeohashSession,
-    private val messageSender: MessageSender,
-    private val composerMedia: ComposerMedia,
+    @CurrentSession private val state: ChatState,
+    @CurrentSession private val dataManager: DataManager,
+    @CurrentSession private val channelManager: ChannelManager,
+    @CurrentSession private val commandProcessor: CommandProcessor,
+    @CurrentSession private val mediaSendingManager: MediaSendingManager,
+    @CurrentSession private val geohashSession: GeohashSession,
+    @CurrentSession private val messageSender: MessageSender,
+    @CurrentSession private val composerMedia: ComposerMedia,
     private val panicClear: PanicClear,
-    sessionStartup: ChatSessionStartup,
+    @CurrentSession sessionStartup: ChatSessionStartup,
     @CurrentIdentity private val contactDirectory: ContactDirectory,
     @CurrentIdentity private val favorites: Provider<FavoritesPersistenceService>,
     @CurrentIdentity private val geohashAliases: GeohashAliasRegistry,

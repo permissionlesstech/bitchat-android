@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.Lifecycle
+import com.bitchat.android.di.CurrentSession
 import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.mesh.MeshService
@@ -117,23 +118,26 @@ class MainActivity : OrientationAwareActivity() {
     @CurrentIdentity
     lateinit var verificationService: Provider<VerificationService>
 
-    // The chat session's, shared with ChatViewModel; the verify deep link
-    // starts a QR verification through it.
+    // The chat session's objects, asked when used so the Activity keeps none of them: each read
+    // gets the current session. The verify deep link starts a QR verification through this one.
     @Inject
-    lateinit var verificationHandler: VerificationHandler
+    @CurrentSession
+    lateinit var verificationHandler: Provider<VerificationHandler>
 
-    // What the mesh reports to while the UI is attached; the chat session's.
+    // What the mesh reports to while the UI is attached.
     @Inject
-    lateinit var chatMeshDelegate: ChatMeshDelegate
+    @CurrentSession
+    lateinit var chatMeshDelegate: Provider<ChatMeshDelegate>
     private val meshDelegateBinding by lazy {
-        com.bitchat.android.mesh.MeshDelegateBinding(unifiedMeshService, chatMeshDelegate)
+        com.bitchat.android.mesh.MeshDelegateBinding(unifiedMeshService, chatMeshDelegate.get())
     }
 
-    // The chat session's. The Activity starts the session, unwinds the chat
-    // screen's overlays on Back, and routes notification taps into it, so none
-    // of that waits for the chat screen's ViewModel to exist.
+    // The Activity starts the session, unwinds the chat screen's overlays on Back,
+    // and routes notification taps into it, so none of that waits for the chat
+    // screen's ViewModel to exist.
     @Inject
-    lateinit var chatSessionStartup: ChatSessionStartup
+    @CurrentSession
+    lateinit var chatSessionStartup: Provider<ChatSessionStartup>
 
     // Injected here so it is built on the main thread, which is the only place the retained
     // lifecycle takes a listener. Its first read could otherwise come from a mesh callback.
@@ -141,16 +145,20 @@ class MainActivity : OrientationAwareActivity() {
     lateinit var chatSessionHolder: com.bitchat.android.ui.ChatSessionHolder
 
     @Inject
-    lateinit var chatBackUnwinder: ChatBackUnwinder
+    @CurrentSession
+    lateinit var chatBackUnwinder: Provider<ChatBackUnwinder>
 
     @Inject
-    lateinit var chatState: ChatState
+    @CurrentSession
+    lateinit var chatState: Provider<ChatState>
 
     @Inject
-    lateinit var chatNotifications: com.bitchat.android.ui.NotificationManager
+    @CurrentSession
+    lateinit var chatNotifications: Provider<com.bitchat.android.ui.NotificationManager>
 
     @Inject
-    lateinit var geohashSession: GeohashSession
+    @CurrentSession
+    lateinit var geohashSession: Provider<GeohashSession>
 
     // Every destination, onboarding's included, contributed by the features
     // through Hilt.
@@ -308,8 +316,8 @@ class MainActivity : OrientationAwareActivity() {
                     // Started on the first composition, where the Activity first
                     // reached the chat ViewModel before, and ahead of any
                     // notification intent that selects a channel. Idempotent.
-                    chatSessionStartup.start()
-                    val pendingBackAction by chatBackUnwinder.pendingBackAction.collectAsState()
+                    chatSessionStartup.get().start()
+                    val pendingBackAction by chatBackUnwinder.get().pendingBackAction.collectAsState()
                     BackHandler(
                         enabled = navigator.backStack.lastOrNull() == ChatRoute &&
                             pendingBackAction != BackAction.None
@@ -318,7 +326,7 @@ class MainActivity : OrientationAwareActivity() {
                         // second quick press can arrive with nothing left to unwind. Forward
                         // it rather than swallowing it: pop a route if there is one, and
                         // otherwise leave, which is what the press would have done anyway.
-                        if (!chatBackUnwinder.handle() && !navigator.goBack()) finish()
+                        if (!chatBackUnwinder.get().handle() && !navigator.goBack()) finish()
                     }
                 }
             }
@@ -504,7 +512,7 @@ class MainActivity : OrientationAwareActivity() {
                     }
                     
                     // Clear notifications for this sender since user is now viewing the chat
-                    chatNotifications.clearNotificationsForSender(peerID)
+                    chatNotifications.get().clearNotificationsForSender(peerID)
                 }
             }
             
@@ -525,13 +533,13 @@ class MainActivity : OrientationAwareActivity() {
                     }
                     val geohashChannel = com.bitchat.android.geohash.GeohashChannel(level, geohash)
                     val channelId = com.bitchat.android.geohash.ChannelID.Location(geohashChannel)
-                    geohashSession.selectLocationChannel(channelId)
+                    geohashSession.get().selectLocationChannel(channelId)
                     
                     // Update current geohash state for notifications
-                    chatNotifications.setCurrentGeohash(geohash)
+                    chatNotifications.get().setCurrentGeohash(geohash)
                     
                     // Clear notifications for this geohash since user is now viewing it
-                    chatNotifications.clearNotificationsForGeohash(geohash)
+                    chatNotifications.get().clearNotificationsForGeohash(geohash)
                 }
             }
         }
@@ -547,10 +555,10 @@ class MainActivity : OrientationAwareActivity() {
         // A sheet is never under anything, so unwind to chat first. When chat
         // is not on the stack the result is false and nothing changes.
         navigator.popTo(ChatRoute)
-        navigator.goTo(VerificationRoute(chatState.selectedPrivateChatPeer.value))
+        navigator.goTo(VerificationRoute(chatState.get().selectedPrivateChatPeer.value))
         val qr = verificationService.get().verifyScannedQR(uri.toString())
         if (qr != null) {
-            verificationHandler.beginQRVerification(qr)
+            verificationHandler.get().beginQRVerification(qr)
         }
     }
 

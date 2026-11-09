@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.di.CurrentSession
 import android.os.SystemClock
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -124,12 +125,12 @@ class MeshPeerListViewModel internal constructor(
 
     @Inject
     constructor(
-        state: ChatState,
-        sessionMesh: ChatSessionMesh,
-        channelManager: ChannelManager,
-        conversationDirectory: ConversationDirectory,
-        verificationHandler: VerificationHandler,
-        geohashSession: GeohashSession,
+        @CurrentSession state: ChatState,
+        @CurrentSession sessionMesh: ChatSessionMesh,
+        @CurrentSession channelManager: ChannelManager,
+        @CurrentSession conversationDirectory: ConversationDirectory,
+        @CurrentSession verificationHandler: VerificationHandler,
+        @CurrentSession geohashSession: GeohashSession,
         wifiAwarePeers: WifiAwarePeers,
         lookups: PeerListLookups,
         savedState: SavedStateHandle,

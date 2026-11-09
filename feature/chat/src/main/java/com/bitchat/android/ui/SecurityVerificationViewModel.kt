@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.di.CurrentSession
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bitchat.android.identity.scope.CurrentIdentity
@@ -42,9 +43,9 @@ sealed interface SecurityVerificationAction {
 @HiltViewModel(assistedFactory = SecurityVerificationViewModel.Factory::class)
 class SecurityVerificationViewModel @AssistedInject constructor(
     @Assisted private val conversationID: String,
-    state: ChatState,
-    private val verificationHandler: VerificationHandler,
-    private val mesh: ChatSessionMesh,
+    @CurrentSession state: ChatState,
+    @CurrentSession private val verificationHandler: VerificationHandler,
+    @CurrentSession private val mesh: ChatSessionMesh,
     @CurrentIdentity private val contactDirectory: ContactDirectory,
 ) : ViewModel() {
 

@@ -6,7 +6,8 @@ import com.bitchat.android.services.AppStateStore
 import android.content.Context
 import android.util.Log
 import androidx.annotation.VisibleForTesting
-import com.bitchat.android.di.ChatSessionScope
+import com.bitchat.android.di.ChatSessionLifetimeEntryPoint
+import com.bitchat.android.di.CurrentSession
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.geohash.GeohashBookmarksStore
 import com.bitchat.android.geohash.LocationChannelManager
@@ -20,7 +21,6 @@ import dagger.hilt.android.scopes.ActivityRetainedScoped
 import javax.inject.Inject
 import javax.inject.Provider
 import kotlin.random.Random
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /**
@@ -35,36 +35,54 @@ import kotlinx.coroutines.launch
 @ActivityRetainedScoped
 class PanicClear @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val state: ChatState,
-    private val sessionMesh: ChatSessionMesh,
-    @CurrentIdentity private val meshSource: SessionMeshSource,
+    private val sessionHolder: ChatSessionHolder,
+    @CurrentSession private val stateProvider: Provider<ChatState>,
+    @CurrentSession private val sessionMeshProvider: Provider<ChatSessionMesh>,
+    @CurrentIdentity private val meshSourceProvider: Provider<SessionMeshSource>,
     @CurrentIdentity private val messageRouterHolder: Provider<MessageRouterHolder>,
-    private val meshDelegate: ChatMeshDelegate,
-    private val messageManager: MessageManager,
-    private val channelManager: ChannelManager,
-    private val privateChatManager: PrivateChatManager,
-    private val dataManager: DataManager,
-    private val mediaSendingManager: MediaSendingManager,
-    private val notificationManager: NotificationManager,
-    private val geohashSession: GeohashSession,
-    @CurrentIdentity private val conversationListPreferences: ConversationListPreferences,
+    @CurrentSession private val meshDelegateProvider: Provider<ChatMeshDelegate>,
+    @CurrentSession private val messageManagerProvider: Provider<MessageManager>,
+    @CurrentSession private val channelManagerProvider: Provider<ChannelManager>,
+    @CurrentSession private val privateChatManagerProvider: Provider<PrivateChatManager>,
+    @CurrentSession private val dataManagerProvider: Provider<DataManager>,
+    @CurrentSession private val mediaSendingManagerProvider: Provider<MediaSendingManager>,
+    @CurrentSession private val notificationManagerProvider: Provider<NotificationManager>,
+    @CurrentSession private val geohashSessionProvider: Provider<GeohashSession>,
+    @CurrentIdentity private val conversationListPreferencesProvider: Provider<ConversationListPreferences>,
     @CurrentIdentity @get:VisibleForTesting val seenMessageStoreProvider: Provider<SeenMessageStore>,
     @CurrentIdentity private val locationChannelManagerProvider: Provider<LocationChannelManager>,
     @CurrentIdentity private val geohashBookmarksStoreProvider: Provider<GeohashBookmarksStore>,
-    @CurrentIdentity @get:VisibleForTesting val appStateStore: AppStateStore,
-    @CurrentIdentity @get:VisibleForTesting val spamFilter: SpamFilter,
+    @CurrentIdentity private val appStateStoreProvider: Provider<AppStateStore>,
+    @CurrentIdentity private val spamFilterProvider: Provider<SpamFilter>,
     @CurrentIdentity @get:VisibleForTesting val favorites: Provider<FavoritesPersistenceService>,
-    @ChatSessionScope private val scope: CoroutineScope,
 ) {
 
     private companion object {
         const val TAG = "PanicClear"
     }
 
+    // Asked when used: this class outlives the session and the identity it clears.
+    private val state get() = stateProvider.get()
+    private val sessionMesh get() = sessionMeshProvider.get()
+    private val meshDelegate get() = meshDelegateProvider.get()
+    private val messageManager get() = messageManagerProvider.get()
+    private val channelManager get() = channelManagerProvider.get()
+    private val privateChatManager get() = privateChatManagerProvider.get()
+    private val dataManager get() = dataManagerProvider.get()
+    private val mediaSendingManager get() = mediaSendingManagerProvider.get()
+    private val notificationManager get() = notificationManagerProvider.get()
+    private val geohashSession get() = geohashSessionProvider.get()
+    private val conversationListPreferences get() = conversationListPreferencesProvider.get()
     private val mesh get() = sessionMesh.unified
     private val seenMessageStore get() = seenMessageStoreProvider.get()
     private val locationChannelManager get() = locationChannelManagerProvider.get()
     private val geohashBookmarksStore get() = geohashBookmarksStoreProvider.get()
+
+    @get:VisibleForTesting
+    val appStateStore: AppStateStore get() = appStateStoreProvider.get()
+
+    @get:VisibleForTesting
+    val spamFilter: SpamFilter get() = spamFilterProvider.get()
 
     private var panicClearInProgress = false
 
@@ -72,7 +90,7 @@ class PanicClear @Inject constructor(
     fun run() {
         if (panicClearInProgress) return
         panicClearInProgress = true
-        scope.launch {
+        sessionHolder.entryPoint<ChatSessionLifetimeEntryPoint>().scope().launch {
             try {
                 performPanicClearAllData()
             } finally {
@@ -197,7 +215,7 @@ class PanicClear @Inject constructor(
         val oldPeerID = mesh.myPeerID
 
         // Create fresh mesh service with new identity (keys were regenerated in clearAllCryptographicData)
-        val freshUnifiedMeshService = meshSource.recreate()
+        val freshUnifiedMeshService = meshSourceProvider.get().recreate()
 
         // Replace the session's reference and set up the new service
         sessionMesh.replace(freshUnifiedMeshService)

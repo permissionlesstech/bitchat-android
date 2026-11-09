@@ -1,9 +1,8 @@
 package com.bitchat.android.ui
 
-import com.bitchat.android.identity.scope.CurrentIdentity
+import com.bitchat.android.di.ChatSessionScoped
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ContactDirectory
-import dagger.hilt.android.scopes.ActivityRetainedScoped
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -15,15 +14,15 @@ import kotlinx.coroutines.withContext
  * Moved out of ChatViewModel unchanged, so the private chat's own ViewModel
  * can start and end it.
  */
-@ActivityRetainedScoped
+@ChatSessionScoped
 class PrivateChatSession @Inject constructor(
     private val state: ChatState,
     private val privateChatManager: PrivateChatManager,
     private val notificationManager: NotificationManager,
     private val geohashSession: GeohashSession,
     private val sessionMesh: ChatSessionMesh,
-    @CurrentIdentity private val appStateStore: AppStateStore,
-    @CurrentIdentity private val contactDirectory: ContactDirectory,
+    private val appStateStore: AppStateStore,
+    private val contactDirectory: ContactDirectory,
 ) {
 
     suspend fun start(peerID: String) {

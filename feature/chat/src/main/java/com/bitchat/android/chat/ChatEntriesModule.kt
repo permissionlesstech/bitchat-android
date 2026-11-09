@@ -1,6 +1,7 @@
 package com.bitchat.android.chat
 
 import androidx.activity.compose.BackHandler
+import com.bitchat.android.di.CurrentSession
 import com.bitchat.android.navigation.AboutRoute
 import com.bitchat.android.navigation.ChatRoute
 import com.bitchat.android.navigation.ChatUserRoute
@@ -27,6 +28,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.components.ActivityRetainedComponent
 import dagger.multibindings.IntoSet
+import javax.inject.Provider
 
 /**
  * Chat, the peer list, private chats, verification and the chat user sheet,
@@ -40,7 +42,8 @@ object ChatEntriesModule {
     @IntoSet
     fun chatEntries(
         navigator: Navigator,
-        chatState: ChatState,
+        // Asked when used: the host keeps this installer past the session.
+        @CurrentSession chatState: Provider<ChatState>,
     ): EntryProviderInstaller = {
         entry<ChatRoute>(metadata = ScreenTransitions.rootFade()) {
             ChatScreen(
@@ -63,7 +66,7 @@ object ChatEntriesModule {
                 // returns to it.
                 onShowVerification = {
                     navigator.goTo(
-                        VerificationRoute(chatState.selectedPrivateChatPeer.value)
+                        VerificationRoute(chatState.get().selectedPrivateChatPeer.value)
                     )
                 },
                 // Likewise: Back from the chat returns to the list.

@@ -1,13 +1,12 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.di.ChatSessionScoped
 import android.content.Context
 import com.bitchat.android.features.voice.LiveVoicePreferences
 import com.bitchat.android.features.voice.LiveVoiceTarget
 import com.bitchat.android.features.voice.VoiceRecorder
-import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.services.ContactDirectory
 import dagger.hilt.android.qualifiers.ApplicationContext
-import dagger.hilt.android.scopes.ActivityRetainedScoped
 import javax.inject.Inject
 
 /**
@@ -15,12 +14,12 @@ import javax.inject.Inject
  * that streams live when a peer can take it. Shared by the chat composer
  * and the private chat's; moved out of ChatViewModel unchanged.
  */
-@ActivityRetainedScoped
+@ChatSessionScoped
 class ComposerMedia @Inject constructor(
     @ApplicationContext private val context: Context,
     private val mediaSendingManager: MediaSendingManager,
     private val sessionMesh: ChatSessionMesh,
-    @CurrentIdentity private val contactDirectory: ContactDirectory,
+    private val contactDirectory: ContactDirectory,
 ) {
 
     private val mesh get() = sessionMesh.unified

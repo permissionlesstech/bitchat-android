@@ -8,7 +8,7 @@ android {
 }
 
 // The chat session behind the chat screens: its state and managers, private conversations,
-// notifications and QR verification, in the Activity-retained scope. The app supplies what is
+// notifications and QR verification, in a scope inside the identity. The app supplies what is
 // its own through ports it binds: the notification targets, the mesh to restart after a panic
 // clear, the Wi-Fi Aware peers.
 dependencies {

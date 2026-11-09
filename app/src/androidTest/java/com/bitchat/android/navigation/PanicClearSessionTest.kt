@@ -48,7 +48,7 @@ class PanicClearSessionTest {
         assertSame(meshServiceHolder().getUnifiedOrCreate(context), after)
         assertNotEquals(before.myPeerID, after.myPeerID)
         // The recreated mesh reports to the session's delegate.
-        assertSame(rule.activity.chatMeshDelegate, after.delegate)
+        assertSame(rule.activity.chatMeshDelegate.get(), after.delegate)
     }
 
     @Test
@@ -76,7 +76,7 @@ class PanicClearSessionTest {
         rule.awaitChat()
 
         val mesh = meshServiceHolder().getUnifiedOrCreate(rule.activity.applicationContext)
-        rule.waitUntil(timeoutMillis = 5_000) { mesh.delegate === rule.activity.chatMeshDelegate }
+        rule.waitUntil(timeoutMillis = 5_000) { mesh.delegate === rule.activity.chatMeshDelegate.get() }
     }
 
     private fun session() = ChatSessionTestAccess.of(rule.activity)

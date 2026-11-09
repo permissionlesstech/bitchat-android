@@ -60,7 +60,7 @@ class EveryRouteHasAnEntryTest {
                 share = mock(),
             ),
             LocationEntriesModule.locationEntries(navigator = navigator),
-            ChatEntriesModule.chatEntries(navigator = navigator, chatState = chatState),
+            ChatEntriesModule.chatEntries(navigator = navigator, chatState = { chatState }),
             OnboardingEntriesModule.onboardingEntries(),
         )
 

@@ -1,6 +1,6 @@
 package com.bitchat.android.ui
 
-import dagger.hilt.android.scopes.ActivityRetainedScoped
+import com.bitchat.android.di.ChatSessionScoped
 import javax.inject.Inject
 import kotlinx.coroutines.flow.StateFlow
 
@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
  * Moved out of ChatViewModel so the Activity's back handler, which must be
  * composed after NavDisplay, does not need the chat screen's ViewModel.
  */
-@ActivityRetainedScoped
+@ChatSessionScoped
 class ChatBackUnwinder @Inject constructor(
     private val state: ChatState,
     private val privateChatSession: PrivateChatSession,

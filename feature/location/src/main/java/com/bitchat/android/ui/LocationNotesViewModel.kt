@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.di.CurrentSession
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -47,7 +48,7 @@ class LocationNotesViewModel internal constructor(
         store: NotesStore,
         gate: NearbyNotesGate,
         clock: NotesClock,
-        chatState: ChatState,
+        @CurrentSession chatState: ChatState,
         savedState: SavedStateHandle,
     ) : this(location, store, gate, clock, chatState.nickname, savedState)
 

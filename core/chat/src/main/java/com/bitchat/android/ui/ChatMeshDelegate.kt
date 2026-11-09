@@ -1,8 +1,8 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.di.ChatSessionScoped
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.model.BitchatMessage
-import dagger.hilt.android.scopes.ActivityRetainedScoped
 import javax.inject.Inject
 
 /**
@@ -14,7 +14,7 @@ import javax.inject.Inject
  * same routing, moved unchanged, so MainActivity and the panic path hand the
  * mesh the session's delegate instead of the ViewModel.
  */
-@ActivityRetainedScoped
+@ChatSessionScoped
 class ChatMeshDelegate @Inject constructor(
     private val meshDelegateHandler: MeshDelegateHandler,
     private val verificationHandler: VerificationHandler,

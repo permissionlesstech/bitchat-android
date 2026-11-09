@@ -1,13 +1,13 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.di.ChatSessionScoped
+import com.bitchat.android.di.SessionRouter
 import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.di.ChatSessionScope
-import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.MessageRouter
-import dagger.hilt.android.scopes.ActivityRetainedScoped
 import java.util.Date
 import javax.inject.Inject
 import javax.inject.Provider
@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
  * way. The destination is read from ChatState at the moment of sending, not
  * passed in.
  */
-@ActivityRetainedScoped
+@ChatSessionScoped
 class MessageSender @Inject constructor(
     private val state: ChatState,
     private val messageManager: MessageManager,
@@ -34,10 +34,10 @@ class MessageSender @Inject constructor(
     private val sessionMesh: ChatSessionMesh,
     // Provider, not a cached instance: each get() re-points the router at the
     // current mesh, as it did in ChatViewModel.
-    @CurrentIdentity private val messageRouterProvider: Provider<MessageRouter>,
-    @CurrentIdentity private val contactDirectory: ContactDirectory,
-    @CurrentIdentity private val favorites: Provider<FavoritesPersistenceService>,
-    @CurrentIdentity private val geohashAliases: GeohashAliasRegistry,
+    @SessionRouter private val messageRouterProvider: Provider<MessageRouter>,
+    private val contactDirectory: ContactDirectory,
+    private val favorites: Provider<FavoritesPersistenceService>,
+    private val geohashAliases: GeohashAliasRegistry,
     @ChatSessionScope private val scope: CoroutineScope,
 ) {
 

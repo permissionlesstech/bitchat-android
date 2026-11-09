@@ -1,6 +1,7 @@
 package com.bitchat.android.di
 
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.bitchat.android.MainActivity
@@ -17,10 +18,14 @@ import com.bitchat.android.testhook.ConversationTestAccess
 import com.bitchat.android.testhook.MeshTestAccess
 import com.bitchat.android.ui.ChatSessionHolder
 import com.bitchat.android.ui.ChatSessionMesh
+import com.bitchat.android.ui.ChatState
+import com.bitchat.android.ui.GeohashSession
+import com.bitchat.android.ui.NotificationManager
 import com.bitchat.android.ui.entryPoint as sessionEntryPoint
 import java.util.Date
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -126,14 +131,55 @@ class IdentityScopeWiringTest {
         rule.awaitChat()
         val holder = sessionHolder()
         val session = holder.current
+        lateinit var geohashSession: GeohashSession
+        lateinit var notifications: NotificationManager
+        rule.runOnUiThread {
+            val access = ChatSessionTestAccess.of(rule.activity)
+            geohashSession = access.geohashSession()
+            notifications = access.notificationManager()
+        }
+        val scope = holder.sessionEntryPoint<ChatSessionLifetimeEntryPoint>().scope()
+        assertTrue(scope.isActive)
+        assertTrue(geohashScope(geohashSession).isActive)
+        assertTrue(liveNotificationManagers().contains(notifications))
 
         rule.activityRule.scenario.close()
 
+        assertFalse("the session's scope ends with the session", scope.isActive)
+        assertFalse("a class owning its own scope ends with the session", geohashScope(geohashSession).isActive)
+        assertFalse("a session's manager leaves the process-wide registry", liveNotificationManagers().contains(notifications))
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         instrumentation.runOnMainSync {
             assertFalse("a cleared session holder must refuse to build another", holder.replace())
             assertSame(session, holder.current)
         }
+    }
+
+    @Test
+    fun leavingAndReopeningBuildsANewSessionOverTheSameStore() {
+        rule.awaitChat()
+        val graph = graph()
+        val store = graph.appStateStore()
+        lateinit var firstState: ChatState
+        rule.runOnUiThread { firstState = ChatSessionTestAccess.of(rule.activity).chatState() }
+
+        rule.activityRule.scenario.close()
+
+        ActivityScenario.launch(MainActivity::class.java).use { reopened ->
+            reopened.onActivity { activity ->
+                assertNotSame(firstState, ChatSessionTestAccess.of(activity).chatState())
+            }
+            assertSame(store, graph.appStateStore())
+        }
+    }
+
+    private fun geohashScope(session: GeohashSession): CoroutineScope =
+        GeohashSession::class.java.getDeclaredField("scope").apply { isAccessible = true }.get(session) as CoroutineScope
+
+    @Suppress("UNCHECKED_CAST")
+    private fun liveNotificationManagers(): Set<NotificationManager> {
+        val field = NotificationManager::class.java.getDeclaredField("liveManagers").apply { isAccessible = true }
+        return synchronized(field.get(null)!!) { (field.get(null) as Set<NotificationManager>).toSet() }
     }
 
     @Test

@@ -1,14 +1,14 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.di.ChatSessionScoped
+import com.bitchat.android.di.SessionRouter
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import android.content.Context
 import android.util.Log
-import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.services.MessageRouter
 import dagger.hilt.android.qualifiers.ApplicationContext
-import dagger.hilt.android.scopes.ActivityRetainedScoped
 import javax.inject.Inject
 import javax.inject.Provider
 
@@ -17,16 +17,16 @@ import javax.inject.Provider
  * notice sent to the peer. Moved out of ChatViewModel unchanged, so the
  * private chat and the peer list can toggle it without the ViewModel.
  */
-@ActivityRetainedScoped
+@ChatSessionScoped
 class ContactFavorites @Inject constructor(
     @ApplicationContext private val context: Context,
     private val state: ChatState,
     private val dataManager: DataManager,
     private val privateChatManager: PrivateChatManager,
     private val sessionMesh: ChatSessionMesh,
-    @CurrentIdentity private val messageRouterProvider: Provider<MessageRouter>,
-    @CurrentIdentity private val contactDirectory: ContactDirectory,
-    @CurrentIdentity private val favorites: Provider<FavoritesPersistenceService>,
+    @SessionRouter private val messageRouterProvider: Provider<MessageRouter>,
+    private val contactDirectory: ContactDirectory,
+    private val favorites: Provider<FavoritesPersistenceService>,
 ) {
 
     private val mesh get() = sessionMesh.unified

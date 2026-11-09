@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import com.bitchat.android.di.CurrentSession
 import com.bitchat.android.identity.scope.CurrentIdentity
 import android.content.Context
 import android.util.Log
@@ -73,9 +74,9 @@ interface PeerListLookups {
  */
 internal class RealPeerListLookups @Inject constructor(
     @ApplicationContext private val appContext: Context,
-    private val contactFavorites: ContactFavorites,
-    private val verificationHandler: VerificationHandler,
-    private val sessionMesh: ChatSessionMesh,
+    @CurrentSession private val contactFavorites: Provider<ContactFavorites>,
+    @CurrentSession private val verificationHandler: Provider<VerificationHandler>,
+    @CurrentSession private val sessionMesh: Provider<ChatSessionMesh>,
     @CurrentIdentity private val contactDirectory: Provider<ContactDirectory>,
     @CurrentIdentity private val favorites: Provider<FavoritesPersistenceService>,
     @CurrentIdentity private val nostrIdentity: Provider<NostrIdentityBridge>,
@@ -89,7 +90,7 @@ internal class RealPeerListLookups @Inject constructor(
     override fun canonicalConversationId(peerOrConversationID: String): String =
         contactDirectory.get().canonicalConversationId(peerOrConversationID)
 
-    override fun isFavorite(peerID: String): Boolean = contactFavorites.isFavorite(peerID)
+    override fun isFavorite(peerID: String): Boolean = contactFavorites.get().isFavorite(peerID)
 
     override fun favoriteStatus(peerID: String): FavoriteRelationship? =
         favorites.get().getFavoriteStatus(peerID)
@@ -103,16 +104,16 @@ internal class RealPeerListLookups @Inject constructor(
     override fun nostrPubkeyForNoiseKey(noisePublicKey: ByteArray): String? =
         favorites.get().findNostrPubkey(noisePublicKey)
 
-    override fun peerInfo(peerID: String): PeerInfo? = sessionMesh.unified.getPeerInfo(peerID)
+    override fun peerInfo(peerID: String): PeerInfo? = sessionMesh.get().unified.getPeerInfo(peerID)
 
     override fun cachedNoiseKey(peerID: String): String? =
         identityStateManager.getCachedNoiseKey(peerID)
 
     override fun peerFingerprintForDisplay(peerID: String): String? =
-        verificationHandler.getPeerFingerprintForDisplay(peerID)
+        verificationHandler.get().getPeerFingerprintForDisplay(peerID)
 
     override fun fingerprintFromNoiseBytes(noisePublicKey: ByteArray): String =
-        verificationHandler.fingerprintFromNoiseBytes(noisePublicKey)
+        verificationHandler.get().fingerprintFromNoiseBytes(noisePublicKey)
 
     override fun geohashIdentityPublicKeyHex(geohash: String): String? =
         try {
