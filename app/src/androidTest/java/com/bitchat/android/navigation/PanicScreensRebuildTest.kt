@@ -106,6 +106,8 @@ class PanicScreensRebuildTest {
         rule.awaitChat()
         val activity = rule.activity
         val first = awaitChatViewModel()
+        val draft = "synthetic draft across recreation"
+        rule.onNode(hasSetTextAction() and hasText("")).performTextInput(draft)
 
         rule.activityRule.scenario.recreate()
         rule.awaitChat()
@@ -113,11 +115,14 @@ class PanicScreensRebuildTest {
         assertNotSame(activity, rule.activity)
         assertSame(first, awaitChatViewModel())
         assertTrue(first.viewModelScope.isActive)
+        rule.onNode(hasSetTextAction() and hasText(draft)).assertExists()
 
         // And the same after a new generation: it is the new one that is kept.
         replaceTheSession()
         val second = awaitChatViewModelOtherThan(first)
         rule.awaitChat()
+        // A new session starts without the old one's text.
+        rule.onNode(hasSetTextAction() and hasText("")).assertExists()
 
         rule.activityRule.scenario.recreate()
         rule.awaitChat()

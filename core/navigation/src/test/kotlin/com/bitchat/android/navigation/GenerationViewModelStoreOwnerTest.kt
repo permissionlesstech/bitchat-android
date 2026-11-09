@@ -6,7 +6,6 @@ import dagger.hilt.android.ActivityRetainedLifecycle
 import dagger.hilt.android.lifecycle.RetainedLifecycle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -70,29 +69,10 @@ class GenerationViewModelStoreOwnerTest {
     }
 
     @Test
-    fun `advance moves the generation and the screens key`() {
-        val firstKey = owner.screensKey
-
+    fun `advance moves the generation`() {
         owner.advance()
 
         assertEquals(1, owner.generation)
-        assertNotEquals(firstKey, owner.screensKey)
-    }
-
-    @Test
-    fun `the first key is the same in every process so saved screens come back`() {
-        assertEquals(owner.screensKey, GenerationViewModelStoreOwner(FakeLifecycle()).screensKey)
-    }
-
-    @Test
-    fun `a later key is never one an earlier process saved screens under`() {
-        val other = GenerationViewModelStoreOwner(FakeLifecycle())
-
-        owner.advance()
-        other.advance()
-
-        assertEquals(owner.generation, other.generation)
-        assertNotEquals(owner.screensKey, other.screensKey)
     }
 
     @Test

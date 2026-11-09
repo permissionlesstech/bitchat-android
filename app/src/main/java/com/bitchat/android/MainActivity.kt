@@ -408,7 +408,8 @@ class MainActivity : OrientationAwareActivity() {
         
         // Posted rather than immediate: a session is often first read during composition or under
         // the holder's lock, and neither is a place to change the back stack or clear ViewModels.
-        // Not bound to a lifecycle state, because the screens follow at any state short of destroyed.
+        // Not bound to a lifecycle state, so the stack and the store move even while stopped. Composition
+        // pauses at ON_STOP, so a ViewModel on an on-screen entry is released when the Activity restarts.
         lifecycleScope.launch(Dispatchers.Main) {
             chatSessionHolder.generation.collect(::followSession)
         }
