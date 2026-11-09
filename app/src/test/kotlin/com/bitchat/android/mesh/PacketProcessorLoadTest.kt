@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
@@ -113,7 +114,7 @@ class PacketProcessorLoadTest {
 
     private suspend fun recordingDelegate(handled: MutableList<ULong>): PacketProcessorDelegate {
         val delegate = mock<PacketProcessorDelegate>()
-        whenever(delegate.validatePacketSecurity(any(), any())).thenReturn(true)
+        whenever(delegate.validatePacketSecurity(any(), any(), anyOrNull())).thenReturn(true)
         doAnswer { invocation ->
             handled += invocation.getArgument<RoutedPacket>(0).packet.timestamp
             Unit
