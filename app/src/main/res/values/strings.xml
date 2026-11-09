@@ -374,6 +374,14 @@
   <string name="cd_end_to_end_encryption">End-to-End Encryption</string>
   <string name="location_bluetooth_subtitle">Bluetooth • %1$s</string>
   <string name="location_bluetooth_wifi_subtitle">Bluetooth • Wifi • %1$s</string>
+  <string name="location_bluetooth_long_range_subtitle">Bluetooth long range • est. %1$s</string>
+  <string name="location_bluetooth_long_range_wifi_subtitle">Bluetooth long range • Wifi • est. %1$s</string>
+  <string name="mesh_long_range_badge">long range</string>
+  <string name="mesh_long_range_all_coded">Connected over long range (Coded PHY)</string>
+  <string name="mesh_long_range_some_coded">Some connections over long range (Coded PHY)</string>
+  <string name="mesh_long_range_waiting">Long range on • waiting for nearby peers</string>
+  <string name="mesh_long_range_standard_links">Connected peers use standard Bluetooth</string>
+  <string name="mesh_long_range_unsupported">Long range not supported by this phone • standard Bluetooth</string>
 
   <string name="image_page_of">Image %1$d of %2$d</string>
   <string name="image_unavailable">Image unavailable</string>
