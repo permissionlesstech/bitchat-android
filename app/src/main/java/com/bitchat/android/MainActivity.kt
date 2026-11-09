@@ -45,6 +45,7 @@ import com.bitchat.android.navigation.AppNavigator
 import com.bitchat.android.navigation.BitchatNavDisplay
 import com.bitchat.android.navigation.ChatRoute
 import com.bitchat.android.navigation.EntryProviderInstaller
+import com.bitchat.android.navigation.GenerationViewModelStoreOwner
 import com.bitchat.android.navigation.MeshPeerListRoute
 import com.bitchat.android.navigation.SheetSceneStrategy
 import com.bitchat.android.navigation.VerificationRoute
@@ -55,6 +56,7 @@ import com.bitchat.android.services.VerificationService
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import javax.inject.Provider
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.serialization.builtins.ListSerializer
@@ -68,6 +70,10 @@ class MainActivity : OrientationAwareActivity() {
     // changes without being rebuilt here.
     @Inject
     lateinit var navigator: AppNavigator
+
+    // The screens' ViewModels, retained with the back stack. A new chat session discards them.
+    @Inject
+    lateinit var screenViewModels: GenerationViewModelStoreOwner
 
     // Bluetooth, location services, battery optimization, permissions and the
     // stored onboarding choices, read in one place.
@@ -267,7 +273,9 @@ class MainActivity : OrientationAwareActivity() {
                     // The chat stack set aside while onboarding covers it, as when
                     // Bluetooth or a permission is turned off mid-session. Saved, so
                     // a process death during onboarding does not lose it either.
+                    // A new session forgets it, since it names the old session's screens.
                     var stackUnderOnboarding by rememberSaveable(
+                        screenViewModels.generation,
                         saver = Saver(
                             save = { encodeToSavedState(stackSerializer, ArrayList(it.value)) },
                             restore = { mutableStateOf(decodeFromSavedState(stackSerializer, it)) }
@@ -311,6 +319,7 @@ class MainActivity : OrientationAwareActivity() {
                         CompositionLocalProvider(LocalOnboardingContentPadding provides innerPadding) {
                             BitchatNavDisplay(
                                 navigator = navigator,
+                                viewModelStores = screenViewModels,
                                 entryInstallers = entryInstallers,
                                 onExit = { finish() },
                                 modifier = Modifier.fillMaxSize(),
@@ -329,7 +338,7 @@ class MainActivity : OrientationAwareActivity() {
                     // Started on the first composition, where the Activity first
                     // reached the chat ViewModel before, and ahead of any
                     // notification intent that selects a channel. Idempotent.
-                    key(identityGeneration) {
+                    key(identityGeneration, screenViewModels.generation) {
                         chatSessionStartup.get().start()
                         val pendingBackAction by chatBackUnwinder.get().pendingBackAction.collectAsState()
                         BackHandler(
@@ -397,11 +406,28 @@ class MainActivity : OrientationAwareActivity() {
             }
         }
         
+        // Posted rather than immediate: a session is often first read during composition or under
+        // the holder's lock, and neither is a place to change the back stack or clear ViewModels.
+        // Not bound to a lifecycle state, because the screens follow at any state short of destroyed.
+        lifecycleScope.launch(Dispatchers.Main) {
+            chatSessionHolder.generation.collect(::followSession)
+        }
+
         // Decides between onboarding and init, only from the initial CHECKING
         // state, so a configuration change does not restart it
         startupGate.start()
     }
     
+    // Closes what was open and discards the screens' ViewModels, so the next ones are built against
+    // the new session. Compared rather than assumed new, since a recreated Activity reads the
+    // generation again, and one that moved while no Activity was collecting is caught here.
+    // Onboarding covering the chat stays up: popTo leaves a stack without chat alone.
+    private fun followSession(generation: Int) {
+        if (generation <= screenViewModels.generation) return
+        navigator.popTo(ChatRoute)
+        while (screenViewModels.generation < generation) screenViewModels.advance()
+    }
+
     // Reattaches the session's mesh delegate. Also while starting up: the INITIALIZING branch
     // attached it once, on entry.
     private fun attachIfThePhaseAllows() {

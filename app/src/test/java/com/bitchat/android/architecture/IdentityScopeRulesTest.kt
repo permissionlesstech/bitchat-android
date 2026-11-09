@@ -74,6 +74,7 @@ class IdentityScopeRulesTest {
         "ChatSessionHolder" to "owns the session component, so it outlives every session",
         "PanicClear" to "ends the session it clears from outside it, and takes each session object through a Provider",
         "AppNavigator" to "the back stack: UI state of the Activity, holding routes and no session object",
+        "GenerationViewModelStoreOwner" to "must outlive a session to discard its ViewModels at the next one; holds them only until then",
         "AppStartupGate" to "startup phase across configuration changes; decides whether a session is reachable at all",
         "BluetoothSkipSession" to "a startup choice for this launch; holds no identity data",
         "CoroutineScope" to "AppStartupGate's own scope, with the gate's lifetime; runs no session work",

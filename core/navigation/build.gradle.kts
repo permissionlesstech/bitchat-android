@@ -14,4 +14,6 @@ dependencies {
     implementation(project(":core:designsystem:phone"))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+
+    testImplementation(libs.bundles.testing)
 }
