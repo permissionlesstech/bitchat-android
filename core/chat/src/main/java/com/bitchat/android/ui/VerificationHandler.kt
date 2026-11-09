@@ -29,7 +29,7 @@ class VerificationHandler(
     private val context: Context,
     private val scope: CoroutineScope,
     private val getMeshService: () -> MeshService,
-    private val identityManager: SecureIdentityStateManager,
+    private val identityManagerProvider: Provider<SecureIdentityStateManager>,
     private val state: ChatState,
     private val notificationManager: NotificationManager,
     private val messageManager: MessageManager,
@@ -40,6 +40,9 @@ class VerificationHandler(
     // Helper to get current mesh service (may change after panic clear)
     private val meshService: MeshService
         get() = getMeshService()
+
+    private val identityManager: SecureIdentityStateManager
+        get() = identityManagerProvider.get()
 
     private val _verifiedFingerprints = MutableStateFlow<Set<String>>(emptySet())
     val verifiedFingerprints: StateFlow<Set<String>> = _verifiedFingerprints.asStateFlow()

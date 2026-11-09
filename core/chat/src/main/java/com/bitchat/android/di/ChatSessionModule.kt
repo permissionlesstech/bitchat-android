@@ -125,12 +125,6 @@ object ChatSessionModule {
 
     @Provides
     @ActivityRetainedScoped
-    fun provideSecureIdentityStateManager(
-        @ApplicationContext context: Context
-    ): SecureIdentityStateManager = SecureIdentityStateManager(context)
-
-    @Provides
-    @ActivityRetainedScoped
     fun provideChannelManager(
         state: ChatState,
         messageManager: MessageManager,
@@ -203,7 +197,7 @@ object ChatSessionModule {
         @ApplicationContext context: Context,
         @ChatSessionScope scope: CoroutineScope,
         mesh: ChatSessionMesh,
-        identityManager: SecureIdentityStateManager,
+        @CurrentSession identityManager: Provider<SecureIdentityStateManager>,
         state: ChatState,
         notificationManager: NotificationManager,
         messageManager: MessageManager,
@@ -214,7 +208,7 @@ object ChatSessionModule {
         context = context,
         scope = scope,
         getMeshService = { mesh.unified },
-        identityManager = identityManager,
+        identityManagerProvider = identityManager,
         state = state,
         notificationManager = notificationManager,
         messageManager = messageManager,

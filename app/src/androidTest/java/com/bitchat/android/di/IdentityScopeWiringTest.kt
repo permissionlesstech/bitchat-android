@@ -15,7 +15,9 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.testhook.ChatSessionTestAccess
 import com.bitchat.android.testhook.ConversationTestAccess
 import com.bitchat.android.testhook.MeshTestAccess
+import com.bitchat.android.ui.ChatSessionHolder
 import com.bitchat.android.ui.ChatSessionMesh
+import com.bitchat.android.ui.entryPoint as sessionEntryPoint
 import java.util.Date
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
@@ -86,6 +88,52 @@ class IdentityScopeWiringTest {
     fun theBridgeAndTheScopeGiveTheSameInstance() {
         rule.awaitChat()
         assertSame(graph().voiceWaveformCache(), identityEntry().voiceWaveformCache())
+    }
+
+    private fun sessionHolder(): ChatSessionHolder {
+        lateinit var holder: ChatSessionHolder
+        rule.runOnUiThread { holder = ChatSessionTestAccess.of(rule.activity).chatSessionHolder() }
+        return holder
+    }
+
+    @Test
+    fun theSessionBridgeAndTheSessionScopeGiveTheSameInstance() {
+        rule.awaitChat()
+        rule.runOnUiThread {
+            val access = ChatSessionTestAccess.of(rule.activity)
+            assertSame(rule.activity.chatSessionHolder, access.chatSessionHolder())
+            val scoped = access.chatSessionHolder().sessionEntryPoint<ChatSessionEntryPoint>().secureIdentityStateManager()
+            assertSame(scoped, access.secureIdentityStateManager())
+            assertSame(scoped, access.secureIdentityStateManager())
+        }
+    }
+
+    @Test
+    fun aConfigurationChangeKeepsTheSession() {
+        rule.awaitChat()
+        val holder = sessionHolder()
+        val session = holder.current
+
+        rule.activityRule.scenario.recreate()
+        rule.awaitChat()
+
+        assertSame(holder, sessionHolder())
+        assertSame(session, holder.current)
+    }
+
+    @Test
+    fun leavingTheAppEndsTheSession() {
+        rule.awaitChat()
+        val holder = sessionHolder()
+        val session = holder.current
+
+        rule.activityRule.scenario.close()
+
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        instrumentation.runOnMainSync {
+            assertFalse("a cleared session holder must refuse to build another", holder.replace())
+            assertSame(session, holder.current)
+        }
     }
 
     @Test

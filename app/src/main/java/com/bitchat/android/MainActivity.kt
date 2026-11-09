@@ -135,6 +135,11 @@ class MainActivity : OrientationAwareActivity() {
     @Inject
     lateinit var chatSessionStartup: ChatSessionStartup
 
+    // Injected here so it is built on the main thread, which is the only place the retained
+    // lifecycle takes a listener. Its first read could otherwise come from a mesh callback.
+    @Inject
+    lateinit var chatSessionHolder: com.bitchat.android.ui.ChatSessionHolder
+
     @Inject
     lateinit var chatBackUnwinder: ChatBackUnwinder
 

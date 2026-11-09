@@ -1,6 +1,9 @@
 package com.bitchat.android.testhook
 
 import android.app.Activity
+import com.bitchat.android.di.CurrentSession
+import com.bitchat.android.identity.SecureIdentityStateManager
+import com.bitchat.android.ui.ChatSessionHolder
 import com.bitchat.android.ui.ChatSessionMesh
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.MessageSender
@@ -27,6 +30,10 @@ interface ChatSessionTestAccess {
     fun panicClear(): PanicClear
     fun privateChatSession(): PrivateChatSession
     fun sessionMesh(): ChatSessionMesh
+    fun chatSessionHolder(): ChatSessionHolder
+
+    @CurrentSession
+    fun secureIdentityStateManager(): SecureIdentityStateManager
 
     companion object {
         fun of(activity: Activity): ChatSessionTestAccess =

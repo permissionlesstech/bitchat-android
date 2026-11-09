@@ -14,6 +14,12 @@ import org.junit.Test
  * identity's object past a wipe. Read as source text from the module sources, comments and string
  * literals dropped. The tables below are the allowlists.
  *
+ * A session type is the same one level down: a class annotated `@ChatSessionScoped`, or one a
+ * `@ChatSessionScoped` or `@CurrentSession` `@Provides` hands out. Outside its scope it always
+ * carries `@CurrentSession`, and is taken as `Provider<T>` unless the consumer is a ViewModel, which
+ * a panic discards. An `@IdentityScoped` class outlives a session too, but needs no rule here: a
+ * parent component cannot see its child's bindings, so Dagger refuses it.
+ *
  * The construction rule scans only `init` blocks and property initialisers, so `init { setup() }`
  * and a method that stores `provider.get()` in a field are not caught. The Dagger qualifier is the
  * primary enforcement; this scan is a backstop.
@@ -70,7 +76,7 @@ class IdentityScopeRulesTest {
         "MeshPeerListViewModel", "MessageManager", "MessageSender", "Navigator",
         "NotificationManager", "OnboardingHost", "OnboardingViewModel", "PanicClear",
         "PeerListLookups", "PrivateChatManager", "PrivateChatSession", "PrivateChatViewModel",
-        "SecureIdentityStateManager", "SecurityVerificationViewModel", "VerificationHandler", "VerificationViewModel",
+        "SecurityVerificationViewModel", "VerificationHandler", "VerificationViewModel",
     )
 
     /**
@@ -142,6 +148,14 @@ class IdentityScopeRulesTest {
     }
 
     @Test
+    fun outsideItsScopeASessionTypeIsTakenThroughCurrentSession() {
+        val model = realModel()
+        assertTrue("No session type found; the scan is broken", model.sessionTypes().isNotEmpty())
+        val offenders = sessionViolations(model)
+        assertTrue(offenders.joinToString("\n"), offenders.isEmpty())
+    }
+
+    @Test
     fun anIdentityClassThatOwnsAScopeOrReceiverRegistersItsTeardown() {
         val offenders = teardownViolations(realModel(), teardownExempt)
         assertTrue(offenders.joinToString("\n"), offenders.isEmpty())
@@ -160,6 +174,55 @@ class IdentityScopeRulesTest {
         @IdentityScoped
         class Cache @Inject constructor()
     """.trimIndent()
+
+    @Test
+    fun theSessionRuleWantsTheQualifierAndAProviderOutsideAViewModel() {
+        val model = modelOf(
+            "@ChatSessionScoped class Cache @Inject constructor()",
+            "@Module @InstallIn(ChatSessionComponent::class) object Made { @Provides @ChatSessionScoped fun m(c: Context): Provided = Provided(c) }",
+            "@Module @InstallIn(ActivityRetainedComponent::class) object Bridge { @Provides @CurrentSession fun b(h: H): Bridged = h.x() }",
+            "@HiltViewModel class VmDirect @Inject constructor(@CurrentSession private val c: Cache) : ViewModel()",
+            "@HiltViewModel class VmProvider @Inject constructor(@CurrentSession private val c: Provider<Cache>) : ViewModel()",
+            "@HiltViewModel class VmUnqualified @Inject constructor(private val c: Cache) : ViewModel()",
+            "@ActivityRetainedScoped class RetainedGood @Inject constructor(@CurrentSession private val c: Provider<Bridged>)",
+            "@ActivityRetainedScoped class RetainedDirect @Inject constructor(@CurrentSession private val c: Provided)",
+            "@ActivityRetainedScoped class RetainedPlain @Inject constructor(private val c: Provider<Cache>)",
+            "@ActivityRetainedScoped class RetainedLazy @Inject constructor(@CurrentSession private val c: Lazy<Cache>)",
+            "@Singleton class ProcessDirect @Inject constructor(@CurrentSession private val c: Cache)",
+            "@Singleton class ProcessGood @Inject constructor(@CurrentSession private val c: Provider<Cache>)",
+            "class ActivityDirect { @Inject @CurrentSession lateinit var c: Cache }",
+            "class ActivityGood { @Inject @CurrentSession lateinit var c: Provider<Cache> }",
+            "@Module @InstallIn(ActivityRetainedComponent::class) object TakesDirect { @Provides fun t(@CurrentSession c: Cache): Other = Other(c) }",
+            "@Module @InstallIn(ActivityRetainedComponent::class) object TakesGood { @Provides fun t(@CurrentSession c: Provider<Cache>): Fine = Fine(c) }",
+            "@Module @InstallIn(ActivityRetainedComponent::class) object Leak { @Provides fun l(h: H): Cache = h.x() }",
+            "@EntryPoint @InstallIn(ActivityComponent::class) interface HookPlain { fun c(): Cache }",
+            "@EntryPoint @InstallIn(ActivityComponent::class) interface HookGood { @CurrentSession fun c(): Cache }",
+            "@ChatSessionScoped class Sibling @Inject constructor(private val c: Cache, private val b: Bridged)",
+            "@Module @InstallIn(ChatSessionComponent::class) object Inside { @Provides fun i(c: Cache): Within = Within(c) }",
+            "@EntryPoint @InstallIn(ChatSessionComponent::class) interface InsideHook { fun c(): Cache }",
+            "class NotInjected(private val c: Cache)",
+        )
+        assertEquals(setOf("Cache", "Provided", "Bridged", "Sibling"), model.sessionTypes())
+        val found = sessionViolations(model)
+        listOf(
+            "VmUnqualified", "RetainedDirect", "RetainedPlain", "RetainedLazy", "ProcessDirect", "ActivityDirect",
+            "TakesDirect", "Leak", "HookPlain",
+        ).forEach { name -> assertTrue("$name not reported in $found", found.any { it.contains("'$name'") }) }
+        listOf(
+            "VmDirect", "VmProvider", "RetainedGood", "ProcessGood", "ActivityGood", "TakesGood", "Bridge", "Made",
+            "HookGood", "Sibling", "Inside", "InsideHook", "NotInjected",
+        ).forEach { name -> assertTrue("$name wrongly reported in $found", found.none { it.contains("'$name'") }) }
+    }
+
+    @Test
+    fun aSessionBridgeWithoutAnExplicitReturnTypeFails() {
+        val model = modelOf(
+            "@Module @InstallIn(ActivityRetainedComponent::class) object NoType { @Provides @CurrentSession fun c(h: H) = h.x() }",
+        )
+        val found = sessionViolations(model)
+        assertEquals(found.toString(), 1, found.size)
+        assertTrue(found.single().contains("explicit return type") && found.single().contains("'c'"))
+    }
 
     @Test
     fun theSingletonRuleSeesAnUnclassifiedClassAndAProvidedSingleton() {
@@ -447,6 +510,12 @@ class IdentityScopeRulesTest {
     private fun directViolations(model: Model, chatAllowed: Set<String>, insideScope: Set<String> = emptySet()): List<String> =
         model.sites().filter { it.owner !in insideScope }.flatMap { site -> site.problem(model.identityTypes(), chatAllowed, directAllowedKinds = true) }
 
+    private fun sessionViolations(model: Model): List<String> =
+        model.sessionBridges().filter { it.returnName.isEmpty() }.map {
+            "'${it.name}' (${it.file}) is a @CurrentSession bridge without an explicit return type; " +
+                "the bridge needs an explicit return type so the scan knows which type it hands out."
+        } + model.sites().flatMap { site -> site.sessionProblem(model.sessionTypes()) }
+
     private fun teardownViolations(model: Model, exempt: Map<String, String>): List<String> {
         val owns = Regex("""\bCoroutineScope\(|\bTimer\(|\bExecutors\.|\bregisterReceiver\(|\baddRevocationListener\b|\bHandlerThread\(""")
         val ends = Regex("""\bIdentityTeardown\b|@(?:\w+:)?IdentityCoroutineScope\b""")
@@ -524,7 +593,32 @@ class IdentityScopeRulesTest {
         val label: String,
         val annotations: String,
         val type: String,
+        val ownerViewModel: Boolean = false,
     ) {
+        /** What a session type's consumer got wrong, if anything. */
+        fun sessionProblem(session: Set<String>): List<String> {
+            val t = type.trim().replace(Regex("""\b[a-z]\w*\."""), "")
+            val qualified = Regex("""@(?:\w+:)?(?:[a-z]\w*\.)*CurrentSession\b""").containsMatchIn(annotations)
+            val provided = providerOf(t)?.takeIf { it in session }
+            val direct = t.removeSuffix("?").trim().takeIf { it in session }
+            val mentioned = session.firstOrNull { Regex("""\b$it\b""").containsMatchIn(t) }
+            val where = "'$label' ($file), $what"
+            return when {
+                provided != null ->
+                    if (qualified) emptyList() else listOf("$where takes Provider<$provided> without @CurrentSession. Add the qualifier.")
+                direct != null && !qualified ->
+                    listOf("$where takes $direct outside the session scope without @CurrentSession. Take @CurrentSession Provider<$direct>.")
+                direct != null ->
+                    if (ownerViewModel || kind == Kind.ENTRY_POINT || kind == Kind.PROVIDES_RETURN) emptyList() else listOf(
+                        "$where takes @CurrentSession $direct directly. Only a ViewModel may; take @CurrentSession Provider<$direct> and call get() when used."
+                    )
+                mentioned != null -> listOf(
+                    "$where takes `$t`, which wraps $mentioned outside the session scope. Take @CurrentSession Provider<$mentioned> and call get() when used."
+                )
+                else -> emptyList()
+            }
+        }
+
         /** [directAllowedKinds] picks the rule: false is the Provider rule, true the direct rule. */
         fun problem(identity: Set<String>, chatAllowed: Set<String>, directAllowedKinds: Boolean): List<String> {
             val t = type.trim().replace(Regex("""\b[a-z]\w*\."""), "")
@@ -622,6 +716,17 @@ class IdentityScopeRulesTest {
 
         fun bridges(): List<FunDecl> = functions.filter { it.has("CurrentIdentity") && (it.has("Provides") || it.has("Binds")) }
 
+        fun sessionBridges(): List<FunDecl> = functions.filter { it.has("CurrentSession") && (it.has("Provides") || it.has("Binds")) }
+
+        /** `@ChatSessionScoped` classes plus the types `@ChatSessionScoped` and `@CurrentSession` bindings hand out. */
+        fun sessionTypes(): Set<String> = sessionCache
+
+        private val sessionCache: Set<String> by lazy {
+            classes.filter { it.has("ChatSessionScoped") && it.kind == "class" && !it.has("DefineComponent") }.map { it.name }.toSet() +
+                (sessionBridges() + functions.filter { it.has("ChatSessionScoped") && (it.has("Provides") || it.has("Binds")) })
+                    .map { it.returnName }.filter { it.isNotEmpty() }
+        }
+
         fun chatSessionNames(): Set<String> =
             classes.filter { it.has("ActivityRetainedScoped") || it.has("HiltViewModel") }.map { it.name }.toSet() +
                 functions.filter { isChatSessionFunction(it) }.map { it.returnName }
@@ -634,7 +739,8 @@ class IdentityScopeRulesTest {
 
         private fun exempt(file: String, index: Int): Boolean =
             enclosing(file, index).any {
-                it.has("IdentityScoped") || Regex("""@InstallIn\(\s*IdentityComponent::class""").containsMatchIn(it.annotations)
+                it.has("IdentityScoped") || it.has("ChatSessionScoped") ||
+                    Regex("""@InstallIn\(\s*(?:IdentityComponent|ChatSessionComponent)::class""").containsMatchIn(it.annotations)
             }
 
         /** Parameter lists of the `@Inject constructor(...)` members declared directly in [decl]'s body. */
@@ -653,7 +759,7 @@ class IdentityScopeRulesTest {
             val out = mutableListOf<Site>()
             // Constructors of classes the graph builds.
             classes.filter { it.kind == "class" }.forEach { decl ->
-                if (exempt(decl.file, decl.start) || decl.has("IdentityScoped")) return@forEach
+                if (exempt(decl.file, decl.start) || decl.has("IdentityScoped") || decl.has("ChatSessionScoped")) return@forEach
                 val primaryDi = decl.ctor != null &&
                     (Regex("""@(?:[a-z]\w*\.)*(?:Assisted)?Inject\b""").containsMatchIn(decl.ctorPrefix) || decl.has("HiltViewModel"))
                 // An `@Inject` secondary constructor is the one the graph calls; the primary is then plain Kotlin.
@@ -661,7 +767,7 @@ class IdentityScopeRulesTest {
                 val chat = decl.has("ActivityRetainedScoped") || decl.has("HiltViewModel")
                 injected.forEach { ctor ->
                     params(ctor).forEach {
-                        out += Site(decl.file, decl.name, chat, Kind.CONSTRUCTOR, "constructor parameter `${it.name}`", decl.name, it.annotations, it.type)
+                        out += Site(decl.file, decl.name, chat, Kind.CONSTRUCTOR, "constructor parameter `${it.name}`", decl.name, it.annotations, it.type, decl.has("HiltViewModel"))
                     }
                 }
             }
@@ -673,7 +779,7 @@ class IdentityScopeRulesTest {
                     val chat = ownerDecl?.let { it.has("ActivityRetainedScoped") || it.has("HiltViewModel") } == true
                     out += Site(
                         src.path, ownerDecl?.name ?: "<top level>", chat, Kind.FIELD, "@Inject field `${m.groupValues[2]}`",
-                        ownerDecl?.name ?: "<top level>", m.groupValues[1], m.groupValues[3].trim(),
+                        ownerDecl?.name ?: "<top level>", m.groupValues[1], m.groupValues[3].trim(), ownerDecl?.has("HiltViewModel") == true,
                     )
                 }
             }
@@ -688,8 +794,11 @@ class IdentityScopeRulesTest {
                     val chat = isChatSessionFunction(fn)
                     val owner = fn.returnName.ifEmpty { fn.name }
                     val module = enclosing.firstOrNull()?.name ?: "<top level>"
+                    val forViewModel = enclosing.firstOrNull()?.let {
+                        Regex("""@InstallIn\(\s*ViewModelComponent::class""").containsMatchIn(it.annotations)
+                    } == true
                     params(fn.params).forEach {
-                        out += Site(fn.file, owner, chat, Kind.PROVIDES_PARAM, "@Provides parameter `${it.name}` of `${fn.name}`", module, it.annotations, it.type)
+                        out += Site(fn.file, owner, chat, Kind.PROVIDES_PARAM, "@Provides parameter `${it.name}` of `${fn.name}`", module, it.annotations, it.type, forViewModel)
                     }
                     out += Site(fn.file, owner, chat, Kind.PROVIDES_RETURN, "@Provides function `${fn.name}` result", module, fn.annotations, fn.returnType)
                 }

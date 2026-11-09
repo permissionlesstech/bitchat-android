@@ -5,6 +5,7 @@ import com.bitchat.android.services.AppStateStore
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.di.ChatSessionScope
+import com.bitchat.android.di.CurrentSession
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.identity.scope.CurrentIdentity
@@ -56,7 +57,7 @@ class ChatSessionStartup @Inject constructor(
     private val messageManager: MessageManager,
     private val channelManager: ChannelManager,
     private val privateChatManager: PrivateChatManager,
-    private val identityManager: SecureIdentityStateManager,
+    @CurrentSession private val identityManagerProvider: Provider<SecureIdentityStateManager>,
     private val verificationHandler: VerificationHandler,
     private val mediaSendingManager: MediaSendingManager,
     private val geohashSession: GeohashSession,
@@ -274,6 +275,7 @@ class ChatSessionStartup @Inject constructor(
             }
         }
         // Update fingerprint mappings from centralized manager
+        val identityManager = identityManagerProvider.get()
         val cacheGeneration = identityManager.cacheGeneration()
         val fingerprints = privateChatManager.getAllPeerFingerprints()
         state.setPeerFingerprints(fingerprints)
