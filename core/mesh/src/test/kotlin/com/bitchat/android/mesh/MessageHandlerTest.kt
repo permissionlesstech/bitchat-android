@@ -1,5 +1,6 @@
 package com.bitchat.android.mesh
 
+import com.bitchat.android.identity.scope.IdentityTeardown
 import com.bitchat.android.services.TestMeshStores
 import dagger.Lazy
 import com.bitchat.android.features.voice.LiveVoiceManager
@@ -62,7 +63,7 @@ class MessageHandlerTest {
         handler = MessageHandler(
             myPeerID,
             app,
-            Lazy(lazy { LiveVoiceManager(app, stores.appStateStore, Dispatchers.IO) }::value),
+            Lazy(lazy { LiveVoiceManager(app, stores.appStateStore, Dispatchers.IO, IdentityTeardown()) }::value),
             MeshGraphService(),
             Lazy { stores.favorites },
             stores.contactDirectory,

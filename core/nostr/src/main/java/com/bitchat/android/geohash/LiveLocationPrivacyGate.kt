@@ -110,6 +110,10 @@ class LiveLocationPrivacyGate @Inject internal constructor() {
     fun runIfAllowed(token: Long, action: () -> Unit): Boolean =
         policy.runIfAllowed(token, action)
 
+    /** How many listeners are registered. Tests use it to see that an ended identity removed its own. */
+    @get:androidx.annotation.VisibleForTesting
+    val revocationListenerCount: Int get() = revocationListeners.size
+
     fun addRevocationListener(listener: () -> Unit) {
         revocationListeners.add(listener)
     }

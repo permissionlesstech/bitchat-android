@@ -1,5 +1,6 @@
 package com.bitchat.android.services
 
+import com.bitchat.android.identity.scope.IdentityTeardown
 import android.content.Context
 import android.os.Build
 import com.bitchat.android.favorites.FavoritesPersistenceService
@@ -60,7 +61,10 @@ class MessageRouterHolderTest {
         built.forEach { it.stopOutboxScheduler() }
     }
 
-    private fun holder(disableScheduler: Boolean = true) = MessageRouterHolder(
+    private fun holder(
+        disableScheduler: Boolean = true,
+        teardown: IdentityTeardown = IdentityTeardown(),
+    ) = MessageRouterHolder(
         object : MessageRouter.Factory {
             override fun create(): MessageRouter {
                 builds.incrementAndGet()
@@ -76,6 +80,7 @@ class MessageRouterHolderTest {
                 ).also(built::add)
             }
         },
+        teardown,
     )
 
     private fun meshWithPeerId(peerID: String): MeshService = mock<MeshService>().also {
@@ -211,5 +216,31 @@ class MessageRouterHolderTest {
         assertNull(seenWhileRegistering)
         assertTrue(usableWhileRegistering)
         assertSame(router, holder.peek())
+    }
+
+    @Test
+    fun `router holder teardown cancels the scheduler and removes the favourites listener`() {
+        val teardown = IdentityTeardown()
+        val holder = holder(disableScheduler = false, teardown = teardown)
+        val router = holder.getOrAttach(meshWithPeerId("1111222233334444"))
+        assertTrue(router.isSchedulerRunning)
+
+        assertEquals(emptyList<String>(), teardown.runAll())
+
+        assertFalse(router.isSchedulerRunning)
+        verify(favorites, times(1)).removeListener(any())
+        // A straggler attach to the ended identity cannot bring the scheduler back.
+        holder.getOrAttach(meshWithPeerId("5555666677778888"))
+        assertFalse(router.isSchedulerRunning)
+    }
+
+    @Test
+    fun `router holder teardown with no router built does nothing`() {
+        val teardown = IdentityTeardown()
+        holder(teardown = teardown)
+
+        assertEquals(emptyList<String>(), teardown.runAll())
+
+        verify(favorites, never()).removeListener(any())
     }
 }

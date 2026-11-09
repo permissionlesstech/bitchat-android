@@ -1,5 +1,6 @@
 package com.bitchat.android.mesh
 
+import com.bitchat.android.identity.scope.IdentityTeardown
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
@@ -41,7 +42,7 @@ class FragmentingPacketSenderTest {
     @Test
     fun `oversized packet exceeding receiver fragment cap is rejected with fail event`() = runBlocking {
         val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-        val progress = TransferProgressManager(Dispatchers.IO)
+        val progress = TransferProgressManager(Dispatchers.IO, IdentityTeardown())
         val sender = FragmentingPacketSender(scope, FragmentManager(), "test", progress)
         // ~256 * 469 bytes fit; 1 MiB clearly exceeds MAX_FRAGMENTS_PER_ID
         val packet = packetWithPayload(1024 * 1024)
@@ -70,7 +71,7 @@ class FragmentingPacketSenderTest {
     @Test
     fun `packet within fragment cap is accepted`() = runBlocking {
         val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-        val sender = FragmentingPacketSender(scope, FragmentManager(), "test", TransferProgressManager(Dispatchers.IO), interFragmentDelayMs = 0L)
+        val sender = FragmentingPacketSender(scope, FragmentManager(), "test", TransferProgressManager(Dispatchers.IO, IdentityTeardown()), interFragmentDelayMs = 0L)
         val packet = packetWithPayload(10_000)
         var writes = 0
 

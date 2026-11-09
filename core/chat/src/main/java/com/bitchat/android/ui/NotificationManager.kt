@@ -127,6 +127,16 @@ class NotificationManager(
         createNotificationChannel()
     }
 
+    /**
+     * Leaves the process-wide registry [acknowledgeConversation] reaches, so a manager whose chat
+     * session ended no longer answers for notifications its replacement now owns.
+     */
+    fun close() {
+        synchronized(liveManagers) { liveManagers.remove(this) }
+        pendingNotifications.clear()
+        pendingGeohashNotifications.clear()
+    }
+
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // DM notifications channel

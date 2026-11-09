@@ -3,9 +3,11 @@ package com.bitchat.android.mesh
 import com.bitchat.android.di.IoDispatcher
 import javax.inject.Inject
 import com.bitchat.android.identity.scope.IdentityScoped
+import com.bitchat.android.identity.scope.IdentityTeardown
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
@@ -21,10 +23,15 @@ data class TransferProgressEvent(
 @IdentityScoped
 class TransferProgressManager @Inject constructor(
     @IoDispatcher ioDispatcher: CoroutineDispatcher,
+    teardown: IdentityTeardown,
 ) {
     private val scope = CoroutineScope(ioDispatcher + SupervisorJob())
     private val _events = MutableSharedFlow<TransferProgressEvent>(replay = 0, extraBufferCapacity = 32)
     val events: SharedFlow<TransferProgressEvent> = _events
+
+    init {
+        teardown.register("TransferProgressManager") { scope.cancel() }
+    }
 
     fun start(id: String, total: Int) { emit(id, 0, total, false) }
     fun progress(id: String, sent: Int, total: Int) { emit(id, sent, total, sent >= total) }

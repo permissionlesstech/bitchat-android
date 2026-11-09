@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.util.UUID
 import javax.inject.Inject
 import com.bitchat.android.identity.scope.IdentityScoped
+import com.bitchat.android.identity.scope.IdentityTeardown
 
 /**
  * Manages location notes (kind=1 text notes with geohash tags)
@@ -23,6 +24,7 @@ class LocationNotesManager @Inject constructor(
     @get:VisibleForTesting val liveLocationGate: LiveLocationPrivacyGate,
     private val relayDirectory: RelayDirectory,
     @MainDispatcher mainDispatcher: CoroutineDispatcher,
+    teardown: IdentityTeardown,
 ) {
 
     companion object {
@@ -100,8 +102,11 @@ class LocationNotesManager @Inject constructor(
     private var subscribeRetryJob: Job? = null
     private var initialLoadJob: Job? = null
 
+    private val revocationListener: () -> Unit = ::stop
+
     init {
-        liveLocationGate.addRevocationListener(::stop)
+        liveLocationGate.addRevocationListener(revocationListener)
+        teardown.register("LocationNotesManager", ::cleanup)
     }
     
     /**
@@ -551,6 +556,7 @@ class LocationNotesManager @Inject constructor(
      * Cleanup resources
      */
     fun cleanup() {
+        liveLocationGate.removeRevocationListener(revocationListener)
         stop()
         scope.cancel()
     }

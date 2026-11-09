@@ -1,5 +1,6 @@
 package com.bitchat.android.service
 
+import com.bitchat.android.identity.scope.IdentityTeardown
 import com.bitchat.android.ui.debug.DebugPreferenceManager
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.mesh.UnifiedMeshService
@@ -18,7 +19,7 @@ import org.mockito.kotlin.mock
  * A fresh [MeshServiceHolder] per test, so no test sees another's mesh. It builds no mesh service:
  * a test that needs one attaches a mock with [MeshServiceHolder.attach].
  */
-fun testMeshServiceHolder(): MeshServiceHolder = MeshServiceHolder(
+fun testMeshServiceHolder(teardown: IdentityTeardown = IdentityTeardown()): MeshServiceHolder = MeshServiceHolder(
     newBluetooth = object : BluetoothMeshService.Factory {
         override fun create(): BluetoothMeshService = error("tests attach their mesh instead")
     },
@@ -27,6 +28,7 @@ fun testMeshServiceHolder(): MeshServiceHolder = MeshServiceHolder(
             error("tests attach their mesh instead")
     },
     transportBridgeService = TransportBridgeService(),
+    teardown = teardown,
 )
 
 /** A fresh [WifiAwareController] per test that never builds a Wi-Fi Aware mesh. */
@@ -40,4 +42,5 @@ fun testWifiAwareController(
     debugSettingsManager = Lazy(lazy { DebugSettingsManager(DebugPreferenceManager()) }::value),
     appStateStore = appStateStore,
     ioDispatcher = ioDispatcher,
+    teardown = IdentityTeardown(),
 )

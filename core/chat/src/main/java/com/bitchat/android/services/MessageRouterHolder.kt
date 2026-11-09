@@ -1,6 +1,7 @@
 package com.bitchat.android.services
 
 import com.bitchat.android.identity.scope.IdentityScoped
+import com.bitchat.android.identity.scope.IdentityTeardown
 import com.bitchat.android.mesh.MeshService
 import javax.inject.Inject
 
@@ -12,9 +13,14 @@ import javax.inject.Inject
 @IdentityScoped
 class MessageRouterHolder @Inject constructor(
     private val newRouter: MessageRouter.Factory,
+    teardown: IdentityTeardown,
 ) {
     @Volatile
     private var router: MessageRouter? = null
+
+    init {
+        teardown.register("MessageRouterHolder") { router?.close() }
+    }
 
     /** The router if one exists. Never builds one and never touches a mesh. */
     fun peek(): MessageRouter? = router

@@ -89,6 +89,15 @@ class IdentityScopeRulesTest {
         "WearTestHookDriver" to "process: debug-only test hook",
     )
 
+    /**
+     * `@IdentityScoped` or `@ChatSessionScoped` classes that make their own scope, timer, executor,
+     * receiver or gate listener yet take neither `IdentityTeardown` nor the identity scope, with the
+     * reason a cleanup is not needed.
+     */
+    private val teardownExempt: Map<String, String> = mapOf(
+        "WearMeshService" to "the watch's identity never ends: its holder never calls replace(), so nothing runs a cleanup",
+    )
+
     // ---- Tests against the real sources -----------------------------------------------------
 
     @Test
@@ -129,6 +138,12 @@ class IdentityScopeRulesTest {
     @Test
     fun onlyTheChatSessionAndViewModelsMayTakeAnIdentityTypeDirectly() {
         val offenders = directViolations(realModel(), pendingChatSession, builtInsideTheScope.keys)
+        assertTrue(offenders.joinToString("\n"), offenders.isEmpty())
+    }
+
+    @Test
+    fun anIdentityClassThatOwnsAScopeOrReceiverRegistersItsTeardown() {
+        val offenders = teardownViolations(realModel(), teardownExempt)
         assertTrue(offenders.joinToString("\n"), offenders.isEmpty())
     }
 
@@ -319,6 +334,38 @@ class IdentityScopeRulesTest {
     }
 
     @Test
+    fun `scan flags an identity class creating its own scope with no teardown`() {
+        val model = modelOf(
+            "@IdentityScoped class Scope @Inject constructor() {\n private val scope = CoroutineScope(Dispatchers.IO)\n}",
+            "@ChatSessionScoped class Session @Inject constructor() {\n private val t = Timer()\n}",
+            "@IdentityScoped class Receiver @Inject constructor(private val c: Context) {\n fun go() { c.registerReceiver(r, f) }\n}",
+            "@IdentityScoped class Listener @Inject constructor(private val g: Gate) {\n init { g.addRevocationListener(::x) }\n}",
+            "@IdentityScoped class Pool @Inject constructor() {\n private val e = Executors.newSingleThreadExecutor()\n}",
+            "@IdentityScoped class Thread @Inject constructor() {\n private val h = HandlerThread(\"x\")\n}",
+            "@IdentityScoped class Clean @Inject constructor() {\n fun go() = 1\n}",
+            "class NotScoped @Inject constructor() {\n private val scope = CoroutineScope(Dispatchers.IO)\n}",
+        )
+        val offenders = teardownViolations(model, emptyMap())
+        assertEquals(
+            listOf("Listener", "Pool", "Receiver", "Scope", "Session", "Thread"),
+            offenders.map { Regex("""^'(\w+)'""").find(it)!!.groupValues[1] }.sorted(),
+        )
+        assertEquals(listOf("Scope"), teardownViolations(model, mapOf("Session" to "r", "Listener" to "r", "Pool" to "r", "Receiver" to "r", "Thread" to "r")).map { Regex("""^'(\w+)'""").find(it)!!.groupValues[1] })
+    }
+
+    @Test
+    fun `scan accepts one taking IdentityTeardown or the identity scope`() {
+        val model = modelOf(
+            "@IdentityScoped class A @Inject constructor(teardown: IdentityTeardown) {\n private val s = CoroutineScope(Dispatchers.IO)\n}",
+            "@IdentityScoped class B @Inject constructor(@IdentityCoroutineScope private val s: CoroutineScope) {\n fun go() { s.launch { } }\n}",
+            "@ChatSessionScoped class C @Inject constructor(@IdentityCoroutineScope s: CoroutineScope, c: Context) {\n fun go() { c.registerReceiver(r, f) }\n}",
+            "@IdentityScoped class D(private val n: Int) {\n @Inject constructor(teardown: IdentityTeardown) : this(1)\n private val s = CoroutineScope(Dispatchers.IO)\n}",
+            "@IdentityScoped class E @Inject constructor(\n private val a: Int,\n teardown: IdentityTeardown,\n) {\n init { Timer() }\n}",
+        )
+        assertEquals(emptyList<String>(), teardownViolations(model, emptyMap()))
+    }
+
+    @Test
     fun theScanDropsCommentsAndStrings() {
         val code = mask("val a = \"// not a comment\" // real\n/* x\n y */ val b = '{' \"\"\"raw \" {\"\"\"")
         assertEquals(2, code.count { it == '\n' })
@@ -399,6 +446,24 @@ class IdentityScopeRulesTest {
 
     private fun directViolations(model: Model, chatAllowed: Set<String>, insideScope: Set<String> = emptySet()): List<String> =
         model.sites().filter { it.owner !in insideScope }.flatMap { site -> site.problem(model.identityTypes(), chatAllowed, directAllowedKinds = true) }
+
+    private fun teardownViolations(model: Model, exempt: Map<String, String>): List<String> {
+        val owns = Regex("""\bCoroutineScope\(|\bTimer\(|\bExecutors\.|\bregisterReceiver\(|\baddRevocationListener\b|\bHandlerThread\(""")
+        val ends = Regex("""\bIdentityTeardown\b|@(?:\w+:)?IdentityCoroutineScope\b""")
+        return model.classes.filter { decl ->
+            decl.kind == "class" && (decl.has("IdentityScoped") || decl.has("ChatSessionScoped")) && !decl.has("DefineComponent")
+        }.mapNotNull { decl ->
+            val body = decl.bodyText(model) ?: return@mapNotNull null
+            val found = owns.find(body)?.value ?: return@mapNotNull null
+            val constructors = (listOfNotNull(decl.ctor) + model.secondaryInjectConstructors(decl)).joinToString(" ")
+            if (ends.containsMatchIn(constructors) || decl.name in exempt) return@mapNotNull null
+            "'${decl.name}' (${decl.file}) creates or registers `$found` but takes neither IdentityTeardown nor " +
+                "@IdentityCoroutineScope. Register a cleanup with IdentityTeardown, or add the class to " +
+                "TEARDOWN_EXEMPT with the reason none is needed."
+        } + exempt.keys.filter { name -> model.classes.none { it.name == name } }.map {
+            "'$it' is in TEARDOWN_EXEMPT but no such class exists; remove the entry."
+        } + exempt.filterValues { it.isBlank() }.keys.map { "'$it' is in TEARDOWN_EXEMPT without a reason." }
+    }
 
     private fun constructionViolations(model: Model): List<String> {
         val identity = model.identityTypes()

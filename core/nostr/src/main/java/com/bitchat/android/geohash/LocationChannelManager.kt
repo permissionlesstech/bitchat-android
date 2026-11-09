@@ -17,6 +17,7 @@ import com.bitchat.android.nostr.NostrIdentityBridge
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import com.bitchat.android.identity.scope.IdentityScoped
+import com.bitchat.android.identity.scope.IdentityTeardown
 import kotlinx.coroutines.*
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
@@ -37,6 +38,7 @@ class LocationChannelManager @Inject constructor(
     httpClients: NostrHttpClients,
     @MainImmediateDispatcher mainImmediateDispatcher: CoroutineDispatcher,
     private val nostrIdentity: NostrIdentityBridge,
+    teardown: IdentityTeardown,
 ) {
     
     companion object {
@@ -123,6 +125,8 @@ class LocationChannelManager @Inject constructor(
     )
 
 
+    private val revocationListener: () -> Unit = ::cancelLiveLocationWork
+
     init {
         // Choose the best location provider
         val availability = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context)
@@ -133,7 +137,7 @@ class LocationChannelManager @Inject constructor(
             Log.i(TAG, "Using SystemLocationProvider (Native LocationManager)")
             SystemLocationProvider(context, liveLocationGate)
         }
-        liveLocationGate.addRevocationListener(::cancelLiveLocationWork)
+        liveLocationGate.addRevocationListener(revocationListener)
 
         // Initialize DataManager and load persisted settings
         dataManager = com.bitchat.android.ui.DataManager(context)
@@ -144,6 +148,7 @@ class LocationChannelManager @Inject constructor(
 
         // Register for system location changes
         context.registerReceiver(locationStateReceiver, IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION))
+        teardown.register("LocationChannelManager", ::cleanup)
     }
 
     // MARK: - Public API (matching iOS interface)
@@ -686,8 +691,10 @@ class LocationChannelManager @Inject constructor(
      * Cleanup resources
      */
     fun cleanup() {
+        liveLocationGate.removeRevocationListener(revocationListener)
         endLiveRefresh()
         locationProvider.cancel()
+        scope.cancel()
         
         geocodingJob?.cancel()
         geocodingJob = null

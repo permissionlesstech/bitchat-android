@@ -11,12 +11,16 @@ import com.bitchat.android.navigation.OnboardedApp
 import com.bitchat.android.navigation.awaitChat
 import com.bitchat.android.service.MeshForegroundService
 import com.bitchat.android.service.MeshServiceHolder
+import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.testhook.ChatSessionTestAccess
+import com.bitchat.android.testhook.ConversationTestAccess
 import com.bitchat.android.testhook.MeshTestAccess
 import com.bitchat.android.ui.ChatSessionMesh
+import java.util.Date
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -164,5 +168,33 @@ class IdentityScopeWiringTest {
         assertNotSame(oldMesh.appStateStore(), newMesh.appStateStore())
         assertNotSame(oldMesh.seenMessageStore(), newMesh.seenMessageStore())
         assertNotSame(oldMesh.spamFilter(), newMesh.spamFilter())
+    }
+
+    @Test
+    fun theNewIdentitysConversationStoreOpensTheFileTheOldOneClosed() {
+        rule.awaitChat()
+        val holder = graph().identityHolder()
+        // Fresh ids each run: the store keeps a tombstone for a deleted message and refuses its id.
+        val run = java.util.UUID.randomUUID().toString()
+        val message = { id: String ->
+            BitchatMessage(id = "$run-$id", sender = "synthetic", content = id, timestamp = Date(), isPrivate = true)
+        }
+        val old = ConversationTestAccess.of(holder)
+        assertTrue(
+            runBlocking { old.upsertMessageAndWait("synthetic-peer", setOf("synthetic-peer"), "synthetic", message("before"), isRead = true) },
+        )
+
+        assertTrue(holder.replace().isEmpty())
+
+        val new = ConversationTestAccess.of(holder)
+        assertNotSame(old, new)
+        // The old helper is closed, so it refuses; the new one opens the same file without a lock error.
+        assertFalse(
+            runBlocking { old.upsertMessageAndWait("synthetic-peer", setOf("synthetic-peer"), "synthetic", message("late"), isRead = true) },
+        )
+        assertTrue(
+            runBlocking { new.upsertMessageAndWait("synthetic-peer", setOf("synthetic-peer"), "synthetic", message("after"), isRead = true) },
+        )
+        assertTrue(runBlocking { new.deleteConversationAndWait("synthetic-peer", setOf("synthetic-peer")) })
     }
 }

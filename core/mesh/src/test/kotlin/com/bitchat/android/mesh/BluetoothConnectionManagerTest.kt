@@ -1,5 +1,6 @@
 package com.bitchat.android.mesh
 
+import com.bitchat.android.identity.scope.IdentityTeardown
 import com.bitchat.android.services.TestMeshStores
 import dagger.Lazy
 import com.bitchat.android.ui.debug.DebugSettingsManager
@@ -35,7 +36,7 @@ class BluetoothConnectionManagerTest {
             ),
             Lazy(lazy { DebugSettingsManager(DebugPreferenceManager()) }::value),
             DebugPreferenceManager(),
-            TransferProgressManager(Dispatchers.IO),
+            TransferProgressManager(Dispatchers.IO, IdentityTeardown()),
         )
     }
 

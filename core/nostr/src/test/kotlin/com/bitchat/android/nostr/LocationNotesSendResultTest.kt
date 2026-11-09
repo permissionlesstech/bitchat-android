@@ -1,5 +1,6 @@
 package com.bitchat.android.nostr
 
+import com.bitchat.android.identity.scope.IdentityTeardown
 import com.bitchat.android.geohash.LiveLocationPrivacyGate
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -23,6 +24,7 @@ class LocationNotesSendResultTest {
         gate,
         RelayDirectory(NoHttpClients, dispatcher),
         dispatcher,
+        IdentityTeardown(),
     )
 
     @Test

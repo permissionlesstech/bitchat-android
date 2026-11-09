@@ -11,6 +11,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +27,7 @@ import java.util.TreeMap
 import java.util.UUID
 import javax.inject.Inject
 import com.bitchat.android.identity.scope.IdentityScoped
+import com.bitchat.android.identity.scope.IdentityTeardown
 
 enum class LiveVoiceScope { DIRECT_MESSAGE, PUBLIC_MESH }
 
@@ -72,6 +74,7 @@ class LiveVoiceManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val appStateStore: AppStateStore,
     @IoDispatcher ioDispatcher: CoroutineDispatcher,
+    teardown: IdentityTeardown,
 ) {
     companion object {
         private const val TAG = "LiveVoiceManager"
@@ -146,6 +149,10 @@ class LiveVoiceManager @Inject constructor(
     private var activePlayer: PttAudioPlayer? = null
 
     init {
+        teardown.register("LiveVoiceManager") {
+            reset()
+            scope.cancel()
+        }
         liveDirectory().listFiles()
             ?.filter { it.name.startsWith("voice_live_") }
             ?.forEach { it.delete() }

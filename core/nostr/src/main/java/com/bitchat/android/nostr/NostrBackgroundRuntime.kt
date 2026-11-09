@@ -12,6 +12,7 @@ import dagger.Lazy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -22,6 +23,7 @@ import kotlinx.coroutines.launch
 import java.security.SecureRandom
 import javax.inject.Inject
 import com.bitchat.android.identity.scope.IdentityScoped
+import com.bitchat.android.identity.scope.IdentityTeardown
 import kotlin.random.asKotlinRandom
 
 /**
@@ -42,6 +44,7 @@ class NostrBackgroundRuntime @Inject constructor(
     private val geohashConversations: GeohashConversationRegistry,
     // Lazy: PowerManager is first touched in startPresenceScheduler, as before.
     private val powerManagerSource: Lazy<PowerManager>,
+    teardown: IdentityTeardown,
 ) {
     private companion object {
         const val TAG = "NostrBackground"
@@ -55,6 +58,14 @@ class NostrBackgroundRuntime @Inject constructor(
     val participants = GeohashParticipantStore()
 
     @Volatile private var initialized = false
+
+    init {
+        teardown.register("NostrBackgroundRuntime") {
+            // The relay manager is process-wide: release what this identity subscribed on it.
+            if (initialized) subscriptions.unsubscribeAllOwned()
+            scope.cancel()
+        }
+    }
     @Volatile private var activeGeohash: String? = null
     @Volatile private var activeGeohashLiveToken: Long? = null
     @Volatile private var conversationGeohash: String? = null

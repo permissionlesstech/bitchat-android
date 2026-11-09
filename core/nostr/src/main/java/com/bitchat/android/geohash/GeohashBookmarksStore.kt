@@ -12,6 +12,8 @@ import com.google.gson.reflect.TypeToken
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,6 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.util.Locale
 import javax.inject.Inject
 import com.bitchat.android.identity.scope.IdentityScoped
+import com.bitchat.android.identity.scope.IdentityTeardown
 
 /**
  * Stores a user-maintained list of bookmarked geohash channels.
@@ -30,7 +33,8 @@ class GeohashBookmarksStore @Inject constructor(
     @ApplicationContext private val context: Context,
     private val liveLocationGate: LiveLocationPrivacyGate,
     private val httpClients: NostrHttpClients,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    @IoDispatcher ioDispatcher: CoroutineDispatcher,
+    teardown: IdentityTeardown,
 ) {
 
     companion object {
@@ -60,7 +64,12 @@ class GeohashBookmarksStore @Inject constructor(
     // For throttling / preventing duplicate geocode lookups
     private val resolving = mutableSetOf<String>()
 
-    init { load() }
+    private val scope = CoroutineScope(ioDispatcher + SupervisorJob())
+
+    init {
+        teardown.register("GeohashBookmarksStore") { scope.cancel() }
+        load()
+    }
 
     fun isBookmarked(geohash: String): Boolean = membership.contains(normalize(geohash))
 
@@ -173,7 +182,7 @@ class GeohashBookmarksStore @Inject constructor(
         if (resolving.contains(gh)) return
 
         resolving.add(gh)
-        CoroutineScope(ioDispatcher).launch {
+        scope.launch {
             try {
                 val geocoderProvider = GeocoderFactory.get(context, liveLocationGate, httpClients)
                 val name: String? = if (gh.length <= 2) {

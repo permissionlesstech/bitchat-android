@@ -2,6 +2,7 @@ package com.bitchat.android.service
 
 import android.content.Context
 import com.bitchat.android.identity.scope.IdentityScoped
+import com.bitchat.android.identity.scope.IdentityTeardown
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.mesh.UnifiedMeshService
 import com.bitchat.android.model.RoutedPacket
@@ -23,6 +24,7 @@ class MeshServiceHolder @Inject constructor(
     private val newBluetooth: BluetoothMeshService.Factory,
     private val newUnified: UnifiedMeshService.Factory,
     private val transportBridgeService: TransportBridgeService,
+    teardown: IdentityTeardown,
 ) {
     private companion object {
         const val TAG = "MeshServiceHolder"
@@ -33,6 +35,10 @@ class MeshServiceHolder @Inject constructor(
         private set
 
     private val activeGossipOwners = mutableSetOf<String>()
+
+    init {
+        teardown.register("MeshServiceHolder", ::clear)
+    }
 
     @Synchronized
     fun setGossipManager(

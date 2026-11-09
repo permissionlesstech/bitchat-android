@@ -133,6 +133,16 @@ class MessageRouter internal constructor(
         } catch (_: Exception) {}
     }
 
+    /**
+     * Ends this router with its identity: the outbox scheduler stops for good and the favourites
+     * store forgets the listener. A later [attach] cannot restart the scheduler.
+     */
+    internal fun close() {
+        stopOutboxScheduler()
+        schedulerScope.cancel()
+        runCatching { favorites.removeListener(favoriteListener) }
+    }
+
     fun clearAll() {
         outbox.clear()
         retryState.clear()

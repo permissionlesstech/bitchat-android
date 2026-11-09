@@ -5,6 +5,7 @@ import android.os.Build
 import android.util.Log
 import com.bitchat.android.di.IoDispatcher
 import com.bitchat.android.identity.scope.IdentityScoped
+import com.bitchat.android.identity.scope.IdentityTeardown
 import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.ui.debug.DebugSettingsManager
@@ -12,6 +13,7 @@ import dagger.Lazy
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,6 +39,7 @@ class WifiAwareController @Inject constructor(
     private val debugSettingsManager: Lazy<DebugSettingsManager>,
     private val appStateStore: AppStateStore,
     @IoDispatcher ioDispatcher: CoroutineDispatcher,
+    teardown: IdentityTeardown,
 ) {
     private companion object {
         const val TAG = "WifiAwareController"
@@ -50,7 +53,7 @@ class WifiAwareController @Inject constructor(
     private var starting = false
     private val restartInFlight = AtomicBoolean(false)
     private val restartRequested = AtomicBoolean(false)
-    private var awareReceiverRegistered = false
+    private var awareReceiver: android.content.BroadcastReceiver? = null
     private var lastBlockedReason: String? = null
 
     /**
@@ -74,6 +77,20 @@ class WifiAwareController @Inject constructor(
     private fun heldForHotspot(): Boolean = isHeldForHotspot()
 
     private val scope = CoroutineScope(ioDispatcher + SupervisorJob())
+
+    init {
+        teardown.register("WifiAwareController", ::close)
+    }
+
+    /** Ends this controller: stops its service, unregisters the system receiver, cancels its scope. */
+    private fun close() {
+        scope.cancel()
+        val receiver = synchronized(lifecycleLock) { awareReceiver.also { awareReceiver = null } }
+        if (receiver != null) {
+            try { appContext?.unregisterReceiver(receiver) } catch (_: Exception) { }
+        }
+        stop()
+    }
 
     private val _enabled = MutableStateFlow(false)
     val enabled: StateFlow<Boolean> = _enabled.asStateFlow()
@@ -379,13 +396,13 @@ class WifiAwareController @Inject constructor(
      * an unrelated trigger.
      */
     private fun registerAwareStateReceiver(ctx: Context) {
-        if (awareReceiverRegistered) return
+        if (awareReceiver != null) return
         if (!refreshSupportStatus(ctx).supported) return
         try {
             val filter = android.content.IntentFilter(
                 android.net.wifi.aware.WifiAwareManager.ACTION_WIFI_AWARE_STATE_CHANGED
             )
-            ctx.registerReceiver(object : android.content.BroadcastReceiver() {
+            val receiver = object : android.content.BroadcastReceiver() {
                 override fun onReceive(c: Context?, intent: android.content.Intent?) {
                     val status = refreshSupportStatus(ctx)
                     Log.i(TAG, "Wi-Fi Aware availability changed: supported=${status.supported} available=${status.available} enabled=${_enabled.value} running=${_running.value}")
@@ -397,8 +414,9 @@ class WifiAwareController @Inject constructor(
                         stop()
                     }
                 }
-            }, filter)
-            awareReceiverRegistered = true
+            }
+            ctx.registerReceiver(receiver, filter)
+            awareReceiver = receiver
         } catch (e: Exception) {
             Log.w(TAG, "Failed to register Wi-Fi Aware state receiver: ${e.message}")
         }

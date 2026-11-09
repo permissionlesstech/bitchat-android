@@ -9,6 +9,7 @@ import android.database.sqlite.SQLiteOpenHelper
 import android.util.Base64
 import android.util.Log
 import com.bitchat.android.identity.scope.IdentityScoped
+import com.bitchat.android.identity.scope.IdentityTeardown
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.model.DeliveryStatus
@@ -17,6 +18,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,7 +29,9 @@ import org.json.JSONObject
 import java.io.File
 import java.security.MessageDigest
 import java.util.Date
-import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
@@ -46,17 +50,27 @@ class ConversationRepository(
     databaseName: String = ConversationDatabase.DEFAULT_DATABASE_NAME,
     storageCipher: ConversationStorageCipher = AndroidConversationStorageCipher()
 ) {
-    @Inject constructor(@ApplicationContext context: Context) : this(context, writerDispatcher())
+    @Inject constructor(
+        @ApplicationContext context: Context,
+        teardown: IdentityTeardown
+    ) : this(context, writerDispatcher()) {
+        teardown.register("ConversationRepository", ::close)
+    }
 
     companion object {
         private const val TAG = "ConversationRepository"
+        private const val WRITER_IDLE_SECONDS = 10L
 
         /** The one writer thread every mutation is queued on. */
-        private fun writerDispatcher(): CoroutineDispatcher = Executors
-            .newSingleThreadExecutor { runnable ->
-                Thread(runnable, "conversation-store").apply { isDaemon = true }
-            }
-            .asCoroutineDispatcher()
+        private fun writerDispatcher(): CoroutineDispatcher = ThreadPoolExecutor(
+            1, 1, WRITER_IDLE_SECONDS, TimeUnit.SECONDS, LinkedBlockingQueue(),
+        ) { runnable ->
+            Thread(runnable, "conversation-store").apply { isDaemon = true }
+        }.apply {
+            // An ended identity's repository keeps no thread alive: the writer exits when idle and
+            // is started again only if something still queues work.
+            allowCoreThreadTimeOut(true)
+        }.asCoroutineDispatcher()
     }
 
     private val applicationContext = context.applicationContext
@@ -331,10 +345,18 @@ class ConversationRepository(
         )
     }
 
-    @VisibleForTesting
-    fun closeForTest() {
-        database.close()
+    /**
+     * Ends this repository: queued work is dropped, the database helper closes (a repository the
+     * next identity creates opens the same file) and later reads and writes fail like any other
+     * storage error instead of reopening the file. Safe to call more than once.
+     */
+    fun close() {
+        scope.cancel()
+        database.closeForGood()
     }
+
+    @VisibleForTesting
+    fun closeForTest() = close()
 }
 
 sealed interface ConversationStoreState {
@@ -398,8 +420,27 @@ internal class ConversationDatabase(
     private val applicationContext = context.applicationContext
     private var writesSinceGlobalPrune = 0
 
+    @Volatile
+    private var closedForGood = false
+
     init {
         setWriteAheadLoggingEnabled(true)
+    }
+
+    override fun getWritableDatabase(): SQLiteDatabase {
+        check(!closedForGood) { "Conversation database is closed" }
+        return super.getWritableDatabase()
+    }
+
+    override fun getReadableDatabase(): SQLiteDatabase {
+        check(!closedForGood) { "Conversation database is closed" }
+        return super.getReadableDatabase()
+    }
+
+    /** Closes the helper and keeps it closed: [getWritableDatabase] would otherwise reopen it. */
+    fun closeForGood() {
+        closedForGood = true
+        close()
     }
 
     override fun onConfigure(db: SQLiteDatabase) {

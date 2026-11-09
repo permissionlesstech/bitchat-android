@@ -17,6 +17,7 @@ import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
 import javax.inject.Inject
 import com.bitchat.android.identity.scope.IdentityScoped
+import com.bitchat.android.identity.scope.IdentityTeardown
 
 /**
  * Nostr transport for offline private messages and receipts.
@@ -31,6 +32,7 @@ class NostrTransport @Inject constructor(
     private val nostrIdentity: NostrIdentityBridge,
     private val contactDirectory: ContactDirectory,
     private val favorites: Lazy<FavoritesPersistenceService>,
+    teardown: IdentityTeardown,
 ) {
     
     companion object {
@@ -51,6 +53,10 @@ class NostrTransport @Inject constructor(
     private val readQueue = ConcurrentLinkedQueue<QueuedRead>()
     private var isSendingReadAcks = false
     private val transportScope = CoroutineScope(ioDispatcher + SupervisorJob())
+
+    init {
+        teardown.register("NostrTransport", ::cleanup)
+    }
     
     // MARK: - Transport Interface Methods
     
