@@ -260,9 +260,6 @@ class BluetoothConnectionManager(
                 // Start connection tracker first
                 connectionTracker.start()
                 
-                // Start power manager
-                powerManager.start()
-                
                 // Start server/client based on debug settings
                 val startServer = isGattServerEnabled()
                 val startClient = isGattClientEnabled()

@@ -1,5 +1,9 @@
 package com.bitchat.android.mesh
 
+import com.bitchat.android.identity.scope.IdentityComponent
+import com.bitchat.android.identity.scope.IdentityComponentBuilder
+import com.bitchat.android.identity.scope.IdentityEnder
+import com.bitchat.android.identity.scope.IdentityHolder
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.TestMeshStores
 import javax.inject.Provider
@@ -18,14 +22,23 @@ import org.robolectric.RuntimeEnvironment
 class PowerManagerIdentityTest {
     private val application = RuntimeEnvironment.getApplication()
     private val store = TestMeshStores(application).appStateStore
+    private var currentStore = store
     private var reads = 0
     private val provider = Provider<AppStateStore> {
         reads++
-        store
+        currentStore
     }
+    private val holder = IdentityHolder(
+        Provider {
+            object : IdentityComponentBuilder {
+                override fun build(): IdentityComponent = object : IdentityComponent {}
+            }
+        },
+        IdentityEnder { emptyList() },
+    )
 
     // Unconfined, so collection runs inside `start()` and the test needs no waiting.
-    private val manager = PowerManager(application, provider, Dispatchers.Unconfined)
+    private val manager = PowerManager(application, holder, provider, Dispatchers.Unconfined)
 
     @After
     fun tearDown() = manager.shutdown()
@@ -52,6 +65,36 @@ class PowerManagerIdentityTest {
         assertTrue(manager.profile.value.hasDirectPeers)
 
         store.clearTransportDirectPeers("ble")
+        assertFalse(manager.profile.value.hasDirectPeers)
+    }
+
+    @Test
+    fun `power manager reads the new identity's direct peers after replacement`() {
+        store.setTransportDirectPeers("ble", listOf("0011223344556677"))
+        manager.start()
+        assertTrue(manager.profile.value.hasDirectPeers)
+
+        val newStore = TestMeshStores(application).appStateStore
+        currentStore = newStore
+        holder.replace()
+
+        assertFalse("the new identity has no direct peers yet", manager.profile.value.hasDirectPeers)
+
+        newStore.setTransportDirectPeers("ble", listOf("8899aabbccddeeff"))
+        assertTrue(manager.profile.value.hasDirectPeers)
+
+        newStore.clearTransportDirectPeers("ble")
+        assertFalse(manager.profile.value.hasDirectPeers)
+    }
+
+    @Test
+    fun `the old identity's direct peers stop counting after replacement`() {
+        manager.start()
+
+        currentStore = TestMeshStores(application).appStateStore
+        holder.replace()
+        store.setTransportDirectPeers("ble", listOf("0011223344556677"))
+
         assertFalse(manager.profile.value.hasDirectPeers)
     }
 

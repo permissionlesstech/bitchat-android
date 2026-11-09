@@ -16,9 +16,10 @@ import org.mockito.kotlin.mock
 /**
  * The eager Tor and Nostr start-up work keeps today's order:
  *
- * - `BitchatApplication.onCreate`: Tor init, relay directory initialize, location notes
- *   initialize, background runtime initialize. The Nostr HTTP clients are no longer installed
- *   here: `NostrNetworkModule` binds them, so they exist before anything that needs them.
+ * - `BitchatApplication.onCreate`: Tor init, relay directory initialize, then the identity's start-up,
+ *   whose first half initializes location notes and second half the background runtime
+ *   (`AppIdentityStartupTest` holds the order inside it). The Nostr HTTP clients are no longer
+ *   installed here: `NostrNetworkModule` binds them, so they exist before anything that needs them.
  * - `DefaultAppInitializer.initializeLibraries`: PoW load, then location notes initialize.
  *
  * The initializer is checked at runtime with fakes. `onCreate` is checked in the source, comments
@@ -63,8 +64,8 @@ class AppStartupOrderTest {
         val steps = listOf(
             "torProvider.init(this)",
             "relayDirectory.get().initialize(this)",
-            "locationNotesInitializer.get().initialize(this)",
-            "nostrBackgroundRuntime.get().initialize(",
+            "identityStartup.get().restoreIdentityState()",
+            "identityStartup.get().startIdentityServices()",
         )
         val positions = steps.map { step ->
             val at = onCreate.indexOf(step)
@@ -80,26 +81,23 @@ class AppStartupOrderTest {
     }
 
     /**
-     * The mesh preference stores are loaded in the order `onCreate` loads them today: favourites,
-     * private-conversation persistence, Nostr identity, spam filter preference, debug preferences,
-     * Wi-Fi Aware controller, transport toggles, geohash registries, then the mesh-service
-     * preferences. Each reads stored state the next one (or a transport started after it) relies
-     * on, and none of them may be resolved earlier than its own line.
+     * What `onCreate` runs keeps its order: the power policy; the identity's stored state (favourites,
+     * private-conversation persistence, Nostr identity); the process-wide preferences; the identity's
+     * services (Wi-Fi Aware controller, transport toggles, geohash registries, background runtime);
+     * then the mesh-service preferences. Each reads stored state the next one (or a transport started
+     * after it) relies on, and none of them may be resolved earlier than its own line.
      */
     @Test
     fun onCreate_initialisesMeshPreferencesInTodaysOrder() {
         val onCreate = applicationOnCreate()
         val steps = linkedMapOf(
             "power policy" to Regex("""powerManager\.get\(\)\.start\(\)"""),
-            "favourites" to Regex("""favoritesPersistence\.get\(\)\.initialize\(\)"""),
-            "conversation persistence" to Regex("""appStateStore\.get\(\)\.initializeConversationPersistence\(this\)"""),
-            "nostr identity" to Regex("""nostrIdentityBridge\.get\(\)\.getCurrentNostrIdentity\(this\)"""),
+            "identity state" to Regex("""identityStartup\.get\(\)\.restoreIdentityState\(\)"""),
             "spam preferences" to Regex("""spamFilterPreferences\.get\(\)\.init\(this\)"""),
+            "theme" to Regex("""ThemePreferenceManager\.init\(this\)"""),
+            "chat ui mode" to Regex("""ChatUiModeManager\.init\(this\)"""),
             "debug preferences" to Regex("""debugPreferences\.get\(\)\.init\(this\)"""),
-            "wifi aware" to Regex("""wifiAwareController\.get\(\)\.initialize\(this,"""),
-            "transport toggles" to Regex("""debugSettings\.get\(\)\.transportToggles"""),
-            "geohash aliases" to Regex("""geohashAliases\.get\(\)\.initialize\(this\)"""),
-            "geohash conversations" to Regex("""geohashConversations\.get\(\)\.initialize\(this\)"""),
+            "identity services" to Regex("""identityStartup\.get\(\)\.startIdentityServices\(\)"""),
             "mesh service preferences" to Regex("""meshServicePreferences\.get\(\)\.init\(this\)"""),
         )
         val positions = steps.map { (name, pattern) ->
@@ -112,6 +110,13 @@ class AppStartupOrderTest {
             positions.sortedBy { it.second }.map { it.first },
             positions.map { it.first },
         )
+    }
+
+    /** Everything of an identity's is reached through its start-up, which runs again for the next identity. */
+    @Test
+    fun applicationKeepsNoIdentityObject() {
+        val source = File(root, "app/src/main/java/com/bitchat/android/BitchatApplication.kt").readText()
+        assertFalse("BitchatApplication reads an identity object itself", "@CurrentIdentity" in source)
     }
 
     /** Hilt injects the Application's fields before `onCreate`'s own lines, so each must wait for its line. */

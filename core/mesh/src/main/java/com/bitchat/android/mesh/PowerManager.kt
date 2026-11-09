@@ -16,6 +16,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.bitchat.android.di.DefaultDispatcher
 import com.bitchat.android.identity.scope.CurrentIdentity
+import com.bitchat.android.identity.scope.IdentityHolder
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.util.AppConstants
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -30,6 +31,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /**
@@ -41,6 +43,7 @@ import kotlinx.coroutines.launch
 @Singleton
 class PowerManager @Inject constructor(
     @ApplicationContext context: Context,
+    private val identity: IdentityHolder,
     @CurrentIdentity private val appStateStore: Provider<AppStateStore>,
     @DefaultDispatcher defaultDispatcher: CoroutineDispatcher,
 ) : LifecycleEventObserver {
@@ -152,17 +155,23 @@ class PowerManager @Inject constructor(
     }
 
     /**
-     * Starts following the current identity's direct peers. Each client's `Application.onCreate`
-     * calls this first thing after building the manager; later calls do nothing.
+     * Starts following the direct peers of the current identity, and of each identity after it.
+     * Each client's `Application.onCreate` calls this first thing after building the manager; later
+     * calls do nothing.
      */
     fun start() {
         if (shutdown || !started.compareAndSet(false, true)) return
-        // Read on the caller's thread, so the store is built where this is called, not on a worker.
-        val directPeers = appStateStore.get().directPeers
+        // Read on the caller's thread, so the first store is built where this is called, not on a
+        // worker. The generation goes first: if a replacement lands in between, the next read wins.
+        val firstGeneration = identity.generation.value
+        val firstPeers = appStateStore.get().directPeers
         scope.launch {
-            directPeers.collect { peers ->
-                hasDirectPeers = peers.isNotEmpty()
-                refreshProfile()
+            identity.generation.collectLatest { generation ->
+                val directPeers = if (generation == firstGeneration) firstPeers else appStateStore.get().directPeers
+                directPeers.collect { peers ->
+                    hasDirectPeers = peers.isNotEmpty()
+                    refreshProfile()
+                }
             }
         }
     }

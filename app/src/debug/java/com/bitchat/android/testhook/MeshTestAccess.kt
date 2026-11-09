@@ -5,6 +5,7 @@ import com.bitchat.android.features.voice.VoiceWaveformCache
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.identity.scope.IdentityHolder
+import com.bitchat.android.identity.scope.IdentityStartup
 import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.services.AppStateStore
@@ -35,6 +36,7 @@ interface MeshTestAccess {
     @CurrentIdentity fun meshServiceHolder(): MeshServiceHolder
     fun debugSettings(): DebugSettingsManager
     fun identityHolder(): IdentityHolder
+    fun identityStartup(): IdentityStartup
     @CurrentIdentity fun voiceWaveformCache(): VoiceWaveformCache
     @CurrentIdentity fun messageRouterHolder(): MessageRouterHolder
     @CurrentIdentity fun messageRouter(): MessageRouter

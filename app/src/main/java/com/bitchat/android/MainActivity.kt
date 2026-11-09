@@ -17,10 +17,11 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.Lifecycle
+import com.bitchat.android.di.AppIdentityStartup
 import com.bitchat.android.di.CurrentSession
 import com.bitchat.android.identity.scope.CurrentIdentity
-import com.bitchat.android.mesh.BluetoothMeshService
-import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.identity.scope.IdentityHolder
+import com.bitchat.android.mesh.IdentityMeshBinding
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.onboarding.DeviceReadiness
 import com.bitchat.android.onboarding.LocalOnboardingContentPadding
@@ -54,15 +55,13 @@ import com.bitchat.android.services.VerificationService
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import javax.inject.Provider
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.serialization.builtins.ListSerializer
 
 @AndroidEntryPoint
 class MainActivity : OrientationAwareActivity() {
 
-    // Core mesh service - provided by the foreground service holder
-    private lateinit var meshService: BluetoothMeshService
-    private lateinit var unifiedMeshService: MeshService
     private var pendingMeshForegroundServiceStart = false
 
     // Held by ActivityRetainedComponent, so the back stack outlives configuration
@@ -84,7 +83,7 @@ class MainActivity : OrientationAwareActivity() {
     // the instance state: a recreated Activity gets the same intent back.
     private var intentHandled = false
 
-    // Providers, asked when used, so the Activity keeps no other identity object. The mesh fields above are kept until 10c-2b.
+    // Providers, asked when used, so the Activity keeps no other identity object.
     @Inject
     @CurrentIdentity
     lateinit var locationChannelManager: Provider<LocationChannelManager>
@@ -128,9 +127,16 @@ class MainActivity : OrientationAwareActivity() {
     @Inject
     @CurrentSession
     lateinit var chatMeshDelegate: Provider<ChatMeshDelegate>
-    private val meshDelegateBinding by lazy {
-        com.bitchat.android.mesh.MeshDelegateBinding(unifiedMeshService, chatMeshDelegate.get())
-    }
+
+    // Made in onCreate; null only on a quit launch, which never gets that far. It follows the identity.
+    private var meshDelegateBinding: IdentityMeshBinding? = null
+
+    @Inject
+    lateinit var identityHolder: IdentityHolder
+
+    // Says when a new identity has started, which is when the Activity moves over to it.
+    @Inject
+    lateinit var identityStartup: AppIdentityStartup
 
     // The Activity starts the session, unwinds the chat screen's overlays on Back,
     // and routes notification taps into it, so none of that waits for the chat
@@ -214,14 +220,21 @@ class MainActivity : OrientationAwareActivity() {
 
         // Start the foreground service when allowed, then get mesh instances from the holder.
         startMeshForegroundServiceBestEffort()
-        meshService = meshServiceHolder.get().getOrCreate(applicationContext)
-        unifiedMeshService = meshServiceHolder.get().getUnifiedOrCreate(applicationContext)
+        meshDelegateBinding = IdentityMeshBinding(
+            generation = { identityHolder.generation.value },
+            mesh = { meshServiceHolder.get().getUnifiedOrCreate(applicationContext) },
+            delegate = { chatMeshDelegate.get() },
+        )
         // Expose BLE mesh to Wi‑Fi Aware controller for cross-transport relays - DEPRECATED
         // Bridging is now handled by TransportBridgeService automatically
 
         setContent {
             BitchatTheme {
-                AppForegroundEffect(nearbyNotesController.get(), liveVoiceManager.get())
+                // What the composition reads from the identity is read again for each new one.
+                val identityGeneration by identityStartup.startedGeneration.collectAsState()
+                key(identityGeneration) {
+                    AppForegroundEffect(nearbyNotesController.get(), liveVoiceManager.get())
+                }
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     containerColor = MaterialTheme.colorScheme.background
@@ -316,17 +329,19 @@ class MainActivity : OrientationAwareActivity() {
                     // Started on the first composition, where the Activity first
                     // reached the chat ViewModel before, and ahead of any
                     // notification intent that selects a channel. Idempotent.
-                    chatSessionStartup.get().start()
-                    val pendingBackAction by chatBackUnwinder.get().pendingBackAction.collectAsState()
-                    BackHandler(
-                        enabled = navigator.backStack.lastOrNull() == ChatRoute &&
-                            pendingBackAction != BackAction.None
-                    ) {
-                        // enabled trails the state by a dispatch and a recomposition, so a
-                        // second quick press can arrive with nothing left to unwind. Forward
-                        // it rather than swallowing it: pop a route if there is one, and
-                        // otherwise leave, which is what the press would have done anyway.
-                        if (!chatBackUnwinder.get().handle() && !navigator.goBack()) finish()
+                    key(identityGeneration) {
+                        chatSessionStartup.get().start()
+                        val pendingBackAction by chatBackUnwinder.get().pendingBackAction.collectAsState()
+                        BackHandler(
+                            enabled = navigator.backStack.lastOrNull() == ChatRoute &&
+                                pendingBackAction != BackAction.None
+                        ) {
+                            // enabled trails the state by a dispatch and a recomposition, so a
+                            // second quick press can arrive with nothing left to unwind. Forward
+                            // it rather than swallowing it: pop a route if there is one, and
+                            // otherwise leave, which is what the press would have done anyway.
+                            if (!chatBackUnwinder.get().handle() && !navigator.goBack()) finish()
+                        }
                     }
                 }
             }
@@ -351,7 +366,7 @@ class MainActivity : OrientationAwareActivity() {
                     when (phase) {
                         // Set up the unified mesh delegate before the gate starts
                         // the transports
-                        AppPhase.INITIALIZING -> meshDelegateBinding.attach()
+                        AppPhase.INITIALIZING -> meshDelegateBinding?.attach()
                         // App is fully initialized, mesh service is running
                         AppPhase.READY -> {
                             if (startupGate.takeInitCompleted()) finishInit()
@@ -365,12 +380,18 @@ class MainActivity : OrientationAwareActivity() {
             }
         }
 
-        // Keep the unified mesh delegate attached when Wi-Fi Aware starts after the UI.
+        // Keep the unified mesh delegate attached when Wi-Fi Aware starts after the UI, watching
+        // the current identity's controller. While resumed, the only emission here is a new
+        // identity having started: the UI is up, so it moves to that identity's mesh at once. This
+        // collector starts below RESUMED, where onResume does the attaching.
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                wifiAwareController.get().running.collect { running ->
-                    if (running && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
-                        meshDelegateBinding.attach()
+                identityStartup.startedGeneration.collectLatest {
+                    if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) attachIfThePhaseAllows()
+                    wifiAwareController.get().running.collect { running ->
+                        if (running && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                            meshDelegateBinding?.attach()
+                        }
                     }
                 }
             }
@@ -381,6 +402,13 @@ class MainActivity : OrientationAwareActivity() {
         startupGate.start()
     }
     
+    // Reattaches the session's mesh delegate. Also while starting up: the INITIALIZING branch
+    // attached it once, on entry.
+    private fun attachIfThePhaseAllows() {
+        val phase = startupGate.phase.value
+        if (phase == AppPhase.READY || phase == AppPhase.INITIALIZING) meshDelegateBinding?.attach()
+    }
+
     private fun startMeshForegroundServiceBestEffort() {
         if (!lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
             pendingMeshForegroundServiceStart = true
@@ -453,12 +481,8 @@ class MainActivity : OrientationAwareActivity() {
         locationChannelManager.get().syncPermissionState()
 
         // Check Bluetooth and Location status on resume and handle accordingly
-        // Reattach the session's mesh delegate, detached in onPause. Also while
-        // starting up: the INITIALIZING branch attached it once, on entry.
-        val phase = startupGate.phase.value
-        if (phase == AppPhase.READY || phase == AppPhase.INITIALIZING) {
-            try { meshDelegateBinding.attach() } catch (_: Exception) { }
-        }
+        // Reattach the session's mesh delegate, detached in onPause.
+        try { attachIfThePhaseAllows() } catch (_: Exception) { }
 
         if (startupGate.phase.value == AppPhase.READY) {
             // Back to onboarding if Bluetooth or location services went off
@@ -476,7 +500,7 @@ class MainActivity : OrientationAwareActivity() {
         // Detach the UI delegate whatever the phase, so the foreground service can own
         // DM notifications while the UI is closed. Resume may have attached it just
         // before sending the app to onboarding.
-        try { meshDelegateBinding.detachIfAttached() } catch (_: Exception) { }
+        try { meshDelegateBinding?.detachIfAttached() } catch (_: Exception) { }
     }
     
     /**

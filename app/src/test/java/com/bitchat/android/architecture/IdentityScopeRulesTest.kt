@@ -36,6 +36,7 @@ class IdentityScopeRulesTest {
     /** Singletons that are process-wide on purpose, with the reason. */
     private val processWide: Map<String, String> = mapOf(
         "IdentityHolder" to "owns the identity component, so it outlives every identity",
+        "AppIdentityStartup" to "starts each identity through Providers and keeps none of its objects",
         "ArtiTorManager" to "network route only; holds no identity data",
         "OkHttpProvider" to "network route only; holds no identity data",
         "TorPreferenceManager" to "network route only; holds no identity data",

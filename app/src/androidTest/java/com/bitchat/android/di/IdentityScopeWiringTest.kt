@@ -1,6 +1,8 @@
 package com.bitchat.android.di
 
+import android.content.Intent
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -10,18 +12,21 @@ import com.bitchat.android.identity.scope.MeshIdentityEntryPoint
 import com.bitchat.android.identity.scope.entryPoint
 import com.bitchat.android.navigation.OnboardedApp
 import com.bitchat.android.navigation.awaitChat
+import com.bitchat.android.service.ConversationNotificationReceiver
 import com.bitchat.android.service.MeshForegroundService
 import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.testhook.ChatSessionTestAccess
 import com.bitchat.android.testhook.ConversationTestAccess
 import com.bitchat.android.testhook.MeshTestAccess
+import com.bitchat.android.ui.ChatMeshDelegate
 import com.bitchat.android.ui.ChatSessionHolder
 import com.bitchat.android.ui.ChatSessionMesh
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.GeohashSession
 import com.bitchat.android.ui.NotificationManager
 import com.bitchat.android.ui.entryPoint as sessionEntryPoint
+import dagger.hilt.android.EntryPointAccessors
 import java.util.Date
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
@@ -32,9 +37,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNotSame
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.BeforeClass
 import org.junit.Rule
 import org.junit.Test
@@ -88,6 +93,20 @@ class IdentityScopeWiringTest {
 
     private fun appIdentityEntry(): AppIdentityEntryPoint =
         graph().identityHolder().entryPoint()
+
+    /**
+     * What a panic will do, on the thread it will do it on. Going through the start-up leaves the
+     * process as a later test expects it, whichever order the tests run in.
+     */
+    private fun replaceTheIdentityAndStartTheNewOne(): List<String> {
+        val graph = graph()
+        var failed = emptyList<String>()
+        rule.runOnUiThread {
+            failed = graph.identityHolder().replace()
+            graph.identityStartup().onIdentityStarted()
+        }
+        return failed
+    }
 
     @Test
     fun theBridgeAndTheScopeGiveTheSameInstance() {
@@ -197,10 +216,114 @@ class IdentityScopeWiringTest {
 
     @Test
     fun theTransportTogglesRegisteredAtStartUpAreTheCurrentIdentitys() {
-        // Nothing re-registers the toggles for a later identity yet, so this holds only until
-        // another test in the process has replaced the identity.
-        assumeTrue(graph().identityHolder().generation.value == 0)
+        val first = appIdentityEntry().meshTransportToggles()
+        assertSame(first, graph().debugSettings().transportToggles)
+
+        replaceTheIdentityAndStartTheNewOne()
+
+        assertNotSame(first, appIdentityEntry().meshTransportToggles())
         assertSame(appIdentityEntry().meshTransportToggles(), graph().debugSettings().transportToggles)
+    }
+
+    @Test
+    fun theServicesProviderGivesTheNewIdentitysObjects() {
+        rule.awaitChat()
+        val context = rule.activity.applicationContext
+        // What the notification reply reads each time it runs.
+        val dependencies = EntryPointAccessors.fromApplication(
+            context,
+            ConversationNotificationReceiver.Dependencies::class.java,
+        )
+        val oldStore = dependencies.appStateStore()
+        val oldMeshHolder = dependencies.meshServiceHolder()
+        val oldRouterHolder = dependencies.messageRouterHolder()
+        val oldDirectory = dependencies.contactDirectory()
+
+        replaceTheIdentityAndStartTheNewOne()
+
+        val store = dependencies.appStateStore()
+        assertNotSame(oldStore, store)
+        assertSame(identityEntry().appStateStore(), store)
+        assertNotSame(oldMeshHolder, dependencies.meshServiceHolder())
+        assertSame(appIdentityEntry().meshServiceHolder(), dependencies.meshServiceHolder())
+        assertNotSame(oldRouterHolder, dependencies.messageRouterHolder())
+        assertNotSame(oldDirectory, dependencies.contactDirectory())
+
+        // The real receiver lands in the new identity's store. It can only acknowledge there if the
+        // start-up has opened that store's conversations.
+        val peer = "synthetic-peer"
+        val message = BitchatMessage(
+            id = java.util.UUID.randomUUID().toString(),
+            sender = "synthetic",
+            content = "synthetic",
+            timestamp = Date(),
+            isPrivate = true,
+        )
+        assertTrue(runBlocking { store.addPrivateMessageDurably(peer, message) })
+        assertFalse(store.isPrivateMessageRead(message.id))
+
+        context.sendBroadcast(
+            Intent(context, ConversationNotificationReceiver::class.java)
+                .setAction(NotificationManager.ACTION_MARK_CONVERSATION_READ)
+                .putExtra(NotificationManager.EXTRA_PEER_ID, peer),
+        )
+
+        rule.waitUntil(timeoutMillis = 10_000) { store.isPrivateMessageRead(message.id) }
+        assertFalse(oldStore.isPrivateMessageRead(message.id))
+        assertTrue(
+            runBlocking {
+                ConversationTestAccess.of(graph().identityHolder())
+                    .deleteConversationAndWait(peer, setOf(peer))
+            },
+        )
+    }
+
+    @Test
+    fun mainActivityDoesNotKeepTheOldMesh() {
+        rule.awaitChat()
+        val oldMeshHolder = graph().meshServiceHolder()
+        rule.waitUntil(timeoutMillis = 10_000) { oldMeshHolder.unifiedMeshService?.delegate != null }
+        val oldMesh = oldMeshHolder.unifiedMeshService!!
+
+        replaceTheIdentityAndStartTheNewOne()
+
+        val meshHolder = graph().meshServiceHolder()
+        assertNotSame(oldMeshHolder, meshHolder)
+        rule.waitUntil(timeoutMillis = 10_000) { meshHolder.unifiedMeshService?.delegate != null }
+        val mesh = meshHolder.unifiedMeshService!!
+        assertNotSame(oldMesh, mesh)
+        lateinit var delegate: ChatMeshDelegate
+        rule.runOnUiThread { delegate = rule.activity.chatMeshDelegate.get() }
+        assertSame(delegate, mesh.delegate)
+        assertNull("the Activity left the old mesh", oldMesh.delegate)
+
+        // The next lifecycle calls reach only the new mesh.
+        rule.activityRule.scenario.moveToState(Lifecycle.State.STARTED)
+        assertNull(mesh.delegate)
+        assertNull(oldMesh.delegate)
+
+        rule.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        assertSame(delegate, mesh.delegate)
+        assertNull(oldMesh.delegate)
+    }
+
+    @Test
+    fun theNewIdentitysSessionStartsWithoutANewActivity() {
+        rule.awaitChat()
+        val holder = sessionHolder()
+        val session = holder.current
+        val activity = rule.activity
+        val routerHolder = graph().messageRouterHolder()
+        rule.waitUntil(timeoutMillis = 10_000) { routerHolder.peek()?.isSchedulerRunning == true }
+
+        replaceTheIdentityAndStartTheNewOne()
+
+        val newRouterHolder = graph().messageRouterHolder()
+        assertNotSame(routerHolder, newRouterHolder)
+        // Chat start-up resolves the router, so seeing it means the new session has started.
+        rule.waitUntil(timeoutMillis = 10_000) { newRouterHolder.peek()?.isSchedulerRunning == true }
+        assertNotSame(session, holder.current)
+        assertSame(activity, rule.activity)
     }
 
     @Test
@@ -249,7 +372,7 @@ class IdentityScopeWiringTest {
         assertTrue(oldScope.isActive)
         val generation = holder.generation.value
 
-        val failed = holder.replace()
+        val failed = replaceTheIdentityAndStartTheNewOne()
 
         assertTrue(failed.isEmpty())
         assertFalse(oldScope.isActive)
@@ -278,7 +401,7 @@ class IdentityScopeWiringTest {
             runBlocking { old.upsertMessageAndWait("synthetic-peer", setOf("synthetic-peer"), "synthetic", message("before"), isRead = true) },
         )
 
-        assertTrue(holder.replace().isEmpty())
+        assertTrue(replaceTheIdentityAndStartTheNewOne().isEmpty())
 
         val new = ConversationTestAccess.of(holder)
         assertNotSame(old, new)

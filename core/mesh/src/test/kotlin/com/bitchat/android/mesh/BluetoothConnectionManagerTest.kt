@@ -1,5 +1,6 @@
 package com.bitchat.android.mesh
 
+import com.bitchat.android.identity.scope.IdentityHolder
 import com.bitchat.android.identity.scope.IdentityTeardown
 import com.bitchat.android.services.TestMeshStores
 import dagger.Lazy
@@ -31,6 +32,7 @@ class BluetoothConnectionManagerTest {
             null,
             PowerManager(
                 RuntimeEnvironment.getApplication(),
+                IdentityHolder({ error("no identity is built here") }, { emptyList() }),
                 TestMeshStores(RuntimeEnvironment.getApplication()).appStateStore.let { store -> Provider { store } },
                 Dispatchers.Default,
             ),

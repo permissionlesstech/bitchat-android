@@ -3,6 +3,7 @@ package com.bitchat.android.di
 import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.identity.scope.IdentityComponent
 import com.bitchat.android.identity.scope.IdentityHolder
+import com.bitchat.android.identity.scope.IdentityStartup
 import com.bitchat.android.identity.scope.entryPoint
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.service.MeshServiceHolder
@@ -61,6 +62,9 @@ object AppIdentityBindings {
     @CurrentIdentity
     fun sessionMeshSource(holder: IdentityHolder): SessionMeshSource =
         holder.entryPoint<AppIdentityEntryPoint>().sessionMeshSource()
+
+    @Provides
+    fun identityStartup(startup: AppIdentityStartup): IdentityStartup = startup
 
     @Provides
     fun wifiAwarePeers(@CurrentIdentity controller: Provider<WifiAwareController>): WifiAwarePeers =

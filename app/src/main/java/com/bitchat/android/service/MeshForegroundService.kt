@@ -18,6 +18,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import com.bitchat.android.MainActivity
 import com.bitchat.android.R
 import com.bitchat.android.identity.scope.CurrentIdentity
+import com.bitchat.android.identity.scope.IdentityHolder
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.MessageRouterHolder
@@ -33,6 +34,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
@@ -44,6 +46,9 @@ class MeshForegroundService : Service() {
 
     @Inject
     lateinit var meshServicePreferences: MeshServicePreferences
+
+    @Inject
+    lateinit var identityHolder: IdentityHolder
 
     // Providers, asked when used, so the service keeps nothing of the identity's.
     @Inject
@@ -172,20 +177,23 @@ class MeshForegroundService : Service() {
         meshServiceHolder.getUnifiedOrCreate(applicationContext)
 
         // Notification content is driven by peer-state changes, not a permanent timer.
+        // The service outlives an identity, so it follows the store of each one.
         updateJob = scope.launch {
-            appStateStore.get().peers
-                .map { peers -> peers.distinct().size }
-                .distinctUntilChanged()
-                .collect { peerCount ->
-                    peerAvailabilityNotifier.onPeerCountChanged(
-                        peerCount = peerCount,
-                        isAppInBackground = !ProcessLifecycleOwner.get()
-                            .lifecycle
-                            .currentState
-                            .isAtLeast(Lifecycle.State.STARTED)
-                    )
-                    if (isInForeground) updateNotification(force = false)
-                }
+            identityHolder.generation.collectLatest {
+                appStateStore.get().peers
+                    .map { peers -> peers.distinct().size }
+                    .distinctUntilChanged()
+                    .collect { peerCount ->
+                        peerAvailabilityNotifier.onPeerCountChanged(
+                            peerCount = peerCount,
+                            isAppInBackground = !ProcessLifecycleOwner.get()
+                                .lifecycle
+                                .currentState
+                                .isAtLeast(Lifecycle.State.STARTED)
+                        )
+                        if (isInForeground) updateNotification(force = false)
+                    }
+            }
         }
     }
 
