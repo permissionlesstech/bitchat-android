@@ -109,7 +109,7 @@ kept out of the refactor so it changes no behaviour it did not have to. Details 
 | Mesh interface (10c-2a-2a) | One `MeshService` with 7 members nothing called through it, two with empty default bodies | Eight role interfaces. A client implements only the roles it supports, and `MeshRoleImplementationsTest` fails on a stub override |
 | Identity lifetime (10c-2a-2b) | Identity data sat in process-wide singletons and one static router (`getInstance`) | A Hilt identity scope holds it, and the router is built only by its holder. There is no static router left |
 | Identity lifetime (10c-2b) | Nothing could end an identity. Panic cleared each class by hand and swapped only the mesh | An identity can end. Its scope is cancelled and each class's teardown runs. The chat session has its own scope inside it. The app, screens and services follow the new identity without a restart |
-| Unit and device tests (10c-2b) | JVM 1496; device app 79 | JVM 1625; device app 102 |
+| Unit and device tests (10c-2b) | JVM 1496; device app 79 | JVM 1626; device app 102 |
 | Module rules | Unwritten | `FeatureDependencyRulesTest` fails when a feature depends on another feature, an `:api` module grows dependencies, or `:core:tor` gains one |
 | Watch crypto | Tink 1.8.0 | Tink 1.23.0, the phone's version |
 | Watch theme | Its own copy of the palette, peer-color hash and fonts | The shared `:core:designsystem` base |

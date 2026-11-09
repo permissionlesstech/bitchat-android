@@ -209,21 +209,37 @@ class PanicAroundTheScreenTest {
         val window = activity.read { it }
         val holder = activity.read { access(it).chatSessionHolder() }
         val panicStarted = AtomicBoolean(false)
+        // Ends the sampler however the test ends: its own condition never holds if an await throws.
+        val stopSampling = AtomicBoolean(false)
         val sampling = Executors.newSingleThreadExecutor()
-        val samples = sampling.submit<List<Sample>> {
-            samplePixels(window, holder, region, reference) { panicStarted.get() && holder.generation.value > before }
+        val seen = try {
+            val samples = sampling.submit<List<Sample>> {
+                samplePixels(window, holder, region, reference) {
+                    stopSampling.get() || (panicStarted.get() && holder.generation.value > before)
+                }
+            }
+            panicStarted.set(true)
+            activity.onActivity { access(it).panicClear().run() }
+            await("the new session") { activity.read { access(it).chatSessionHolder().generation.value } == before + 1 }
+            awaitChat(activity)
+            samples.get(30, TimeUnit.SECONDS).filter { it.sessionGeneration == before }
+        } finally {
+            stopSampling.set(true)
+            sampling.shutdown()
+            if (!sampling.awaitTermination(10, TimeUnit.SECONDS)) sampling.shutdownNow()
         }
-        panicStarted.set(true)
-        activity.onActivity { access(it).panicClear().run() }
-        await("the new session") { activity.read { access(it).chatSessionHolder().generation.value } == before + 1 }
-        awaitChat(activity)
-        val seen = samples.get(30, TimeUnit.SECONDS).filter { it.sessionGeneration == before }
-        sampling.shutdown()
 
+        val blank = seen.count { !it.shows }
         assertTrue("the text was seen on the screen in some sample: $seen", seen.isNotEmpty())
         assertTrue(
             "the screen is blank before the switch: ${seen.count { it.shows }} of ${seen.size} samples of the old session still show the text",
-            seen.any { !it.shows },
+            blank > 0,
+        )
+        // Once blank, the old session never draws the text again.
+        val firstBlank = seen.indexOfFirst { !it.shows }
+        assertTrue(
+            "the text came back after the screen was blank: ${seen.map { it.shows }}",
+            seen.drop(firstBlank).none { it.shows },
         )
     }
 

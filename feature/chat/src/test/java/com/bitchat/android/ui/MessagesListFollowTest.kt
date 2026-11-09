@@ -60,6 +60,7 @@ class MessagesListFollowTest {
     private val meshService = mock<MeshService> { on { myPeerID } doReturn "0000000000000000" }
     private var messages by mutableStateOf(List(TimelineSize) { msg(it) })
     private var scrolledUp: Boolean? = null
+    private val reports = mutableListOf<Boolean>()
 
     private fun setContent() {
         compose.setContent {
@@ -70,7 +71,7 @@ class MessagesListFollowTest {
                 spamFlagged = MutableStateFlow(emptyMap()),
                 modifier = Modifier.size(360.dp, 640.dp),
                 conversationKey = "geo:test",
-                onScrolledUpChanged = { scrolledUp = it }
+                onScrolledUpChanged = { scrolledUp = it; reports += it }
             )
         }
         compose.waitForIdle()
@@ -124,6 +125,28 @@ class MessagesListFollowTest {
         messages = messages + msg(101)
         compose.waitForIdle()
         compose.onNodeWithText(body(101), substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a refilled list never reports the reader as scrolled up`() {
+        setContent()
+        compose.onNode(hasScrollToIndexAction()).performScrollToIndex(TimelineSize - 1)
+        compose.waitForIdle()
+        assertTrue(scrolledUp ?: false)
+
+        messages = emptyList()
+        compose.waitForIdle()
+        val afterClear = reports.size
+        messages = listOf(msg(100))
+        compose.waitForIdle()
+        messages = messages + msg(101)
+        compose.waitForIdle()
+
+        assertFalse(
+            "reported scrolled up after the clear: ${reports.drop(afterClear)} (all: $reports)",
+            reports.drop(afterClear).any { it },
+        )
+        assertFalse("the last report says scrolled up", reports.last())
     }
 
     private fun msg(index: Int) = BitchatMessage(
