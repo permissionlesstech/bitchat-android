@@ -291,8 +291,13 @@ fun MessagesList(
     }
     
     // Track whether user has scrolled away from the latest messages
-    val isAtLatest by remember(listState) {
+    // An empty conversation composes no list, so it has no layout to read: it is at the latest.
+    val isEmpty = messages.isEmpty()
+    // Back to the top for whenever the list is composed again, as an empty list would have clamped it.
+    LaunchedEffect(isEmpty) { if (isEmpty) listState.requestScrollToItem(0) }
+    val isAtLatest by remember(listState, isEmpty) {
         derivedStateOf {
+            if (isEmpty) return@derivedStateOf true
             val firstVisibleIndex = listState.layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: -1
             firstVisibleIndex <= 2
         }
@@ -336,6 +341,15 @@ fun MessagesList(
         placementArmed = true
         delay(PlacementArmWindowMs)
         placementArmed = false
+    }
+
+    // No list at all when there is nothing to show. Rows removed from a LazyColumn keep fading for
+    // their exit animation, still drawn after they have left composition, and panic needs every row
+    // gone within one frame. Not a fade spec chosen by emptiness: a removed row no longer recomposes.
+    // The spacer keeps the list's place in its parent's layout.
+    if (messages.isEmpty()) {
+        Spacer(modifier)
+        return
     }
 
     val layoutDirection = LocalLayoutDirection.current

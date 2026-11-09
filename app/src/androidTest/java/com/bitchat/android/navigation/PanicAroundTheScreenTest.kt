@@ -2,7 +2,19 @@ package com.bitchat.android.navigation
 
 import android.content.Context
 import android.os.SystemClock
-import android.view.ViewTreeObserver
+import android.graphics.Bitmap
+import android.graphics.Rect
+import android.os.Handler
+import android.os.HandlerThread
+import android.view.PixelCopy
+import android.view.View
+import android.view.ViewGroup
+import androidx.compose.ui.node.RootForTest
+import androidx.compose.ui.semantics.SemanticsNode
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import java.io.File
+import kotlin.math.abs
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.test.core.app.ActivityScenario
@@ -16,15 +28,16 @@ import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ConversationRepository
 import com.bitchat.android.testhook.ChatSessionTestAccess
 import com.bitchat.android.testhook.MeshTestAccess
+import com.bitchat.android.ui.ChatSessionHolder
 import com.bitchat.android.ui.ChatViewModel
 import com.bitchat.android.ui.PanicClear
 import com.bitchat.android.ui.entryPoint
-import java.util.Collections
 import java.util.Date
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.CoroutineDispatcher
@@ -51,6 +64,8 @@ class PanicAroundTheScreenTest {
 
     companion object {
         private const val PEER = "0123456789abcdef"
+        private const val SLOW_WIPE_FILES = 6000
+        private const val SEEDED_TEXT = "synthetic visible text"
 
         @JvmStatic
         @BeforeClass
@@ -96,46 +111,119 @@ class PanicAroundTheScreenTest {
     private fun message(private: Boolean = false) = BitchatMessage(
         id = UUID.randomUUID().toString(),
         sender = "synthetic",
-        content = "synthetic visible text",
+        content = SEEDED_TEXT,
         timestamp = Date(),
         isPrivate = private,
     )
 
-    /** One drawn frame: whether the old identity's store was blank, and which session it belonged to. */
-    private data class Frame(val blank: Boolean, val sessionGeneration: Int)
+    /** One look at the window's pixels, and the session it was taken under. */
+    private data class Sample(val shows: Boolean, val sessionGeneration: Int)
 
-    private fun recordFrames(activity: MainActivity, store: AppStateStore): MutableList<Frame> {
-        val frames = Collections.synchronizedList(ArrayList<Frame>())
-        val holder = access(activity).chatSessionHolder()
-        val listener = ViewTreeObserver.OnDrawListener {
-            frames += Frame(
-                blank = store.publicMessages.value.isEmpty() && store.privateMessages.value.isEmpty(),
-                sessionGeneration = holder.generation.value,
-            )
+    private fun composeRoots(view: View, into: MutableList<RootForTest> = ArrayList()): List<RootForTest> {
+        if (view is RootForTest) into += view
+        if (view is ViewGroup) for (i in 0 until view.childCount) composeRoots(view.getChildAt(i), into)
+        return into
+    }
+
+    private fun SemanticsNode.find(text: String): SemanticsNode? =
+        if (config.getOrNull(SemanticsProperties.Text)?.any { it.text.contains(text) } == true) this
+        else children.firstNotNullOfOrNull { it.find(text) }
+
+    /** Where the seeded text sits in the window, or null when the Compose tree does not hold it. */
+    private fun seededTextBounds(activity: MainActivity): Rect? =
+        composeRoots(activity.window.decorView)
+            .firstNotNullOfOrNull { it.semanticsOwner.unmergedRootSemanticsNode.find(SEEDED_TEXT) }
+            ?.boundsInWindow
+            ?.let { Rect(it.left.toInt(), it.top.toInt(), it.right.toInt(), it.bottom.toInt()) }
+
+    /** Copies what the window's surface holds for [region]. Works while the main thread is blocked. */
+    private fun copyPixels(activity: MainActivity, region: Rect, handler: Handler): Bitmap? {
+        val bitmap = Bitmap.createBitmap(region.width(), region.height(), Bitmap.Config.ARGB_8888)
+        val done = CountDownLatch(1)
+        var result = PixelCopy.ERROR_UNKNOWN
+        PixelCopy.request(activity.window, region, bitmap, { result = it; done.countDown() }, handler)
+        return if (done.await(2, TimeUnit.SECONDS) && result == PixelCopy.SUCCESS) bitmap else null
+    }
+
+    /** Pixels that differ clearly from the region's background colour: the ink of the text. */
+    private fun ink(bitmap: Bitmap): Int {
+        val pixels = IntArray(bitmap.width * bitmap.height)
+        bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        val background = pixels.groupBy { it }.maxByOrNull { it.value.size }!!.key
+        fun channel(color: Int, shift: Int) = (color shr shift) and 0xff
+        return pixels.count { color ->
+            listOf(0, 8, 16).any { abs(channel(color, it) - channel(background, it)) > 40 }
         }
-        activity.window.decorView.viewTreeObserver.addOnDrawListener(listener)
-        return frames
+    }
+
+    /**
+     * Looks at the window's pixels about every 10 ms, from before the panic until the new session
+     * is up. A pixel copy shows what is on the display, not what the store or the Compose tree
+     * holds: a row fading out has left composition and still shows.
+     */
+    private fun samplePixels(activity: MainActivity, holder: ChatSessionHolder, region: Rect, reference: Int, stop: () -> Boolean): List<Sample> {
+        val thread = HandlerThread("pixel-samples").apply { start() }
+        val handler = Handler(thread.looper)
+        val samples = ArrayList<Sample>()
+        try {
+            while (!stop()) {
+                val generation = holder.generation.value
+                val bitmap = copyPixels(activity, region, handler)
+                // A copy taken across the switch belongs to neither session.
+                if (bitmap != null && holder.generation.value == generation) {
+                    samples += Sample(shows = ink(bitmap) >= reference / 20, sessionGeneration = generation)
+                }
+                SystemClock.sleep(10)
+            }
+        } finally {
+            thread.quitSafely()
+        }
+        return samples
     }
 
     private fun panicAndAwaitBlankFrame(setUp: (MainActivity) -> Unit) {
         val activity = launch()
         awaitChat(activity)
-        val store = graph.appStateStore()
         val before = activity.read { access(it).chatSessionHolder().generation.value }
         activity.onActivity { setUp(it) }
         // The screen has settled on what was seeded before the panic.
         InstrumentationRegistry.getInstrumentation().waitForIdleSync()
-        SystemClock.sleep(200)
+        SystemClock.sleep(500)
 
-        val frames = activity.read { recordFrames(it, store) }
+        // Without this the test could pass on a screen that never showed the seeded text.
+        val region = checkNotNull(activity.read { seededTextBounds(it) }) { "the seeded text is not on the screen" }
+        val handler = HandlerThread("reference").apply { start() }
+        val reference = try {
+            ink(checkNotNull(copyPixels(activity.read { it }, region, Handler(handler.looper))) { "no pixel copy" })
+        } finally {
+            handler.quitSafely()
+        }
+        assertTrue("the seeded text is drawn before the panic: $reference", reference > 20)
+
+        // Stages that block the main thread long enough to be seen: they are what the screen must
+        // already be blank for.
+        val incoming = File(context.filesDir, "files/incoming").apply { mkdirs() }
+        repeat(SLOW_WIPE_FILES) { File(incoming, "synthetic-$it").createNewFile() }
+
+        // The main thread is blocked during the wipe, so the sampler never calls into the Activity.
+        val window = activity.read { it }
+        val holder = activity.read { access(it).chatSessionHolder() }
+        val panicStarted = AtomicBoolean(false)
+        val sampling = Executors.newSingleThreadExecutor()
+        val samples = sampling.submit<List<Sample>> {
+            samplePixels(window, holder, region, reference) { panicStarted.get() && holder.generation.value > before }
+        }
+        panicStarted.set(true)
         activity.onActivity { access(it).panicClear().run() }
         await("the new session") { activity.read { access(it).chatSessionHolder().generation.value } == before + 1 }
         awaitChat(activity)
+        val seen = samples.get(30, TimeUnit.SECONDS).filter { it.sessionGeneration == before }
+        sampling.shutdown()
 
-        val drawn = synchronized(frames) { frames.toList() }
+        assertTrue("the text was seen on the screen in some sample: $seen", seen.isNotEmpty())
         assertTrue(
-            "a frame of the blanked old session is drawn before the switch: $drawn",
-            drawn.any { it.blank && it.sessionGeneration == before },
+            "the screen is blank before the switch: ${seen.count { it.shows }} of ${seen.size} samples of the old session still show the text",
+            seen.any { !it.shows },
         )
     }
 

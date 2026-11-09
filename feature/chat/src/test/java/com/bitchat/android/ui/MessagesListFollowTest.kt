@@ -105,6 +105,27 @@ class MessagesListFollowTest {
         assertTrue("reader was yanked back to the latest message", scrolledUp ?: false)
     }
 
+    @Test
+    fun `a conversation cleared while scrolled away opens at its latest message when it refills`() {
+        setContent()
+        compose.onNode(hasScrollToIndexAction()).performScrollToIndex(TimelineSize - 1)
+        compose.waitForIdle()
+        assertTrue(scrolledUp ?: false)
+
+        messages = emptyList()
+        compose.waitForIdle()
+        assertFalse("an empty conversation is at its latest", scrolledUp ?: true)
+        compose.onNodeWithText("synthetic message", substring = true).assertDoesNotExist()
+
+        messages = listOf(msg(100))
+        compose.waitForIdle()
+        compose.onNodeWithText(body(100), substring = true).assertIsDisplayed()
+        assertFalse(scrolledUp ?: true)
+        messages = messages + msg(101)
+        compose.waitForIdle()
+        compose.onNodeWithText(body(101), substring = true).assertIsDisplayed()
+    }
+
     private fun msg(index: Int) = BitchatMessage(
         id = "m$index",
         sender = "alice",
