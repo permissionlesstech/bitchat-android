@@ -7,6 +7,7 @@ import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.identity.SecureIdentityStateManager
+import com.bitchat.android.identity.scope.IdentityCoroutineScope
 import com.bitchat.android.geohash.LiveLocationPrivacyGate
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.PeerFingerprintManager
@@ -265,6 +266,7 @@ object ChatSessionModule {
         nostrIdentity: NostrIdentityBridge,
         spamFilter: SpamFilter,
         teardown: ChatSessionTeardown,
+        @IdentityCoroutineScope identityScope: CoroutineScope,
     ): GeohashSession = GeohashSession(
         application = application,
         state = state,
@@ -281,6 +283,7 @@ object ChatSessionModule {
         locationChannelManagerSource = locationChannelManager,
         relayManagerSource = relayManager,
         locationNotesManagerSource = locationNotesManager,
+        identityScope = identityScope,
     ).also { session -> teardown.register("GeohashSession", session::shutdownUiSubscriptions) }
 
     @Provides

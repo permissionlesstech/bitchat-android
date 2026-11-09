@@ -13,6 +13,8 @@ import com.bitchat.android.geohash.LiveLocationPrivacyGate
 import com.bitchat.android.nostr.GeohashMessageHandler
 import com.bitchat.android.nostr.GeohashRepository
 import com.bitchat.android.nostr.NostrBackgroundRuntime
+import com.bitchat.android.nostr.NostrEvent
+import com.bitchat.android.nostr.NostrIdentity
 import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.nostr.NostrProtocol
 import com.bitchat.android.nostr.NostrRelayManager
@@ -20,6 +22,7 @@ import com.bitchat.android.nostr.NostrSubscriptionManager
 import com.bitchat.android.nostr.PoWPreferenceManager
 import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.nostr.GeohashConversationRegistry
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -37,12 +40,16 @@ import java.util.UUID
  * switching, presence, participant sampling and sending.
  *
  * Provided by the session graph rather than built inside ChatViewModel, so
- * screens can reach it. It was an AndroidViewModel that no ViewModelStore
- * owned, which meant its viewModelScope was never cancelled; [scope] keeps
- * that behaviour on purpose. Moving it to the session scope would cancel a
- * geohash send still in flight when the Activity finishes, which is a
- * messaging change and belongs in its own commit. ChatSessionStartup calls
- * [shutdownUiSubscriptions] when the session is cleared.
+ * screens can reach it. [shutdownUiSubscriptions] runs when the session ends,
+ * and cancels [scope], which holds the channel collectors, the presence
+ * refresh and the participant timer.
+ *
+ * A send runs on [identityScope] instead, on the same main-thread dispatcher:
+ * the local message is already on screen when it starts, so a person who leaves
+ * mid-send must not lose it. It outlives the session and dies with the identity.
+ * Ending an identity cancels it before it publishes, so a panic that ends the
+ * identity stops it. A panic that clears in place keeps the identity, so a send
+ * in flight then still finishes.
  */
 class GeohashSession(
     private val application: Application,
@@ -61,6 +68,11 @@ class GeohashSession(
     private val locationChannelManagerSource: javax.inject.Provider<com.bitchat.android.geohash.LocationChannelManager>,
     private val relayManagerSource: Lazy<NostrRelayManager>,
     private val locationNotesManagerSource: javax.inject.Provider<com.bitchat.android.nostr.LocationNotesManager>,
+    private val identityScope: CoroutineScope,
+    private val createGeohashEvent: suspend (String, String, NostrIdentity, String?, Boolean) -> NostrEvent =
+        { content, geohash, identity, nickname, teleported ->
+            NostrProtocol.createEphemeralGeohashEvent(content, geohash, identity, nickname, teleported, pow = powPreferences)
+        },
 ) : DefaultLifecycleObserver {
 
     companion object { private const val TAG = "GeohashSession" }
@@ -168,7 +180,7 @@ class GeohashSession(
     }
 
     fun sendGeohashMessage(content: String, channel: com.bitchat.android.geohash.GeohashChannel, myPeerID: String, nickname: String?) {
-        scope.launch {
+        identityScope.launch(Dispatchers.Main.immediate) {
             try {
                 val canUseChannel = locationChannelManager
                     ?.canUseSelectedLocationChannel(channel) == true
@@ -200,14 +212,7 @@ class GeohashSession(
                 )
                 val teleported = locationChannelManager?.teleported?.value
                     ?: state.isTeleported.value
-                val event = NostrProtocol.createEphemeralGeohashEvent(
-                    content,
-                    channel.geohash,
-                    identity,
-                    nickname,
-                    teleported,
-                    pow = powPreferences
-                )
+                val event = createGeohashEvent(content, channel.geohash, identity, nickname, teleported)
                 val relayManager = relayManagerSource.get()
                 relayManager.sendEventToGeohash(
                     event,
@@ -216,6 +221,8 @@ class GeohashSession(
                     nRelays = 5,
                     liveLocationToken = liveLocationToken
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send geohash message: ${e.message}")
             }
