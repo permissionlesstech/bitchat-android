@@ -260,7 +260,8 @@ class CommandProcessor(
         val targetName = parts.drop(1).firstOrNull { it.isNotBlank() }?.removePrefix("@")
         if (!targetName.isNullOrEmpty()) {
             if (state.selectedLocationChannel.value is com.bitchat.android.geohash.ChannelID.Location &&
-                state.getSelectedPrivateChatPeerValue() == null
+                state.getSelectedPrivateChatPeerValue() == null &&
+                state.getCurrentChannelValue() == null
             ) {
                 viewModel?.blockUserInGeohash(targetName)
                 return

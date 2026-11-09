@@ -163,6 +163,29 @@ class CommandProcessorTest {
   }
 
   @Test
+  fun `block and ban use the named mesh timeline when a geohash is also selected`() {
+    chatState.setCurrentChannel("backchannel")
+    chatState.setSelectedLocationChannel(
+      ChannelID.Location(GeohashChannel(GeohashChannelLevel.PROVINCE, "0000"))
+    )
+    whenever(meshService.getPeerNicknames()).thenReturn(mapOf("mesh-peer" to "anon#a1b2"))
+    val viewModel: ChatViewModel = mock()
+
+    for (command in listOf("/block", "/ban")) {
+      assertTrue(commandProcessor.processCommand(
+        command = "$command @anon#a1b2",
+        meshService = meshService,
+        myPeerID = "self",
+        onSendMessage = { _, _, _ -> error("blocking must not publish a message") },
+        viewModel = viewModel
+      ))
+    }
+
+    verify(viewModel, Mockito.never()).blockUserInGeohash("anon#a1b2", null)
+    verify(meshService, Mockito.times(2)).getPeerNicknames()
+  }
+
+  @Test
   fun `pay feedback is added to active geohash channel`() {
     val geohash = "u0nd"
     chatState.setSelectedLocationChannel(
