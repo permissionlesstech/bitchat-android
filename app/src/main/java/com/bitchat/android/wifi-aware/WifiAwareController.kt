@@ -54,6 +54,9 @@ class WifiAwareController @Inject constructor(
     private val restartInFlight = AtomicBoolean(false)
     private val restartRequested = AtomicBoolean(false)
     private var awareReceiver: android.content.BroadcastReceiver? = null
+
+    /** Set once, under [lifecycleLock], when the identity ends; nothing starts or registers after it. */
+    private var closed = false
     private var lastBlockedReason: String? = null
 
     /**
@@ -83,9 +86,14 @@ class WifiAwareController @Inject constructor(
     }
 
     /** Ends this controller: stops its service, unregisters the system receiver, cancels its scope. */
-    private fun close() {
+    internal fun close() {
         scope.cancel()
-        val receiver = synchronized(lifecycleLock) { awareReceiver.also { awareReceiver = null } }
+        // Under the lock that publishes a started service: a start already inside startServices()
+        // then finds the controller closed and stops what it built instead of publishing it.
+        val receiver = synchronized(lifecycleLock) {
+            closed = true
+            awareReceiver.also { awareReceiver = null }
+        }
         if (receiver != null) {
             try { appContext?.unregisterReceiver(receiver) } catch (_: Exception) { }
         }
@@ -118,6 +126,7 @@ class WifiAwareController @Inject constructor(
     val discoveredPeers: StateFlow<Set<String>> = _discoveredPeers.asStateFlow()
 
     fun initialize(context: Context, enabledByDefault: Boolean) {
+        if (synchronized(lifecycleLock) { closed }) return
         appContext = context.applicationContext
         val status = refreshSupportStatus(appContext!!)
         if (status.supported) {
@@ -200,7 +209,7 @@ class WifiAwareController @Inject constructor(
 
     fun startIfPossible() {
         val reusableService = synchronized(lifecycleLock) {
-            if (!_enabled.value) return
+            if (closed || !_enabled.value) return
             if (heldForHotspot()) {
                 Log.d(TAG, "Not starting Wi-Fi Aware: held down for the hotspot")
                 return
@@ -281,17 +290,7 @@ class WifiAwareController @Inject constructor(
             // publishes anyway — resurrecting NAN while the hotspot owns the radio.
             // Ordering holds because acquireHotspotLease() increments before calling
             // stop(): either we see the flag here, or stop() sees our published service.
-            val published = synchronized(lifecycleLock) {
-                val canPublish = !heldForHotspot() && startedService.isRunning()
-                if (canPublish) {
-                    service = startedService
-                    _running.value = true
-                } else {
-                    if (service === startedService) service = null
-                    _running.value = false
-                }
-                canPublish
-            }
+            val published = publishStarted(startedService)
 
             if (published) {
                 try { meshServiceHolder.unifiedMeshService?.refreshDelegates() } catch (_: Exception) { }
@@ -300,7 +299,7 @@ class WifiAwareController @Inject constructor(
             } else {
                 // stopServices() can block, so keep it out of the lock.
                 val heldForHotspot = heldForHotspot()
-                if (heldForHotspot || reusableService == null) {
+                if (heldForHotspot || reusableService == null || synchronized(lifecycleLock) { closed }) {
                     try { startedService.stopServices() } catch (_: Exception) { }
                 }
                 if (heldForHotspot) {
@@ -331,6 +330,23 @@ class WifiAwareController @Inject constructor(
         clearDebugSnapshot()
         try { debugSettingsManager.get().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware stopped")) } catch (_: Exception) {}
     }
+
+    /**
+     * Publishes [startedService] if nothing has claimed the radio and the controller is still
+     * open, under the lock [stop] and [close] take. Returns whether it was published.
+     */
+    internal fun publishStarted(startedService: WifiAwareMeshService): Boolean =
+        synchronized(lifecycleLock) {
+            val canPublish = !closed && !heldForHotspot() && startedService.isRunning()
+            if (canPublish) {
+                service = startedService
+                _running.value = true
+            } else {
+                if (service === startedService) service = null
+                _running.value = false
+            }
+            canPublish
+        }
 
     internal fun onServiceStopped(stoppedService: WifiAwareMeshService) {
         synchronized(lifecycleLock) {
@@ -396,7 +412,6 @@ class WifiAwareController @Inject constructor(
      * an unrelated trigger.
      */
     private fun registerAwareStateReceiver(ctx: Context) {
-        if (awareReceiver != null) return
         if (!refreshSupportStatus(ctx).supported) return
         try {
             val filter = android.content.IntentFilter(
@@ -415,8 +430,11 @@ class WifiAwareController @Inject constructor(
                     }
                 }
             }
-            ctx.registerReceiver(receiver, filter)
-            awareReceiver = receiver
+            synchronized(lifecycleLock) {
+                if (closed || awareReceiver != null) return
+                ctx.registerReceiver(receiver, filter)
+                awareReceiver = receiver
+            }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to register Wi-Fi Aware state receiver: ${e.message}")
         }

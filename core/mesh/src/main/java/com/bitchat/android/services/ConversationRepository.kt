@@ -18,7 +18,9 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -352,7 +354,14 @@ class ConversationRepository(
      */
     fun close() {
         scope.cancel()
-        database.closeForGood()
+        // On the writer, queued behind any write in flight: closing the helper under a running
+        // transaction would strand its write lock. A writer that is already gone (its executor shut
+        // down) has nothing in flight, so the close runs here.
+        try {
+            runBlocking(dispatcher) { database.closeForGood() }
+        } catch (_: CancellationException) {
+            database.closeForGood()
+        }
     }
 
     @VisibleForTesting
@@ -427,20 +436,24 @@ internal class ConversationDatabase(
         setWriteAheadLoggingEnabled(true)
     }
 
-    override fun getWritableDatabase(): SQLiteDatabase {
+    // The helper's own monitor: the check and the open are one step, so a call racing the close
+    // either opens before it or is refused after it, and never reopens the file.
+    override fun getWritableDatabase(): SQLiteDatabase = synchronized(this) {
         check(!closedForGood) { "Conversation database is closed" }
-        return super.getWritableDatabase()
+        super.getWritableDatabase()
     }
 
-    override fun getReadableDatabase(): SQLiteDatabase {
+    override fun getReadableDatabase(): SQLiteDatabase = synchronized(this) {
         check(!closedForGood) { "Conversation database is closed" }
-        return super.getReadableDatabase()
+        super.getReadableDatabase()
     }
 
     /** Closes the helper and keeps it closed: [getWritableDatabase] would otherwise reopen it. */
     fun closeForGood() {
-        closedForGood = true
-        close()
+        synchronized(this) {
+            closedForGood = true
+            close()
+        }
     }
 
     override fun onConfigure(db: SQLiteDatabase) {
