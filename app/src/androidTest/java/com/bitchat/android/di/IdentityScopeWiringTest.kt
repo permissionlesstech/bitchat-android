@@ -17,6 +17,7 @@ import com.bitchat.android.service.MeshForegroundService
 import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.testhook.ChatSessionTestAccess
+import com.bitchat.android.testhook.WifiMeshTestAccess
 import com.bitchat.android.testhook.ConversationTestAccess
 import com.bitchat.android.testhook.MeshTestAccess
 import com.bitchat.android.ui.ChatMeshDelegate
@@ -339,6 +340,7 @@ class IdentityScopeWiringTest {
         val router = routerHolder.peek()!!
         val meshBefore = meshHolder.unifiedMeshService
         assertNotNull(meshBefore)
+        val managerBefore = meshManagerOf(meshHolder.meshService!!)
         lateinit var sessionMesh: ChatSessionMesh
         rule.runOnUiThread { sessionMesh = ChatSessionTestAccess.of(rule.activity).sessionMesh() }
         assertSame(meshBefore, sessionMesh.unified)
@@ -359,7 +361,44 @@ class IdentityScopeWiringTest {
         assertNotSame(meshBefore, meshHolder.unifiedMeshService)
         // The session keeps the mesh it was using; only the next session reads another.
         assertSame(meshBefore, sessionMesh.unified)
+        // Inside one identity the replaced mesh's manager stays, so acknowledging what it posted still
+        // reaches it, and the new mesh has its own.
+        val live = liveNotificationManagers()
+        assertTrue(live.contains(managerBefore))
+        assertTrue(live.contains(meshManagerOf(meshHolder.meshService!!)))
     }
+
+    /** A mesh builds its own manager for DMs with no UI. Those go with the identity, started or not. */
+    @Test
+    fun aPanicLeavesNoNotificationManagerOfTheOldIdentity() {
+        rule.awaitChat()
+        val holder = graph().identityHolder()
+        val context = rule.activity.applicationContext
+        val bluetooth = meshManagerOf(graph().meshServiceHolder().getOrCreate(context))
+        // Never started, which is the case a close at the end of stopServices would miss.
+        lateinit var wifi: NotificationManager
+        rule.runOnUiThread {
+            wifi = meshManagerOf(holder.entryPoint<WifiMeshTestAccess>().wifiAwareMeshService())
+        }
+        val before = liveNotificationManagers()
+        assertTrue(before.contains(bluetooth))
+        assertTrue(before.contains(wifi))
+        val generation = holder.generation.value
+
+        lateinit var panic: com.bitchat.android.ui.PanicClear
+        rule.runOnUiThread {
+            panic = ChatSessionTestAccess.of(rule.activity).panicClear()
+            panic.run()
+        }
+        rule.waitUntil(timeoutMillis = 15_000) { holder.generation.value == generation + 1 && !panic.inProgress }
+
+        assertEquals(emptySet<NotificationManager>(), liveNotificationManagers().intersect(before))
+        assertEquals(0, bluetooth.pendingPreviewCount)
+        assertEquals(0, wifi.pendingPreviewCount)
+    }
+
+    private fun meshManagerOf(mesh: Any): NotificationManager =
+        mesh.javaClass.getDeclaredField("serviceNotificationManager").apply { isAccessible = true }.get(mesh) as NotificationManager
 
     @Test
     fun replacingTheIdentityCancelsItsScopeAndBuildsNewInstances() {

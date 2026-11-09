@@ -1,6 +1,7 @@
 package com.bitchat.android.wifiaware
 
 import com.bitchat.android.di.IoDispatcher
+import com.bitchat.android.identity.scope.IdentityTeardown
 import kotlinx.coroutines.CoroutineDispatcher
 import android.Manifest
 import android.annotation.SuppressLint
@@ -102,6 +103,7 @@ class WifiAwareMeshService @Inject constructor(
     conversationListPreferences: ConversationListPreferences,
     private val powerManager: PowerManager,
     @IoDispatcher ioDispatcher: CoroutineDispatcher,
+    teardown: IdentityTeardown,
 ) : MeshService, TransportBridgeService.TransportLayer {
 
     companion object {
@@ -130,14 +132,16 @@ class WifiAwareMeshService @Inject constructor(
     private lateinit var meshCore: MeshCore
     private lateinit var fragmentingSender: FragmentingPacketSender
 
-    // Service-level notification manager for background (no-UI) DMs
+    // Service-level notification manager for background (no-UI) DMs. It ends with the identity rather
+    // than with this mesh: a mesh that never started has no stop to hang it on, and one that stopped
+    // may still have notifications up that an acknowledge must reach.
     private val serviceNotificationManager = com.bitchat.android.ui.NotificationManager(
         context.applicationContext,
         androidx.core.app.NotificationManagerCompat.from(context.applicationContext),
         com.bitchat.android.di.AppNotificationTargets,
         contactDirectory,
         conversationListPreferences,
-    )
+    ).also { teardown.register("WifiAwareMeshService notifications", it::close) }
 
     // Wi-Fi Aware transport
     private val awareManager = context.getSystemService(WifiAwareManager::class.java)

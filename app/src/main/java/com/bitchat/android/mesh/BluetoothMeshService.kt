@@ -1,6 +1,7 @@
 package com.bitchat.android.mesh
 
 import com.bitchat.android.di.IoDispatcher
+import com.bitchat.android.identity.scope.IdentityTeardown
 import kotlinx.coroutines.CoroutineDispatcher
 import android.content.Context
 import android.util.Log
@@ -85,6 +86,7 @@ class BluetoothMeshService @AssistedInject constructor(
     powerManager: PowerManager,
     transferProgressManager: TransferProgressManager,
     @IoDispatcher ioDispatcher: CoroutineDispatcher,
+    teardown: IdentityTeardown,
 ) : TransportBridgeService.TransportLayer {
 
     @AssistedFactory
@@ -184,14 +186,16 @@ class BluetoothMeshService @AssistedInject constructor(
     private data class VoiceFrameRequest(val recipientPeerID: String?, val payload: ByteArray)
     private val voiceFrameQueue = Channel<VoiceFrameRequest>(capacity = 128)
     private lateinit var gossipSyncManager: GossipSyncManager
-    // Service-level notification manager for background (no-UI) DMs
+    // Service-level notification manager for background (no-UI) DMs. It ends with the identity rather
+    // than with this mesh: stopServices does nothing on a mesh that never started, and a mesh the
+    // foreground service replaced still has notifications up that an acknowledge must reach.
     private val serviceNotificationManager = com.bitchat.android.ui.NotificationManager(
         context.applicationContext,
         androidx.core.app.NotificationManagerCompat.from(context.applicationContext),
         com.bitchat.android.di.AppNotificationTargets,
         contactDirectory,
         conversationListPreferences,
-    )
+    ).also { teardown.register("BluetoothMeshService notifications", it::close) }
     
     // Service state management
     private var isActive = false

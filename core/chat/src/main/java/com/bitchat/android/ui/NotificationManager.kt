@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager as AndroidNotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import androidx.annotation.VisibleForTesting
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -97,6 +98,9 @@ class NotificationManager(
     // Track app background state
     @Volatile
     private var isAppInBackground = false
+
+    @Volatile
+    private var closed = false
     
     // Track current view state
     @Volatile
@@ -129,12 +133,26 @@ class NotificationManager(
 
     /**
      * Leaves the process-wide registry [acknowledgeConversation] reaches, so a manager whose chat
-     * session ended no longer answers for notifications its replacement now owns.
+     * session or identity ended no longer answers for notifications its replacement now owns. It also
+     * drops its previews and takes no more, so a closed manager holds no one's text.
      */
+    @get:VisibleForTesting
+    val pendingPreviewCount: Int
+        get() = pendingNotifications.values.sumOf { it.size } + pendingGeohashNotifications.values.sumOf { it.size }
+
     fun close() {
+        closed = true
         synchronized(liveManagers) { liveManagers.remove(this) }
         pendingNotifications.clear()
         pendingGeohashNotifications.clear()
+    }
+
+    /** A preview added while [close] ran may have missed its clear, so whoever added it clears it. */
+    private fun droppedAfterClosing(): Boolean {
+        if (!closed) return false
+        pendingNotifications.clear()
+        pendingGeohashNotifications.clear()
+        return true
     }
 
     private fun createNotificationChannel() {
@@ -193,6 +211,7 @@ class NotificationManager(
      * Show a notification for a private message with proper grouping and state awareness
      */
     fun showPrivateMessageNotification(senderPeerID: String, senderNickname: String, messageContent: String) {
+        if (closed) return
         val conversationID = contactDirectory.canonicalConversationId(senderPeerID)
         if (conversationPreferences.isMuted(conversationID)) {
             Log.d(TAG, "Skipping muted conversation notification")
@@ -218,6 +237,7 @@ class NotificationManager(
 
         // Add to pending notifications for this sender
         pendingNotifications.computeIfAbsent(conversationID) { mutableListOf() }.add(notification)
+        if (droppedAfterClosing()) return
 
         // Create or update notification for this sender
         showNotificationForSender(conversationID)
@@ -525,6 +545,7 @@ class NotificationManager(
         isFirstMessage: Boolean = false,
         locationName: String? = null
     ) {
+        if (closed) return
         // Only show notifications if app is in background OR user is not viewing this specific geohash
         val shouldNotify = isAppInBackground || (!isAppInBackground && currentGeohash != geohash)
 
@@ -547,6 +568,7 @@ class NotificationManager(
 
         // Add to pending notifications for this geohash
         pendingGeohashNotifications.computeIfAbsent(geohash) { mutableListOf() }.add(notification)
+        if (droppedAfterClosing()) return
 
         // Create or update notification for this geohash
         showNotificationForGeohash(geohash)
@@ -746,6 +768,7 @@ class NotificationManager(
         messageContent: String,
         senderPeerID: String? = null
     ) {
+        if (closed) return
         // Only show notifications if app is in background OR user is not viewing mesh chat
         // User is viewing mesh chat when: not in private chat AND not in geohash chat
         val isViewingMeshChat = currentPrivateChatPeer == null && currentGeohash == null
@@ -769,6 +792,7 @@ class NotificationManager(
 
         // Add to pending notifications for mesh mentions
         pendingNotifications.computeIfAbsent(meshMentionKey) { mutableListOf() }.add(notification)
+        if (droppedAfterClosing()) return
 
         // Create or update notification for mesh mentions
         showNotificationForMeshMentions()
