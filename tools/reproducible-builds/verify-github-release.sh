@@ -34,22 +34,28 @@ fi
 
 DOWNLOAD_DIR="$TEMP_DIR/github"
 mkdir -p "$DOWNLOAD_DIR"
-gh release download "$TAG" \
-  --repo "$REPOSITORY" \
-  --dir "$DOWNLOAD_DIR" \
-  --pattern 'BITCHAT_BUILDINFO.json' \
-  --pattern 'BITCHAT_SHA256SUMS' \
-  --pattern 'BITCHAT_SHA256SUMS.unsigned' \
-  --pattern 'bitchat-android-*.apk' \
-  --pattern 'bitchat-android-*.aab'
+attestation_args=(--repo "$REPOSITORY")
 
 # A pin must come from a separately trusted channel, never the downloaded key.
-# Keep compatibility with releases made before OpenPGP metadata was published.
 if [ -n "${BITCHAT_RELEASE_GPG_FINGERPRINT:-}" ]; then
-  gh release download "$TAG" --repo "$REPOSITORY" --dir "$DOWNLOAD_DIR" \
-    --pattern 'BITCHAT_SHA256SUMS.asc' --pattern 'BITCHAT_RELEASE_KEY.asc'
+  # The signed manifest must account for every uploaded asset, including files
+  # outside the usual APK and AAB patterns.
+  gh release download "$TAG" --repo "$REPOSITORY" --dir "$DOWNLOAD_DIR"
   python3 "$SCRIPT_DIR/openpgp-release.py" verify "$DOWNLOAD_DIR" \
     "$BITCHAT_RELEASE_GPG_FINGERPRINT"
+  # The signed manifest covers BUILDINFO. Require its provenance and the
+  # canonical artifacts' provenance to identify the requested release ref.
+  attestation_args+=(--source-ref "refs/tags/$TAG")
+else
+  # Keep compatibility with releases made before OpenPGP metadata was published.
+  gh release download "$TAG" \
+    --repo "$REPOSITORY" \
+    --dir "$DOWNLOAD_DIR" \
+    --pattern 'BITCHAT_BUILDINFO.json' \
+    --pattern 'BITCHAT_SHA256SUMS' \
+    --pattern 'BITCHAT_SHA256SUMS.unsigned' \
+    --pattern 'bitchat-android-*.apk' \
+    --pattern 'bitchat-android-*.aab'
 fi
 
 attested_artifacts=(
@@ -69,7 +75,7 @@ for artifact in "${attested_artifacts[@]}"; do
     echo "error: attested canonical artifact missing: $artifact" >&2
     exit 1
   fi
-  gh attestation verify "$DOWNLOAD_DIR/$artifact" --repo "$REPOSITORY" >/dev/null
+  gh attestation verify "$DOWNLOAD_DIR/$artifact" "${attestation_args[@]}" >/dev/null
 done
 echo "GitHub provenance attestations for the canonical unsigned build verified."
 

@@ -476,7 +476,10 @@ BITCHAT_RELEASE_GPG_FINGERPRINT="$RELEASE_FINGERPRINT" \
   tools/reproducible-builds/verify-github-release.sh vX.Y.Z --no-rebuild
 ```
 
-If the pin is set, missing metadata or any failed signature/checksum is fatal.
+With a pin, verification checks the complete uploaded asset inventory and
+requires provenance from the requested tag for the signed build information
+and canonical unsigned artifacts. Missing metadata, unexpected assets, and
+failed signature, checksum, or provenance checks are fatal.
 Older releases remain verifiable through the existing attestation path when
 no OpenPGP pin is supplied. A checksum signature authenticates the maintainer's
 release inventory; it does not prove reproducibility or validate app behavior.
