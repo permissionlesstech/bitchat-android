@@ -207,15 +207,16 @@ class ChatSessionStartupTest {
     }
 
     @Test
-    fun `a start after the session ended leaves nothing running`() {
+    fun `a start after the session ended starts nothing`() {
         val session = session()
         session.end()
 
         session.startup.start()
         scheduler.runCurrent()
 
-        verify(session.conversationDirectory).stopFavoriteTracking()
-        verify(session.geohashSession).shutdownUiSubscriptions()
+        verify(session.conversationDirectory, never()).startFavoriteTracking()
+        verify(session.conversationDirectory, never()).observePresenceWithDisconnectGrace()
+        verify(session.geohashSession, never()).initialize()
     }
 
     @Test

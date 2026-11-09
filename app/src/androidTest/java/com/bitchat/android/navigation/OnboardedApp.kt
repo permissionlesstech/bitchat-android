@@ -3,6 +3,7 @@ package com.bitchat.android.navigation
 import com.bitchat.android.ui.debug.DebugPreferenceManager
 import android.os.ParcelFileDescriptor
 import android.view.KeyEvent
+import androidx.collection.ScatterMap
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
@@ -10,6 +11,8 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelStore
 import androidx.navigation3.runtime.NavKey
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.platform.app.InstrumentationRegistry
@@ -167,3 +170,21 @@ internal fun MainActivityRule.awaitSheet() {
     waitUntil(timeoutMillis = 5_000) { onAllNodes(isSheet).fetchSemanticsNodes().isNotEmpty() }
     waitForIdle()
 }
+
+/**
+ * Every ViewModel of the nav entries under [store]. A nav entry's store sits in a private holder in
+ * the lifecycle library and nothing public reaches it, so this reads the private fields. It finds
+ * nothing, and the test fails, if that library changes how it keeps them.
+ */
+internal fun entryViewModels(store: ViewModelStore): List<ViewModel> =
+    store.keys().mapNotNull { store[it] }.flatMap { holder ->
+        val entries = runCatching {
+            holder.javaClass.getDeclaredField("entries").apply { isAccessible = true }.get(holder) as ScatterMap<*, *>
+        }.getOrNull() ?: return@flatMap emptyList()
+        val viewModels = ArrayList<ViewModel>()
+        entries.forEachValue { entry ->
+            val entryStore = entry!!.javaClass.getDeclaredField("store").apply { isAccessible = true }.get(entry) as ViewModelStore
+            entryStore.keys().mapNotNullTo(viewModels) { entryStore[it] }
+        }
+        viewModels
+    }

@@ -18,8 +18,8 @@ import org.junit.runner.RunWith
 /**
  * The app graph builds each shared mesh store once, and the mesh and the panic wipe hold that one.
  * If the mesh wrote to one `AppStateStore` and the screens read another, messages and peers would
- * silently vanish; if the panic wipe reset a second `SpamFilter` or favourites store, the real one
- * would survive it.
+ * silently vanish; if the panic wipe cleared a second favourites store, the real one would survive
+ * it.
  *
  * Reads the real application graph through a debug entry point; it sends nothing and wipes nothing.
  */
@@ -72,7 +72,7 @@ class MeshSingletonIdentityTest {
     }
 
     @Test
-    fun thePanicWipeResetsTheGraphsStores() {
+    fun thePanicWipeClearsTheGraphsStores() {
         rule.awaitChat()
         val panicClear = panicClear()
 

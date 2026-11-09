@@ -8,7 +8,6 @@ import com.bitchat.android.identity.scope.entryPoint
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.service.MeshTransportToggles
-import com.bitchat.android.ui.SessionMeshSource
 import com.bitchat.android.ui.WifiAwarePeers
 import com.bitchat.android.wifiaware.WifiAwareController
 import dagger.Module
@@ -27,7 +26,6 @@ interface AppIdentityEntryPoint {
     fun wifiAwareController(): WifiAwareController
     fun meshTransportToggles(): MeshTransportToggles
     fun meshService(): MeshService
-    fun sessionMeshSource(): SessionMeshSource
 }
 
 /**
@@ -57,11 +55,6 @@ object AppIdentityBindings {
     @CurrentIdentity
     fun meshService(holder: IdentityHolder): MeshService =
         holder.entryPoint<AppIdentityEntryPoint>().meshService()
-
-    @Provides
-    @CurrentIdentity
-    fun sessionMeshSource(holder: IdentityHolder): SessionMeshSource =
-        holder.entryPoint<AppIdentityEntryPoint>().sessionMeshSource()
 
     @Provides
     fun identityStartup(startup: AppIdentityStartup): IdentityStartup = startup

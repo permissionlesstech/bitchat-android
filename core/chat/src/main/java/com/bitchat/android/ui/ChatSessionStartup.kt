@@ -25,6 +25,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -45,9 +46,8 @@ class ChatSessionStartup @Inject constructor(
     @ChatSessionScope private val scope: CoroutineScope,
     private val teardown: ChatSessionTeardown,
     private val sessionMesh: ChatSessionMesh,
-    // dagger.Lazy and Provider for the reasons ChatViewModel gave: these were
-    // first resolved at the point of use, and MessageRouter has to be
-    // re-resolved so it follows the mesh panic-clear replaces.
+    // Provider for the reasons ChatViewModel gave: these were first resolved at the point of use,
+    // and MessageRouter has to be re-resolved so it follows a mesh the foreground service replaced.
     private val seenMessageStoreProvider: Provider<SeenMessageStore>,
     private val nostrTransportProvider: Provider<NostrTransport>,
     @SessionRouter private val messageRouterProvider: Provider<MessageRouter>,
@@ -81,10 +81,15 @@ class ChatSessionStartup @Inject constructor(
 
     private var started = false
 
-    /** Starts this session once; later calls, from a recreated ViewModel, do nothing. */
+    /**
+     * Starts this session once; later calls, from a recreated ViewModel, do nothing. A session that
+     * has already ended starts nothing, so reopening the app during a panic reads nothing back from
+     * the identity being wiped.
+     */
     fun start() {
         if (started) return
         started = true
+        if (!scope.isActive) return
         Log.d(TAG, "Starting chat session")
 
         conversationDirectory.observePresenceWithDisconnectGrace()

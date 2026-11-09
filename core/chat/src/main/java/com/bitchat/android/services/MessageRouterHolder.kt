@@ -7,7 +7,7 @@ import javax.inject.Inject
 
 /**
  * Owns the identity's one [MessageRouter]. The router outlives any mesh: the foreground service
- * stopping or a panic clear replaces the mesh, and the next [getOrAttach] re-points the router and
+ * stopping replaces the mesh, and the next [getOrAttach] re-points the router and
  * restarts its outbox scheduler.
  */
 @IdentityScoped

@@ -44,6 +44,7 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
+import org.mockito.kotlin.verifyNoInteractions
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.shadows.ShadowLog
@@ -151,5 +152,44 @@ class GeohashSessionSendTest {
 
         val field = GeohashSession::class.java.getDeclaredField("scope").apply { isAccessible = true }
         assertTrue((field.get(session) as CoroutineScope).coroutineContext[kotlinx.coroutines.Job]!!.isCancelled)
+    }
+
+    @Test
+    fun `a geohash send in flight when a panic starts does not publish`() {
+        session.sendGeohashMessage("synthetic", channel, "self", "anon0000")
+        scheduler.runCurrent()
+
+        // The panic's start, with the identity still alive through the slow wipe that follows.
+        session.cancelSendsInFlight()
+        scheduler.advanceTimeBy(2_000)
+        scheduler.runCurrent()
+
+        verifyPublished(0)
+    }
+
+    @Test
+    fun `a send after the in-flight ones were cancelled still works`() {
+        session.cancelSendsInFlight()
+
+        session.sendGeohashMessage("synthetic", channel, "self", "anon0000")
+        scheduler.advanceTimeBy(2_000)
+        scheduler.runCurrent()
+
+        verifyPublished(1)
+    }
+
+    @Test
+    fun `ending the sampling after the session ended sends nothing to the relays`() {
+        session.beginGeohashSampling(emptyList(), listOf(channel.geohash))
+        // The foreground is what subscribes, and a JVM test's process never reaches it by itself.
+        session.onStart(mock())
+        scheduler.runCurrent()
+        session.shutdownUiSubscriptions()
+        org.mockito.Mockito.clearInvocations(relayManager)
+
+        session.endGeohashSampling()
+        scheduler.runCurrent()
+
+        verifyNoInteractions(relayManager)
     }
 }

@@ -124,16 +124,16 @@ class AppIdentityStartup @Inject constructor(
                     scope,
                     nostrBackgroundRuntime.get().participants,
                     powPreferences.get(),
-                    nostrTransport = { nostrTransport.get() },
+                    nostrTransport = nostrTransport.get(),
                     appStateStore = appStateStore.get(),
                     contactDirectory = contactDirectory.get(),
-                    favorites = favoritesPersistence,
+                    favorites = favoritesPersistence.get(),
                     peerFingerprints = peerFingerprints.get(),
                     geohashAliases = geohashAliases.get(),
                     geohashConversations = geohashConversations.get(),
                     nostrIdentity = nostrIdentityBridge.get(),
                     spamFilter = spamFilter.get(),
-                    seenMessageStore = seenMessageStore,
+                    seenMessageStore = seenMessageStore.get(),
                 )
             }
         } catch (_: Exception) { }

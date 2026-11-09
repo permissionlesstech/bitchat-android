@@ -37,7 +37,7 @@ object ChatIdentityBindings {
 
     /**
      * Every resolution re-points the router at the current mesh, so take it as a `Provider` and
-     * ask each time: a cached router would keep pointing at the mesh a panic clear replaced.
+     * ask each time: a cached router would keep pointing at a mesh the foreground service replaced.
      * [mesh] asks the mesh holder, so this can create a mesh, as it always has. Code that must not
      * create one uses [MessageRouterHolder.peek].
      */

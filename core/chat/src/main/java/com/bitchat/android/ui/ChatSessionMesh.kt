@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import androidx.annotation.VisibleForTesting
 import com.bitchat.android.di.ChatSessionScoped
 import com.bitchat.android.mesh.MeshService
 import javax.inject.Inject
@@ -7,12 +8,11 @@ import javax.inject.Inject
 /**
  * The mesh the chat session talks to.
  *
- * Read once from the injected mesh when the session is built and replaced only
- * by a panic clear, which recreates the mesh with a fresh identity. It is not
- * re-read from the holder on each use: the foreground service clears the
- * holder when it stops, and re-reading would quietly create a new mesh that
- * was never started and has no delegate, where the session keeps the one it
- * was using.
+ * Read once from the injected mesh when the session is built. A panic ends the
+ * session and the next one reads the new identity's mesh. It is not re-read from
+ * the holder on each use: the foreground service clears the holder when it stops,
+ * and re-reading would quietly create a new mesh that was never started and has no
+ * delegate, where the session keeps the one it was using.
  */
 @ChatSessionScoped
 class ChatSessionMesh @Inject constructor(
@@ -23,6 +23,8 @@ class ChatSessionMesh @Inject constructor(
     var unified: MeshService = unified
         private set
 
+    /** For device tests that put a recording mesh behind the session. */
+    @VisibleForTesting
     fun replace(unified: MeshService) {
         this.unified = unified
     }

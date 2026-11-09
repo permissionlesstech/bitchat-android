@@ -29,6 +29,7 @@ class ChatSessionHolder @Inject constructor(
     private var builtFromIdentity = 0
     private var sessionsBuilt = 0
     private var cleared = false
+    private var heldBack = false
     private val _generation = MutableStateFlow(0)
 
     /** Counts the sessions built after the first; it changes once the next session exists. */
@@ -44,13 +45,19 @@ class ChatSessionHolder @Inject constructor(
      * After the retained lifecycle cleared this is the ended session, built and ended on the spot
      * if none existed. A late callback into a retained object keeps working on that dead session,
      * as it worked on a cancelled retained object, and no live session outlasts the lifecycle.
+     *
+     * While the identity is ending, a holder that has no live session gets one that has already
+     * ended, the same way: reopening the app during a wipe starts nothing on the identity being
+     * wiped. It gives way to a live session on the first read after the wipe finished.
      */
     val current: ChatSessionComponent
         get() = synchronized(lock) {
             val built = session
+            val onThisIdentity = built != null && builtFromIdentity == identity.generation.value
             when {
                 cleared -> built ?: build().also(ender::end)
-                built != null && builtFromIdentity == identity.generation.value -> built
+                identity.ending.value -> if (onThisIdentity) built!! else buildHeldBack()
+                onThisIdentity && !heldBack -> built!!
                 else -> {
                     endCurrent()
                     build()
@@ -84,7 +91,15 @@ class ChatSessionHolder @Inject constructor(
     private fun endCurrent() {
         val old = session ?: return
         session = null
-        ender.end(old)
+        if (!heldBack) ender.end(old)
+    }
+
+    private fun buildHeldBack(): ChatSessionComponent {
+        endCurrent()
+        return build().also {
+            heldBack = true
+            ender.end(it)
+        }
     }
 
     private fun build(): ChatSessionComponent {
@@ -94,6 +109,7 @@ class ChatSessionHolder @Inject constructor(
         val built = identity.entryPoint<ChatSessionBuilderEntryPoint>().chatSessionBuilder().build()
         session = built
         builtFromIdentity = generation
+        heldBack = false
         if (sessionsBuilt++ > 0) _generation.value += 1
         return built
     }

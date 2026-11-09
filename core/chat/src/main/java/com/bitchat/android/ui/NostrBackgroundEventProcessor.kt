@@ -37,17 +37,20 @@ class NostrBackgroundEventProcessor(
     parentScope: CoroutineScope,
     participantStore: GeohashParticipantStore,
     powPreferences: PoWPreferenceManager,
-    nostrTransport: () -> NostrTransport,
+    nostrTransport: NostrTransport,
     private val appStateStore: AppStateStore,
     private val contactDirectory: ContactDirectory,
-    private val favorites: Provider<FavoritesPersistenceService>,
+    favorites: FavoritesPersistenceService,
     private val peerFingerprints: PeerFingerprintManager,
     private val geohashAliases: GeohashAliasRegistry,
     private val geohashConversations: GeohashConversationRegistry,
     private val nostrIdentity: NostrIdentityBridge,
     private val spamFilter: SpamFilter,
-    private val seenMessageStore: Provider<SeenMessageStore>,
+    seenMessageStore: SeenMessageStore,
 ) : NostrBackgroundEvents {
+    // Every object here belongs to one identity. Its handlers stop with its scope, but one already
+    // past its last suspension finishes, and that must reach this identity's objects and no later one.
+    private val identityFavorites = Provider { favorites }
     private val scope = CoroutineScope(
         parentScope.coroutineContext + Dispatchers.IO.limitedParallelism(1)
     )
@@ -72,7 +75,7 @@ class NostrBackgroundEventProcessor(
         },
         contactDirectory = contactDirectory,
         appStateStore = appStateStore,
-        favorites = favorites,
+        favorites = identityFavorites,
         peerFingerprints = peerFingerprints,
         trackUnreadMessages = false
     )
@@ -94,12 +97,12 @@ class NostrBackgroundEventProcessor(
         scope = scope,
         repo = geohashRepository,
         dataManager = dataManager,
-        nostrTransportProvider = nostrTransport,
-        seenStoreProvider = { seenMessageStore.get() },
+        nostrTransportProvider = { nostrTransport },
+        seenStoreProvider = { seenMessageStore },
         geohashAliases = geohashAliases,
         geohashConversations = geohashConversations,
         contactDirectory = contactDirectory,
-        favorites = favorites,
+        favorites = identityFavorites,
     )
 
     init {

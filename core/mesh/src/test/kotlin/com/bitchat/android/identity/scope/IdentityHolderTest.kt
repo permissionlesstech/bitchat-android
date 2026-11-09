@@ -7,8 +7,10 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Provider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -140,5 +142,68 @@ class IdentityHolderTest {
         failedNames = listOf("relay", "notifications")
 
         assertEquals(listOf("relay", "notifications"), holder.replace())
+    }
+
+    @Test
+    fun `a build that fails during replace leaves the next read to rebuild`() {
+        var failBuild = false
+        val built = ArrayList<IdentityComponent>()
+        val ended = ArrayList<IdentityComponent>()
+        val holder = IdentityHolder(
+            Provider {
+                object : IdentityComponentBuilder {
+                    override fun build(): IdentityComponent {
+                        check(!failBuild) { "synthetic build failure" }
+                        return object : IdentityComponent {}.also { built += it }
+                    }
+                }
+            },
+            IdentityEnder { component ->
+                ended += component
+                emptyList()
+            },
+        )
+        val first = holder.current
+        failBuild = true
+
+        assertThrows(IllegalStateException::class.java) { holder.replace() }
+        assertEquals(listOf(first), ended)
+        assertEquals(0, holder.generation.value)
+
+        failBuild = false
+        val next = holder.current
+
+        assertNotSame(first, next)
+        assertEquals(listOf(first), ended)
+        // The replacement finished here, so whatever follows the identity moves now.
+        assertEquals(1, holder.generation.value)
+        assertSame(next, holder.current)
+        assertEquals(1, holder.generation.value)
+    }
+
+    @Test
+    fun `the identity is ending from when a panic starts until it is replaced`() {
+        val holder = holder()
+        holder.current
+        assertFalse(holder.ending.value)
+
+        holder.beginEnding()
+        assertTrue(holder.ending.value)
+
+        holder.replace()
+        assertFalse(holder.ending.value)
+    }
+
+    @Test
+    fun `an ending that is called off keeps the identity`() {
+        val holder = holder()
+        val identity = holder.current
+        holder.beginEnding()
+
+        holder.cancelEnding()
+
+        assertFalse(holder.ending.value)
+        assertSame(identity, holder.current)
+        assertEquals(0, holder.generation.value)
     }
 }

@@ -1,7 +1,6 @@
 package com.bitchat.android.navigation
 
 import android.os.Process
-import androidx.collection.ScatterMap
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -9,7 +8,6 @@ import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.viewModelScope
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -247,22 +245,4 @@ class PanicScreensRebuildTest {
     }
 
     private fun screensStore(): ViewModelStore = rule.activity.screenViewModels.viewModelStore
-
-    /**
-     * Every ViewModel of the nav entries under [store]. A nav entry's store sits in a private holder
-     * in the lifecycle library and nothing public reaches it, so this reads the private fields. It
-     * finds nothing, and the test fails, if that library changes how it keeps them.
-     */
-    private fun entryViewModels(store: ViewModelStore): List<ViewModel> =
-        store.keys().mapNotNull { store[it] }.flatMap { holder ->
-            val entries = runCatching {
-                holder.javaClass.getDeclaredField("entries").apply { isAccessible = true }.get(holder) as ScatterMap<*, *>
-            }.getOrNull() ?: return@flatMap emptyList()
-            val viewModels = ArrayList<ViewModel>()
-            entries.forEachValue { entry ->
-                val entryStore = entry!!.javaClass.getDeclaredField("store").apply { isAccessible = true }.get(entry) as ViewModelStore
-                entryStore.keys().mapNotNullTo(viewModels) { entryStore[it] }
-            }
-            viewModels
-        }
 }

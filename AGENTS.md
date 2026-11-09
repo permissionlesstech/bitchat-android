@@ -73,7 +73,7 @@ so relay traffic cannot bypass Tor.
 managers, private conversations, notifications and QR verification, in a scope
 inside the identity that ends when the Activity-retained lifecycle clears. It
 takes what is the app's own through ports the app binds (`NotificationTargets`,
-`SessionMeshSource`, `WifiAwarePeers`). Screens and their ViewModels live in the
+`IdentityStartup`, `WifiAwarePeers`). Screens and their ViewModels live in the
 `feature/` modules.
 
 `core/domain/` holds the domain models that Android library modules

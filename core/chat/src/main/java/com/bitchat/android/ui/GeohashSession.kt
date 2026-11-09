@@ -28,6 +28,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -46,10 +47,8 @@ import java.util.UUID
  *
  * A send runs on [identityScope] instead, on the same main-thread dispatcher:
  * the local message is already on screen when it starts, so a person who leaves
- * mid-send must not lose it. It outlives the session and dies with the identity.
- * Ending an identity cancels it before it publishes, so a panic that ends the
- * identity stops it. A panic that clears in place keeps the identity, so a send
- * in flight then still finishes.
+ * mid-send must not lose it. It outlives the session and dies with the identity,
+ * or sooner when a panic starts: [cancelSendsInFlight].
  */
 class GeohashSession(
     private val application: Application,
@@ -78,6 +77,9 @@ class GeohashSession(
     companion object { private const val TAG = "GeohashSession" }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    // Under the identity's job, so the identity ending cancels them; here so a panic can do so sooner.
+    private val sends = SupervisorJob(identityScope.coroutineContext[Job])
 
     private val repo = GeohashRepository(
         application, dataManager, scope, nostrIdentity, nostrBackgroundRuntime.participants
@@ -179,8 +181,14 @@ class GeohashSession(
         return identityCleared
     }
 
+    /**
+     * Stops every send that has not published yet. A panic calls this first: mining can outlast the
+     * wipe, and a message the person just had erased must not go out while it runs.
+     */
+    fun cancelSendsInFlight() = sends.cancelChildren()
+
     fun sendGeohashMessage(content: String, channel: com.bitchat.android.geohash.GeohashChannel, myPeerID: String, nickname: String?) {
-        identityScope.launch(Dispatchers.Main.immediate) {
+        identityScope.launch(sends + Dispatchers.Main.immediate) {
             try {
                 val canUseChannel = locationChannelManager
                     ?.canUseSelectedLocationChannel(channel) == true
@@ -281,6 +289,14 @@ class GeohashSession(
     fun endGeohashSampling() { 
         requestedLiveSamplingGeohashes = emptySet()
         requestedUserSamplingGeohashes = emptySet()
+        if (uiSubscriptionsShutdown) {
+            // The session's end already closed these. A screen that outlives it has nothing left to
+            // say to the relays, and after a panic must not say it for an identity that has ended.
+            activeSamplingGeohashes.clear()
+            samplingSubscriptionIds.clear()
+            liveSamplingSubscriptionGeohashes.clear()
+            return
+        }
         if (activeSamplingGeohashes.isEmpty()) return
         Log.d(TAG, "🌍 Ending geohash sampling (cleaning up ${activeSamplingGeohashes.size} subs)")
         
@@ -471,6 +487,8 @@ class GeohashSession(
     fun shutdownUiSubscriptions() {
         if (uiSubscriptionsShutdown) return
         uiSubscriptionsShutdown = true
+        // Those already running finish, since the person left rather than wiped.
+        sends.complete()
         participantUpdatesJob.cancel()
         subscriptionManager.unsubscribeAllOwned()
         geoTimer?.cancel()

@@ -357,7 +357,7 @@ class IdentityScopeWiringTest {
         assertTrue(router.isSchedulerRunning)
         assertNotNull(meshHolder.unifiedMeshService)
         assertNotSame(meshBefore, meshHolder.unifiedMeshService)
-        // The session keeps the mesh it was using; only a panic clear replaces it.
+        // The session keeps the mesh it was using; only the next session reads another.
         assertSame(meshBefore, sessionMesh.unified)
     }
 

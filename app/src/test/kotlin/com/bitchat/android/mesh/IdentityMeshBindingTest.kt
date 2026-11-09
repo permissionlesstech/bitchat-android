@@ -3,6 +3,7 @@ package com.bitchat.android.mesh
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doAnswer
@@ -122,6 +123,28 @@ class IdentityMeshBindingTest {
 
         binding.attach()
         assertNull(firstMesh.delegate)
+        assertSame(secondDelegate, secondMesh.delegate)
+    }
+
+    @Test
+    fun `a mesh read that fails on the new identity is tried again at the next attach`() {
+        var failing = false
+        val binding = IdentityMeshBinding(
+            generation = { generation },
+            mesh = { if (failing) error("synthetic mesh failure") else mesh },
+            delegate = { delegate },
+        )
+        binding.attach()
+
+        replaceIdentity()
+        failing = true
+        assertThrows(IllegalStateException::class.java) { binding.attach() }
+        assertNull("the old mesh gave up its delegate", firstMesh.delegate)
+
+        failing = false
+        binding.attach()
+
+        assertNull("nothing went back onto the old mesh", firstMesh.delegate)
         assertSame(secondDelegate, secondMesh.delegate)
     }
 }

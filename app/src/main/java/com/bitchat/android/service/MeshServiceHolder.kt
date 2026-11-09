@@ -28,6 +28,7 @@ class MeshServiceHolder @Inject constructor(
 ) {
     private companion object {
         const val TAG = "MeshServiceHolder"
+        const val ENDED = "the identity has ended"
     }
 
     @Volatile
@@ -35,9 +36,10 @@ class MeshServiceHolder @Inject constructor(
         private set
 
     private val activeGossipOwners = mutableSetOf<String>()
+    private var ended = false
 
     init {
-        teardown.register("MeshServiceHolder", ::clear)
+        teardown.register("MeshServiceHolder", ::end)
     }
 
     @Synchronized
@@ -100,6 +102,7 @@ class MeshServiceHolder @Inject constructor(
 
     @Synchronized
     fun getOrCreate(context: Context): BluetoothMeshService {
+        if (ended) return meshService ?: error(ENDED)
         val existing = meshService
         if (existing != null) {
             // If the existing instance is healthy, reuse it; otherwise, replace it.
@@ -136,6 +139,7 @@ class MeshServiceHolder @Inject constructor(
 
     @Synchronized
     fun getUnifiedOrCreate(context: Context): UnifiedMeshService {
+        if (ended) return unifiedMeshService ?: error(ENDED)
         val bluetooth = getOrCreate(context)
         val existing = unifiedMeshService
         if (existing != null) {
@@ -158,11 +162,34 @@ class MeshServiceHolder @Inject constructor(
     @Synchronized
     fun clear() {
         android.util.Log.d(TAG, "Clearing BluetoothMeshService from holder")
+        releaseGossip()
+        meshService = null
+        unifiedMeshService = null
+    }
+
+    /**
+     * The identity is over. Whatever mesh is held stops, including one built during a wipe after the
+     * session's had stopped. The references stay so a late reader of this holder gets that stopped
+     * mesh: an ended identity builds nothing, since a new mesh would generate and store keys over the
+     * next identity's. With no mesh to give back, a late reader gets an exception instead.
+     */
+    @Synchronized
+    private fun end() {
+        ended = true
+        val unified = unifiedMeshService
+        try {
+            unified?.delegate = null
+            unified?.stopServices() ?: meshService?.stopServices()
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "Error while stopping the ended identity's mesh: ${e.javaClass.simpleName}")
+        }
+        releaseGossip()
+    }
+
+    private fun releaseGossip() {
         try { sharedGossipSyncManager?.clear() } catch (_: Exception) { }
         try { sharedGossipSyncManager?.stop() } catch (_: Exception) { }
         sharedGossipSyncManager = null
         activeGossipOwners.clear()
-        meshService = null
-        unifiedMeshService = null
     }
 }

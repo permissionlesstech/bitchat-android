@@ -8,6 +8,9 @@ package com.bitchat.android.mesh
  * [attach] after the identity changed leaves the old mesh and binds the new one. [detachIfAttached]
  * never reads anything new, so detaching with nothing attached builds nothing.
  *
+ * [generation] is the identity whose start-up has finished, so nothing binds to a new identity's mesh
+ * before that identity has restored what it stored.
+ *
  * Confined to the main thread, like the lifecycle callbacks that call it.
  */
 class IdentityMeshBinding(
@@ -26,8 +29,10 @@ class IdentityMeshBinding(
         if (now != heldFor) {
             binding?.detachIfAttached()
             binding = null
-            heldFor = now
+            // Noted only once the read worked, so a failed read is tried again at the next attach
+            // rather than leaving the new identity's delegate on the old mesh.
             held = mesh()
+            heldFor = now
         }
         val current = binding ?: MeshDelegateBinding(held, delegate()).also { binding = it }
         current.attach()

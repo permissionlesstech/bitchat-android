@@ -137,6 +137,7 @@ class MainActivity : OrientationAwareActivity() {
     // Made in onCreate; null only on a quit launch, which never gets that far. It follows the identity.
     private var meshDelegateBinding: IdentityMeshBinding? = null
 
+    // Says when a panic is wiping the identity, which is when nothing new starts on it.
     @Inject
     lateinit var identityHolder: IdentityHolder
 
@@ -227,7 +228,7 @@ class MainActivity : OrientationAwareActivity() {
         // Start the foreground service when allowed, then get mesh instances from the holder.
         startMeshForegroundServiceBestEffort()
         meshDelegateBinding = IdentityMeshBinding(
-            generation = { identityHolder.generation.value },
+            generation = { identityStartup.startedGeneration.value },
             mesh = { meshServiceHolder.get().getUnifiedOrCreate(applicationContext) },
             delegate = { chatMeshDelegate.get() },
         )
@@ -338,7 +339,10 @@ class MainActivity : OrientationAwareActivity() {
                     // Started on the first composition, where the Activity first
                     // reached the chat ViewModel before, and ahead of any
                     // notification intent that selects a channel. Idempotent.
-                    key(identityGeneration, screenViewModels.generation) {
+                    // Keyed on the identity ending too: a session held back while a panic wipes it
+                    // gives way to a live one here when the panic keeps that identity.
+                    val identityEnding by identityHolder.ending.collectAsState()
+                    key(identityGeneration, screenViewModels.generation, identityEnding) {
                         chatSessionStartup.get().start()
                         val pendingBackAction by chatBackUnwinder.get().pendingBackAction.collectAsState()
                         BackHandler(

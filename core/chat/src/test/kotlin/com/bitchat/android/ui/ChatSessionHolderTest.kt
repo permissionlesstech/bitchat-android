@@ -212,4 +212,61 @@ class ChatSessionHolderTest {
 
         assertNotSame(old, holder.current)
     }
+
+    @Test
+    fun `a new holder during a panic gets a session that has already ended`() {
+        identity.current
+        identity.beginEnding()
+        val holder = holder()
+
+        val session = holder.current
+
+        assertEquals(listOf(session), ended)
+        assertSame(session, holder.current)
+        assertEquals(1, built.size)
+    }
+
+    @Test
+    fun `a holder with a live session keeps it while the identity is ending`() {
+        val holder = holder()
+        val session = holder.current
+
+        identity.beginEnding()
+
+        assertSame(session, holder.current)
+        assertTrue(ended.isEmpty())
+    }
+
+    @Test
+    fun `the held back session gives way to a live one on the new identity`() {
+        identity.current
+        identity.beginEnding()
+        val holder = holder()
+        val heldBack = holder.current
+
+        identity.replace()
+        val next = holder.current
+
+        assertNotSame(heldBack, next)
+        assertSame(identity.current, built.last().second)
+        assertEquals(listOf(heldBack), ended)
+        assertEquals(1, holder.generation.value)
+    }
+
+    @Test
+    fun `the held back session gives way to a live one when the panic keeps the identity`() {
+        val kept = identity.current
+        identity.beginEnding()
+        val holder = holder()
+        val heldBack = holder.current
+
+        identity.cancelEnding()
+        val next = holder.current
+
+        assertNotSame(heldBack, next)
+        assertSame(kept, built.last().second)
+        assertEquals(listOf(heldBack), ended)
+        assertSame(next, holder.current)
+        assertEquals(1, holder.generation.value)
+    }
 }

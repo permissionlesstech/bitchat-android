@@ -49,7 +49,7 @@ class ComposerOutcomeInstrumentedTest {
     private fun awaitOutcome(prior: Set<String>, resource: Int) {
         compose.waitUntil(30_000) { store().publicMessages.value.any { it.id !in prior && it.content == context.getString(resource) } }
     }
-    private fun inProgress(vm: PanicClear): Boolean = PanicClear::class.java.getDeclaredField("panicClearInProgress").apply { isAccessible = true }.getBoolean(vm)
+    private fun inProgress(vm: PanicClear): Boolean = vm.inProgress
 
     private fun withCleanup(vararg cleanup: () -> Unit, block: () -> Unit) {
         var failure: Throwable? = null
@@ -105,6 +105,8 @@ class ComposerOutcomeInstrumentedTest {
 
     @Test fun secondConfirmationClearsDraftWhileFirstWipeWaitsThenDrains() {
         val vm = start()
+        // This wipe succeeds, so the identity and its store go: the swap is undone on the old store.
+        val oldStore = store()
         val original = currentRepository()
         val executor = Executors.newSingleThreadExecutor()
         val entered = CountDownLatch(1); val release = CountDownLatch(1)
@@ -116,7 +118,7 @@ class ComposerOutcomeInstrumentedTest {
         withCleanup(
             { release.countDown() },
             { compose.waitUntil(30_000) { !inProgress(vm) } },
-            { useRepository(original) },
+            { repositoryField.set(oldStore, original) },
             { repository.closeForTest() },
             { executor.shutdown() },
             { assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS)) },
@@ -165,7 +167,7 @@ class ComposerOutcomeInstrumentedTest {
             assertTrue(store().publicMessages.value.any { it.content == value })
         }
         withCleanup({
-            // A successful wipe replaced the service; unwrap the currently installed sink.
+            // A successful wipe replaced the session; unwrap the sink if the current one has it.
             compose.runOnIdle {
                 if (session().sessionMesh().unified === installedSink) {
                     session().sessionMesh().replace(delegateToRestore)

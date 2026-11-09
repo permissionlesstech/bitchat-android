@@ -63,16 +63,16 @@ class GeohashParticipantTrackingTest {
             scope,
             store,
             PoWPreferenceManager(application),
-            nostrTransport = { mock<NostrTransport>() },
+            nostrTransport = mock<NostrTransport>(),
             appStateStore = stores.appStateStore,
             contactDirectory = stores.contactDirectory,
-            favorites = Provider { stores.favorites },
+            favorites = stores.favorites,
             peerFingerprints = PeerFingerprintManager(),
             geohashAliases = stores.geohashAliases,
             geohashConversations = GeohashConversationRegistry(),
             nostrIdentity = NostrIdentityBridge(stores.favorites),
             spamFilter = spamFilter,
-            seenMessageStore = Provider(lazy { SeenMessageStore(application, stores.appStateStore) }::value),
+            seenMessageStore = SeenMessageStore(application, stores.appStateStore),
         )
     }
 
