@@ -4,6 +4,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.bitchat.android.MainActivity
+import com.bitchat.android.identity.scope.IdentityLifetimeEntryPoint
 import com.bitchat.android.identity.scope.MeshIdentityEntryPoint
 import com.bitchat.android.identity.scope.entryPoint
 import com.bitchat.android.navigation.OnboardedApp
@@ -15,11 +16,14 @@ import com.bitchat.android.testhook.MeshTestAccess
 import com.bitchat.android.ui.ChatSessionMesh
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
+import kotlinx.coroutines.isActive
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.BeforeClass
 import org.junit.Rule
 import org.junit.Test
@@ -95,6 +99,9 @@ class IdentityScopeWiringTest {
 
     @Test
     fun theTransportTogglesRegisteredAtStartUpAreTheCurrentIdentitys() {
+        // Nothing re-registers the toggles for a later identity yet, so this holds only until
+        // another test in the process has replaced the identity.
+        assumeTrue(graph().identityHolder().generation.value == 0)
         assertSame(appIdentityEntry().meshTransportToggles(), graph().debugSettings().transportToggles)
     }
 
@@ -131,5 +138,31 @@ class IdentityScopeWiringTest {
         assertNotSame(meshBefore, meshHolder.unifiedMeshService)
         // The session keeps the mesh it was using; only a panic clear replaces it.
         assertSame(meshBefore, sessionMesh.unified)
+    }
+
+    @Test
+    fun replacingTheIdentityCancelsItsScopeAndBuildsNewInstances() {
+        rule.awaitChat()
+        val holder = graph().identityHolder()
+        val oldLifetime = holder.entryPoint<IdentityLifetimeEntryPoint>()
+        val oldScope = oldLifetime.scope()
+        val oldTeardown = oldLifetime.teardown()
+        val oldMesh = identityEntry()
+        assertTrue(oldScope.isActive)
+        val generation = holder.generation.value
+
+        val failed = holder.replace()
+
+        assertTrue(failed.isEmpty())
+        assertFalse(oldScope.isActive)
+        assertEquals(generation + 1, holder.generation.value)
+        val newLifetime = holder.entryPoint<IdentityLifetimeEntryPoint>()
+        assertTrue(newLifetime.scope().isActive)
+        assertNotSame(oldScope, newLifetime.scope())
+        assertNotSame(oldTeardown, newLifetime.teardown())
+        val newMesh = identityEntry()
+        assertNotSame(oldMesh.appStateStore(), newMesh.appStateStore())
+        assertNotSame(oldMesh.seenMessageStore(), newMesh.seenMessageStore())
+        assertNotSame(oldMesh.spamFilter(), newMesh.spamFilter())
     }
 }

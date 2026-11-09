@@ -17,3 +17,9 @@ annotation class IdentityScoped
 @Retention(AnnotationRetention.BINARY)
 @Target(AnnotationTarget.FIELD, AnnotationTarget.VALUE_PARAMETER, AnnotationTarget.FUNCTION)
 annotation class CurrentIdentity
+
+/** The coroutine scope of one identity. Cancelled when the identity ends. */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+@Target(AnnotationTarget.FIELD, AnnotationTarget.VALUE_PARAMETER, AnnotationTarget.FUNCTION)
+annotation class IdentityCoroutineScope

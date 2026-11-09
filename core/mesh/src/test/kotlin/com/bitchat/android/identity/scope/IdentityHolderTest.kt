@@ -1,11 +1,13 @@
 package com.bitchat.android.identity.scope
 
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Provider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -13,17 +15,25 @@ import org.junit.Test
 class IdentityHolderTest {
 
     private val builds = AtomicInteger()
+    private val log = CopyOnWriteArrayList<String>()
+    private var failedNames: List<String> = emptyList()
 
     private val builder = Provider<IdentityComponentBuilder> {
         object : IdentityComponentBuilder {
             override fun build(): IdentityComponent {
                 builds.incrementAndGet()
+                log += "build"
                 return object : IdentityComponent {}
             }
         }
     }
 
-    private fun holder() = IdentityHolder(builder)
+    private val ender = IdentityEnder {
+        log += "end"
+        failedNames
+    }
+
+    private fun holder() = IdentityHolder(builder, ender)
 
     @Test
     fun `nothing is built until current is read`() {
@@ -58,5 +68,77 @@ class IdentityHolderTest {
             pool.shutdownNow()
         }
         assertEquals(1, builds.get())
+    }
+
+    @Test
+    fun `replace builds a new component and bumps the generation`() {
+        val holder = holder()
+        val first = holder.current
+        assertEquals(0, holder.generation.value)
+
+        holder.replace()
+
+        assertNotSame(first, holder.current)
+        assertSame(holder.current, holder.current)
+        assertEquals(1, holder.generation.value)
+        assertEquals(2, builds.get())
+    }
+
+    @Test
+    fun `replace ends the old component before building the next`() {
+        val holder = holder()
+        holder.current
+        log.clear()
+
+        holder.replace()
+
+        assertEquals(listOf("end", "build"), log.toList())
+    }
+
+    @Test
+    fun `replace before any read builds one and ends none`() {
+        val holder = holder()
+
+        holder.replace()
+
+        assertEquals(listOf("build"), log.toList())
+        assertEquals(1, builds.get())
+        assertEquals(1, holder.generation.value)
+    }
+
+    @Test
+    fun `a reader during replace gets the new component`() {
+        val endStarted = CountDownLatch(1)
+        val releaseEnd = CountDownLatch(1)
+        val blockingEnder = IdentityEnder {
+            endStarted.countDown()
+            releaseEnd.await(10, TimeUnit.SECONDS)
+            emptyList()
+        }
+        val holder = IdentityHolder(builder, blockingEnder)
+        val old = holder.current
+        val pool = Executors.newFixedThreadPool(2)
+        try {
+            val replacing = pool.submit { holder.replace() }
+            assertTrue(endStarted.await(10, TimeUnit.SECONDS))
+            val reading = pool.submit<IdentityComponent> { holder.current }
+            releaseEnd.countDown()
+            replacing.get(10, TimeUnit.SECONDS)
+            val read = reading.get(10, TimeUnit.SECONDS)
+            assertNotSame(old, read)
+            assertSame(holder.current, read)
+        } finally {
+            releaseEnd.countDown()
+            pool.shutdownNow()
+        }
+    }
+
+    @Test
+    fun `failed cleanup names come back from replace`() {
+        val holder = holder()
+        holder.current
+        failedNames = listOf("relay", "notifications")
+
+        assertEquals(listOf("relay", "notifications"), holder.replace())
     }
 }

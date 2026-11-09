@@ -14,11 +14,15 @@ import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.services.VerificationService
 import com.bitchat.android.services.meshgraph.MeshGraphService
 import com.bitchat.android.spam.SpamFilter
+import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 /** What the mesh module keeps per identity. */
 @EntryPoint
@@ -116,4 +120,21 @@ object MeshIdentityBindings {
     @CurrentIdentity
     fun geohashAliases(holder: IdentityHolder): GeohashAliasRegistry =
         holder.entryPoint<MeshIdentityEntryPoint>().geohashAliases()
+}
+
+/** One coroutine scope per identity, cancelled by [IdentityEnder] when the identity ends. */
+@Module
+@InstallIn(IdentityComponent::class)
+object IdentityScopeModule {
+    @Provides
+    @IdentityScoped
+    @IdentityCoroutineScope
+    fun coroutineScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+interface IdentityEnderModule {
+    @Binds
+    fun ender(impl: DefaultIdentityEnder): IdentityEnder
 }
