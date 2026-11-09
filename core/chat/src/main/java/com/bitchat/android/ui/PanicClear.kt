@@ -84,24 +84,38 @@ class PanicClear @Inject constructor(
 
     /** The objects of the identity and session being wiped, read once so every stage acts on them. */
     private inner class Old {
-        val state = stateProvider.get()
-        val mesh = sessionMeshProvider.get().unified
-        val messageManager = messageManagerProvider.get()
-        val channelManager = channelManagerProvider.get()
-        val privateChatManager = privateChatManagerProvider.get()
-        val dataManager = dataManagerProvider.get()
-        val mediaSendingManager = mediaSendingManagerProvider.get()
-        val notificationManager = notificationManagerProvider.get()
-        val geohashSession = geohashSessionProvider.get()
-        val secureIdentity = secureIdentityProvider.get()
-        val routerHolder = messageRouterHolder.get()
-        val conversationListPreferences = conversationListPreferencesProvider.get()
-        val seenMessageStore = seenMessageStoreProvider.get()
-        val locationChannelManager = locationChannelManagerProvider.get()
-        val geohashBookmarksStore = geohashBookmarksStoreProvider.get()
-        val appStateStore = appStateStoreProvider.get()
-        val spamFilter = spamFilterProvider.get()
-        val favorites = this@PanicClear.favorites.get()
+        /** Set when an object could not be read. The stages that need it then fail, the rest run. */
+        var readFailed = false
+            private set
+
+        private fun <T> read(provider: Provider<T>): Lazy<T> = lazy { provider.get() }.also {
+            try {
+                it.value
+            } catch (e: Exception) {
+                Log.e(TAG, "Could not read an object to wipe: ${e.javaClass.simpleName}")
+                readFailed = true
+            }
+        }
+
+        val state by read(stateProvider)
+        private val sessionMesh by read(sessionMeshProvider)
+        val mesh by lazy { sessionMesh.unified }
+        val messageManager by read(messageManagerProvider)
+        val channelManager by read(channelManagerProvider)
+        val privateChatManager by read(privateChatManagerProvider)
+        val dataManager by read(dataManagerProvider)
+        val mediaSendingManager by read(mediaSendingManagerProvider)
+        val notificationManager by read(notificationManagerProvider)
+        val geohashSession by read(geohashSessionProvider)
+        val secureIdentity by read(secureIdentityProvider)
+        val routerHolder by read(messageRouterHolder)
+        val conversationListPreferences by read(conversationListPreferencesProvider)
+        val seenMessageStore by read(seenMessageStoreProvider)
+        val locationChannelManager by read(locationChannelManagerProvider)
+        val geohashBookmarksStore by read(geohashBookmarksStoreProvider)
+        val appStateStore by read(appStateStoreProvider)
+        val spamFilter by read(spamFilterProvider)
+        val favorites by read(this@PanicClear.favorites)
     }
 
     /** Wipes everything and goes on under a new identity. Ignored while one runs, whoever started it. */
@@ -155,12 +169,15 @@ class PanicClear @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Could not clear the mesh's data: ${e.javaClass.simpleName}")
         }
-        val conversationsCleared = try {
+        val databaseWiped = try {
             old.appStateStore.panicClearPrivateConversations()
         } catch (e: Exception) {
             Log.e(TAG, "The conversation wipe threw: ${e.javaClass.simpleName}")
             false
         }
+
+        // An object that could not be read leaves the old identity in place, like a failed wipe.
+        val conversationsCleared = databaseWiped && !old.readFailed
 
         // 3. Blank the screen at once. The stages that follow are slow, and someone under duress must
         // not see messages during them. These stay even with the rebuild for that reason alone.
@@ -168,7 +185,12 @@ class PanicClear @Inject constructor(
         stage("messages") { old.messageManager.clearAllMessages() }
         stage("channels") { old.channelManager.clearAllChannels() }
         stage("private chats") { old.privateChatManager.clearAllPrivateChats() }
-        blankFrame.await()
+        try {
+            blankFrame.await()
+        } catch (e: Exception) {
+            Log.e(TAG, "Could not blank the frame: ${e.javaClass.simpleName}")
+            wipeComplete = false
+        }
 
         // 4. Wipe data at rest. Which stages report a result stays as it was: the first two and the
         // notifications report nothing beyond not throwing.
@@ -200,7 +222,11 @@ class PanicClear @Inject constructor(
             } catch (_: Exception) { }
             // A wipe that does not commit must be as visible as the wipe itself: the person who
             // triggered it may be relying on the device being clean.
-            old.messageManager.addSystemMessage(context.getString(R.string.system_panic_incomplete))
+            try {
+                old.messageManager.addSystemMessage(context.getString(R.string.system_panic_incomplete))
+            } catch (e: Exception) {
+                Log.e(TAG, "Could not show that the panic is incomplete: ${e.javaClass.simpleName}")
+            }
             return
         }
 

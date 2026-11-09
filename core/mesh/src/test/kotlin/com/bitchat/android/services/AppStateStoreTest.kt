@@ -349,7 +349,7 @@ class AppStateStoreTest {
     }
 
     @Test
-    fun `panic clear rejects private messages until explicitly resumed`() {
+    fun `panic clear keeps rejecting private messages`() {
         val beforePanic = BitchatMessage(
             id = "before-panic",
             sender = "alice",
@@ -358,7 +358,6 @@ class AppStateStoreTest {
             isPrivate = true
         )
         val duringPanic = beforePanic.copy(id = "during-panic")
-        val afterPanic = beforePanic.copy(id = "after-panic")
 
         assertTrue(store.addPrivateMessage("peer-a", beforePanic))
         store.updatePrivateConversationDisplayNames(
@@ -368,13 +367,6 @@ class AppStateStoreTest {
         assertTrue(store.privateMessages.value.isEmpty())
         assertTrue(store.privateConversationDisplayNames.value.isEmpty())
         assertFalse(store.addPrivateMessage("peer-a", duringPanic))
-
-        store.resumePrivateConversationsAfterPanic()
-
-        assertTrue(store.addPrivateMessage("peer-a", afterPanic))
-        assertEquals(
-            listOf(afterPanic),
-            store.privateMessages.value.getValue("peer-a")
-        )
+        assertTrue(store.privateMessages.value.isEmpty())
     }
 }

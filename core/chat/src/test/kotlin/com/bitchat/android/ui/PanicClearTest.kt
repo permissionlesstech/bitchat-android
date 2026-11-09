@@ -146,6 +146,8 @@ class PanicClearTest {
     private var identityBuildFailures = 0
     private var failedCleanups: List<String> = emptyList()
     private var startupFails = false
+    private var readFails = false
+    private var frameFails = false
 
     private val identityHolder = IdentityHolder(
         Provider {
@@ -202,7 +204,7 @@ class PanicClearTest {
         messageManagerProvider = { session.messages },
         channelManagerProvider = { session.channels },
         privateChatManagerProvider = { session.privateChats },
-        dataManagerProvider = { session.data },
+        dataManagerProvider = { if (readFails) error("synthetic read failure") else session.data },
         mediaSendingManagerProvider = { session.media },
         notificationManagerProvider = { session.notifications },
         geohashSessionProvider = { session.geohash },
@@ -226,7 +228,10 @@ class PanicClearTest {
     fun setUp() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         runBlocking {
-            doSuspendableAnswer { log += "frame" }.whenever(blankFrame).await()
+            doSuspendableAnswer {
+                log += "frame"
+                check(!frameFails) { "synthetic frame failure" }
+            }.whenever(blankFrame).await()
         }
         // Starts as the app would be: a session on a first identity.
         session
@@ -311,6 +316,34 @@ class PanicClearTest {
         assertFalse(log.contains("session ended"))
         assertFalse(log.contains("identity started"))
         verify(oldSession.messages).addSystemMessage(incomplete)
+        verify(oldSession.messages, never()).addSystemMessage(completed)
+        assertFalse(identityHolder.ending.value)
+        assertFalse(runner.isRunning)
+    }
+
+    @Test
+    fun `a throw while reading the old objects shows incomplete and never completed`() {
+        readFails = true
+        val oldSession = session
+
+        panic.run()
+
+        verify(oldSession.messages).addSystemMessage(incomplete)
+        verify(oldSession.messages, never()).addSystemMessage(completed)
+        assertFalse(log.contains("identity ended"))
+        assertTrue("the stages that can run still do", log.contains("identity0.store.panicClearPrivateConversations"))
+        assertFalse(identityHolder.ending.value)
+        assertFalse(runner.isRunning)
+    }
+
+    @Test
+    fun `a throw while blanking the screen does not stop the wipe`() {
+        frameFails = true
+        val oldSession = session
+
+        panic.run()
+
+        assertTrue(log.contains("session0.data.clearAllData"))
         verify(oldSession.messages, never()).addSystemMessage(completed)
         assertFalse(identityHolder.ending.value)
         assertFalse(runner.isRunning)

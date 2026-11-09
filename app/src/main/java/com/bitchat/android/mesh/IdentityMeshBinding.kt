@@ -23,18 +23,32 @@ class IdentityMeshBinding(
     private var heldFor = generation()
     private var held = mesh()
     private var binding: MeshDelegateBinding? = null
+    private var boundDelegate: MeshDelegate? = null
 
     fun attach() {
         val now = generation()
         if (now != heldFor) {
             binding?.detachIfAttached()
             binding = null
+            boundDelegate = null
             // Noted only once the read worked, so a failed read is tried again at the next attach
             // rather than leaving the new identity's delegate on the old mesh.
             held = mesh()
             heldFor = now
         }
-        val current = binding ?: MeshDelegateBinding(held, delegate()).also { binding = it }
+        // A delegate that changed within one identity (a held-back session replaced by a live one)
+        // must not stay on the mesh until the next Activity.
+        val wanted = delegate()
+        var current = binding
+        if (current != null && wanted !== boundDelegate) {
+            current.detachIfAttached()
+            current = null
+        }
+        if (current == null) {
+            current = MeshDelegateBinding(held, wanted)
+            binding = current
+            boundDelegate = wanted
+        }
         current.attach()
     }
 

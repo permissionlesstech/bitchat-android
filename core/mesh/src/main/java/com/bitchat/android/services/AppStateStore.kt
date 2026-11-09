@@ -858,12 +858,6 @@ class AppStateStore(
         return repository?.clearAllAndWait() ?: true
     }
 
-    fun resumePrivateConversationsAfterPanic() {
-        synchronized(this) {
-            privateConversationWritesSuspended = false
-        }
-    }
-
     fun addChannelMessage(channel: String, msg: BitchatMessage) {
         synchronized(this) {
             if (seenMessageIds.contains(msg.id) ||

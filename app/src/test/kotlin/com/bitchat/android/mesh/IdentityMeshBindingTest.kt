@@ -49,7 +49,7 @@ class IdentityMeshBindingTest {
     }
 
     @Test
-    fun `the mesh is read when the binding is made and the delegate at the first attach`() {
+    fun `the mesh is read when the binding is made and the delegate at each attach`() {
         val binding = binding()
 
         assertEquals(1, meshReads)
@@ -60,7 +60,7 @@ class IdentityMeshBindingTest {
 
         assertSame(firstDelegate, firstMesh.delegate)
         assertEquals(1, meshReads)
-        assertEquals(1, delegateReads)
+        assertEquals(2, delegateReads)
     }
 
     @Test
@@ -146,5 +146,18 @@ class IdentityMeshBindingTest {
 
         assertNull("nothing went back onto the old mesh", firstMesh.delegate)
         assertSame(secondDelegate, secondMesh.delegate)
+    }
+
+    @Test
+    fun `a new delegate within the same identity is rebound and the old one detached`() {
+        val binding = binding()
+        binding.attach()
+        assertSame(firstDelegate, firstMesh.delegate)
+
+        delegate = secondDelegate
+        binding.attach()
+
+        assertSame(secondDelegate, firstMesh.delegate)
+        assertEquals(0, generation)
     }
 }
