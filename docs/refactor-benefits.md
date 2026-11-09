@@ -36,6 +36,9 @@ These existed in upstream before the refactor.
 | Swiping a conversation to mark it read or delete it left the row stuck off to the side, and the Undo snackbar was missing on most deletes. | The row slides back and Undo shows on every delete. | 10b |
 | Undo after deleting a conversation was lost on rotation or when a chat was opened. | It survives both, for up to two minutes. | 10b (F2) |
 | The channels screen's Tor row ignored a change made in About. | It follows the switch. | 10b (R2) |
+| Swiping the app away during a panic could stop the wipe. | The wipe finishes, and the app opens on a clean chat. | 10c-2b |
+| During a panic's wipe, old messages stayed on screen until the wipe ended. | The screen is blank before the slow stages start. Checked on the window's pixels and on a screen recording, on an emulator. | 10c-2b |
+| Something only in memory stayed after a panic if nobody remembered to clear it (the bug class behind upstream PR #1022). | Panic ends the identity and builds a new one, in the same process and Activity. What was only in memory goes without being listed. | 10c-2b |
 | Back handling registered a new callback on every recomposition. | One `BackHandler`. | Groundwork (#912) |
 
 The Phase 9 rows link to their commits in "What Phase 9 fixed" in `refactor-decisions.md`.
@@ -43,6 +46,7 @@ Each real fix is one commit and can be reverted alone.
 
 ## Privacy
 
+- After a completed panic, each mesh's notification manager is closed, so no sender names or message text stay in process-wide previews. 10c-2b
 - The peer list no longer logs peer IDs or favourites on every redraw, in release builds too. A unit test fails if a peer-list log call interpolates a peer ID, favourite or nickname. 10b (F1)
 
 ## State that now survives rotation and process death
@@ -74,6 +78,9 @@ kept out of the refactor so it changes no behaviour it did not have to. Details 
 - A Nostr private message's sender can show as "anon" instead of the favourite's nickname.
 - `BluetoothPacketBroadcaster` spins at about 100 failures a second while Bluetooth is off.
 - The favourite star has no accessibility label.
+- After a panic, a nearby peer syncs old public messages back to the new identity within seconds.
+- Each panic leaves the other device holding about one more connection, up to its limit (seen on simulated Bluetooth).
+- A small private file sometimes never arrives while the sender reports success (seen on simulated Bluetooth).
 - A geohash channel shows two different "N people" counts: the channel list and the chat
   screen's top bar count everyone seen in five minutes, silent heartbeats included, while the
   people list counts only people with a known name, so the two can differ by an order of
@@ -84,7 +91,7 @@ kept out of the refactor so it changes no behaviour it did not have to. Details 
 | | Before | After |
 |---|---|---|
 | Modules | One phone module; the watch compiled 113 of its files through a copy task with 29 globs | 19 library modules; both clients depend on the shared ones; the copy task is gone |
-| `ChatViewModel` | 1744 lines, built the whole chat session | 269 lines; the session lives in an Activity-retained Hilt scope |
+| `ChatViewModel` | 1744 lines, built the whole chat session | 269 lines; the session lives in its own Hilt scope, inside the identity's |
 | Onboarding | About 300 lines of private functions in `MainActivity`, five helpers holding the Activity | One MVI view model in `:feature:onboarding`, one pure `nextStep` function, one startup gate |
 | Dependency injection | Hand-built objects and static `getInstance()` calls | Hilt, with the graph checked at compile time |
 | Navigation | Visibility flags in view models | Typed, serializable Navigation 3 routes on one back stack |
@@ -101,6 +108,8 @@ kept out of the refactor so it changes no behaviour it did not have to. Details 
 | Wear send helpers (10c-2a-2a) | Took the concrete watch mesh, so no test could run them | Generic over the mesh roles. `SendHelpersTest` and `WearPeerIdentityStateMeshRolesTest` run them with fakes for the first time |
 | Mesh interface (10c-2a-2a) | One `MeshService` with 7 members nothing called through it, two with empty default bodies | Eight role interfaces. A client implements only the roles it supports, and `MeshRoleImplementationsTest` fails on a stub override |
 | Identity lifetime (10c-2a-2b) | Identity data sat in process-wide singletons and one static router (`getInstance`) | A Hilt identity scope holds it, and the router is built only by its holder. There is no static router left |
+| Identity lifetime (10c-2b) | Nothing could end an identity. Panic cleared each class by hand and swapped only the mesh | An identity can end. Its scope is cancelled and each class's teardown runs. The chat session has its own scope inside it. The app, screens and services follow the new identity without a restart |
+| Unit and device tests (10c-2b) | JVM 1496; device app 79 | JVM 1625; device app 102 |
 | Module rules | Unwritten | `FeatureDependencyRulesTest` fails when a feature depends on another feature, an `:api` module grows dependencies, or `:core:tor` gains one |
 | Watch crypto | Tink 1.8.0 | Tink 1.23.0, the phone's version |
 | Watch theme | Its own copy of the palette, peer-color hash and fonts | The shared `:core:designsystem` base |
@@ -118,6 +127,10 @@ Safety rails added on the way:
   with a reason, so a class that holds identity data must declare its lifetime. A reference to an
   identity class from a process-lived class has to go through a qualified `Provider`; an unqualified
   one does not compile (10c-2a-2b).
+- `IdentityScopeRulesTest` also fails when a scoped class owns a scope, timer, executor or receiver with
+  no teardown, and when anything but panic ends an identity (10c-2b).
+- `PanicAroundTheScreenTest` (device) reads the window's pixels during a real wipe, so it fails if
+  messages are on screen, which the earlier store-based check could not see (10c-2b).
 - `MeshSingletonIdentityTest` (device) shows that the mesh and the panic wipe hold the same single
   instance of each shared store as the rest of the app, so a second `AppStateStore` or favourites
   store cannot silently drop messages or favourites (10c-2a-1).
@@ -135,5 +148,6 @@ Safety rails added on the way:
   container double build matched at the end of Phase 7.5. The final container build runs once,
   at the end of the refactor.
 - Device tests need a device or emulator; CI does not run them.
-- Owed before handover: Mesh Lab on two Android phones, and a short phone checklist for the
-  onboarding fixes (section 5 of `refactor-decisions.md`).
+- `/clear`, and switching to an empty conversation, lose the message list's fade (10c-2b).
+- Owed before handover: Mesh Lab on two Android phones, a panic on a real phone, and a short phone
+  checklist for the onboarding fixes (section 5 of `refactor-decisions.md`).

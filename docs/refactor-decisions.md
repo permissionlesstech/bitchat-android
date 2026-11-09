@@ -21,7 +21,7 @@ or alternative.
   The back stack survives process death. Back behaviour is covered by device tests. The
   maintainer asked for Navigation 3. Hilt and the module split were the developer's proposal.
 - **Hilt DI.** ViewModels are injected. The chat session (`ChatState`, the managers, the session
-  classes) is built in an Activity-retained Hilt scope instead of inside `ChatViewModel`.
+  classes) is built in its own Hilt scope, inside the identity's, instead of inside `ChatViewModel`.
   `ChatViewModel` went from 1744 lines (start of Phase 4 Part 2) to 269 (end of Phase 7a).
   Each screen has its own ViewModel where it owns state.
 - **Modules.** The phone app was one module and the watch compiled 113 of its files through a
@@ -484,6 +484,10 @@ merge first, expect a Back-handling conflict in `MainActivity`. Keep this branch
   and no device location. The fix is to use OpenStreetMap over Tor when Tor is on, and to geocode
   the cell centre, never the raw fix. Left for a separate change.
 - The iOS client files Nostr private messages in a separate thread.
+- Old public messages come back after a panic. A nearby peer's gossip sync sends them to the new identity, and they appeared on the emulators about two seconds after the wipe, on the base branch too. Panic cannot erase what other devices hold, but someone under duress sees them return. Not fixed, and worth a decision.
+- Each panic leaves the other device holding about one more connection until it reaches its 8-slot limit. Seen on emulators over simulated Bluetooth, with the same counts on the base branch. Reconnecting took 3 s for the first four panics and about 30 s after that, with one miss of 150 s on the refactor branch. That single miss is not enough to call it a difference. Not known on real radios.
+- A small private file sometimes never arrives. All fragments reach the receiver, but `FragmentManager` logs that it cannot decode the reassembled packet, while the sender reports success, so nothing tells the person. Mesh Lab's `media_private` hit this on about a quarter of its runs with 1 KB files, in 3 of 11 runs on this branch and 2 of 10 on the base branch, always on emulators. The logged failures (one on this branch, two on the base branch) match it. Root cause not established. The protocol and fragment code are unchanged here.
+- `MessageSendingTest.aCommandRunsInsteadOfBeingSent` assumes no peer is in range, so it fails on any device that can see one. This is the likely cause of the failure earlier gates called a flake.
 - `FragmentManagerTest > test reassembly` flakes. Root cause not established. Candidates: an
   unseeded `Random`, and a cleanup loop that nothing cancels.
 
@@ -565,6 +569,8 @@ Each would change onboarding UX or startup, which Phase 9 ruled out of scope.
   off and on in chat restores the open chat and reopens nothing (F1); rotating during startup
   shows no error (F2); a DM sent from a second device while the app is in the background
   arrives as a notification (F9); the onboarding screens' insets.
+- **A panic on a real phone.** Phase 10c-2b checked it on emulators only. The check is the
+  developer's to run, and never on a phone holding a real identity.
 - **Wear visual check.** No Wear emulator was available for Phase 8's design system change.
 - **Container reproducible build**, once, at the end of the refactor, when fork CI can run.
 - **Before/after screenshots** in the handover PR for the Phase 7.5 screens and the Wear peer
@@ -579,7 +585,7 @@ or 9.
 
 Phase 9 moved to section 3 when it finished. What it left open is in section 5.
 
-### Phase 10: MVI on every screen (10a, 10b, 10c-1, 10c-2a-1, 10c-2a-2a and 10c-2a-2b done; the rest of 10c to come)
+### Phase 10: MVI on every screen (10a, 10b, 10c-1, 10c-2a-1, 10c-2a-2a, 10c-2a-2b and 10c-2b done; the rest of 10c to come)
 
 #### MVI shape
 
@@ -956,22 +962,104 @@ Tests: `PasswordProtectedChannelRobolectricTest` moved to `:core:chat`, `Channel
 
 #### Follow-ups from Phase 10c-2a-2b
 
-For 10c-2b (the chat session in the scope, panic as a rebuild, and the teardown that lets an identity end):
-- Empty `PENDING_CHAT_SESSION` (every `@ActivityRetainedScoped` chat-session class and `@HiltViewModel`, including `ChatSessionMesh`, `PanicClear`, `ChatSessionStartup`, `AppInitializer` and the ViewModels) by moving them inside the scope, and add the injected identity `CoroutineScope`.
-- Identity-holder flows: replacing the component, and everything that outlives one must follow it.
-- `LocationChannelManager` and `LocationNotesManager` add listeners to the process-wide location gate and never remove them (`LocationChannelManager` also registers a system receiver). Replacing an identity must unregister them, or the old manager keeps invalidating the gate and writing the saved channel.
-- `DebugSettingsManager.transportToggles` is set once in `BitchatApplication` to the identity's toggles; re-register when the component is replaced.
-- `PowerManager.start()` captures one identity's `directPeers`; it must re-point.
-- `MainActivity` keeps `meshService` and `unifiedMeshService` fields, and its comment says it keeps nothing of the identity's. Re-read them.
-- `MessageRouterHolder` has no teardown (the router's scheduler scope and its favourites listener).
-- `BitchatApplication` captures `peerFingerprints` and `spamFilter` into the Nostr event processor at initialize time. Stale once the component is replaced.
-- Wear screens take identity instances as composable parameters at composition; stale if switching ever reaches the watch.
+The list for 10c-2b is done, and Phase 10c-2b below records how. One item stays open: Wear screens take identity instances as composable parameters at composition, which goes stale if switching ever reaches the watch. The watch has no panic, so nothing switches today.
 
 Deferred from reviews, none blocking:
 - `IdentityScopeRulesTest`'s state pattern misses some collection types, its parser skips some shapes silently, and a process-wide entry that loses `@Singleton` stays listed.
 - A few comments still say "one instance per process" for classes now in the scope.
 
 Owed: the Mesh Lab on physical devices, as for 10c-1 and 10c-2a-1.
+
+### Phase 10c-2b: the chat session inside the identity, and panic as a rebuild
+
+Since 10c-2a-2b every class holding identity data sat in the identity scope, but nothing ended that scope. Panic cleared each class by hand, so a class someone forgot stayed populated (the bug class behind upstream PR #1022). Now panic throws the identity's objects away and builds new ones, so what is only in memory cannot survive by being forgotten.
+
+#### Phase 10c-2b decisions
+
+| Decision | Why | Alternatives rejected | Cost / what to watch |
+|---|---|---|---|
+| (D) The app never restarts on panic: same process, same Activity, no splash or onboarding. (2026-11-09) | The one requirement the developer named. | A process restart. The restart fallback for a wipe that cannot confirm belongs to 10c-3. | Everything process-lived has to follow the new identity. |
+| (D) Panic resets the back stack to the main chat and discards the ViewModels; new ones are built against the new identity. (2026-11-09) | ViewModels can keep taking identity objects directly. | The earlier design's screens observing the holder's current identity. | An open private chat or sheet closes on panic. Accepted. |
+| (D) The session sits inside the identity and ends first: when the person leaves the app, or when panic ends the identity. (2026-11-09) | Leaving and reopening stays as it is today. | Moving the session into the identity with the identity's lifetime. | Two scopes and two holders. |
+| (P) A second qualifier, `@CurrentSession`, next to `@CurrentIdentity`. | The two lifetimes differ, and `IdentityScopeRulesTest` has to tell them apart. | Reusing `@CurrentIdentity`. | One more bridge per session class. |
+| (P) A wipe that cannot prove the conversation database erased keeps today's path: no rebuild, gate closed, incomplete shown. | A new store would open the gate over a database that may still hold conversations, and a rebuilt session would restart geohash and Nostr, which have no gate. | Rebuilding anyway. | The transports can start again as they can today. 10c-3 replaces this path. |
+| (P) The hand-written clears that blank the screen stay, and so do the ones that write storage. The purely in-memory ones go. | Nobody under duress should see messages during the slow stages. This is the one place the rebuild does not replace a clear. | Removing them all. | Which wipe stages report success is unchanged. |
+| (P) The wipe runs on a process-lived scope (`PanicRunner`), not the session's. | Otherwise panic cancels itself when it ends the session. Today, swiping the app away mid-panic stops the wipe. | The session scope; a retained scope. | A small behaviour change, in the safe direction. A process kill mid-wipe is 10c-3's. |
+| (R) Ending and building run in one non-suspending main-thread block, and the new session is built before the per-identity start-up runs. | Nothing can observe a half-swapped identity, and the Activity's collector must find the new session rather than build a stray one. | Suspending between the steps. | Measured at 69 to 110 ms for start-up, mesh start and session start on an emulator. |
+| (R) Screens rebuild through a retained `GenerationViewModelStoreOwner` and `popTo(ChatRoute)`, with the screens key saved. | A plain reset would put chat over onboarding. The key saved means a process death after a panic still claims its saved state. | `resetTo`; `LocalViewModelStoreOwner`. | The order of ViewModel clearing against the session's end at leaving follows listener order; no harm found. |
+| (R) Sends in flight stop when panic starts. | A geohash send still mining can outlast the wipe and publish during it. | Relying on the identity scope's cancel at the end. | Covers the current session's sends only. See the follow-ups. |
+| (R) While a panic runs, a reopened app gets a session that is already over, and a second panic is refused. | Reopening must start nothing on the identity being wiped. | Waiting for the wipe in the Activity. | Reopening during a wipe shows no new session until the wipe ends. |
+| (R) Each mesh's notification manager closes at identity teardown. | The managers for DMs with no UI stayed in the process-wide registry with sender names and message text in their previews. | Closing only the session's. | A late callback after the person leaves is dropped. |
+| (R) A blank frame is a checked requirement, fixed rather than recorded as a limit. | See "The blank frame" below. The design calls the blank the reason the early clears stay. | Accepting about 0.4 s of messages on screen during the wipe. | `/clear`, and switching to an empty conversation, lose the list's fade. |
+| (R) The rest of this phase's device checks ran on two scratch emulators. | Another tool kept taking the foreground on the usual one, so a tap could have landed in another app. | Sharing it. | A scratch AVD is left on disk. |
+
+Clears removed: `spamFilter.reset()` on the rebuilt path. `AppStateStore.resumePrivateConversationsAfterPanic` had no caller left and is deleted, so the old store's gate cannot reopen.
+
+#### What Phase 10c-2b changed
+
+- `ChatSessionComponent` is new, a child of `IdentityComponent`, reached through `ChatSessionHolder`. `@ChatSessionScoped` covers every class that holds session data or runs session jobs.
+- `IdentityHolder` can end an identity and build the next. `IdentityTeardown` runs what each class registered, and a cleanup that throws does not stop the others. An injected identity `CoroutineScope` is cancelled with it.
+- `IdentityStartup` holds what `BitchatApplication` did for one identity, so it runs again for each new one. `PENDING_CHAT_SESSION` is gone, and `IdentityScopeRulesTest` now fails on a scoped class that owns a scope, timer, executor or receiver with no teardown, and on a zero-argument `replace()` outside `PanicClear`.
+- `MainActivity` keeps nothing of the identity's across a panic. `PowerManager` and the foreground service follow each identity's store. The location managers, the router and the classes with their own scopes clean up at teardown.
+- `:wear` has no panic and its holder never ends an identity.
+- Protocol, packets, Noise, crypto and relay behaviour did not change.
+
+#### The blank frame
+
+The design says to blank the screen before the slow wipe stages. `BlankFrame` waits two frames for that, and its test passed. A screen recording showed the messages at full opacity under the old nickname until the new identity's screen appeared, about 0.4 s with 6000 empty seeded files on an emulator. On the base branch the dialog stays up until the block ends, so this phase had made the messages more exposed, not less.
+
+Two reasons. Rows removed from a `LazyColumn` keep fading and are still drawn after they leave composition, and then the main thread blocks. And the test could not see it: first it read the store at draw time, and a rewrite that read the Compose semantics tree also passed, because those rows have already left the tree. Neither is the screen.
+
+- The fix: `MessagesList` composes no list when it has no messages, and a spacer keeps its place. `BlankFrame` is unchanged.
+- The test now copies the window's pixels with `PixelCopy`, on its own thread, around the seeded text while the wipe runs. It asserts the text was drawn first, and requires a sample of the old session in which the text is gone. Against the old list every sample still showed the text: 19 of 19 from the main chat, 8 of 8 with a private chat and a sheet open.
+- A new screen recording on the fix, with the same seeding, read frame by frame: messages under the dialog's scrim until the tap; from the next frame the messages are gone under the old nickname, for 19 frames (about 0.3 s) while the dialog fades away; then the new nickname, then the "wiped" line. No frame during the block shows a message. Same process and window, no restart events. The wipe took 382 ms.
+- A plain `/clear` on the same emulator, with messages from both sides afterwards: both showed, in the same process and window, with the same identity.
+
+#### Checked on two emulators, synthetic data
+
+Simulated Bluetooth. Two other bitchat instances, not started for this check and not touched by it, shared the simulated radio and can relay and take connection slots, so no result here is from an isolated pair.
+
+- Panic from the main chat, a second panic straight after, panic with dark-mode recreation before it, and a notification reply right after: same process and same main window across the panic, no Activity create or destroy, no restart events, a new peer ID each time, and messaging worked afterwards.
+- Swiping the app away mid-panic (through task removal, not the Recents gesture): the wipe finished, seeded media was gone, and reopening showed chat with no onboarding.
+- Leaving through Home, Back and task removal, then reopening: peer ID, nickname and messages kept. The same run was not repeated on the base branch.
+- Dark-mode recreation changes the window, as it should, and keeps the identity.
+- Panic's time on the main thread with seeded media: 200 synthetic files of 100 KB, 247 to 291 ms and no ANR, against 287 to 322 ms with none. Media makes no visible difference at this size on emulator storage, which says nothing about real flash. With 6000 empty files it was about 400 ms.
+- No full-screen flash, splash, onboarding or black or white frame in any recording.
+- Mesh Lab, `scenario all`, 13 scenarios, launching through `am start` because the tool's `monkey` launch fails on these images: 12 of 13 on the first run and 13 of 13 on the second. `identity_reset`, the scenario closest to this work, passed both times. The one failure is `media_private`, in both builds. See section 5. Repeated from a clean setup, it failed 3 of 11 runs here and 2 of 10 on the base branch, so it is not from this phase. A full run on the base branch passed 13 of 13.
+- Each panic left the other device holding about one more connection until it reached its 8-slot limit, on the base branch too. See section 5.
+- Old public messages reappear about two seconds after a panic, because a nearby peer syncs them back. The base branch's recording shows the same. See section 5.
+
+Tests: JVM 1625 (from 1496) with 0 failures (3 skipped), and lint green. Device suites: app 102 (from 79), chat 6, settings 5, location 4, share 3, and the opt-in composer suite 9 of 9. One app test failed: `MessageSendingTest.aCommandRunsInsteadOfBeingSent` expects "no one else is around", and the two other instances on the simulated radio were around. `/w` sent by hand with three peers in view lists them. The test passed with the mesh off (the composer variant's full run, 111 of 111) and straight after a panic, before any peer was seen. The test is unchanged in this phase and will fail on any device with a peer nearby. `PanicAroundTheScreenTest` leaves no seeded files, and the suites after it pass.
+
+#### Not verified
+
+- Real Bluetooth between phones, and Mesh Lab on physical devices.
+- A panic on a real phone, including what the blank looks like there. This check is owed and is the developer's to run. It must never run on a phone holding a real identity.
+- The watch on a device.
+- How long the wipe takes on slow flash. All timing above is from emulators.
+- A wipe that fails, on a device. That path has JVM tests only.
+- A panic started from a private chat with two devices. The UI offers no way to start one there, so only the device test covers a private chat being open.
+
+#### Follow-ups for 10c-3
+
+- Three wipe stages report nothing into the panic's result: `dataManager.clearAllData()`, `conversationListPreferences.clearAll()` and `clearAllNotifications`. A throw from the mesh's `clearAllInternalData` also does not mark the wipe incomplete. Both go with the confirm stage.
+- Two companions stay static, with the reason in the rules test: `SecureIdentityStateManager`'s pin epoch and `NotificationManager`'s `liveManagers`.
+- `DebugSettingsManager`'s buffers hold peer IDs and nicknames and belong on the wipe list.
+- An earlier session's geohash send can still publish during a wipe. `cancelSendsInFlight` covers only the current session's sends.
+- `NostrDirectMessageHandler` can write favourites after the wipe. The race exists today too.
+- On the failed path, mesh notification managers keep their previews, as they do today.
+- There is no automated process-death test. The check was scripted on an emulator once.
+- Storage wipe by location, the keep-list, the panic marker and start-up re-check, the restart fallback and the system-side registry were always 10c-3's.
+
+Deferred from reviews, none blocking:
+- A double build failure during a swap leaves the identity with no start-up, and a late cleanup registered after teardown drops its failure.
+- `ConversationRepository.close` blocks its caller until the writer drains.
+- `NostrBackgroundRuntime` unsubscribes before it cancels.
+- The closing order of `MessageRouterHolder` has no ended flag.
+- The order of stopping before closing is not tested on the real graph, and a comment in `MainActivity` does not match the observed timing of clearing ViewModels.
+- Test quality: `IdentityScopeWiringTest` and `PanicScreensRebuildTest` reflect on private fields, the latter on a library's; the construction scan skips `@Provides` bodies; some fixtures and cleanups were never seen red or are only smoke-tested; `exitingMentionRowsCannotRefillInput` can pass without clicking; `PanicAroundTheScreenTest` has a fixed sleep; the new `MessagesListFollowTest` case was not checked to fail without the fix.
+
+Owed: the Mesh Lab on physical devices, as for the phases before it, and the phone check of a panic.
 
 ### Phase 11: Wear shares UI with the phone (not started)
 
