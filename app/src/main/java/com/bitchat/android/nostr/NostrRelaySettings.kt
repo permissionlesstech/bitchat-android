@@ -84,9 +84,10 @@ object NostrRelaySettings {
      * Panic-wipe hook: an added relay names somewhere someone chose to route
      * through, which is exactly the kind of trace a wipe should not leave.
      */
-    fun reset() {
-        sharedPrefs?.edit()?.remove(KEY_CUSTOM_RELAYS)?.apply()
+    fun reset(): Boolean {
+        val cleared = sharedPrefs?.edit()?.remove(KEY_CUSTOM_RELAYS)?.commit() ?: false
         _customRelays.value = emptyList()
+        return cleared
     }
 
     /** Test / panic helper: re-bind prefs under a fresh name. */

@@ -48,4 +48,20 @@ class WearDisplayGeometryTest {
         assertTrue(ChatVisualTokens.SenderStyle.fontSize.value >= 12f)
         assertTrue(ChatVisualTokens.TimestampStyle.fontSize.value >= 10f)
     }
+
+    @Test
+    fun `round image fit keeps the aspect ratio and touches the inset circle`() {
+        for (aspect in listOf(0.6f, 1f, 1.5f, 1.8f)) {
+            val (width, height) = roundFitSize(192f, 192f, aspect)
+            assertEquals(aspect, width / height, 0.001f)
+            val radius = (192f - 8f) / 2f
+            assertEquals(radius * radius, (width / 2).pow(2) + (height / 2).pow(2), 0.5f)
+        }
+    }
+
+    @Test
+    fun `landscape images get more width than the inscribed square`() {
+        val (width, _) = roundFitSize(192f, 192f, 1.5f)
+        assertTrue(width > roundContentSide(192f, 192f))
+    }
 }

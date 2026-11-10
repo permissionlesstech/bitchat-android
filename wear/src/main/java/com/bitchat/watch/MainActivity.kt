@@ -13,32 +13,48 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.BluetoothDisabled
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.wear.compose.material3.Button
+import androidx.wear.compose.foundation.SwipeToDismissKeys
+import androidx.wear.compose.foundation.rememberSwipeToDismissBoxState
+import androidx.wear.compose.material3.AlertDialogContent
+import androidx.wear.compose.material3.AlertDialogDefaults
+import androidx.wear.compose.material3.AppScaffold
+import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.ScreenScaffold
+import androidx.wear.compose.material3.SwipeToDismissBox
 import androidx.wear.compose.material3.Text
-import androidx.wear.compose.material3.OutlinedButton
+import androidx.wear.compose.material3.TimeText
 import com.bitchat.watch.mesh.WearMeshService
 import com.bitchat.watch.notification.WearNotificationCoordinator
 import com.bitchat.watch.service.WearMeshForegroundService
+import com.bitchat.watch.ui.ChatHomePager
+import com.bitchat.watch.ui.ChatMenuScreen
 import com.bitchat.watch.ui.ChatScreen
 import com.bitchat.watch.ui.DmScreen
 import com.bitchat.watch.ui.NicknameSetupScreen
@@ -46,10 +62,14 @@ import com.bitchat.watch.ui.PeopleScreen
 import com.bitchat.watch.ui.UserDetailScreen
 import com.bitchat.watch.ui.VerificationCodeScreen
 import com.bitchat.watch.ui.WearChatState
+import com.bitchat.watch.ui.FormEdgeButton
 import com.bitchat.watch.ui.WearFormScreen
+import com.bitchat.watch.ui.formHeader
 import com.bitchat.watch.ui.sendPrivateMessage
 import com.bitchat.watch.ui.sendPublicMessage
+import com.bitchat.watch.ui.theme.BitchatMotion
 import com.bitchat.watch.ui.theme.BitchatWearTheme
+import com.bitchat.watch.ui.theme.LocalBitchatPalette
 
 sealed interface WearScreen {
     data object Chat : WearScreen
@@ -89,33 +109,47 @@ class MainActivity : ComponentActivity() {
         refreshState()
         setContent {
             BitchatWearTheme {
-                when {
-                    !hasPermissions -> PermissionRequestScreen(onGranted = { refreshState() })
-                    !bluetoothEnabled -> BluetoothEnableScreen(onEnabled = { refreshState() })
-                    !nicknameChosen -> NicknameSetupScreen(
-                        initialNickname = WearMeshService.getOrCreate(applicationContext).nickname
-                    ) { name ->
-                        WearMeshService.getOrCreate(applicationContext).setNickname(name)
-                        getSharedPreferences("bitchat_watch_prefs", Context.MODE_PRIVATE)
-                            .edit().putBoolean("nickname_chosen", true).apply()
-                        nicknameChosen = true
+                // One TimeText for the app; chat screens hide it because their header owns the top.
+                val timeTextAlpha = remember { mutableFloatStateOf(1f) }
+                AppScaffold(
+                    timeText = {
+                        TimeText(Modifier.graphicsLayer { alpha = timeTextAlpha.floatValue })
                     }
-                    !notificationsGranted && !notificationPromptDismissed ->
-                        NotificationPermissionScreen(
-                            onResult = { granted ->
-                                notificationPromptDismissed = !granted
-                                refreshState()
-                            },
-                            onSkip = { notificationPromptDismissed = true }
-                        )
-                    else -> WearNavHost(
-                        launchRequest = pendingLaunchRequest,
-                        onLaunchRequestHandled = { requestID ->
-                            if (pendingLaunchRequest?.id == requestID) {
-                                pendingLaunchRequest = null
+                ) {
+                    CompositionLocalProvider(LocalTimeTextAlpha provides timeTextAlpha) {
+                        when {
+                            !hasPermissions ->
+                                PermissionRequestScreen(onGranted = { refreshState() })
+                            !bluetoothEnabled ->
+                                BluetoothEnableScreen(onEnabled = { refreshState() })
+                            !nicknameChosen -> NicknameSetupScreen(
+                                initialNickname =
+                                    WearMeshService.getOrCreate(applicationContext).nickname
+                            ) { name ->
+                                WearMeshService.getOrCreate(applicationContext).setNickname(name)
+                                getSharedPreferences("bitchat_watch_prefs", Context.MODE_PRIVATE)
+                                    .edit().putBoolean("nickname_chosen", true).apply()
+                                nicknameChosen = true
                             }
+                            !notificationsGranted && !notificationPromptDismissed ->
+                                NotificationPermissionScreen(
+                                    onResult = { granted ->
+                                        notificationPromptDismissed = !granted
+                                        refreshState()
+                                    },
+                                    onSkip = { notificationPromptDismissed = true }
+                                )
+                            else -> WearNavHost(
+                                launchRequest = pendingLaunchRequest,
+                                onQuit = ::quit,
+                                onLaunchRequestHandled = { requestID ->
+                                    if (pendingLaunchRequest?.id == requestID) {
+                                        pendingLaunchRequest = null
+                                    }
+                                }
+                            )
                         }
-                    )
+                    }
                 }
             }
         }
@@ -175,6 +209,15 @@ class MainActivity : ComponentActivity() {
     private fun startMeshService() {
         WearMeshService.getOrCreate(applicationContext)
         startForegroundService(Intent(this, WearMeshForegroundService::class.java))
+    }
+
+    /**
+     * Quit from the in-app menu: stopping the foreground service tears the mesh down (see
+     * [WearMeshForegroundService.onDestroy]); the next launch starts it again.
+     */
+    private fun quit() {
+        stopService(Intent(this, WearMeshForegroundService::class.java))
+        finishAndRemoveTask()
     }
 
     private fun consumePrivateMessagePeer(intent: Intent?): String? {
@@ -267,6 +310,10 @@ internal class WearNavigationState(
     val canGoBack: Boolean
         get() = screen != WearScreen.Chat || backStack.isNotEmpty()
 
+    /** The screen [goBack] lands on: what a swipe-to-dismiss reveals underneath. */
+    val previousScreen: WearScreen?
+        get() = if (screen is WearScreen.Dm) WearScreen.Chat else backStack.lastOrNull()
+
     fun navigate(to: WearScreen) {
         backStack.add(screen)
         screen = to
@@ -338,6 +385,10 @@ internal class WearNavigationState(
             )
         }
 
+        /** Bundle-safe identity for saveable state and transition keys. */
+        internal fun keyOf(screen: WearScreen): String =
+            encodeScreen(screen).let { (type, peerID) -> "$type:$peerID" }
+
         private fun encodeScreen(screen: WearScreen): Pair<String, String> = when (screen) {
             WearScreen.Chat -> "chat" to ""
             WearScreen.People -> "people" to ""
@@ -370,16 +421,31 @@ internal class WearNavigationState(
 @Composable
 internal fun WearNavHost(
     launchRequest: WearLaunchRequest?,
+    onQuit: () -> Unit,
     onLaunchRequestHandled: (Long) -> Unit
 ) {
     val navigation = rememberSaveable(saver = WearNavigationState.Saver) {
         WearNavigationState()
     }
+    // How the current screen was reached decides its transition: a push zooms in, a back
+    // zooms out, and a completed swipe has already animated, so it must not animate twice.
+    var lastMove by remember { mutableStateOf(WearNavMove.Push) }
+    // A screen that owns a horizontal drag (push-to-talk, image viewer) disables the swipe.
+    var screenOwnsGesture by remember { mutableStateOf(false) }
+    fun push(to: WearScreen) {
+        lastMove = WearNavMove.Push
+        navigation.navigate(to)
+    }
+    fun back(move: WearNavMove = WearNavMove.Back) {
+        lastMove = move
+        navigation.goBack()
+    }
 
-    BackHandler(enabled = navigation.canGoBack) { navigation.goBack() }
+    BackHandler(enabled = navigation.canGoBack) { back() }
 
     LaunchedEffect(launchRequest) {
         launchRequest?.let { request ->
+            lastMove = WearNavMove.Push
             when (val target = request.target) {
                 WearLaunchTarget.Chat -> navigation.openChat()
                 is WearLaunchTarget.Dm -> navigation.openDmFromNotification(target.peerID)
@@ -387,70 +453,167 @@ internal fun WearNavHost(
             onLaunchRequestHandled(request.id)
         }
     }
+    LaunchedEffect(navigation.screen) { screenOwnsGesture = false }
 
-    AnimatedContent(
-        targetState = navigation.screen,
-        transitionSpec = {
-            fadeIn(tween(com.bitchat.watch.ui.theme.BitchatMotion.EMPHASIZED_MS)) togetherWith
-                fadeOut(tween(com.bitchat.watch.ui.theme.BitchatMotion.QUICK_MS))
-        },
-        label = "screenTransition"
-    ) { current ->
-        when (current) {
-            is WearScreen.Chat -> ChatScreen(
-                onOpenPeople = { navigation.navigate(WearScreen.People) },
-                onOpenTextInput = { navigation.navigate(WearScreen.TextInput(null)) }
-            )
-            is WearScreen.People -> PeopleScreen(
-                onOpenDm = { navigation.navigate(WearScreen.Dm(it)) },
-                onEditNickname = { navigation.navigate(WearScreen.Nickname) }
-            )
-            is WearScreen.Nickname -> {
-                val mesh = WearMeshService.peek()
-                NicknameSetupScreen(
-                    initialNickname = mesh?.nickname ?: "",
-                    title = "You",
-                    subtitle = "How nearby peers see you",
-                    confirmLabel = "Save",
-                    onConfirm = { name ->
-                        mesh?.setNickname(name)
-                        navigation.goBack()
+    val previous = navigation.previousScreen
+    val swipeState = rememberSwipeToDismissBoxState()
+    // The app clock does not travel with the screen; fade it as the swipe begins so it never
+    // sits over the header of the screen being revealed.
+    val timeTextAlpha = LocalTimeTextAlpha.current
+    val swipeFadeDistance = with(LocalDensity.current) { 48.dp.toPx() }
+    LaunchedEffect(swipeState) {
+        snapshotFlow { swipeState.offset }.collect { offset ->
+            timeTextAlpha.floatValue =
+                if (offset.isNaN()) 1f else (1f - offset / swipeFadeDistance).coerceIn(0f, 1f)
+        }
+    }
+    // Native Wear back: the screen follows the finger and reveals the one underneath, instead
+    // of the system gesture firing a crossfade only after the finger lifts.
+    SwipeToDismissBox(
+        onDismissed = { back(WearNavMove.Swipe) },
+        state = swipeState,
+        backgroundKey = previous?.let(WearNavigationState::keyOf)
+            ?: SwipeToDismissKeys.Background,
+        contentKey = WearNavigationState.keyOf(navigation.screen),
+        userSwipeEnabled = previous != null && !screenOwnsGesture,
+    ) { isBackground ->
+        // Background and foreground go through this one call site on purpose: the box keeps
+        // each screen's saved state under its key, and an identical composition path lets the
+        // revealed screen keep its scroll position when it becomes the foreground.
+        val screen = if (isBackground) previous else navigation.screen
+        if (screen != null) {
+            ScreenEntrance(
+                key = WearNavigationState.keyOf(screen),
+                move = if (isBackground) WearNavMove.Swipe else lastMove
+            ) {
+                WearScreenContent(
+                    screen = screen,
+                    active = !isBackground,
+                    onNavigate = if (isBackground) { _ -> } else ::push,
+                    onBack = if (isBackground) { {} } else { { back() } },
+                    onQuit = onQuit,
+                    onGestureOwned = if (isBackground) { _ -> } else { owned ->
+                        screenOwnsGesture = owned
                     }
                 )
             }
-            is WearScreen.Dm -> DmScreen(
-                peerID = current.peerID,
-                onOpenUserDetail = {
-                    navigation.navigate(WearScreen.UserDetail(current.peerID))
-                },
-                onOpenTextInput = {
-                    navigation.navigate(WearScreen.TextInput(current.peerID))
+        }
+    }
+}
+
+/**
+ * Plays the arrival of a screen once, when [key] first appears: a push zooms in from slightly
+ * small, a back settles from slightly large, and a swipe-revealed screen is already in place.
+ * Only the incoming screen animates, so two screens are never seen through each other.
+ */
+@Composable
+private fun ScreenEntrance(key: String, move: WearNavMove, content: @Composable () -> Unit) {
+    val progress = remember(key) { Animatable(if (move == WearNavMove.Swipe) 1f else 0f) }
+    LaunchedEffect(key) {
+        progress.animateTo(1f, tween(BitchatMotion.EMPHASIZED_MS, easing = WearEnterEasing))
+    }
+    val fromScale = if (move == WearNavMove.Back) 1.06f else 0.92f
+    Box(
+        modifier = Modifier.graphicsLayer {
+            val p = progress.value
+            alpha = p
+            val scale = fromScale + (1f - fromScale) * p
+            scaleX = scale
+            scaleY = scale
+        }
+    ) {
+        content()
+    }
+}
+
+/** Fades the app-wide TimeText while a screen is being swiped away. */
+internal val LocalTimeTextAlpha = staticCompositionLocalOf { mutableFloatStateOf(1f) }
+
+internal enum class WearNavMove { Push, Back, Swipe }
+
+/** Material's emphasized-decelerate curve: quick to arrive, gentle to settle. */
+private val WearEnterEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
+
+/**
+ * One screen of the app. [active] is false while it is only revealed behind a swipe: it then
+ * renders without claiming the visible conversation, so a cancelled swipe changes nothing.
+ */
+@Composable
+private fun WearScreenContent(
+    screen: WearScreen,
+    active: Boolean,
+    onNavigate: (WearScreen) -> Unit,
+    onBack: () -> Unit,
+    onQuit: () -> Unit,
+    onGestureOwned: (Boolean) -> Unit,
+) {
+    when (screen) {
+        is WearScreen.Chat -> {
+            var chatOwnsGesture by remember { mutableStateOf(false) }
+            ChatHomePager(
+                swipeEnabled = !chatOwnsGesture,
+                menu = { ChatMenuScreen(onQuit = onQuit) },
+                chat = {
+                    ChatScreen(
+                        active = active,
+                        onOpenPeople = { onNavigate(WearScreen.People) },
+                        onOpenTextInput = { onNavigate(WearScreen.TextInput(null)) },
+                        onHorizontalGestureActive = { chatOwnsGesture = it }
+                    )
                 }
             )
-            is WearScreen.UserDetail -> UserDetailScreen(
-                peerID = current.peerID,
-                onOpenVerification = {
-                    navigation.navigate(WearScreen.Verification(current.peerID))
+        }
+        is WearScreen.People -> PeopleScreen(
+            onOpenDm = { onNavigate(WearScreen.Dm(it)) },
+            onEditNickname = { onNavigate(WearScreen.Nickname) }
+        )
+        is WearScreen.Nickname -> {
+            val mesh = WearMeshService.peek()
+            NicknameSetupScreen(
+                initialNickname = mesh?.nickname ?: "",
+                title = "Nickname",
+                subtitle = "Seen by peers",
+                confirmLabel = "Save",
+                autoFocus = active,
+                onConfirm = { name ->
+                    mesh?.setNickname(name)
+                    onBack()
                 }
             )
-            is WearScreen.Verification -> VerificationCodeScreen(peerID = current.peerID)
-            is WearScreen.TextInput -> {
-                val mesh = WearMeshService.peek()
-                val sendScope = androidx.compose.runtime.rememberCoroutineScope()
-                com.bitchat.watch.ui.TextInputScreen(
-                    onSend = { text ->
-                        mesh?.let { m ->
-                            if (current.peerID == null) {
-                                sendPublicMessage(m, text)
-                            } else {
-                                val nick = m.getPeerNickname(current.peerID) ?: current.peerID
-                                sendPrivateMessage(m, current.peerID, nick, text, sendScope)
-                            }
+        }
+        is WearScreen.Dm -> DmScreen(
+            peerID = screen.peerID,
+            active = active,
+            onOpenUserDetail = { onNavigate(WearScreen.UserDetail(screen.peerID)) },
+            onOpenTextInput = { onNavigate(WearScreen.TextInput(screen.peerID)) },
+            onHorizontalGestureActive = onGestureOwned
+        )
+        is WearScreen.UserDetail -> UserDetailScreen(
+            peerID = screen.peerID,
+            onOpenVerification = { onNavigate(WearScreen.Verification(screen.peerID)) }
+        )
+        is WearScreen.Verification -> VerificationCodeScreen(peerID = screen.peerID)
+        is WearScreen.TextInput -> {
+            val mesh = WearMeshService.peek()
+            val sendScope = androidx.compose.runtime.rememberCoroutineScope()
+            val recipient = screen.peerID?.let { peerID ->
+                mesh?.getPeerNickname(peerID) ?: peerID.take(8)
+            }
+            com.bitchat.watch.ui.TextInputScreen(
+                recipient = recipient,
+                autoFocus = active,
+                onSend = { text ->
+                    mesh?.let { m ->
+                        if (screen.peerID == null) {
+                            sendPublicMessage(m, text)
+                        } else {
+                            val nick = m.getPeerNickname(screen.peerID) ?: screen.peerID
+                            sendPrivateMessage(m, screen.peerID, nick, text, sendScope)
                         }
-                        navigation.goBack()
                     }
-                )
-            }
+                    onBack()
+                }
+            )
         }
     }
 }
@@ -462,42 +625,33 @@ fun NotificationPermissionScreen(onResult: (Boolean) -> Unit, onSkip: () -> Unit
             onResult(granted)
         }
 
-    WearFormScreen {
-        item {
-            Text(
-                text = "Message alerts",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-            )
-        }
-        item {
-            Text(
-                text = "Alerts for encrypted direct messages",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 6.dp, bottom = 10.dp),
-            )
-        }
-        item {
-            Button(
-                onClick = {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    } else {
-                        onResult(true)
+    // Two choices of equal weight: the Wear confirmation layout (✕ / ✓) fits both on one
+    // screen without scrolling, where a stacked "Not now" pushed the primary action off.
+    // The dialog layout brings its own top spacing; the app clock would sit on its icon.
+    ScreenScaffold(timeText = {}) {
+        AlertDialogContent(
+            confirmButton = {
+                AlertDialogDefaults.ConfirmButton(
+                    onClick = {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            onResult(true)
+                        }
                     }
-                }
-            ) {
-                Text("Enable")
-            }
-        }
-        item {
-            OutlinedButton(onClick = onSkip) {
-                Text("Not now")
-            }
-        }
+                )
+            },
+            title = { Text("DM alerts") },
+            dismissButton = { AlertDialogDefaults.DismissButton(onClick = onSkip) },
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.Notifications,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            },
+            text = { Text("Know when someone writes") },
+        )
     }
 }
 
@@ -508,33 +662,19 @@ fun PermissionRequestScreen(onGranted: () -> Unit) {
             onGranted()
         }
 
-    WearFormScreen {
-        item {
-            Text(
-                text = "bitchat",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
+    WearFormScreen(
+        edgeButton = {
+            FormEdgeButton(
+                label = "Allow",
+                onClick = { launcher.launch(MainActivity.requiredPermissions().toTypedArray()) }
             )
         }
-        item {
-            Text(
-                text = "Needs Bluetooth to mesh with nearby devices",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 6.dp, bottom = 12.dp),
-            )
-        }
-        item {
-            Button(
-                onClick = {
-                    launcher.launch(MainActivity.requiredPermissions().toTypedArray())
-                }
-            ) {
-                Text("Grant access", textAlign = TextAlign.Center)
-            }
-        }
+    ) {
+        formHeader(
+            title = "bitchat",
+            body = "Mesh chat over Bluetooth",
+            icon = Icons.Filled.Bluetooth,
+        )
     }
 }
 
@@ -544,23 +684,21 @@ fun BluetoothEnableScreen(onEnabled: () -> Unit) {
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             onEnabled()
         }
+    val warning = LocalBitchatPalette.current.accentOrange
 
-    WearFormScreen {
-        item {
-            Text(
-                text = "Bluetooth is off",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
+    WearFormScreen(
+        edgeButton = {
+            FormEdgeButton(
+                label = "Turn on",
+                onClick = { launcher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)) }
             )
         }
-        item {
-            Button(
-                onClick = { launcher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)) },
-                modifier = Modifier.padding(top = 10.dp),
-            ) {
-                Text("Turn on")
-            }
-        }
+    ) {
+        formHeader(
+            title = "Bluetooth off",
+            body = "Needed to mesh",
+            icon = Icons.Filled.BluetoothDisabled,
+            iconTint = warning,
+        )
     }
 }
