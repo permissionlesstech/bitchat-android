@@ -135,8 +135,8 @@ class OnboardingCoordinator(
                 }
             }
             else -> {
-                Log.d(TAG, "Critical permissions denied")
-                handlePermissionDenial(permissions)
+                Log.d(TAG, "Local permissions denied; continuing with internet channels")
+                completeOnboarding()
             }
         }
     }
@@ -172,18 +172,31 @@ class OnboardingCoordinator(
         }
     }
 
+    fun skipLocalPermissions() {
+        // Use existing transport controls so the choice survives restarts and
+        // identity resets. Users can re-enable them in Debug Settings.
+        com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().apply {
+            setBleEnabled(false)
+            setWifiAwareEnabled(false)
+        }
+        permissionManager.markOptionalPermissionsRequested(
+            permissionManager.getUnrequestedOptionalPermissions()
+        )
+        completeOnboarding()
+    }
+
     private fun shouldRequestBackgroundLocation(): Boolean {
-        return permissionManager.needsBackgroundLocationPermission() &&
+        return permissionManager.areRequiredPermissionsGranted() &&
+            permissionManager.needsBackgroundLocationPermission() &&
             !permissionManager.isBackgroundLocationGranted() &&
             !BackgroundLocationPreferenceManager.isSkipped(activity)
     }
 
     /**
-     * Get the list of critical permissions that are absolutely required
+     * Get the permissions required by local mesh transports
      */
     private fun getCriticalPermissions(): List<String> {
-        // For bitchat, Bluetooth and location permissions are critical
-        // Notifications are nice-to-have but not critical and are not included in getRequiredPermissions()
+        // Internet channels and Nostr DMs do not require these local permissions.
         return permissionManager.getRequiredPermissions()
     }
 
@@ -197,7 +210,7 @@ class OnboardingCoordinator(
             deniedPermissions.forEach { permission ->
                 append("- ${getPermissionDisplayName(permission)}\n")
             }
-            append("\nbitchat may not work properly without all permissions.")
+            append("\nOnly the features using these permissions are unavailable.")
         }
         
         Log.w(TAG, "Partial permissions granted: $message")
@@ -205,29 +218,6 @@ class OnboardingCoordinator(
         // For now, we'll proceed anyway and let the user experience the limitations
         // In a production app, you might want to show a dialog explaining the limitations
         completeOnboarding()
-    }
-
-    /**
-     * Handle permission denial scenarios
-     */
-    private fun handlePermissionDenial(permissions: Map<String, Boolean>) {
-        val deniedCritical = permissions.filter { !it.value && getCriticalPermissions().contains(it.key) }
-        
-        if (deniedCritical.isNotEmpty()) {
-            val message = buildString {
-                append("Critical permissions were denied. bitchat requires these permissions to function:\n")
-                deniedCritical.keys.forEach { permission ->
-                    append("- ${getPermissionDisplayName(permission)}\n")
-                }
-                append("\nPlease grant these permissions in Settings to use bitchat.")
-            }
-            
-            Log.e(TAG, "Critical permissions denied: $deniedCritical")
-            onOnboardingFailed(message)
-        } else {
-            // Shouldn't happen given our logic above, but handle gracefully
-            completeOnboarding()
-        }
     }
 
     /**
