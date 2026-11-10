@@ -143,9 +143,7 @@ fun GeohashPeopleList(
                     hasUnreadDM = unreadPrivateMessages.contains("nostr_${person.id.take(16)}"),
                     isTeleported = personIsTeleported,
                     viewModel = viewModel,
-                    showHashSuffix = splitSuffix(person.displayName)
-                        .first
-                        .lowercase(Locale.ROOT) in duplicateBaseNames,
+                    showHashSuffix = canonicalNicknameBase(person.displayName) in duplicateBaseNames,
                     onTap = {
                         if (!isMe) {
                             viewModel.startGeohashDM(person.id)
@@ -186,7 +184,7 @@ internal data class GeohashPeopleSections(
  */
 internal fun duplicateGeohashBaseNames(people: List<GeoPerson>): Set<String> =
     people
-        .groupingBy { splitSuffix(it.displayName).first.lowercase(Locale.ROOT) }
+        .groupingBy { canonicalNicknameBase(it.displayName) }
         .eachCount()
         .filterValues { it > 1 }
         .keys
@@ -195,20 +193,19 @@ internal fun duplicateGeohashBaseNames(people: List<GeoPerson>): Set<String> =
  * The same `#abcd` disambiguator used by geohash chat.
  *
  * Presence rows normally carry only a base nickname, so derive the suffix from the full Nostr
- * public key when a collision exists. Preserve an already-announced suffix for compatibility.
+ * public key when a collision exists. Announced suffixes cannot override that identity.
  */
 internal fun geohashIdentitySuffix(person: GeoPerson, showHashSuffix: Boolean): String {
     if (!showHashSuffix) return ""
-    val announcedSuffix = splitSuffix(person.displayName).second
-    return announcedSuffix.ifEmpty { "#${person.id.takeLast(4)}" }
+    return "#${person.id.takeLast(4)}"
 }
 
 internal fun disambiguatedGeohashDisplayName(
     person: GeoPerson,
     duplicateBaseNames: Set<String>,
 ): String {
-    val baseName = splitSuffix(person.displayName).first
-    val showSuffix = baseName.lowercase(Locale.ROOT) in duplicateBaseNames
+    val baseName = splitSuffix(person.displayName.trim()).first
+    val showSuffix = canonicalNicknameBase(baseName) in duplicateBaseNames
     return baseName + geohashIdentitySuffix(person, showSuffix)
 }
 
