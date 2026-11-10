@@ -45,6 +45,9 @@ class BitchatApplication : Application() {
             com.bitchat.android.nostr.NostrIdentityBridge.getCurrentNostrIdentity(this)
         } catch (_: Exception) { }
 
+        // Restore the spam filter toggle before transports start admitting public messages
+        com.bitchat.android.spam.SpamFilterPreferences.init(this)
+
         // Initialize theme preference
         ThemePreferenceManager.init(this)
 

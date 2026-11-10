@@ -464,8 +464,8 @@ fun MeshPeerListSheet(
                                 Icon(
                                     imageVector = Icons.Outlined.QrCode,
                                     contentDescription = stringResource(R.string.verify_title),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(22.dp)
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(HeaderIconSize)
                                 )
                             }
                         }

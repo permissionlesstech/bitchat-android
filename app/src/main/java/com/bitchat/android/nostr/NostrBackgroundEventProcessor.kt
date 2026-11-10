@@ -21,7 +21,8 @@ import kotlinx.coroutines.launch
  */
 internal class NostrBackgroundEventProcessor(
     application: Application,
-    parentScope: CoroutineScope
+    parentScope: CoroutineScope,
+    participantStore: GeohashParticipantStore = NostrBackgroundRuntime.participants
 ) {
     private val scope = CoroutineScope(
         parentScope.coroutineContext + Dispatchers.IO.limitedParallelism(1)
@@ -33,7 +34,7 @@ internal class NostrBackgroundEventProcessor(
         loadGeohashBlockedUsers()
     }
     private val messageManager = MessageManager(state)
-    private val geohashRepository = GeohashRepository(application, state, dataManager, scope)
+    private val geohashRepository = GeohashRepository(application, state, dataManager, scope, participantStore)
     private val privateChatManager = PrivateChatManager(
         state = state,
         messageManager = messageManager,

@@ -316,6 +316,9 @@ class CommandProcessor(
                 // Let the transport layer add the echo; just send it out
                 onSendMessage(actionMessage, emptyList(), null)
             } else {
+                state.getCurrentChannelValue()?.let { channel ->
+                    if (channelManager.refuseSendIfPasswordProtected(channel)) return
+                }
                 val message = BitchatMessage(
                     sender = state.getNicknameValue() ?: myPeerID,
                     content = actionMessage,
@@ -405,6 +408,9 @@ class CommandProcessor(
             val isLocationChannel =
                 state.selectedLocationChannel.value is com.bitchat.android.geohash.ChannelID.Location
             if (!isLocationChannel) {
+                state.getCurrentChannelValue()?.let { channel ->
+                    if (channelManager.refuseSendIfPasswordProtected(channel)) return
+                }
                 val message = BitchatMessage(
                     sender = state.getNicknameValue() ?: myPeerID,
                     content = token,
@@ -426,13 +432,7 @@ class CommandProcessor(
     }
 
     private fun addSystemMessage(content: String) {
-        val message = BitchatMessage(
-            sender = "system",
-            content = content,
-            timestamp = Date(),
-            isRelay = false
-        )
-        messageManager.addCommandReply(message)
+        messageManager.addSystemMessageToActiveTimeline(content)
     }
     
     private fun handleUnknownCommand(cmd: String) {

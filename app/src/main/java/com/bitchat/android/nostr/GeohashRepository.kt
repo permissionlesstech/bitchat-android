@@ -1,7 +1,6 @@
 package com.bitchat.android.nostr
 
 import android.app.Application
-import android.util.Log
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.GeoPerson
 import kotlinx.coroutines.CoroutineScope
@@ -19,21 +18,28 @@ class GeohashRepository(
     private val application: Application,
     private val state: ChatState,
     private val dataManager: com.bitchat.android.ui.DataManager,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val participantStore: GeohashParticipantStore = GeohashParticipantStore()
 ) {
     companion object {
-        private const val TAG = "GeohashRepository"
         private const val PRESENCE_REFRESH_INTERVAL_MS = 100L
     }
 
     private var presenceRefreshJob: Job? = null
+    private val geohashParticipants get() = participantStore.snapshots.value.participants
+    private val geoNicknames get() = participantStore.snapshots.value.nicknames
 
-    // geohash -> (participant pubkeyHex -> lastSeen)
-    private val geohashParticipants: MutableMap<String, MutableMap<String, Date>> = mutableMapOf()
-
-
-    // pubkeyHex(lowercase) -> nickname (without #hash)
-    private val geoNicknames: MutableMap<String, String> = mutableMapOf()
+    /** Refresh UI projections for chat events received by the process-owned repository too. */
+    fun observeParticipants(): Job = scope.launch {
+        try {
+            participantStore.snapshots.collect { schedulePresenceRefresh() }
+        } finally {
+            synchronized(this@GeohashRepository) {
+                presenceRefreshJob?.cancel()
+                presenceRefreshJob = null
+            }
+        }
+    }
 
     // conversation key (e.g., "nostr_<pub16>") -> source geohash it belongs to
     private val conversationGeohash: MutableMap<String, String> = mutableMapOf()
@@ -48,12 +54,19 @@ class GeohashRepository(
     @Synchronized
     fun getConversationGeohash(convKey: String): String? = conversationGeohash[convKey]
 
+    /**
+     * Resolve a nickname, optionally with its "#abcd" pubkey suffix, to a single pubkey.
+     * Returns null when the name is ambiguous so callers never act on the wrong user.
+     */
     @Synchronized
     fun findPubkeyByNickname(targetNickname: String): String? {
-        return geoNicknames.entries.firstOrNull { (_, nickname) ->
-            val base = nickname.split("#").firstOrNull() ?: nickname
-            base == targetNickname
-        }?.key
+        val targetBase = targetNickname.substringBefore("#")
+        val targetSuffix = targetNickname.substringAfter("#", "").takeIf { it.isNotEmpty() }
+        val matches = geoNicknames.entries.filter { (pubkey, nickname) ->
+            nickname.substringBefore("#") == targetBase &&
+                (targetSuffix == null || pubkey.endsWith(targetSuffix, ignoreCase = true))
+        }
+        return matches.singleOrNull()?.key
     }
 
     @Synchronized
@@ -84,8 +97,7 @@ class GeohashRepository(
     fun clearAll() {
         presenceRefreshJob?.cancel()
         presenceRefreshJob = null
-        geohashParticipants.clear()
-        geoNicknames.clear()
+        participantStore.clear()
         nostrKeyMapping.clear()
         state.setGeohashPeople(emptyList())
         state.setTeleportedGeo(emptySet())
@@ -97,7 +109,7 @@ class GeohashRepository(
     fun cacheNickname(pubkeyHex: String, nickname: String) {
         val lower = pubkeyHex.lowercase()
         val previous = geoNicknames[lower]
-        geoNicknames[lower] = nickname
+        participantStore.cacheNickname(lower, nickname)
         if (previous != nickname && currentGeohash != null) {
             schedulePresenceRefresh()
         }
@@ -108,42 +120,37 @@ class GeohashRepository(
 
     @Synchronized
     fun markTeleported(pubkeyHex: String) {
-        val set = state.getTeleportedGeoValue().toMutableSet()
-        val key = pubkeyHex.lowercase()
-        if (!set.contains(key)) {
-            set.add(key)
-            // Background safe update
-            state.postTeleportedGeo(set)
-        }
+        participantStore.markTeleported(pubkeyHex)
+        state.setTeleportedGeo(participantStore.snapshots.value.teleported)
     }
 
     @Synchronized
     fun isPersonTeleported(pubkeyHex: String): Boolean {
-        return state.getTeleportedGeoValue().contains(pubkeyHex.lowercase())
+        return pubkeyHex.lowercase() in participantStore.snapshots.value.teleported
+    }
+
+    /** Counts a geohash chat or heartbeat event under the shared activity rule. */
+    @Synchronized
+    fun recordActivity(geohash: String, event: NostrEvent) {
+        participantStore.recordEvent(
+            geohash = geohash,
+            pubkey = event.pubkey,
+            kind = event.kind,
+            eventId = event.id,
+            createdAtMillis = event.createdAt * 1000L,
+            content = event.content
+        )
+        schedulePresenceRefresh()
     }
 
     @Synchronized
     fun updateParticipant(geohash: String, participantId: String, lastSeen: Date) {
-        val participants = geohashParticipants.getOrPut(geohash) { mutableMapOf() }
-        // Cap to now: prevents future-timestamped events (clock skew / malicious created_at)
-        // from pinning lastSeen and blocking subsequent normal heartbeats.
-        // Also keeps max: relays send events newest-first, so subsequent older events for
-        // the same user must not overwrite a fresher lastSeen.
-        val now = Date()
-        val effective = if (lastSeen.after(now)) now else lastSeen
-        val existing = participants[participantId]
-        if (existing == null || effective.after(existing)) {
-            participants[participantId] = effective
-        }
+        participantStore.updateParticipant(geohash, participantId, lastSeen.time)
         schedulePresenceRefresh()
     }
 
-    /**
-     * Relays can replay hundreds of presence events at once when entering a channel. Keep
-     * individual updates cheap and publish one complete snapshot per interval, rather than
-     * rebuilding and sorting the growing people list twice per event on the UI thread.
-     * The supplied owner scope also cancels pending publication when its UI is destroyed.
-     */
+    /** Coalesce relay bursts and shared-store updates into one UI snapshot per interval. */
+    @Synchronized
     private fun schedulePresenceRefresh() {
         if (presenceRefreshJob?.isActive == true) return
         presenceRefreshJob = scope.launch {
@@ -158,35 +165,22 @@ class GeohashRepository(
 
     @Synchronized
     fun geohashParticipantCount(geohash: String): Int {
-        val cutoff = Date(System.currentTimeMillis() - 5 * 60 * 1000)
+        participantStore.pruneExpired()
         val participants = geohashParticipants[geohash] ?: return 0
-        // prune expired
-        val it = participants.iterator()
-        while (it.hasNext()) {
-            val e = it.next()
-            if (e.value.before(cutoff)) it.remove()
-        }
         // exclude blocked users
         return participants.keys.count { !dataManager.isGeohashUserBlocked(it) }
     }
 
     @Synchronized
     fun refreshGeohashPeople() {
+        state.setTeleportedGeo(participantStore.snapshots.value.teleported)
         val geohash = currentGeohash
         if (geohash == null) {
-            // Use postValue for thread safety - this can be called from background threads
             state.setGeohashPeople(emptyList())
             return
         }
-        val cutoff = Date(System.currentTimeMillis() - 5 * 60 * 1000)
-        val participants = geohashParticipants[geohash] ?: mutableMapOf()
-        // prune expired
-        val it = participants.iterator()
-        while (it.hasNext()) {
-            val e = it.next()
-            if (e.value.before(cutoff)) it.remove()
-        }
-        geohashParticipants[geohash] = participants
+        participantStore.pruneExpired()
+        val participants = geohashParticipants[geohash].orEmpty()
         // exclude blocked users from people list
         val people = participants.filterKeys { !dataManager.isGeohashUserBlocked(it) }
             .map { (pubkeyHex, lastSeen) ->
@@ -202,23 +196,19 @@ class GeohashRepository(
             GeoPerson(
                 id = pubkeyHex.lowercase(),
                 displayName = base, // UI can add #hash if necessary
-                lastSeen = lastSeen
+                lastSeen = Date(lastSeen)
             )
         }.sortedByDescending { it.lastSeen }
-        // Use postValue for thread safety - this can be called from background threads
         state.setGeohashPeople(people)
     }
 
     @Synchronized
     fun updateReactiveParticipantCounts() {
-        val cutoff = Date(System.currentTimeMillis() - 5 * 60 * 1000)
+        participantStore.pruneExpired()
         val counts = mutableMapOf<String, Int>()
         for ((gh, participants) in geohashParticipants) {
-            val active = participants.filterKeys { !dataManager.isGeohashUserBlocked(it) }
-                .values.count { !it.before(cutoff) }
-            counts[gh] = active
+            counts[gh] = participants.keys.count { !dataManager.isGeohashUserBlocked(it) }
         }
-        // Use postValue for thread safety - this can be called from background threads  
         state.setGeohashParticipantCounts(counts)
     }
 
@@ -263,12 +253,10 @@ class GeohashRepository(
         } catch (_: Exception) { geoNicknames[lower] ?: "anon" }
         if (current == null) return base
         return try {
-            val cutoff = Date(System.currentTimeMillis() - 5 * 60 * 1000)
             val participants = geohashParticipants[current] ?: emptyMap()
             var count = 0
-            for ((k, t) in participants) {
+            for (k in participants.keys) {
                 if (dataManager.isGeohashUserBlocked(k)) continue
-                if (t.before(cutoff)) continue
                 val name = if (k.equals(lower, true)) base else (geoNicknames[k.lowercase()] ?: "anon")
                 if (name.equals(base, true)) { count++; if (count > 1) break }
             }
@@ -286,12 +274,10 @@ class GeohashRepository(
         val suffix = pubkeyHex.takeLast(4)
         val base = geoNicknames[lower] ?: "anon"
         return try {
-            val cutoff = Date(System.currentTimeMillis() - 5 * 60 * 1000)
             val participants = geohashParticipants[sourceGeohash] ?: emptyMap()
             var count = 0
-            for ((k, t) in participants) {
+            for (k in participants.keys) {
                 if (dataManager.isGeohashUserBlocked(k)) continue
-                if (t.before(cutoff)) continue
                 val name = if (k.equals(lower, true)) base else (geoNicknames[k.lowercase()] ?: "anon")
                 if (name.equals(base, true)) { count++; if (count > 1) break }
             }
