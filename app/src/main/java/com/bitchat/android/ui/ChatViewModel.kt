@@ -1494,6 +1494,13 @@ class ChatViewModel(
                 wipeComplete = false
             }
 
+            try {
+                com.bitchat.android.nostr.NostrRelaySettings.init(getApplication())
+                if (!com.bitchat.android.nostr.NostrRelaySettings.reset()) wipeComplete = false
+                com.bitchat.android.nostr.NostrRelayManager.shared.syncCustomRelays()
+            } catch (_: Exception) {
+                wipeComplete = false
+            }
             if (!geohashViewModel.panicReset()) wipeComplete = false
         } catch (e: Exception) {
             Log.e(TAG, "Failed to reset Nostr/geohash: ${e.message}")
