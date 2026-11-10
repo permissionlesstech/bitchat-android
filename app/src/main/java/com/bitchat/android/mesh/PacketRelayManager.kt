@@ -106,7 +106,7 @@ class PacketRelayManager(private val myPeerID: String) {
         }
 
         // Apply relay logic based on packet type and debug switch
-        val shouldRelay = isRelayEnabled() && shouldRelayPacket(relayPacket, peerID)
+        val shouldRelay = isRelayEnabled() && shouldRelayPacket(relayPacket, networkSize)
         if (shouldRelay) {
             relayPacket(RoutedPacket(relayPacket, peerID, routed.relayAddress))
         } else {
@@ -139,15 +139,12 @@ class PacketRelayManager(private val myPeerID: String) {
     /**
      * Determine if we should relay this packet based on type and network conditions
      */
-    private fun shouldRelayPacket(packet: BitchatPacket, fromPeerID: String): Boolean {
+    private fun shouldRelayPacket(packet: BitchatPacket, networkSize: Int): Boolean {
         // Always relay if TTL is high enough (indicates important message)
         if (packet.ttl >= 4u) {
             Log.d(TAG, "High TTL (${packet.ttl}), relaying")
             return true
         }
-        
-        // Get network size for adaptive relay probability
-        val networkSize = delegate?.getNetworkSize() ?: 1
         
         // Small networks always relay to ensure connectivity
         if (networkSize <= 3) {

@@ -40,20 +40,19 @@ fun PermissionExplanationScreen(
     val colorScheme = MaterialTheme.colorScheme
     val scrollState = rememberScrollState()
 
-    Box(
-        modifier = modifier
+    // Outer padding and bottom action placement match the background location
+    // and battery optimization screens so onboarding margins stay aligned.
+    Column(
+        modifier = modifier.padding(24.dp)
     ) {
-        // Scrollable content
+        // Scrollable content area; padding outside the scroll keeps clipped text off the buttons
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 152.dp) // Leave space for both fixed actions
+                .weight(1f)
+                .padding(bottom = 16.dp)
                 .verticalScroll(scrollState),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Spacer(modifier = Modifier.height(24.dp))
-            
             // Header Section - matching AboutSheet style
             Column(
                 modifier = Modifier
@@ -147,41 +146,25 @@ fun PermissionExplanationScreen(
                     colorScheme = colorScheme
                 )
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
         }
 
-        // Fixed button at bottom
-        Surface(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth(),
-            color = colorScheme.surface,
-            shadowElevation = 8.dp
+        TextButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.continue_internet_only))
+        }
+        Button(
+            onClick = onContinue,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = colorScheme.primary
+            )
         ) {
-            Column {
-                TextButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.continue_internet_only))
-                }
-                Button(
-                    onClick = onContinue,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = colorScheme.primary
-                    )
-                ) {
-                    Text(
-                        text = stringResource(R.string.grant_permissions),
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontFamily = BitchatFontFamily,
-                            fontWeight = FontWeight.Bold
-                        ),
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-                }
-            }
+            Text(
+                text = stringResource(R.string.grant_permissions),
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = BitchatFontFamily,
+                    fontWeight = FontWeight.Bold
+                )
+            )
         }
     }
 }
@@ -191,11 +174,13 @@ private fun PermissionCategoryCard(
     category: PermissionCategory,
     colorScheme: ColorScheme
 ) {
+    // Horizontal inset and icon gap match the privacy card so icons and text
+    // share one column down the screen.
     Row(
         verticalAlignment = Alignment.Top,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
         Icon(
             imageVector = getPermissionIcon(category.type),
@@ -205,7 +190,7 @@ private fun PermissionCategoryCard(
                 .padding(top = 2.dp)
                 .size(20.dp)
         )
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(12.dp))
         Column {
             Text(
                 text = category.type.nameValue,
