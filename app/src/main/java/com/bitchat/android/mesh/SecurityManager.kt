@@ -3,6 +3,7 @@ package com.bitchat.android.mesh
 import android.util.Log
 import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.protocol.BitchatPacket
+import com.bitchat.android.sync.PacketIdUtil
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.noise.AuthenticatedNoiseSession
@@ -96,8 +97,10 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         // Record only authenticated packets. Recording an attacker-controlled
         // invalid packet first would let it poison duplicate detection for a
         // later legitimate packet with the same timestamp and payload.
-        processedMessages.add(messageID)
-        messageTimestamps[messageID] = currentTime
+        synchronized(messageTimestamps) {
+            processedMessages.add(messageID)
+            messageTimestamps[messageID] = currentTime
+        }
 
         return true
     }
@@ -135,8 +138,10 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             // flow and reports whether this exact frame completed authentication. Never infer that
             // from ambient session state: a rejected replacement may leave the old session active.
             val result = encryptionService.processHandshakeMessageWithResult(packet.payload, peerID)
-            processedKeyExchanges.add(exchangeKey)
-            keyExchangeTimestamps[exchangeKey] = System.currentTimeMillis()
+            synchronized(keyExchangeTimestamps) {
+                processedKeyExchanges.add(exchangeKey)
+                keyExchangeTimestamps[exchangeKey] = System.currentTimeMillis()
+            }
             
             if (result.response != null) {
                 // Send handshake response through delegate
@@ -238,21 +243,9 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         return encryptionService.getCombinedPublicKeyData()
     }
     
-    /**
-     * Generate message ID for duplicate detection
-     */
+    /** Deduplicates by peer and a hash of packet type, sender, timestamp, and full payload. */
     private fun generateMessageID(packet: BitchatPacket, peerID: String): String {
-        return when (MessageType.fromValue(packet.type)) {
-            MessageType.FRAGMENT -> {
-                // For fragments, include the payload hash to distinguish different fragments
-                "${packet.timestamp}-$peerID-${packet.type}-${packet.payload.contentHashCode()}"
-            }
-            else -> {
-                // For other messages, use a truncated payload hash
-                val payloadHash = packet.payload.sliceArray(0 until minOf(64, packet.payload.size)).contentHashCode()
-                "${packet.timestamp}-$peerID-$payloadHash"
-            }
-        }
+        return "$peerID-${PacketIdUtil.computeIdHex(packet)}"
     }
     
     /**
@@ -400,42 +393,45 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
     internal fun cleanupOldData(nowMs: Long = System.currentTimeMillis()) {
         val cutoffTime = nowMs - MESSAGE_TIMEOUT
 
-        // Clean up old message timestamps and corresponding processed messages
-        val messagesToRemove = messageTimestamps.entries.filter { (_, timestamp) ->
-            timestamp < cutoffTime
-        }.map { it.key }
-
-        messagesToRemove.forEach { messageId ->
-            messageTimestamps.remove(messageId)
-            processedMessages.remove(messageId)
+        // Synchronized collection wrappers protect individual operations, not iteration.
+        // Keep each timestamp/set pair locked through expiry and capacity eviction so
+        // cleanup cannot remove a freshly recorded entry or traverse a mutating set.
+        synchronized(messageTimestamps) {
+            synchronized(processedMessages) {
+                val messagesToRemove = messageTimestamps.entries.filter { (_, timestamp) ->
+                    timestamp < cutoffTime
+                }.map { it.key }
+                messagesToRemove.forEach { messageId ->
+                    messageTimestamps.remove(messageId)
+                    processedMessages.remove(messageId)
+                }
+                if (processedMessages.size > MAX_PROCESSED_MESSAGES) {
+                    val excess = processedMessages.size - MAX_PROCESSED_MESSAGES
+                    val toRemove = processedMessages.take(excess)
+                    processedMessages.removeAll(toRemove.toSet())
+                    removeFromMessageTimestamps(toRemove)
+                }
+            }
         }
 
-        // Limit the size of processed messages set
-        if (processedMessages.size > MAX_PROCESSED_MESSAGES) {
-            val excess = processedMessages.size - MAX_PROCESSED_MESSAGES
-            val toRemove = processedMessages.take(excess)
-            processedMessages.removeAll(toRemove.toSet())
-            removeFromMessageTimestamps(toRemove)
-        }
-
-        // Expire handshake dedup entries by time so a delayed same-ephemeral delivery
-        // (e.g. a re-handshake retry after a failed attempt) is not blocked forever.
-        val keyExchangeCutoff = nowMs - KEY_EXCHANGE_DEDUP_TIMEOUT
-        val keyExchangesToRemove = keyExchangeTimestamps.entries.filter { (_, timestamp) ->
-            timestamp < keyExchangeCutoff
-        }.map { it.key }
-
-        keyExchangesToRemove.forEach { exchangeKey ->
-            keyExchangeTimestamps.remove(exchangeKey)
-            processedKeyExchanges.remove(exchangeKey)
-        }
-
-        // Limit the size of processed key exchanges set
-        if (processedKeyExchanges.size > MAX_PROCESSED_KEY_EXCHANGES) {
-            val excess = processedKeyExchanges.size - MAX_PROCESSED_KEY_EXCHANGES
-            val toRemove = processedKeyExchanges.take(excess)
-            processedKeyExchanges.removeAll(toRemove.toSet())
-            toRemove.forEach { keyExchangeTimestamps.remove(it) }
+        synchronized(keyExchangeTimestamps) {
+            synchronized(processedKeyExchanges) {
+                // Expire delayed handshake retries as well as bounding the cache size.
+                val keyExchangeCutoff = nowMs - KEY_EXCHANGE_DEDUP_TIMEOUT
+                val keyExchangesToRemove = keyExchangeTimestamps.entries.filter { (_, timestamp) ->
+                    timestamp < keyExchangeCutoff
+                }.map { it.key }
+                keyExchangesToRemove.forEach { exchangeKey ->
+                    keyExchangeTimestamps.remove(exchangeKey)
+                    processedKeyExchanges.remove(exchangeKey)
+                }
+                if (processedKeyExchanges.size > MAX_PROCESSED_KEY_EXCHANGES) {
+                    val excess = processedKeyExchanges.size - MAX_PROCESSED_KEY_EXCHANGES
+                    val toRemove = processedKeyExchanges.take(excess)
+                    processedKeyExchanges.removeAll(toRemove.toSet())
+                    toRemove.forEach { keyExchangeTimestamps.remove(it) }
+                }
+            }
         }
     }
     
@@ -452,10 +448,14 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
      * Clear all security data
      */
     fun clearAllData() {
-        processedMessages.clear()
-        processedKeyExchanges.clear()
-        messageTimestamps.clear()
-        keyExchangeTimestamps.clear()
+        synchronized(messageTimestamps) {
+            processedMessages.clear()
+            messageTimestamps.clear()
+        }
+        synchronized(keyExchangeTimestamps) {
+            processedKeyExchanges.clear()
+            keyExchangeTimestamps.clear()
+        }
     }
     
     /**

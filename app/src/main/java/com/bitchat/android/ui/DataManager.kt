@@ -240,11 +240,13 @@ class DataManager(private val context: Context) {
         prefs.edit().putStringSet("geohash_blocked_users", _geohashBlockedUsers).apply()
     }
     
+    @Synchronized
     fun addGeohashBlockedUser(pubkeyHex: String) {
         _geohashBlockedUsers.add(pubkeyHex)
         saveGeohashBlockedUsers()
     }
     
+    @Synchronized
     fun removeGeohashBlockedUser(pubkeyHex: String) {
         _geohashBlockedUsers.remove(pubkeyHex)
         saveGeohashBlockedUsers()
