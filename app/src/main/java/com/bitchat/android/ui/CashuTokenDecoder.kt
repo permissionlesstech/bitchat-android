@@ -169,17 +169,17 @@ object CashuTokenDecoder {
                     for ((groupKey, groupValue) in (group as? CborValue.MapValue)?.pairs.orEmpty()) {
                         if ((groupKey as? CborValue.Text)?.value != "p") continue
                         for (proof in (groupValue as? CborValue.ArrayValue)?.values.orEmpty()) {
-                            for ((proofKey, proofValue) in (proof as? CborValue.MapValue)?.pairs.orEmpty()) {
-                                if ((proofKey as? CborValue.Text)?.value != "a") continue
-                                val amount = (proofValue as? CborValue.Unsigned)?.value
-                                if (amount == null || amount == 0L || amount > MAX_AMOUNT) {
-                                    if (strict) return null
-                                    continue
-                                }
-                                if (total > MAX_AMOUNT - amount) return null
-                                total += amount
-                                sawAmount = true
+                            val amountField = (proof as? CborValue.MapValue)?.pairs?.firstOrNull { (key, _) ->
+                                (key as? CborValue.Text)?.value == "a"
+                            }?.second
+                            val amount = (amountField as? CborValue.Unsigned)?.value
+                            if (amount == null || amount == 0L || amount > MAX_AMOUNT) {
+                                if (strict) return null
+                                continue
                             }
+                            if (total > MAX_AMOUNT - amount) return null
+                            total += amount
+                            sawAmount = true
                         }
                     }
                 }

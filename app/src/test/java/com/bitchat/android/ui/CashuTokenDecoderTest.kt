@@ -120,12 +120,19 @@ class CashuTokenDecoderTest {
             assertNull(CashuTokenDecoder.decode(token, strict = true))
             assertEquals(1L, CashuTokenDecoder.decode(token)?.amount)
         }
-        val proof = cborMap("a" to cborText("1"))
         val validProof = cborMap("a" to cborUnsigned(1))
-        val token = "cashuB" + base64Url(cborMap(
-            "t" to cborArray(cborMap("p" to cborArray(validProof, proof)))
-        ))
-        assertNull(CashuTokenDecoder.decode(token, strict = true))
+        val invalidProofs = listOf(
+            cborMap("a" to cborText("1")),
+            cborMap("s" to cborText("synthetic-proof")),
+            cborUnsigned(2)
+        )
+        for (invalidProof in invalidProofs) {
+            val token = "cashuB" + base64Url(cborMap(
+                "t" to cborArray(cborMap("p" to cborArray(validProof, invalidProof)))
+            ))
+            assertNull(CashuTokenDecoder.decode(token, strict = true))
+            assertEquals(1L, CashuTokenDecoder.decode(token)?.amount)
+        }
     }
 
     @Test
