@@ -37,23 +37,26 @@ class MessageManager(private val state: ChatState) {
     
     /** Adds a system message to whichever conversation the user is currently looking at. */
     fun addSystemMessageToActiveTimeline(content: String) {
-        val message = BitchatMessage(
-            sender = "system",
-            content = content,
-            timestamp = Date(),
-            isRelay = false
+        addCommandReply(
+            BitchatMessage(
+                sender = "system",
+                content = content,
+                timestamp = Date(),
+                isRelay = false
+            )
         )
-        val selectedPeer = state.getSelectedPrivateChatPeerValue()
-        val selectedLocationChannel = state.selectedLocationChannel.value
+    }
+
+    /** Local command feedback belongs to the conversation currently being viewed. */
+    fun addCommandReply(message: BitchatMessage) {
+        val peer = state.getSelectedPrivateChatPeerValue()
+        val location = state.selectedLocationChannel.value
         val channel = state.getCurrentChannelValue()
         when {
-            selectedPeer != null -> {
-                addPrivateMessageNoUnread(selectedPeer, message.copy(isPrivate = true))
-            }
-            selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location -> {
-                addChannelMessage("geo:${selectedLocationChannel.channel.geohash}", message)
-            }
-            channel != null -> addChannelMessage(channel, message)
+            peer != null -> addPrivateMessageNoUnread(peer, message.copy(isPrivate = true))
+            location is com.bitchat.android.geohash.ChannelID.Location ->
+                addChannelMessage("geo:${location.channel.geohash}", message)
+            channel != null -> addChannelMessage(channel, message.copy(channel = channel))
             else -> addMessage(message)
         }
     }
@@ -62,6 +65,12 @@ class MessageManager(private val state: ChatState) {
         com.bitchat.android.services.AppStateStore.clearPublicTimelines()
         state.setMessages(emptyList())
         state.setChannelMessages(emptyMap())
+    }
+
+    /** `/clear` on mesh. Does not drop joined channel timelines. */
+    fun clearMeshTimeline() {
+        com.bitchat.android.services.AppStateStore.clearPublicMessages()
+        state.setMessages(emptyList())
     }
     
     // MARK: - Channel Message Management
@@ -91,6 +100,7 @@ class MessageManager(private val state: ChatState) {
     fun clearChannelMessages(channel: String) {
         com.bitchat.android.services.AppStateStore.clearChannelMessages(channel)
         state.setChannelMessages(com.bitchat.android.services.AppStateStore.channelMessages.value)
+        clearChannelUnreadCount(channel)
     }
     
     fun removeChannelMessages(channel: String) {
