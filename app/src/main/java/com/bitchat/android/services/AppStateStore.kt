@@ -910,6 +910,16 @@ object AppStateStore {
         }
     }
 
+    fun removeGeohashMessagesFromSender(pubkeyHex: String) {
+        synchronized(this) {
+            val messages = _channelMessages.value.mapValues { (channel, list) ->
+                if (!channel.startsWith("geo:")) list
+                else list.filterNot { it.senderNostrPubkey.equals(pubkeyHex, ignoreCase = true) }
+            }
+            _channelMessages.value = messages
+        }
+    }
+
     // Clear all in-memory state (used for full app shutdown)
     fun clear() {
         synchronized(this) {
