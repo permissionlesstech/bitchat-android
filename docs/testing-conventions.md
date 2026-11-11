@@ -108,6 +108,12 @@ debug Android test run. The tests also check this flag before clearing storage. 
 default debug `PerformanceTestRunner` starts the minimal Application needed by
 these tests.
 
+If you pass `-Pandroid.testInstrumentationRunnerArguments.notClass`, your list
+replaces the default exclusion. Keep
+`com.bitchat.android.crypto.EncryptionServiceInstrumentedTest` in that
+comma-separated list unless you intend to run the storage tests with the opt-in
+above. If selected without the opt-in, these tests fail before clearing storage.
+
 The Android tests check that reset replaces the old signing key and that another
 encryption service in the same running app loads the replacement. Because Android
 can reuse preference data held in memory, these tests check same-process loading
@@ -126,3 +132,9 @@ reproduce physical disk failures, app-process restarts or installed-app upgrades
 The replacement-save error test checks that the old signing identity does not
 return and that the recreated service can sign successfully. The test does not
 require reset to report success or preserve a replacement key that failed to save.
+
+## Composer UI regression
+
+The [composer panic regression](composer-panic-test.md) runs locally in a
+disposable emulator with a separate installation and blocked external egress.
+This destructive UI suite is opt-in; default JVM and CI commands do not execute it.
