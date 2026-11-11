@@ -31,18 +31,17 @@ import java.io.File
 @Composable
 fun ImagePickerButton(
     modifier: Modifier = Modifier,
-    onImageReady: (String) -> Unit
+    onImageReady: (String) -> Unit,
+    onImagesPicked: (List<Uri>) -> Unit
 ) {
     val context = LocalContext.current
     var capturedImagePath by remember { mutableStateOf<String?>(null) }
     
+    // Gallery picks may hold several photos; they are downscaled and sent off the main thread.
     val imagePicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: android.net.Uri? ->
-        if (uri != null) {
-            val outPath = ImageUtils.downscaleAndSaveToAppFiles(context, uri)
-            if (!outPath.isNullOrBlank()) onImageReady(outPath)
-        }
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) onImagesPicked(uris)
     }
     
     val takePictureLauncher = rememberLauncherForActivityResult(
@@ -51,7 +50,7 @@ fun ImagePickerButton(
         val path = capturedImagePath
         if (success && !path.isNullOrBlank()) {
             // Downscale + correct orientation, then send; delete original
-            val outPath = com.bitchat.android.features.media.ImageUtils.downscalePathAndSaveToAppFiles(context, path)
+            val outPath = ImageUtils.downscalePathAndSaveToAppFiles(context, path)
             if (!outPath.isNullOrBlank()) {
                 onImageReady(outPath)
             }

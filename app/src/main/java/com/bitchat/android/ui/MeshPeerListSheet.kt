@@ -1871,6 +1871,9 @@ fun PrivateChatSheet(
                         onSendImageNote = { peer, channel, path ->
                             viewModel.sendImageNote(peer, channel, path)
                         },
+                        onSendPickedImages = { peer, channel, uris ->
+                            viewModel.sendPickedImages(peer, channel, uris)
+                        },
                         onSendFileNote = { peer, channel, path ->
                             viewModel.sendFileNote(peer, channel, path)
                         },

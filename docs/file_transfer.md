@@ -305,8 +305,10 @@ Core files:
 ### 4.2 Images
 
 1) Selection and processing
-   - System picker (Storage Access Framework) with `GetContent()` (`image/*`). No storage permission required.
-   - Selected image is downscaled so longest edge is 512 px; saved as JPEG (85% quality) under `files/images/outgoing/img_<timestamp>.jpg`.
+   - System picker (Storage Access Framework) with `GetMultipleContents()` (`image/*`), so several photos can be picked in one session. No storage permission required.
+   - Up to `AppConstants.Media.MAX_IMAGES_PER_PICK` (10) photos are sent per pick; extra photos are dropped with a notice in the conversation.
+   - `MediaSendingManager.sendPickedImages` sends picked photos one after another in pick order. A private photo waits for the previous photo's secure send (handshake or legacy-consent prompt) to resolve instead of being refused. Panic wipe cancels photos still queued.
+   - Each image is downscaled off the main thread so longest edge is 512 px; saved as JPEG (85% quality) under `files/images/outgoing/img_<timestamp>_<random>.jpg`. A photo that cannot be read is skipped with a notice.
    - Helper: `ImageUtils.downscaleAndSaveToAppFiles(context, uri, maxDim=512)`.
 
 2) Local echo
@@ -370,7 +372,7 @@ Files:
 
 ### 5.4 Image sending UX
 
-- A circular “+” button next to the mic opens the system image picker. After selection, we downscale to 512 px longest edge and show a local echo; the send begins immediately.
+- A circular “+” button next to the mic opens the system image picker, where several photos can be selected at once. Each photo is downscaled to 512 px longest edge, shown as a local echo and sent in pick order; the first send begins as soon as it is ready.
 - Progress visualization
   - Instead of a linear progress bar, we reveal the image block‑by‑block (modem‑era homage).
   - The image is divided into a constant grid (default 24×16), and the blocks are rendered in order based on fragment progress; there are no gaps between tiles.
