@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import android.net.Uri
 import android.util.Log
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatFilePacket
@@ -9,14 +10,24 @@ import com.bitchat.android.mesh.PrivateMediaPreparation
 import java.util.Date
 import java.security.MessageDigest
 import java.util.UUID
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 data class LegacyPrivateMediaConsentRequest(
@@ -36,6 +47,8 @@ class MediaSendingManager(
     private val channelManager: ChannelManager,
     private val scope: CoroutineScope,
     private val mediaWorkDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    /** Turns a picked image into a downscaled app-private file path, or null if unreadable. */
+    private val prepareImage: (Uri) -> String? = { null },
     private val getMeshService: () -> MeshService
 ) {
     // Helper to get current mesh service (may change after panic clear)
@@ -45,6 +58,7 @@ class MediaSendingManager(
         private const val TAG = "MediaSendingManager"
         private const val MAX_FILE_SIZE = com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES
         private const val PENDING_PRIVATE_MEDIA_TIMEOUT_MS = 15_000L
+        private const val MAX_IMAGES_PER_PICK = com.bitchat.android.util.AppConstants.Media.MAX_IMAGES_PER_PICK
     }
 
     // Track in-flight transfer progress: transferId -> messageId and reverse
@@ -66,6 +80,10 @@ class MediaSendingManager(
     )
 
     private var pendingPrivateMedia: PendingPrivateMedia? = null
+        set(value) {
+            field = value
+            refreshPrivateMediaSlot()
+        }
 
     private data class PendingAutomaticPrivateMedia(
         val requestId: String,
@@ -79,9 +97,26 @@ class MediaSendingManager(
     )
 
     private var pendingAutomaticPrivateMedia: PendingAutomaticPrivateMedia? = null
+        set(value) {
+            field = value
+            refreshPrivateMediaSlot()
+        }
     private var evaluatingAutomaticRequestId: String? = null
     private var automaticRetryRequestedFor: String? = null
     private var pendingAutomaticTimeoutRequestId: String? = null
+
+    // True while a private send holds the single secure-send slot or waits on
+    // legacy consent. Picked-image batches wait on this instead of failing.
+    private val privateMediaSlotBusy = MutableStateFlow(false)
+
+    // Parent of queued picked-image batches so panic can cancel them, and a lock
+    // so a second pick waits for the first batch instead of interleaving with it.
+    private val imageBatchJobs = SupervisorJob(scope.coroutineContext[Job])
+    private val imageBatchLock = Mutex()
+
+    private fun refreshPrivateMediaSlot() {
+        privateMediaSlotBusy.value = pendingAutomaticPrivateMedia != null || pendingPrivateMedia != null
+    }
 
     /**
      * Enforce the send-size cap with a user-visible failure posted to the
@@ -99,6 +134,12 @@ class MediaSendingManager(
         val sizeMb = size / (1024 * 1024)
         val maxMb = MAX_FILE_SIZE / (1024 * 1024)
         val text = "cannot send ${file.name}: file is too large (${sizeMb} MB, max $maxMb MB)"
+        addMediaSendNotice(toPeerIDOrNull, channelOrNull, text)
+        return true
+    }
+
+    /** Post a user-visible media send notice to the conversation the user is sending from. */
+    private fun addMediaSendNotice(toPeerIDOrNull: String?, channelOrNull: String?, text: String) {
         when {
             toPeerIDOrNull != null -> {
                 val sys = BitchatMessage(
@@ -120,7 +161,6 @@ class MediaSendingManager(
             }
             else -> messageManager.addSystemMessage(text)
         }
-        return true
     }
 
     /**
@@ -176,10 +216,67 @@ class MediaSendingManager(
         }
     }
 
+    /**
+     * Send images picked together in one picker session, one after another in
+     * pick order. Each image is downscaled just before it is sent so the first
+     * one goes out without waiting for the rest. A private image waits for the
+     * previous one's secure send (handshake or legacy consent) to resolve
+     * instead of being refused as "another secure media send is still pending".
+     */
+    fun sendPickedImages(toPeerIDOrNull: String?, channelOrNull: String?, uris: List<Uri>) {
+        if (uris.isEmpty()) return
+        val accepted = uris.take(MAX_IMAGES_PER_PICK)
+        if (uris.size > accepted.size) {
+            addMediaSendNotice(
+                toPeerIDOrNull,
+                channelOrNull,
+                "only the first ${accepted.size} of ${uris.size} photos will be sent (max $MAX_IMAGES_PER_PICK at a time)"
+            )
+        }
+        scope.launch(imageBatchJobs) {
+            imageBatchLock.withLock {
+                accepted.forEachIndexed { index, uri ->
+                    currentCoroutineContext().ensureActive()
+                    val filePath = try {
+                        withContext(mediaWorkDispatcher) {
+                            val prepared = prepareImage(uri)
+                            // A panic wipe can cancel this job while the decode is still running,
+                            // so drop the output instead of leaving the photo on disk afterwards.
+                            if (prepared != null && !isActive) {
+                                java.io.File(prepared).delete()
+                            }
+                            prepared
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Picked image preparation failed: ${e.message}", e)
+                        null
+                    }
+                    if (filePath.isNullOrBlank()) {
+                        addMediaSendNotice(
+                            toPeerIDOrNull,
+                            channelOrNull,
+                            "cannot send photo ${index + 1} of ${accepted.size}: it could not be read"
+                        )
+                        return@forEachIndexed
+                    }
+                    sendImageNoteAsync(
+                        toPeerIDOrNull,
+                        channelOrNull,
+                        filePath,
+                        waitForPrivateMediaSlot = true
+                    )
+                }
+            }
+        }
+    }
+
     private suspend fun sendImageNoteAsync(
         toPeerIDOrNull: String?,
         channelOrNull: String?,
-        filePath: String
+        filePath: String,
+        waitForPrivateMediaSlot: Boolean = false
     ) {
         try {
             val filePacket = withContext(mediaWorkDispatcher) {
@@ -202,10 +299,18 @@ class MediaSendingManager(
             } ?: return
 
             if (toPeerIDOrNull != null) {
-                sendPrivateFile(toPeerIDOrNull, filePacket, filePath, BitchatMessageType.Image)
+                sendPrivateFile(
+                    toPeerIDOrNull,
+                    filePacket,
+                    filePath,
+                    BitchatMessageType.Image,
+                    waitForPrivateMediaSlot
+                )
             } else {
                 sendPublicFile(channelOrNull, filePacket, filePath, BitchatMessageType.Image)
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Image send failed: ${e.message}", e)
         }
@@ -290,7 +395,8 @@ class MediaSendingManager(
         toPeerID: String,
         filePacket: BitchatFilePacket,
         filePath: String,
-        messageType: BitchatMessageType
+        messageType: BitchatMessageType,
+        waitForPrivateMediaSlot: Boolean = false
     ) {
         val payload = withContext(mediaWorkDispatcher) { filePacket.encode() }
             ?: run {
@@ -320,7 +426,9 @@ class MediaSendingManager(
             transferId = transferId,
             allowLegacyFallback = false
         )
-        if (!reserveAutomaticPending(pending)) {
+        if (waitForPrivateMediaSlot) {
+            reserveAutomaticPendingWhenFree(pending)
+        } else if (!reserveAutomaticPending(pending)) {
             addPrivateMediaSystemMessage(
                 recipient.conversationID,
                 "Private media was not sent because another secure media send is still pending."
@@ -368,6 +476,8 @@ class MediaSendingManager(
     }
 
     fun clearPendingPrivateMediaConsent() {
+        // Queued picked images must not be sent after panic or to the fresh identity.
+        imageBatchJobs.cancelChildren()
         synchronized(pendingConsentLock) {
             pendingPrivateMedia = null
             pendingAutomaticPrivateMedia = null
@@ -459,8 +569,8 @@ class MediaSendingManager(
             }
 
             is PrivateMediaPreparation.RequiresLegacyConsent -> {
-                clearAutomaticPending(pending.requestId)
                 if (pending.allowLegacyFallback) {
+                    clearAutomaticPending(pending.requestId)
                     Log.w(TAG, "Legacy consent was consumed but policy still requested consent; send aborted")
                     addPrivateMediaSystemMessage(
                         pending.conversationID,
@@ -479,7 +589,10 @@ class MediaSendingManager(
                     fileName = pending.filePacket.fileName,
                     warning = preparation.warning
                 )
+                // Hand the slot from the automatic send to the consent prompt in one
+                // step so a queued picked image cannot slip in between.
                 synchronized(pendingConsentLock) {
+                    clearAutomaticPending(pending.requestId)
                     if (pendingPrivateMedia != null) {
                         Log.w(TAG, "A legacy private-media consent prompt is already pending")
                         return
@@ -529,6 +642,25 @@ class MediaSendingManager(
             pendingAutomaticPrivateMedia = pending
             true
         }
+
+    /**
+     * Wait until no private send holds the slot or waits on legacy consent,
+     * then reserve it. Check and reservation share the lock, so a concurrent
+     * single send cannot slip in between.
+     */
+    private suspend fun reserveAutomaticPendingWhenFree(pending: PendingAutomaticPrivateMedia) {
+        while (true) {
+            privateMediaSlotBusy.first { busy -> !busy }
+            val reserved = synchronized(pendingConsentLock) {
+                if (pendingAutomaticPrivateMedia != null || pendingPrivateMedia != null) {
+                    return@synchronized false
+                }
+                pendingAutomaticPrivateMedia = pending
+                true
+            }
+            if (reserved) return
+        }
+    }
 
     private fun ensureAutomaticPendingTimeout(pending: PendingAutomaticPrivateMedia) {
         val shouldStart = synchronized(pendingConsentLock) {

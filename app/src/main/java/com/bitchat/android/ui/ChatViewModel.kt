@@ -100,6 +100,10 @@ class ChatViewModel(
         mediaSendingManager.sendImageNote(toPeerIDOrNull, channelOrNull, filePath)
     }
 
+    fun sendPickedImages(toPeerIDOrNull: String?, channelOrNull: String?, uris: List<android.net.Uri>) {
+        mediaSendingManager.sendPickedImages(toPeerIDOrNull, channelOrNull, uris)
+    }
+
     fun approveLegacyPrivateMedia(requestId: String) {
         mediaSendingManager.approveLegacyPrivateMedia(requestId)
     }
@@ -199,7 +203,10 @@ class ChatViewModel(
         state,
         messageManager,
         channelManager,
-        viewModelScope
+        viewModelScope,
+        prepareImage = { uri ->
+            com.bitchat.android.features.media.ImageUtils.downscaleAndSaveToAppFiles(getApplication(), uri)
+        }
     ) { mesh }
     
     // Delegate handler for mesh callbacks

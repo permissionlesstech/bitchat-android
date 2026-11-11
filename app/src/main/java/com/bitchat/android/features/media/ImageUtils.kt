@@ -9,6 +9,7 @@ import androidx.exifinterface.media.ExifInterface
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
+import java.util.UUID
 
 object ImageUtils {
     fun downscaleAndSaveToAppFiles(context: Context, uri: Uri, maxDim: Int = 512, quality: Int = 85): String? {
@@ -31,7 +32,9 @@ object ImageUtils {
             val newH = (h / scale).toInt().coerceAtLeast(1)
             val scaled = if (scale > 1f) Bitmap.createScaledBitmap(oriented, newW, newH, true) else oriented
             val dir = File(context.filesDir, "images/outgoing").apply { mkdirs() }
-            val outFile = File(dir, "img_${System.currentTimeMillis()}.jpg")
+            // Several picked photos can be processed within one millisecond, so the
+            // timestamp alone would let a later photo overwrite an earlier one.
+            val outFile = File(dir, "img_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(8)}.jpg")
             FileOutputStream(outFile).use { fos ->
                 scaled.compress(Bitmap.CompressFormat.JPEG, quality, fos)
             }

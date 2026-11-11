@@ -130,6 +130,8 @@ object AppConstants {
         // A file is currently encoded into one protocol payload before BLE fragmentation.
         // Reserve room for maximum filename/MIME TLVs and encryption envelope overhead.
         const val MAX_FILE_SIZE_BYTES: Long = (10L * 1024 * 1024) - (132L * 1024)
+        // Photos picked in one gallery session are sent one after another.
+        const val MAX_IMAGES_PER_PICK: Int = 10
     }
 
     object Router {
