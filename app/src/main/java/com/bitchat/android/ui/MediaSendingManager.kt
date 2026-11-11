@@ -24,6 +24,7 @@ import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -237,7 +238,15 @@ class MediaSendingManager(
                 accepted.forEachIndexed { index, uri ->
                     currentCoroutineContext().ensureActive()
                     val filePath = try {
-                        withContext(mediaWorkDispatcher) { prepareImage(uri) }
+                        withContext(mediaWorkDispatcher) {
+                            val prepared = prepareImage(uri)
+                            // A panic wipe can cancel this job while the decode is still running,
+                            // so drop the output instead of leaving the photo on disk afterwards.
+                            if (prepared != null && !isActive) {
+                                java.io.File(prepared).delete()
+                            }
+                            prepared
+                        }
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {

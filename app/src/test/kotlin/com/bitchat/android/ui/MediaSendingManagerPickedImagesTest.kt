@@ -44,6 +44,7 @@ class MediaSendingManagerPickedImagesTest {
     private lateinit var conversationDatabaseName: String
     private val preparedFiles = mutableMapOf<Uri, File>()
     private val unreadable = mutableSetOf<Uri>()
+    private var onPrepare: (Uri) -> Unit = {}
 
     @Before
     fun setup() {
@@ -67,7 +68,10 @@ class MediaSendingManagerPickedImagesTest {
             mock(),
             CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
             mediaWorkDispatcher = Dispatchers.Unconfined,
-            prepareImage = { uri -> if (uri in unreadable) null else preparedFiles[uri]?.absolutePath },
+            prepareImage = { uri ->
+                onPrepare(uri)
+                if (uri in unreadable) null else preparedFiles[uri]?.absolutePath
+            },
             getMeshService = { mesh }
         )
     }
@@ -207,5 +211,17 @@ class MediaSendingManagerPickedImagesTest {
         verify(mesh, times(1)).prepareFilePrivate(eq(peerID), any(), any(), eq(false))
         verify(mesh, never()).sendFileBroadcast(any())
         assertTrue(privateImageEchoes().isEmpty())
+    }
+
+    @Test
+    fun `panic clear during image preparation removes the prepared file and sends nothing`() {
+        val uris = pickPhotos(2)
+        onPrepare = { manager.clearPendingPrivateMediaConsent() }
+
+        manager.sendPickedImages(null, null, uris)
+
+        assertTrue(!preparedFiles.getValue(uris[0]).exists())
+        verify(mesh, never()).sendFileBroadcast(any())
+        assertTrue(state.getMessagesValue().none { it.type == BitchatMessageType.Image })
     }
 }
