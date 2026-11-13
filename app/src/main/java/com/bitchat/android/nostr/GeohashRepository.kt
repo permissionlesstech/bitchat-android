@@ -25,6 +25,9 @@ class GeohashRepository(
         private const val PRESENCE_REFRESH_INTERVAL_MS = 100L
     }
 
+    // Shared-store collectors may resume inline while the store's monitor is held.
+    // Scheduling must not acquire the UI projection monitor in that callback.
+    private val presenceRefreshLock = Any()
     private var presenceRefreshJob: Job? = null
     private val geohashParticipants get() = participantStore.snapshots.value.participants
     private val geoNicknames get() = participantStore.snapshots.value.nicknames
@@ -34,7 +37,7 @@ class GeohashRepository(
         try {
             participantStore.snapshots.collect { schedulePresenceRefresh() }
         } finally {
-            synchronized(this@GeohashRepository) {
+            synchronized(presenceRefreshLock) {
                 presenceRefreshJob?.cancel()
                 presenceRefreshJob = null
             }
@@ -69,6 +72,29 @@ class GeohashRepository(
         return matches.singleOrNull()?.key
     }
 
+    /** Resolve a block command within the displayed channel, including anonymous senders. */
+    fun findPubkeyForGeohashBlock(geohash: String, targetNickname: String): String? {
+        val base = targetNickname.substringBefore('#')
+        val suffix = targetNickname.substringAfter('#', missingDelimiterValue = "")
+        if (base.isEmpty() || ('#' in targetNickname && suffix.length != 4)) return null
+
+        fun matches(pubkey: String, name: String): Boolean =
+            name.substringBefore('#').equals(base, ignoreCase = true) &&
+                (suffix.isEmpty() || pubkey.endsWith(suffix, ignoreCase = true))
+
+        val snapshot = participantStore.snapshots.value
+        val candidates = mutableSetOf<String>()
+        for (pubkey in snapshot.participants[geohash].orEmpty().keys) {
+            if (matches(pubkey, snapshot.nicknames[pubkey] ?: "anon")) candidates.add(pubkey)
+        }
+        // A person can age out of presence while their message is still visible.
+        for (message in state.getChannelMessagesValue()["geo:$geohash"].orEmpty()) {
+            val pubkey = message.senderNostrPubkey?.lowercase() ?: continue
+            if (matches(pubkey, message.originalSender ?: message.sender)) candidates.add(pubkey)
+        }
+        return candidates.singleOrNull()
+    }
+
     @Synchronized
     fun findPubkeyByShortId(shortId: String): String? {
         // First check cached nicknames (fastest)
@@ -95,8 +121,10 @@ class GeohashRepository(
 
     @Synchronized
     fun clearAll() {
-        presenceRefreshJob?.cancel()
-        presenceRefreshJob = null
+        synchronized(presenceRefreshLock) {
+            presenceRefreshJob?.cancel()
+            presenceRefreshJob = null
+        }
         participantStore.clear()
         nostrKeyMapping.clear()
         state.setGeohashPeople(emptyList())
@@ -150,15 +178,19 @@ class GeohashRepository(
     }
 
     /** Coalesce relay bursts and shared-store updates into one UI snapshot per interval. */
-    @Synchronized
     private fun schedulePresenceRefresh() {
-        if (presenceRefreshJob?.isActive == true) return
-        presenceRefreshJob = scope.launch {
-            delay(PRESENCE_REFRESH_INTERVAL_MS)
-            synchronized(this@GeohashRepository) {
-                presenceRefreshJob = null
-                refreshGeohashPeople()
-                updateReactiveParticipantCounts()
+        synchronized(presenceRefreshLock) {
+            if (presenceRefreshJob?.isActive == true) return
+            presenceRefreshJob = scope.launch {
+                delay(PRESENCE_REFRESH_INTERVAL_MS)
+                synchronized(presenceRefreshLock) {
+                    presenceRefreshJob = null
+                }
+                // Release the scheduling lock before taking repository or shared-store locks.
+                synchronized(this@GeohashRepository) {
+                    refreshGeohashPeople()
+                    updateReactiveParticipantCounts()
+                }
             }
         }
     }
