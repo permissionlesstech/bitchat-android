@@ -3,17 +3,21 @@ package com.bitchat.android.nostr
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.spam.SpamFilter
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.DataManager
 import com.bitchat.android.ui.sectionGeohashPeople
 import java.util.Date
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -46,6 +50,8 @@ class GeohashParticipantTrackingTest {
     @Before
     fun setUp() {
         AppStateStore.clear()
+        // Every test reuses this sender and message; unrelated test history must not hide it.
+        SpamFilter.shared.reset()
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         state = ChatState(scope)
         dataManager = DataManager(application)
@@ -56,8 +62,9 @@ class GeohashParticipantTrackingTest {
     }
 
     @After
-    fun tearDown() {
-        scope.cancel()
+    fun tearDown() = runBlocking {
+        scope.coroutineContext.job.cancelAndJoin()
+        SpamFilter.shared.reset()
         dataManager.removeGeohashBlockedUser(identity.publicKeyHex)
         AppStateStore.clear()
     }
@@ -173,6 +180,37 @@ class GeohashParticipantTrackingTest {
 
         assertTrue(state.geohashPeople.value.isEmpty())
         assertEquals(0, state.geohashParticipantCounts.value[geohash] ?: 0)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `shared participant publication does not wait for the UI projection lock`() = runTest {
+        val sharedStore = GeohashParticipantStore { now }
+        val foregroundScope = CoroutineScope(backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler))
+        val foregroundState = ChatState(foregroundScope)
+        val foregroundRepo = GeohashRepository(application, foregroundState, dataManager, foregroundScope, sharedStore)
+        foregroundRepo.setCurrentGeohash(geohash)
+        foregroundRepo.observeParticipants()
+        val publisher = Executors.newSingleThreadExecutor()
+        try {
+            synchronized(foregroundRepo) {
+                // A UI refresh takes this lock before pruning the shared store. Publication
+                // must not take it in the opposite order through the unconfined observer.
+                publisher.submit {
+                    sharedStore.updateParticipant(geohash, identity.publicKeyHex, now)
+                    sharedStore.cacheNickname(identity.publicKeyHex, "fixture-speaker")
+                }.get(5, TimeUnit.SECONDS)
+            }
+        } finally {
+            publisher.shutdownNow()
+            assertTrue(publisher.awaitTermination(5, TimeUnit.SECONDS))
+        }
+
+        advanceTimeBy(100)
+        runCurrent()
+        assertEquals(identity.publicKeyHex, foregroundState.geohashPeople.value.single().id)
+        assertEquals("fixture-speaker", foregroundState.geohashPeople.value.single().displayName)
+        assertEquals(1, foregroundState.geohashParticipantCounts.value[geohash])
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
