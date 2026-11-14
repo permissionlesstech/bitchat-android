@@ -27,6 +27,7 @@ import dagger.hilt.internal.GeneratedComponent
 import java.io.File
 import java.nio.file.Files
 import java.util.Date
+import java.util.Optional
 import javax.inject.Provider
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -251,6 +252,7 @@ class PanicClearTest {
         meshProvider = { identity.mesh },
         locationChannelManagerProvider = { identity.location },
         appStateStoreProvider = { identity.store },
+        stageListener = Optional.empty(),
     )
 
     private val completed get() = application.getString(R.string.system_panic_completed)

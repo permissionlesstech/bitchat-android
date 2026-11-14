@@ -18,6 +18,7 @@ import com.bitchat.android.panic.SandboxWipeRunner
 import com.bitchat.android.services.AppStateStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.scopes.ActivityRetainedScoped
+import java.util.Optional
 import javax.inject.Inject
 import javax.inject.Provider
 import kotlin.random.Random
@@ -62,6 +63,7 @@ class PanicClear @Inject constructor(
     @CurrentIdentity private val meshProvider: Provider<MeshService>,
     @CurrentIdentity private val locationChannelManagerProvider: Provider<LocationChannelManager>,
     @CurrentIdentity private val appStateStoreProvider: Provider<AppStateStore>,
+    private val stageListener: Optional<PanicStageListener>,
 ) {
 
     private companion object {
@@ -74,6 +76,11 @@ class PanicClear @Inject constructor(
 
     @get:VisibleForTesting
     val inProgress: Boolean get() = runner.isRunning
+
+    /** For timing in debug builds only: release binds no listener. */
+    private fun reached(stage: String) {
+        if (stageListener.isPresent) stageListener.get().reached(stage)
+    }
 
     /** The objects of the identity and session being wiped, read once so every stage acts on them. */
     private inner class Old {
@@ -104,6 +111,7 @@ class PanicClear @Inject constructor(
     /** Wipes everything and goes on under a new identity. Ignored while one runs, whoever started it. */
     fun run() {
         runner.runOnce {
+            reached("started")
             // 0. Before anything else, so a process death from here on finishes the wipe at the next launch.
             val markerSet = try {
                 marker.set()
@@ -112,8 +120,10 @@ class PanicClear @Inject constructor(
                 Log.e(TAG, "Could not write the panic marker: ${e.javaClass.simpleName}")
                 false
             }
+            reached("marker set")
             val old = Old()
             identityHolder.beginEnding()
+            reached("old objects read")
             try {
                 wipeThenRebuild(old, markerSet)
             } finally {
@@ -145,18 +155,22 @@ class PanicClear @Inject constructor(
             old.locationChannelManager.disableLocationServices()
         } catch (_: Exception) { }
         stage("media consent") { old.mediaSendingManager.clearPendingPrivateMediaConsent() }
+        reached("location off")
 
         // 2. Stop admission before storage is wiped. Sends first: nothing still mining goes out during
         // the wipe. The store's gate also rejects any transport callback already in flight, and that
         // store's gate is never opened again.
         stage("geohash sends") { old.geohashSession.cancelSendsInFlight() }
+        reached("geohash sends cancelled")
         stage("mesh data") { old.mesh.clearAllInternalData() }
+        reached("mesh data cleared")
         try {
             if (!old.appStateStore.panicClearPrivateConversations()) complete = false
         } catch (e: Exception) {
             Log.e(TAG, "The conversation wipe threw: ${e.javaClass.simpleName}")
             complete = false
         }
+        reached("admission stopped")
 
         // 3. Blank the screen at once. The steps that follow are slow, and someone under duress must
         // not see messages during them.
@@ -164,23 +178,28 @@ class PanicClear @Inject constructor(
         stage("messages") { old.messageManager.clearAllMessages() }
         stage("channels") { old.channelManager.clearAllChannels() }
         stage("private chats") { old.privateChatManager.clearAllPrivateChats() }
+        reached("screen state cleared")
         try {
             blankFrame.await()
         } catch (e: Exception) {
             Log.e(TAG, "Could not blank the frame: ${e.javaClass.simpleName}")
             complete = false
         }
+        reached("frame blanked")
         // What lives in the process rather than in the identity, which the wipe by location cannot
         // reach: the subscriptions on the process-wide relay manager. The identity storage managers
         // built so far are fenced in step 5, inside the storage lock.
         stage("geohash relays") { old.geohashSession.panicReleaseRelays() }
+        reached("relays released")
 
         // 4. The old mesh stops and reports to nobody before its identity ends.
         stage("old mesh") {
             old.mesh.delegate = null
             old.mesh.stopServices()
         }
+        reached("old mesh stopped")
         sessionHolder.end()
+        reached("session ended")
 
         // 5. End the identity and wipe the sandbox while none exists. Work of the ended identity and
         // session can still be finishing on other threads; it is kept out of the identity's
@@ -189,10 +208,16 @@ class PanicClear @Inject constructor(
         var wipeConfirmed = false
         try {
             val replaced = SecureIdentityStateManager.excludingOtherThreads {
+                reached("storage lock taken")
                 identityHolder.replace {
-                    wipeSandbox().also { wipeConfirmed = it }
-                }
+                    reached("identity ended")
+                    wipeSandbox().also {
+                        wipeConfirmed = it
+                        reached("sandbox wiped")
+                    }
+                }.also { reached("next identity built") }
             }
+            reached("storage lock released")
             if (replaced.failedCleanups.isNotEmpty()) {
                 Log.e(TAG, "Teardown cleanups failed: ${replaced.failedCleanups}")
             }
@@ -220,6 +245,8 @@ class PanicClear @Inject constructor(
                 complete = false
             }
         }
+
+        reached("system-side cleanups")
 
         // 7. No identity in this process after a wipe or a teardown that did not confirm.
         if (!built) {
@@ -285,8 +312,11 @@ class PanicClear @Inject constructor(
             // False when the person left the app during the wipe: then nothing is left to show on,
             // and the next session's own nickname load makes a fresh one.
             hasSession = sessionHolder.replace()
+            reached("session replaced")
             identityStartup.onIdentityStarted()
+            reached("identity started")
             val mesh = meshProvider.get()
+            reached("mesh built")
             if (hasSession) {
                 // The mesh announces with the session's nickname, before the session has read it back.
                 try {
@@ -301,7 +331,9 @@ class PanicClear @Inject constructor(
             }
             mesh.startServices()
             mesh.sendBroadcastAnnounce()
+            reached("mesh started")
             if (hasSession) sessionStartupProvider.get().start()
+            reached("session started")
         } catch (e: Exception) {
             Log.e(TAG, "Starting the new identity failed: ${e.javaClass.simpleName}")
             complete = false
@@ -317,5 +349,6 @@ class PanicClear @Inject constructor(
             R.string.system_panic_incomplete
         }
         if (hasSession) messageManagerProvider.get().addSystemMessage(context.getString(outcome))
+        reached("done")
     }
 }
