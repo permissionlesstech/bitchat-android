@@ -85,17 +85,17 @@ class Device:
         alias: str,
         package: str = APPLICATION_ID,
         hook_action: str = TEST_HOOK_ACTION,
-        hook_component: str = TEST_HOOK_COMPONENT,
+        hook_component: str | None = None,
         permissions: list[str] = PERMISSIONS,
-        activity_component: str = f"{APPLICATION_ID}/com.bitchat.android.MainActivity",
+        activity_component: str | None = None,
     ):
         self.serial = serial
         self.alias = alias
         self.package = package
         self.hook_action = hook_action
-        self.hook_component = hook_component
+        self.hook_component = hook_component or f"{package}/com.bitchat.android.testhook.TestHookReceiver"
         self.permissions = permissions
-        self.activity_component = activity_component
+        self.activity_component = activity_component or f"{package}/com.bitchat.android.MainActivity"
 
     # -- app lifecycle ------------------------------------------------------
 
@@ -977,6 +977,7 @@ def build_parser() -> argparse.ArgumentParser:
     setup.add_argument("--serial-a", required=True)
     setup.add_argument("--serial-b")
     setup.add_argument("--serial-watch", help="watch serial; used as device B (overrides --serial-b)")
+    setup.add_argument("--package", default=APPLICATION_ID, help="phone app package (default: official package)")
     setup.add_argument("--apk", type=Path, default=None)
     setup.add_argument("--watch-apk", type=Path, default=None)
     setup.add_argument("--nickname-a", default="alice")
@@ -987,10 +988,12 @@ def build_parser() -> argparse.ArgumentParser:
     scenario.add_argument("--serial-a", required=True)
     scenario.add_argument("--serial-b")
     scenario.add_argument("--serial-watch", help="watch serial; used as device B (overrides --serial-b)")
+    scenario.add_argument("--package", default=APPLICATION_ID, help="phone app package (default: official package)")
     scenario.add_argument("--out", type=Path, default=None, help="evidence output directory")
 
     raw = commands.add_parser("cmd", help="send a raw test-hook command to one device")
     raw.add_argument("--serial", required=True)
+    raw.add_argument("--package", default=APPLICATION_ID, help="phone app package (default: official package)")
     raw.add_argument("cmd")
     raw.add_argument("--extra", action="append", default=[], help="key=value string extra (repeatable)")
     raw.add_argument("--extra-int", action="append", default=[], help="key=value int extra (repeatable)")
@@ -1000,12 +1003,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _resolve_devices(args: argparse.Namespace) -> tuple[Device, Device]:
     """Device A is always the phone; device B is a watch when --serial-watch is given."""
-    a = Device(args.serial_a, "alpha")
+    package = getattr(args, "package", APPLICATION_ID)
+    a = Device(args.serial_a, "alpha", package=package)
     if getattr(args, "serial_watch", None):
         return a, WatchDevice(args.serial_watch)
     if not getattr(args, "serial_b", None):
         raise MeshLabError("either --serial-b or --serial-watch is required")
-    return a, Device(args.serial_b, "beta")
+    return a, Device(args.serial_b, "beta", package=package)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1033,7 +1037,7 @@ def main(argv: list[str] | None = None) -> int:
             for item in args.extra_int:
                 key, _, value = item.partition("=")
                 extras[key] = int(value)
-            result = Device(args.serial, "device").cmd(args.cmd, timeout_ms=args.timeout_ms, **extras)
+            result = Device(args.serial, "device", package=args.package).cmd(args.cmd, timeout_ms=args.timeout_ms, **extras)
             print(json.dumps(result, indent=2, default=str))
             return 0 if result.get("status") == "ok" else 1
         return 0
