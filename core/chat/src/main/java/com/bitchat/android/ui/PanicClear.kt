@@ -253,11 +253,13 @@ class PanicClear @Inject constructor(
         }
         sessionHolder.end()
         try {
-            val failedCleanups = identityHolder.replace()
-            if (failedCleanups.isNotEmpty()) {
-                Log.e(TAG, "Cleanups failed: $failedCleanups")
+            // The location wipe arrives with the new panic order; until then there is nothing to run here.
+            val replaced = identityHolder.replace { true }
+            if (replaced.failedCleanups.isNotEmpty()) {
+                Log.e(TAG, "Cleanups failed: ${replaced.failedCleanups}")
                 complete = false
             }
+            if (!replaced.built) complete = false
         } catch (e: Exception) {
             // The next read tries the build again, and the steps below are that read.
             Log.e(TAG, "Building the next identity failed: ${e.javaClass.simpleName}")

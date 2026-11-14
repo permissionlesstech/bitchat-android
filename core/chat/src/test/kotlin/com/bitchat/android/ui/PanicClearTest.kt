@@ -13,6 +13,7 @@ import com.bitchat.android.identity.scope.IdentityComponent
 import com.bitchat.android.identity.scope.IdentityComponentBuilder
 import com.bitchat.android.identity.scope.IdentityEnder
 import com.bitchat.android.identity.scope.IdentityHolder
+import com.bitchat.android.panic.testPanicMarker
 import com.bitchat.android.identity.scope.IdentityStartup
 import com.bitchat.android.mesh.MeshDelegate
 import com.bitchat.android.mesh.MeshService
@@ -165,6 +166,7 @@ class PanicClearTest {
             log += "identity ended"
             failedCleanups
         },
+        testPanicMarker(),
     )
 
     private class FakeLifecycle : ActivityRetainedLifecycle {

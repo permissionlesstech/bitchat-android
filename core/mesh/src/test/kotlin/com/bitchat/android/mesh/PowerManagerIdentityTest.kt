@@ -4,6 +4,7 @@ import com.bitchat.android.identity.scope.IdentityComponent
 import com.bitchat.android.identity.scope.IdentityComponentBuilder
 import com.bitchat.android.identity.scope.IdentityEnder
 import com.bitchat.android.identity.scope.IdentityHolder
+import com.bitchat.android.panic.testPanicMarker
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.TestMeshStores
 import javax.inject.Provider
@@ -35,6 +36,7 @@ class PowerManagerIdentityTest {
             }
         },
         IdentityEnder { emptyList() },
+        testPanicMarker(),
     )
 
     // Unconfined, so collection runs inside `start()` and the test needs no waiting.
@@ -76,7 +78,7 @@ class PowerManagerIdentityTest {
 
         val newStore = TestMeshStores(application).appStateStore
         currentStore = newStore
-        holder.replace()
+        holder.replace { true }
 
         assertFalse("the new identity has no direct peers yet", manager.profile.value.hasDirectPeers)
 
@@ -92,7 +94,7 @@ class PowerManagerIdentityTest {
         manager.start()
 
         currentStore = TestMeshStores(application).appStateStore
-        holder.replace()
+        holder.replace { true }
         store.setTransportDirectPeers("ble", listOf("0011223344556677"))
 
         assertFalse(manager.profile.value.hasDirectPeers)

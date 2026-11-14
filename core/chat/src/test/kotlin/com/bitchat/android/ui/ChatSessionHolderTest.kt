@@ -7,6 +7,7 @@ import com.bitchat.android.identity.scope.IdentityComponent
 import com.bitchat.android.identity.scope.IdentityComponentBuilder
 import com.bitchat.android.identity.scope.IdentityEnder
 import com.bitchat.android.identity.scope.IdentityHolder
+import com.bitchat.android.panic.testPanicMarker
 import dagger.hilt.android.ActivityRetainedLifecycle
 import dagger.hilt.android.lifecycle.RetainedLifecycle
 import dagger.hilt.internal.GeneratedComponent
@@ -39,6 +40,7 @@ class ChatSessionHolderTest {
             }
         },
         IdentityEnder { emptyList() },
+        testPanicMarker(),
     )
 
     private class FakeLifecycle : ActivityRetainedLifecycle {
@@ -125,7 +127,7 @@ class ChatSessionHolderTest {
         val holder = holder()
         val old = holder.current
 
-        identity.replace()
+        identity.replace { true }
 
         assertEquals("the read is what rebuilds", 1, built.size)
         val next = holder.current
@@ -156,7 +158,7 @@ class ChatSessionHolderTest {
         holder.current
 
         holder.end()
-        identity.replace()
+        identity.replace { true }
         assertTrue(holder.replace())
 
         assertEquals(2, built.size)
@@ -171,7 +173,7 @@ class ChatSessionHolderTest {
         val session = holder.current
         lifecycle.clear()
 
-        identity.replace()
+        identity.replace { true }
 
         assertSame(session, holder.current)
         assertEquals(1, built.size)
@@ -244,7 +246,7 @@ class ChatSessionHolderTest {
         val holder = holder()
         val heldBack = holder.current
 
-        identity.replace()
+        identity.replace { true }
         val next = holder.current
 
         assertNotSame(heldBack, next)

@@ -206,13 +206,13 @@ class IdentityScopeRulesTest {
     fun theReplaceRuleSeesACallAnywhereButPanicClear() {
         val model = Model(
             listOf(
-                Src("core/chat/src/main/java/x/PanicClear.kt", "class PanicClear { fun f() { identityHolder.replace(); sessionHolder.replace() } }"),
-                Src("app/src/main/java/x/Stray.kt", "class Stray { fun f() { holder.replace() } }"),
-                Src("app/src/main/java/x/Wrapped.kt", "class Wrapped { fun f() { holder\n  .replace() } }"),
-                Src("app/src/debug/java/x/Hook.kt", "class Hook { fun f() = holder.replace() }"),
+                Src("core/chat/src/main/java/x/PanicClear.kt", "class PanicClear { fun f() { identityHolder.replace { true }; sessionHolder.replace() } }"),
+                Src("app/src/main/java/x/Stray.kt", "class Stray { fun f() { holder.replace { true } } }"),
+                Src("app/src/main/java/x/Wrapped.kt", "class Wrapped { fun f() { holder\n  .replace { true } } }"),
+                Src("app/src/debug/java/x/Hook.kt", "class Hook { fun f() = holder.replace { true } }"),
                 Src("app/src/main/java/x/Text.kt", "class Text { fun f() = name.replace(\"a\", \"b\") }"),
                 Src("app/src/main/java/x/Mesh.kt", "class Mesh { fun f() = mesh.replace(other) }"),
-                Src("core/mesh/src/main/java/x/IdentityHolder.kt", "class IdentityHolder { fun replace(): List<String> = emptyList() }"),
+                Src("core/mesh/src/main/java/x/IdentityHolder.kt", "class IdentityHolder { fun replace(wipe: () -> Boolean): Replaced = TODO() }"),
             ),
         )
         val found = replaceViolations(model)
@@ -708,11 +708,11 @@ class IdentityScopeRulesTest {
         } + exempt.filterValues { it.isBlank() }.keys.map { "'$it' is in TEARDOWN_EXEMPT without a reason." }
     }
 
-    /** A call with no argument is one of the two holders': nothing else has a `replace()`. */
+    /** `replace()` on the session holder and `replace { ... }` on the identity holder: nothing else has either. */
     private fun replaceViolations(model: Model): List<String> =
         model.sources.filterNot { it.path.endsWith("/PanicClear.kt") }.mapNotNull { src ->
-            if (Regex("""\.\s*replace\(\s*\)""").containsMatchIn(src.code)) {
-                "${src.path} calls replace() on a holder. Only PanicClear ends an identity or a session."
+            if (Regex("""\.\s*replace\s*(\(\s*\)|\{|\(\s*\{)""").containsMatchIn(src.code)) {
+                "${src.path} calls replace on a holder. Only PanicClear ends an identity or a session."
             } else {
                 null
             }

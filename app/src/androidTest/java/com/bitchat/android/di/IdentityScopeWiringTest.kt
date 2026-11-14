@@ -103,7 +103,7 @@ class IdentityScopeWiringTest {
         val graph = graph()
         var failed = emptyList<String>()
         rule.runOnUiThread {
-            failed = graph.identityHolder().replace()
+            failed = graph.identityHolder().replace { true }.failedCleanups
             graph.identityStartup().onIdentityStarted()
         }
         return failed

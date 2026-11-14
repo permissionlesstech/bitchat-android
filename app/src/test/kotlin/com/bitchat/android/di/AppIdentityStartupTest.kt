@@ -6,6 +6,7 @@ import com.bitchat.android.identity.scope.IdentityComponent
 import com.bitchat.android.identity.scope.IdentityComponentBuilder
 import com.bitchat.android.identity.scope.IdentityEnder
 import com.bitchat.android.identity.scope.IdentityHolder
+import com.bitchat.android.panic.testPanicMarker
 import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.nostr.GeohashConversationRegistry
@@ -57,6 +58,7 @@ class AppIdentityStartupTest {
             }
         },
         IdentityEnder { emptyList() },
+        testPanicMarker(),
     )
     private var current = Identity()
 
@@ -195,7 +197,7 @@ class AppIdentityStartupTest {
         assertEquals(AppIdentityStartup.NOT_STARTED, startedDuringTheLastStep)
         assertEquals(0, startup.startedGeneration.value)
 
-        holder.replace()
+        holder.replace { true }
         assertEquals(0, startup.startedGeneration.value)
 
         current = Identity()

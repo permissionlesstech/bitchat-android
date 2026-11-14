@@ -1,5 +1,6 @@
 package com.bitchat.android.identity.scope
 
+import com.bitchat.android.panic.testPanicMarker
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -35,7 +36,9 @@ class IdentityHolderTest {
         failedNames
     }
 
-    private fun holder() = IdentityHolder(builder, ender)
+    private val marker = testPanicMarker()
+
+    private fun holder() = IdentityHolder(builder, ender, marker)
 
     @Test
     fun `nothing is built until current is read`() {
@@ -78,7 +81,7 @@ class IdentityHolderTest {
         val first = holder.current
         assertEquals(0, holder.generation.value)
 
-        holder.replace()
+        holder.replace { true }
 
         assertNotSame(first, holder.current)
         assertSame(holder.current, holder.current)
@@ -92,7 +95,7 @@ class IdentityHolderTest {
         holder.current
         log.clear()
 
-        holder.replace()
+        holder.replace { true }
 
         assertEquals(listOf("end", "build"), log.toList())
     }
@@ -101,7 +104,7 @@ class IdentityHolderTest {
     fun `replace before any read builds one and ends none`() {
         val holder = holder()
 
-        holder.replace()
+        holder.replace { true }
 
         assertEquals(listOf("build"), log.toList())
         assertEquals(1, builds.get())
@@ -117,11 +120,11 @@ class IdentityHolderTest {
             releaseEnd.await(10, TimeUnit.SECONDS)
             emptyList()
         }
-        val holder = IdentityHolder(builder, blockingEnder)
+        val holder = IdentityHolder(builder, blockingEnder, marker)
         val old = holder.current
         val pool = Executors.newFixedThreadPool(2)
         try {
-            val replacing = pool.submit { holder.replace() }
+            val replacing = pool.submit { holder.replace { true } }
             assertTrue(endStarted.await(10, TimeUnit.SECONDS))
             val reading = pool.submit<IdentityComponent> { holder.current }
             releaseEnd.countDown()
@@ -141,7 +144,7 @@ class IdentityHolderTest {
         holder.current
         failedNames = listOf("relay", "notifications")
 
-        assertEquals(listOf("relay", "notifications"), holder.replace())
+        assertEquals(listOf("relay", "notifications"), holder.replace { true }.failedCleanups)
     }
 
     @Test
@@ -162,11 +165,12 @@ class IdentityHolderTest {
                 ended += component
                 emptyList()
             },
+            marker,
         )
         val first = holder.current
         failBuild = true
 
-        assertThrows(IllegalStateException::class.java) { holder.replace() }
+        assertThrows(IllegalStateException::class.java) { holder.replace { true } }
         assertEquals(listOf(first), ended)
         assertEquals(0, holder.generation.value)
 
@@ -190,7 +194,7 @@ class IdentityHolderTest {
         holder.beginEnding()
         assertTrue(holder.ending.value)
 
-        holder.replace()
+        holder.replace { true }
         assertFalse(holder.ending.value)
     }
 
@@ -205,5 +209,105 @@ class IdentityHolderTest {
         assertFalse(holder.ending.value)
         assertSame(identity, holder.current)
         assertEquals(0, holder.generation.value)
+    }
+
+    @Test
+    fun `the wipe runs after the old identity ended and before the next is built`() {
+        val holder = holder()
+        holder.current
+        log.clear()
+
+        val replaced = holder.replace {
+            log += "wipe"
+            true
+        }
+
+        assertEquals(listOf("end", "wipe", "build"), log.toList())
+        assertTrue(replaced.built)
+    }
+
+    @Test
+    fun `an unconfirmed wipe builds nothing and the generation stays`() {
+        val holder = holder()
+        holder.current
+        log.clear()
+
+        val replaced = holder.replace { false }
+
+        assertFalse(replaced.built)
+        assertEquals(listOf("end"), log.toList())
+        assertEquals(0, holder.generation.value)
+        assertFalse(holder.ending.value)
+    }
+
+    @Test
+    fun `a failed cleanup builds nothing`() {
+        val holder = holder()
+        holder.current
+        failedNames = listOf("relay")
+        log.clear()
+
+        val replaced = holder.replace { true }
+
+        assertFalse(replaced.built)
+        assertEquals(listOf("relay"), replaced.failedCleanups)
+        assertEquals(listOf("end"), log.toList())
+        assertEquals(0, holder.generation.value)
+    }
+
+    @Test
+    fun `no identity is built while the marker is pending`() {
+        val holder = holder()
+        marker.set()
+
+        val thrown = assertThrows(IllegalStateException::class.java) { holder.current }
+
+        assertEquals("identity wipe pending", thrown.message)
+        assertEquals(0, builds.get())
+
+        marker.clear()
+        assertSame(holder.current, holder.current)
+    }
+
+    @Test
+    fun `a wipe that leaves the marker pending builds no identity`() {
+        val holder = holder()
+        holder.current
+        marker.set()
+
+        assertThrows(IllegalStateException::class.java) { holder.replace { true } }
+
+        assertEquals(1, builds.get())
+    }
+
+    @Test
+    fun `a reader on another thread waits for the wipe`() {
+        val holder = holder()
+        holder.current
+        val wipeStarted = CountDownLatch(1)
+        val releaseWipe = CountDownLatch(1)
+        val pool = Executors.newFixedThreadPool(2)
+        try {
+            val replacing = pool.submit<Replaced> {
+                holder.replace {
+                    wipeStarted.countDown()
+                    check(releaseWipe.await(10, TimeUnit.SECONDS))
+                    true
+                }
+            }
+            assertTrue(wipeStarted.await(10, TimeUnit.SECONDS))
+            val reading = pool.submit<IdentityComponent> { holder.current }
+            assertFalse(reading.isDone)
+            assertEquals(1, builds.get())
+
+            releaseWipe.countDown()
+            replacing.get(10, TimeUnit.SECONDS)
+            val read = reading.get(10, TimeUnit.SECONDS)
+            assertSame(holder.current, read)
+            assertEquals(2, builds.get())
+        } finally {
+            releaseWipe.countDown()
+            pool.shutdownNow()
+        }
     }
 }

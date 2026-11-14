@@ -8,8 +8,8 @@ import java.io.FileOutputStream
  * A file in `no_backup` that says a panic wipe started and has not been confirmed. It survives
  * the process, so the next start can finish the wipe. [SandboxWipe] keeps it.
  */
-class PanicMarker(context: Context) {
-    private val file = File(context.noBackupFilesDir, NAME)
+class PanicMarker(private val file: File) {
+    constructor(context: Context) : this(File(context.noBackupFilesDir, NAME))
 
     val pending: Boolean get() = file.exists()
 

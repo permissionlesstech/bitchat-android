@@ -3,6 +3,7 @@ package com.bitchat.android.nostr
 import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.geohash.LiveLocationPrivacyGate
 import com.bitchat.android.identity.scope.IdentityHolder
+import com.bitchat.android.panic.testPanicMarker
 import com.bitchat.android.mesh.PowerManager
 import com.bitchat.android.services.TestMeshStores
 import dagger.Lazy
@@ -27,7 +28,7 @@ internal fun newRelayManager(
     val powerManager by lazy {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val store = TestMeshStores(context).appStateStore
-        val identity = IdentityHolder({ error("no identity is built here") }, { emptyList() })
+        val identity = IdentityHolder({ error("no identity is built here") }, { emptyList() }, testPanicMarker())
         PowerManager(context, identity, Provider { store }, kotlinx.coroutines.Dispatchers.Default)
     }
     return NostrRelayManager(
