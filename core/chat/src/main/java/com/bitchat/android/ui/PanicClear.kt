@@ -171,9 +171,8 @@ class PanicClear @Inject constructor(
             complete = false
         }
         // What lives in the process rather than in the identity, which the wipe by location cannot
-        // reach: the identity storage managers built so far, which must never write again, and the
-        // subscriptions on the process-wide relay manager.
-        stage("identity storage fence") { SecureIdentityStateManager.fenceEarlierInstances() }
+        // reach: the subscriptions on the process-wide relay manager. The identity storage managers
+        // built so far are fenced in step 5, inside the storage lock.
         stage("geohash relays") { old.geohashSession.panicReleaseRelays() }
 
         // 4. The old mesh stops and reports to nobody before its identity ends.

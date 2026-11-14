@@ -72,8 +72,18 @@ class SecureIdentityStateManager {
          * panic runs the end of the identity, the wipe and the build of the next identity inside
          * it, so work of the ended identity still finishing on another thread can neither write
          * into the wipe nor build encrypted storage over a key the wipe is deleting.
+         *
+         * Every manager built before the lock is taken is fenced inside it, so one that finished
+         * building just before the panic took the lock never writes again either.
+         *
+         * Nothing [block] runs may wait on work that builds a manager on another thread: that build
+         * waits on this lock, so the two would wait on each other. The panic's identity teardown
+         * runs in here, `ConversationRepository`'s blocking close included.
          */
-        fun <T> excludingOtherThreads(block: () -> T): T = storageLock.write(block)
+        fun <T> excludingOtherThreads(block: () -> T): T = storageLock.write {
+            fenceEarlierInstances()
+            block()
+        }
     }
 
     private val prefs: SharedPreferences

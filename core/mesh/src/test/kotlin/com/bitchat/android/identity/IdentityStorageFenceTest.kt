@@ -54,13 +54,15 @@ class IdentityStorageFenceTest {
 
     @Test
     fun aWriteFromAnotherThreadIsRefusedWhileAPanicHoldsTheStorage() {
-        val manager = SecureIdentityStateManager(prefs, testOnly = true)
         val elsewhere = Executors.newSingleThreadExecutor()
         try {
-            SecureIdentityStateManager.excludingOtherThreads {
+            // The next identity's manager, built inside as the panic builds it.
+            val manager = SecureIdentityStateManager.excludingOtherThreads {
+                val manager = SecureIdentityStateManager(prefs, testOnly = true)
                 elsewhere.submit { manager.storeSecureValue("from_elsewhere", "synthetic") }.get()
                 // The panic's own thread still writes: it builds the next identity in here.
                 manager.storeSecureValue("from_the_panic", "synthetic")
+                manager
             }
             assertNull(manager.getSecureValue("from_elsewhere"))
             assertEquals("synthetic", manager.getSecureValue("from_the_panic"))
@@ -70,6 +72,20 @@ class IdentityStorageFenceTest {
         } finally {
             elsewhere.shutdown()
         }
+    }
+
+    @Test
+    fun aManagerBuiltJustBeforeThePanicTakesTheStorageWritesNothingAfterIt() {
+        // Built by ended-session work while the panic is still stopping the mesh and the session,
+        // that is after any earlier fence and before the panic takes the storage.
+        SecureIdentityStateManager.fenceEarlierInstances()
+        val late = SecureIdentityStateManager(prefs, testOnly = true)
+
+        SecureIdentityStateManager.excludingOtherThreads { }
+
+        late.storeSecureValue("synthetic_key", "synthetic value")
+        assertFalse(late.storeAuthenticatedPeerState(fingerprint, AuthenticatedPeerState(PeerCapabilities.PRIVATE_MEDIA, ByteArray(32) { 0x33 })))
+        assertEquals(emptyMap<String, Any?>(), prefs.all)
     }
 
     @Test
