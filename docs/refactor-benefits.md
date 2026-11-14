@@ -40,7 +40,7 @@ These existed in upstream before the refactor.
 | During a panic's wipe, old messages stayed on screen until the wipe ended. | The screen is blank before the slow stages start. Checked on the window's pixels and on a screen recording, on an emulator. | 10c-2b |
 | Something only in memory stayed after a panic if nobody remembered to clear it (the bug class behind upstream PR #1022). | Panic ends the identity and builds a new one, in the same process and Activity. What was only in memory goes without being listed. | 10c-2b |
 | A file, preference, database or key stayed on disk after a panic if nobody added it to the wipe list. | Panic wipes the whole sandbox except a short keep-list of settings, and deletes every Keystore key. Forgetting the wipe now fails closed. Settings and onboarding stay. | 10c-3 |
-| A process kill in the middle of a panic left the wipe half done. | The next launch finishes the wipe before anything reads storage. | 10c-3 |
+| A process kill in the middle of a panic left the wipe half done. | The next launch finishes the wipe before anything reads storage, then clears the notifications, conversation shortcuts and clip the panic had not reached. | 10c-3 |
 | Back handling registered a new callback on every recomposition. | One `BackHandler`. | Groundwork (#912) |
 
 The Phase 9 rows link to their commits in "What Phase 9 fixed" in `refactor-decisions.md`.
@@ -114,7 +114,7 @@ kept out of the refactor so it changes no behaviour it did not have to. Details 
 | Identity lifetime (10c-2b) | Nothing could end an identity. Panic cleared each class by hand and swapped only the mesh | An identity can end. Its scope is cancelled and each class's teardown runs. The chat session has its own scope inside it. The app, screens and services follow the new identity without a restart |
 | Unit and device tests (10c-2b) | JVM 1496; device app 79 | JVM 1626; device app 102 |
 | Panic wipe (10c-3) | A hand-written list of clears; a wipe that could not confirm kept running on the old storage | The sandbox is wiped by location; a wipe that cannot confirm restarts the process and is finished at the next launch |
-| Unit and device tests (10c-3) | JVM 1626; device app 102 | JVM 1679; device app 103 |
+| Unit and device tests (10c-3) | JVM 1626; device app 102 | JVM 1684; device app 103 (the full gate rerun on the final code) |
 | Module rules | Unwritten | `FeatureDependencyRulesTest` fails when a feature depends on another feature, an `:api` module grows dependencies, or `:core:tor` gains one |
 | Watch crypto | Tink 1.8.0 | Tink 1.23.0, the phone's version |
 | Watch theme | Its own copy of the palette, peer-color hash and fonts | The shared `:core:designsystem` base |
@@ -160,7 +160,9 @@ Safety rails added on the way:
   at the end of the refactor.
 - Device tests need a device or emulator; CI does not run them.
 - `/clear`, and switching to an empty conversation, lose the message list's fade (10c-2b).
-- A panic takes 1 to 2 s on an emulator, against about 0.4 s before 10c-3, with no ANR. A wipe
-  that cannot confirm restarts the app (10c-3).
-- Owed before handover: Mesh Lab on two Android phones, a panic on a real phone, and a short phone
-  checklist for the onboarding fixes (section 5 of `refactor-decisions.md`).
+- A panic takes 1.0 to 2.9 s on an emulator (eight measured panics), against about 0.4 s before
+  10c-3, with no ANR. The wipe itself is 0.06 to 0.58 s of that; the split by stage is in the
+  decision log. A wipe that cannot confirm restarts the app (10c-3).
+- Owed before handover: Mesh Lab on two Android phones, a panic on a real phone on a throwaway
+  install, the watch, and a short phone checklist for the onboarding fixes (section 5 of
+  `refactor-decisions.md`).
