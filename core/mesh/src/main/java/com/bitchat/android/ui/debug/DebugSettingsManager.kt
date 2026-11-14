@@ -624,6 +624,20 @@ class DebugSettingsManager @Inject constructor(
         _scanResults.value = emptyList()
         addDebugMessage(DebugMessage.SystemMessage("🗑️ Scan results cleared"))
     }
+
+    /**
+     * Empties the lists and maps that hold peer IDs, nicknames and device addresses, adding no
+     * message of its own. Used by a panic.
+     */
+    fun clearBuffers() {
+        debugMessageQueue.clear()
+        scanResultsQueue.clear()
+        _debugMessages.value = emptyList()
+        _scanResults.value = emptyList()
+        _connectedDevices.value = emptyList()
+        _wifiAwareDiscovered.value = emptyMap()
+        _wifiAwareConnected.value = emptyMap()
+    }
 }
 
 // MARK: - Data Models

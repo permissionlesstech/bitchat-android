@@ -116,9 +116,10 @@ object KeepList {
         KeptPrefs(
             file = "apk_network_cooldowns",
             keys = emptySet(),
-            // ApkRateLimitStore key(scope, route): GitHubReleaseClient RATE_LIMIT_SCOPE, and
-            // UniversalApkManager's per-source "apk_asset_<id>" scope.
-            keyPrefixes = setOf("github_release_metadata_", "apk_asset_"),
+            // ApkRateLimitStore key(scope, route) is "<scope>_<route>": GitHubReleaseClient
+            // RATE_LIMIT_SCOPE, and UniversalApkManager's per-source "apk_asset_<id>" scope. The
+            // first prefix stops before the underscore so that it starts a literal in the sources.
+            keyPrefixes = setOf("github_release_metadata", "apk_asset_"),
             reason = "rate-limit protection",
         ),
     )
