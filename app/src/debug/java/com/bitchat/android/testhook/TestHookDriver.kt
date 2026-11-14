@@ -19,6 +19,7 @@ import com.bitchat.android.mesh.UnifiedMeshService
 import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.noise.NoiseSession
+import com.bitchat.android.panic.DebugSandboxWipeHooks
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.service.MeshForegroundService
 import com.bitchat.android.service.MeshServiceHolder
@@ -108,6 +109,16 @@ object TestHookDriver {
             "inject_peers" -> injectPeers(intent.getStringExtra("peers"))
             "state" -> state(context)
             "clear_results" -> clearResults(context)
+            DebugSandboxWipeHooks.CMD_FAIL_WIPE_ONCE -> {
+                DebugSandboxWipeHooks.failWipeOnce()
+                ok(cmd)
+            }
+            DebugSandboxWipeHooks.CMD_PAUSE_BEFORE_WIPE -> {
+                val timeoutMs = intent.getLongExtra("timeout_ms", DebugSandboxWipeHooks.DEFAULT_PAUSE_TIMEOUT_MS)
+                DebugSandboxWipeHooks.pauseBeforeWipe(context, timeoutMs)
+                ok(cmd).put("timeout_ms", timeoutMs)
+            }
+            DebugSandboxWipeHooks.CMD_RESUME -> ok(cmd).put("resumed", DebugSandboxWipeHooks.resume())
             else -> err(cmd, "unknown command: $cmd")
         }
         return result.put("cmd", cmd)

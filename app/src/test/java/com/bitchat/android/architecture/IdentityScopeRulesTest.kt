@@ -94,6 +94,7 @@ class IdentityScopeRulesTest {
         "LandData" to "process: decoded static globe geometry cache",
         "ReadinessOverride" to "process: debug-only readiness override",
         "SandboxWipeObserver" to "process: debug-only test hook",
+        "DebugSandboxWipeHooks" to "process: debug-only test hook",
         "TestHookDriver" to "process: debug-only test hook",
         "WearTestHookDriver" to "process: debug-only test hook",
     )
