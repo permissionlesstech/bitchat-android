@@ -35,7 +35,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!-- Signature permission for internal UI shutdown broadcasts -->
-    <uses-permission android:name="com.bitchat.android.permission.FORCE_FINISH" />
+    <uses-permission android:name="${forceFinishPermission}" />
     <!-- Foreground service and boot permissions for long-running background mesh -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <!-- Connected device foreground service type for BLE operations (API 34+) -->
@@ -71,7 +71,7 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <permission
-        android:name="com.bitchat.android.permission.FORCE_FINISH"
+        android:name="${forceFinishPermission}"
         android:protectionLevel="signature" />
 
     <application
