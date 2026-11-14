@@ -148,6 +148,9 @@ class DebugSettingsManager @Inject constructor(
     private val _perPeerOutgoingTotalsFlow: MutableStateFlow<Map<String, Long>> = MutableStateFlow(emptyMap())
     val perPeerOutgoingTotal: StateFlow<Map<String, Long>> = _perPeerOutgoingTotalsFlow.asStateFlow()
     
+    // Guards the per-key maps below: loggers, the pruning pass and clearBuffers all touch them.
+    private val statsLock = Any()
+
     // Internal data storage for managing debug data
     private val debugMessageQueue = ConcurrentLinkedQueue<DebugMessage>()
     private val scanResultsQueue = ConcurrentLinkedQueue<DebugScanResult>()
@@ -194,20 +197,22 @@ class DebugSettingsManager @Inject constructor(
             return result
         }
 
-        val perDevice1s = pruneAndCount1s(perDeviceRelayTimestamps)
-        val perPeer1s = pruneAndCount1s(perPeerRelayTimestamps)
+        synchronized(statsLock) {
+            val perDevice1s = pruneAndCount1s(perDeviceRelayTimestamps)
+            val perPeer1s = pruneAndCount1s(perPeerRelayTimestamps)
 
-        _perDeviceLastSecond.value = perDevice1s
-        _perPeerLastSecond.value = perPeer1s
-        // Also compute incoming/outgoing per-key rates
-        _perDeviceIncomingLastSecond.value = pruneAndCount1s(perDeviceIncoming)
-        _perDeviceOutgoingLastSecond.value = pruneAndCount1s(perDeviceOutgoing)
-        _perPeerIncomingLastSecond.value = pruneAndCount1s(perPeerIncoming)
-        _perPeerOutgoingLastSecond.value = pruneAndCount1s(perPeerOutgoing)
-        _perDeviceIncomingLastMinute.value = pruneAndCount60s(perDeviceIncoming)
-        _perDeviceOutgoingLastMinute.value = pruneAndCount60s(perDeviceOutgoing)
-        _perPeerIncomingLastMinute.value = pruneAndCount60s(perPeerIncoming)
-        _perPeerOutgoingLastMinute.value = pruneAndCount60s(perPeerOutgoing)
+            _perDeviceLastSecond.value = perDevice1s
+            _perPeerLastSecond.value = perPeer1s
+            // Also compute incoming/outgoing per-key rates
+            _perDeviceIncomingLastSecond.value = pruneAndCount1s(perDeviceIncoming)
+            _perDeviceOutgoingLastSecond.value = pruneAndCount1s(perDeviceOutgoing)
+            _perPeerIncomingLastSecond.value = pruneAndCount1s(perPeerIncoming)
+            _perPeerOutgoingLastSecond.value = pruneAndCount1s(perPeerOutgoing)
+            _perDeviceIncomingLastMinute.value = pruneAndCount60s(perDeviceIncoming)
+            _perDeviceOutgoingLastMinute.value = pruneAndCount60s(perDeviceOutgoing)
+            _perPeerIncomingLastMinute.value = pruneAndCount60s(perPeerIncoming)
+            _perPeerOutgoingLastMinute.value = pruneAndCount60s(perPeerOutgoing)
+        }
         val last1s = relayTimestamps.count { now - it <= 1_000L }
         val last10s = relayTimestamps.count { now - it <= 10_000L }
         val last1m = relayTimestamps.count { now - it <= 60_000L }
@@ -565,15 +570,17 @@ class DebugSettingsManager @Inject constructor(
         val now = System.currentTimeMillis()
         val visible = _debugSheetVisible.value
         if (visible) incomingTimestamps.offer(now)
-        fromDeviceAddress?.let {
-            perDeviceIncoming.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now)
-            deviceIncomingTotalsMap[it] = (deviceIncomingTotalsMap[it] ?: 0L) + 1L
-            _perDeviceIncomingTotalsFlow.value = deviceIncomingTotalsMap.toMap()
+        synchronized(statsLock) {
+            fromDeviceAddress?.let {
+                perDeviceIncoming.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now)
+                deviceIncomingTotalsMap[it] = (deviceIncomingTotalsMap[it] ?: 0L) + 1L
+                _perDeviceIncomingTotalsFlow.value = deviceIncomingTotalsMap.toMap()
+            }
+
+            perPeerIncoming.getOrPut(fromPeerID) { ConcurrentLinkedQueue() }.offer(now)
+            peerIncomingTotalsMap[fromPeerID] = (peerIncomingTotalsMap[fromPeerID] ?: 0L) + 1L
+            _perPeerIncomingTotalsFlow.value = peerIncomingTotalsMap.toMap()
         }
-        
-        perPeerIncoming.getOrPut(fromPeerID) { ConcurrentLinkedQueue() }.offer(now)
-        peerIncomingTotalsMap[fromPeerID] = (peerIncomingTotalsMap[fromPeerID] ?: 0L) + 1L
-        _perPeerIncomingTotalsFlow.value = peerIncomingTotalsMap.toMap()
         
         // bump totals
         val cur = _relayStats.value
@@ -593,15 +600,17 @@ class DebugSettingsManager @Inject constructor(
         val now = System.currentTimeMillis()
         val visible = _debugSheetVisible.value
         if (visible) outgoingTimestamps.offer(now)
-        toDeviceAddress?.let {
-            perDeviceOutgoing.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now)
-            deviceOutgoingTotalsMap[it] = (deviceOutgoingTotalsMap[it] ?: 0L) + 1L
-            _perDeviceOutgoingTotalsFlow.value = deviceOutgoingTotalsMap.toMap()
-        }
-        (toPeerID ?: previousHopPeerID)?.let {
-            perPeerOutgoing.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now)
-            peerOutgoingTotalsMap[it] = (peerOutgoingTotalsMap[it] ?: 0L) + 1L
-            _perPeerOutgoingTotalsFlow.value = peerOutgoingTotalsMap.toMap()
+        synchronized(statsLock) {
+            toDeviceAddress?.let {
+                perDeviceOutgoing.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now)
+                deviceOutgoingTotalsMap[it] = (deviceOutgoingTotalsMap[it] ?: 0L) + 1L
+                _perDeviceOutgoingTotalsFlow.value = deviceOutgoingTotalsMap.toMap()
+            }
+            (toPeerID ?: previousHopPeerID)?.let {
+                perPeerOutgoing.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now)
+                peerOutgoingTotalsMap[it] = (peerOutgoingTotalsMap[it] ?: 0L) + 1L
+                _perPeerOutgoingTotalsFlow.value = peerOutgoingTotalsMap.toMap()
+            }
         }
         val cur = _relayStats.value
         _relayStats.value = cur.copy(
@@ -626,8 +635,8 @@ class DebugSettingsManager @Inject constructor(
     }
 
     /**
-     * Empties the lists and maps that hold peer IDs, nicknames and device addresses, adding no
-     * message of its own. Used by a panic.
+     * Empties the lists, maps and per-key statistics that hold peer IDs, nicknames and device
+     * addresses, adding no message of its own. Used by a panic.
      */
     fun clearBuffers() {
         debugMessageQueue.clear()
@@ -637,6 +646,25 @@ class DebugSettingsManager @Inject constructor(
         _connectedDevices.value = emptyList()
         _wifiAwareDiscovered.value = emptyMap()
         _wifiAwareConnected.value = emptyMap()
+        synchronized(statsLock) {
+            listOf(
+                perDeviceRelayTimestamps, perPeerRelayTimestamps, perDeviceIncoming, perDeviceOutgoing,
+                perPeerIncoming, perPeerOutgoing,
+            ).forEach { it.clear() }
+            listOf(deviceIncomingTotalsMap, deviceOutgoingTotalsMap, peerIncomingTotalsMap, peerOutgoingTotalsMap)
+                .forEach { it.clear() }
+            listOf(
+                _perDeviceLastSecond, _perPeerLastSecond,
+                _perDeviceIncomingLastSecond, _perDeviceOutgoingLastSecond,
+                _perPeerIncomingLastSecond, _perPeerOutgoingLastSecond,
+                _perDeviceIncomingLastMinute, _perDeviceOutgoingLastMinute,
+                _perPeerIncomingLastMinute, _perPeerOutgoingLastMinute,
+            ).forEach { it.value = emptyMap() }
+            listOf(
+                _perDeviceIncomingTotalsFlow, _perDeviceOutgoingTotalsFlow,
+                _perPeerIncomingTotalsFlow, _perPeerOutgoingTotalsFlow,
+            ).forEach { it.value = emptyMap() }
+        }
     }
 }
 

@@ -83,8 +83,15 @@ class PanicCleanupTest {
         val debug = DebugSettingsManager(DebugPreferenceManager())
         debug.addDebugMessage(DebugMessage.SystemMessage("synthetic"))
         debug.addScanResult(DebugScanResult("synthetic", "00:00:00:00:00:01", -40, "peer-a"))
+        debug.setDebugSheetVisible(true)
+        debug.logOutgoing("MESSAGE", "peer-a", "synthetic", "00:00:00:00:00:01")
+        assertTrue(debug.perPeerOutgoingTotal.value.isNotEmpty())
 
         assertTrue(DebugBuffersPanicCleanup(debug).run())
+
+        assertTrue(debug.perPeerOutgoingTotal.value.isEmpty())
+        assertTrue(debug.perPeerOutgoingLastMinute.value.isEmpty())
+        assertTrue(debug.perDeviceOutgoingTotal.value.isEmpty())
 
         assertTrue(debug.debugMessages.value.isEmpty())
         assertTrue(debug.scanResults.value.isEmpty())

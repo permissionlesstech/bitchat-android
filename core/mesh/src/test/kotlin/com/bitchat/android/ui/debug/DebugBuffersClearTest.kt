@@ -26,4 +26,45 @@ class DebugBuffersClearTest {
         assertTrue(settings.wifiAwareDiscovered.value.isEmpty())
         assertTrue(settings.wifiAwareConnected.value.isEmpty())
     }
+
+    @Test
+    fun `clearing the buffers drops the per-peer and per-device statistics`() {
+        val packet = com.bitchat.android.protocol.BitchatPacket(
+            version = 1u,
+            type = com.bitchat.android.protocol.MessageType.MESSAGE.value,
+            senderID = ByteArray(8),
+            recipientID = null,
+            timestamp = 0uL,
+            payload = ByteArray(0),
+            ttl = 1u,
+            route = null,
+        )
+        settings.setDebugSheetVisible(true)
+        settings.logIncoming(packet, "peer-a", "synthetic-name", "00:00:00:00:00:01", "peer-self")
+        settings.logOutgoing("MESSAGE", "peer-a", "synthetic-name", "00:00:00:00:00:01")
+        assertTrue(settings.perPeerIncomingTotal.value.containsKey("peer-a"))
+        assertTrue(settings.perPeerOutgoingTotal.value.containsKey("peer-a"))
+        assertTrue(settings.perPeerIncomingLastSecond.value.containsKey("peer-a"))
+
+        settings.clearBuffers()
+
+        listOf(
+            settings.perDeviceLastSecond, settings.perPeerLastSecond,
+            settings.perDeviceIncomingLastSecond, settings.perDeviceOutgoingLastSecond,
+            settings.perPeerIncomingLastSecond, settings.perPeerOutgoingLastSecond,
+            settings.perDeviceIncomingLastMinute, settings.perDeviceOutgoingLastMinute,
+            settings.perPeerIncomingLastMinute, settings.perPeerOutgoingLastMinute,
+        ).forEach { assertTrue(it.value.isEmpty()) }
+        listOf(
+            settings.perDeviceIncomingTotal, settings.perDeviceOutgoingTotal,
+            settings.perPeerIncomingTotal, settings.perPeerOutgoingTotal,
+        ).forEach { assertTrue(it.value.isEmpty()) }
+
+        // The private maps are empty too: a later pass publishes nothing for the old peer.
+        settings.logOutgoing("MESSAGE", "peer-b", null, null)
+        assertEquals(setOf("peer-b"), settings.perPeerOutgoingTotal.value.keys)
+        assertEquals(setOf("peer-b"), settings.perPeerOutgoingLastMinute.value.keys)
+        assertTrue(settings.perPeerIncomingTotal.value.isEmpty())
+        assertTrue(settings.perPeerIncomingLastMinute.value.isEmpty())
+    }
 }
