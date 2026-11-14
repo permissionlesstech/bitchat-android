@@ -76,6 +76,8 @@ takes what is the app's own through ports the app binds (`NotificationTargets`,
 `IdentityStartup`, `WifiAwarePeers`). Screens and their ViewModels live in the
 `feature/` modules.
 
+Panic wipes the whole sandbox except the keep-list and ends the identity scope. A class holding user or identity data lives in the identity scope; adding to the keep-list or the process-wide allowlist needs a reason it holds no user data; system-side effects register a panic cleanup.
+
 `core/domain/` holds the domain models that Android library modules
 need (Gradle forbids a library module depending on an application module).
 `:app` and `:wear` depend on both. Where the clients differ, `:core:mesh`

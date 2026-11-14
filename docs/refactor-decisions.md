@@ -569,8 +569,9 @@ Each would change onboarding UX or startup, which Phase 9 ruled out of scope.
   off and on in chat restores the open chat and reopens nothing (F1); rotating during startup
   shows no error (F2); a DM sent from a second device while the app is in the background
   arrives as a notification (F9); the onboarding screens' insets.
-- **A panic on a real phone.** Phase 10c-2b checked it on emulators only. The check is the
-  developer's to run, and never on a phone holding a real identity.
+- **A panic on a real phone, on a throwaway install.** Phases 10c-2b and 10c-3 checked it on
+  emulators only. The check is the developer's to run, and never on a phone holding a real
+  identity.
 - **Wear visual check.** No Wear emulator was available for Phase 8's design system change.
 - **Container reproducible build**, once, at the end of the refactor, when fork CI can run.
 - **Before/after screenshots** in the handover PR for the Phase 7.5 screens and the Wear peer
@@ -585,7 +586,7 @@ or 9.
 
 Phase 9 moved to section 3 when it finished. What it left open is in section 5.
 
-### Phase 10: MVI on every screen (10a, 10b, 10c-1, 10c-2a-1, 10c-2a-2a, 10c-2a-2b and 10c-2b done; the rest of 10c to come)
+### Phase 10: MVI on every screen (10a, 10b, 10c-1, 10c-2a-1, 10c-2a-2a, 10c-2a-2b, 10c-2b and 10c-3 done)
 
 #### MVI shape
 
@@ -1060,6 +1061,87 @@ Deferred from reviews, none blocking:
 - Test quality: `IdentityScopeWiringTest` and `PanicScreensRebuildTest` reflect on private fields, the latter on a library's; the construction scan skips `@Provides` bodies; some fixtures and cleanups were never seen red or are only smoke-tested; `exitingMentionRowsCannotRefillInput` can pass without clicking; `PanicAroundTheScreenTest` has a fixed sleep; the new `MessagesListFollowTest` case passes with the whole fix reverted (it guards what the old list already did), and fails when only the spacer is kept, so it covers the two additions beside it. The stale-layout worry after a refill did not reproduce on the JVM: a test recording every scrolled-up report across clear and refill passed on the code as it is, so the code is unchanged.
 
 Owed: the Mesh Lab on physical devices, as for the phases before it, and the phone check of a panic.
+
+### Phase 10c-3: the panic wipe fails closed
+
+Since 10c-2b a panic ended the identity and built a new one, but storage was still wiped by a hand-written list: a file, preference or database nobody added to it stayed on disk. Now panic wipes the sandbox by location, everything except a short keep-list, so what nobody listed is gone by default. A wipe that cannot prove itself restarts the process, and the next launch finishes it before anything reads storage.
+
+#### Phase 10c-3 decisions
+
+| Decision | Why | Alternatives rejected | Cost / what to watch |
+|---|---|---|---|
+| (D) A wipe that cannot confirm restarts the process, and only then. A normal panic never restarts: same process, same Activity. The relaunch finishes the wipe before anything opens storage. (2026-11-14) | A process that could not prove its storage wiped must not build a new identity over it. | Restarting on every panic; carrying on with the old storage. | A restart shows the splash. It should never happen on a working phone. |
+| (D) Old public messages synced back by peers after a panic are not fixed. (2026-11-14) | Panic cannot erase what other devices hold. | A sync change, which is a protocol change. | Stays in section 5 as upstream behaviour. |
+| (D) Tor state (`files/arti`) is kept as "network route only". (2026-11-14) | It holds relay guards and directory caches, no user data, and a fresh bootstrap is slow. | Wiping it. | A guard set survives a panic. |
+| (D) The keep-list is settings and onboarding only: theme, UI mode, Tor mode, onboarding and skip flags, live-voice toggle, background and boot settings, spam-filter and proof-of-work settings, debug toggles, the downloaded relay list, the cached APK, its release metadata and cooldowns, and WorkManager's database. Everything else is wiped, the hotspot name and last peer-alert time included. (2026-11-14) | Settings survive and onboarding is not shown again; nothing that says who the person is or who they talked to stays. | A longer list. | A setting someone forgets to add resets on panic, which is the safe direction. |
+| (P) A kept preferences file is kept by key, not whole. On panic it loses every key not on its list. | A contributor who puts user data in `bitchat_settings` leaks nothing; a missed setting only resets. | Keeping whole files. | `KeepListRulesTest` checks every kept key is a literal in main sources. |
+| (P) The wipe covers every child of the data directory except `lib` and `code_cache`, plus the app's external files and cache directories, and deletes every Keystore alias. | A future `getDir("x")` folder is wiped by default. `lib` and `code_cache` are system-owned and hold no user data. | Only the folders the design named. | — |
+| (P) The wipe runs on the main thread inside `IdentityHolder`'s lock. | No reader can build an identity mid-wipe. Panic already deleted media on the main thread. | A background wipe. | Measured below: about 0.4 s for 6000 files on an emulator. |
+| (P) A teardown cleanup that fails also restarts. | A failed cleanup can leave a job or receiver of the old identity alive; a fresh process is the only structural fix. | Reporting only. | — |
+| (P) No identity is built while the marker is pending. If the start-up re-check cannot confirm either, the first identity read crashes the process instead of opening unwiped storage. | Fails closed. | Building over it. | A crash loop in a case that should never happen (the app cannot delete its own files); it leaks nothing. |
+| (P) The clipboard counts as a system-side effect. Panic clears the primary clip, even if it came from another app. | Messages and fingerprints can be copied. | Leaving it. | A clip from another app is lost too. |
+| (R) `SecureIdentityStateManager` takes a process-wide storage lock for the panic, and a manager built before the panic refuses every write. `panicReset` is narrowed to releasing the relay subscriptions. | Found on an emulator: ended-session work built a manager mid-wipe and the new identity then crashed reading its own keys, after a wipe that had confirmed; and a registry `apply()` landed after the wipe had listed the files. | Waiting for old work to drain. | A write from another thread during the panic is refused, never blocks. Review checked the lock for deadlocks and found none. |
+| (R) A build failure after a confirmed wipe also restarts. | A failed build means old work may still be writing. The marker stays set, so the next launch wipes once more. | Showing incomplete and carrying on. | Not in the design's list; fail-closed. |
+| (R) A marker that can never be written, together with a wipe that cannot confirm, leaves the next launch with nothing to re-check. Accepted. | A sandbox that refuses a file write in `no_backup` is outside what the app can fix. The restart still runs. | A second marker location. | A known gap. |
+| (R) The panic contract test is an instrumented test on the real application graph, not a Robolectric one. | No JVM test in the app runs the real Hilt graph, and adding Hilt's Robolectric testing would be a dependency change the plan did not ask for. | Robolectric with a new test dependency. | It runs on a device, so CI does not run it. |
+
+#### What Phase 10c-3 changed
+
+| Panic | Before (10c-2b) | After (10c-3) |
+|---|---|---|
+| Storage | A hand-written list of clears; a forgotten file stayed | Everything outside the keep-list is deleted; a forgotten file goes |
+| Keys | Cleared through named calls on each storage class | Every Keystore alias deleted; the new identity makes new keys |
+| A kill mid-wipe | Nothing finished the wipe | A marker is written first; the next launch finishes the wipe before anything reads storage |
+| A wipe that cannot confirm | No rebuild, gate closed, "incomplete" shown, same process | The process restarts with the marker set and wipes again at launch |
+| Notifications, shortcuts, clipboard, debug buffers | Notifications cleared by hand; the rest stayed | Each registers a panic cleanup; `PanicSystemSideRulesTest` fails on a system-side API with no cleanup or reason |
+| "Completed" | Every listed stage confirmed | The sandbox walk found only keep-list entries and no Keystore alias, and every cleanup confirmed |
+
+- `:core:mesh` `panic/`: `SandboxWipe`, `KeepList`, `PanicMarker`, `StartupWipe`, `PanicCleanup`, `SandboxWipeRunner`, `ProcessRestarter`. `IdentityHolder.replace` runs the wipe between ending one identity and building the next.
+- `BitchatApplication` finishes a pending wipe before Hilt starts. No content provider in the merged manifest reads bitchat state before that.
+- Debug builds wrap the wipe with two test hooks, `panic.failWipeOnce` and `panic.pauseBeforeWipe` (released by `panic.resume`, or a timeout).
+- `:wear` has no panic, as before. This stays a known gap.
+- Images the person saved to Downloads from the image viewer are left alone and allowlisted with that reason. An open question the developer may raise later.
+- Protocol, packets, Noise, crypto and relay behaviour did not change.
+
+#### Checked on two emulators, synthetic data
+
+Simulated Bluetooth, two emulators started for this check.
+
+- Panic from the main chat: same process and Activity, no restart or Activity events, a new peer ID, "all data wiped" shown, and private and public messages both ways afterwards.
+- The sandbox afterwards: every file is a keep-list entry or was written by the new identity after the wipe (its keys, nickname and empty conversation database). Seeded media and favourites gone. Theme, UI mode and Tor mode set beforehand survived. No onboarding.
+- `panic.failWipeOnce`: the process restarted once, came back on a fresh identity, and the sandbox was clean with no marker left.
+- `panic.pauseBeforeWipe` then a force stop: the marker and seeded media were still there after the kill; the next launch removed both before the first screen and came up on a new identity. `panic.resume` from adb released the pause while the main thread waited, and that panic completed in the same process.
+- Panic time with 6000 seeded media files of 4 KB: the wipe took 408 to 417 ms. From "Panic started" to "Panic completed" it took 1.86 and 2.20 s; with no media, 0.99 and 2.04 s. The longest main-thread block was 1.0 to 1.2 s. No ANR. Most of the time is outside the wipe (the blank frame, stopping the mesh, the new identity's keys); the two slower runs were the first two panics after the app started. The developer decides whether this needs the bulk-media change.
+- Mesh Lab, `scenario all` from a clean setup, launching through `am start` as before: 12 of 13. `ptt_broadcast` failed once (the receiver timed out waiting for the live burst) and passed both reruns alone. Push-to-talk has no change in this phase. `identity_reset` and `session_recovery` passed.
+- A panic started from a private chat: the private chat has no logo, so the UI cannot start one. The device test with a private chat and a sheet open covers that case.
+
+Tests: JVM 1679 (from 1626) with 0 failures (3 skipped), and lint green. Device suites: app 103 (from 102, the new panic contract test), chat 6, settings 5, location 4, share 3, all passing.
+
+#### Closed from the 10c-2b follow-ups
+
+- The three wipe stages that reported nothing are gone; a throw from the mesh's `clearAllInternalData` now marks the panic incomplete.
+- `DebugSettingsManager`'s buffers are cleared by a panic cleanup.
+- Storage wipe by location, the keep-list, the marker and start-up re-check, the restart fallback and the system-side registry.
+- The wipe that fails is now checked on a device, not only on the JVM.
+- `SecureIdentityStateManager`'s companion is now process-wide on purpose (the panic's fence and lock), not an identity object left behind.
+
+#### Follow-ups for 10c-3
+
+- Plain-preferences writes from old-session work after the rebuild are not proven absent (the same class as `NostrDirectMessageHandler` writing favourites after a wipe).
+- An `apply()` enqueued before the fence can still land after the wipe's check. Narrow; a late write would make the wipe restart, not leak.
+- The fence runs before the storage lock is taken; moving it inside closes a gap at no cost.
+- `listFiles()` returning null on a directory that exists counts as empty in the confirm walk.
+- Secondary external volumes, `obbDir` and device-protected storage are not wiped. The app writes none of them today.
+- `PanicMarker` does not fsync its directory, and `clear()` ignores the delete result.
+- The marker is set again just after the holder's lock is released, so a read in that window can build an identity before the process restarts. The next launch wipes again.
+- `NotificationManager`'s `liveManagers` stays a static companion.
+- An earlier session's geohash send can still publish during a wipe.
+- Dead clear methods (`clearAllEncryptionData` and the like) are left in place.
+- The start-up order rule checks the call comes before `super.onCreate()`, not that it is the first statement.
+- Test quality: some keep-list key checks are weak for generic names; the clipboard check passes on an unreadable clip; `MeshSingletonIdentityTest`'s name over-claims; one contract seeding failure was not root-caused.
+- Panic takes 1 to 2 s on an emulator, against about 0.4 s in 10c-2b. See the timing above.
+
+Owed: a panic on a real phone, on a throwaway install, which is the developer's to run; Mesh Lab on two physical phones; the watch.
 
 ### Phase 11: Wear shares UI with the phone (not started)
 
