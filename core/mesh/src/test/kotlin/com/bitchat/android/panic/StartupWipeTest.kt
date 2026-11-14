@@ -39,9 +39,10 @@ class StartupWipeTest {
         val file = seed("files/synthetic_leftover")
         var runs = 0
 
-        val clear = StartupWipe.finishPendingWipe(context, { runs++; confirmed }, marker)
+        val outcome = StartupWipe.finishPendingWipe(context, { runs++; confirmed }, marker)
 
-        assertTrue(clear)
+        assertTrue(outcome.markerClear)
+        assertFalse(outcome.foundPending)
         assertEquals(0, runs)
         assertTrue(file.exists())
         assertEquals(
@@ -55,13 +56,14 @@ class StartupWipeTest {
         marker.set()
         val file = seed("files/synthetic_leftover")
 
-        val clear = StartupWipe.finishPendingWipe(
+        val outcome = StartupWipe.finishPendingWipe(
             context,
             wipe = { SandboxWipe(context, keyStore = NoAliases).run() },
             marker = marker,
         )
 
-        assertTrue(clear)
+        assertTrue(outcome.markerClear)
+        assertTrue(outcome.foundPending)
         assertFalse(file.exists())
         assertFalse(marker.pending)
     }
@@ -71,9 +73,10 @@ class StartupWipeTest {
         marker.set()
         var runs = 0
 
-        val clear = StartupWipe.finishPendingWipe(context, { runs++; unconfirmed }, marker)
+        val outcome = StartupWipe.finishPendingWipe(context, { runs++; unconfirmed }, marker)
 
-        assertFalse(clear)
+        assertFalse(outcome.markerClear)
+        assertTrue(outcome.foundPending)
         assertEquals(2, runs)
         assertTrue(marker.pending)
     }
@@ -83,9 +86,9 @@ class StartupWipeTest {
         marker.set()
         var runs = 0
 
-        val clear = StartupWipe.finishPendingWipe(context, { if (runs++ == 0) unconfirmed else confirmed }, marker)
+        val outcome = StartupWipe.finishPendingWipe(context, { if (runs++ == 0) unconfirmed else confirmed }, marker)
 
-        assertTrue(clear)
+        assertTrue(outcome.markerClear)
         assertEquals(2, runs)
         assertFalse(marker.pending)
     }
@@ -94,9 +97,32 @@ class StartupWipeTest {
     fun aWipeThatThrowsLeavesTheMarkerAndDoesNotCrash() {
         marker.set()
 
-        val clear = StartupWipe.finishPendingWipe(context, { error("boom") }, marker)
+        val outcome = StartupWipe.finishPendingWipe(context, { error("boom") }, marker)
 
-        assertFalse(clear)
+        assertFalse(outcome.markerClear)
+        assertTrue(outcome.foundPending)
         assertTrue(marker.pending)
+    }
+
+    @Test
+    fun replayingTheCleanupsRunsEveryOneAndSurvivesFailures() {
+        val ran = mutableListOf<String>()
+        fun cleanup(name: String, run: () -> Boolean) = object : PanicCleanup {
+            override val name = name
+            override fun run(): Boolean {
+                ran += name
+                return run()
+            }
+        }
+
+        StartupWipe.replayCleanups(
+            listOf(
+                cleanup("throws") { error("synthetic") },
+                cleanup("fails") { false },
+                cleanup("works") { true },
+            ),
+        )
+
+        assertEquals(listOf("throws", "fails", "works"), ran)
     }
 }

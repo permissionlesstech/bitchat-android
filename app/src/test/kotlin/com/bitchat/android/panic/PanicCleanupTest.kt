@@ -7,6 +7,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ShortcutInfo
+import android.content.pm.ShortcutManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.pm.ShortcutInfoCompat
@@ -25,6 +27,9 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.Implementation
+import org.robolectric.annotation.Implements
+import org.robolectric.shadows.ShadowShortcutManager
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -55,6 +60,27 @@ class PanicCleanupTest {
 
         assertTrue(shadowOf(manager).allNotifications.isEmpty())
         assertTrue(ShortcutManagerCompat.getDynamicShortcuts(context).isEmpty())
+    }
+
+    @Config(shadows = [CachedShortcutsShadow::class])
+    @Test
+    fun `the notification cleanup removes a cached long-lived shortcut that is no longer dynamic`() {
+        // Robolectric keeps no cached shortcuts, so the shadow holds one as the system would after
+        // the shortcut was pushed out of the dynamic set.
+        CachedShortcutsShadow.cached = listOf(
+            ShortcutInfo.Builder(context, "synthetic-cached")
+                .setShortLabel("synthetic")
+                .setIntent(Intent(Intent.ACTION_VIEW))
+                .build(),
+        )
+        try {
+            assertTrue(NotificationsPanicCleanup(context).run())
+
+            assertEquals(listOf("synthetic-cached"), CachedShortcutsShadow.removedLongLived)
+        } finally {
+            CachedShortcutsShadow.cached = emptyList()
+            CachedShortcutsShadow.removedLongLived.clear()
+        }
     }
 
     @Test
@@ -106,5 +132,24 @@ class PanicCleanupTest {
         )
         assertEquals(names.size, names.toSet().size)
         assertTrue(names.all { it.isNotBlank() })
+    }
+}
+
+/** Adds the cached shortcuts Robolectric's shortcut manager does not keep. */
+@Implements(ShortcutManager::class)
+class CachedShortcutsShadow : ShadowShortcutManager() {
+    companion object {
+        var cached: List<ShortcutInfo> = emptyList()
+        val removedLongLived = mutableListOf<String>()
+    }
+
+    @Implementation
+    override fun getShortcuts(matchFlags: Int): List<ShortcutInfo> =
+        super.getShortcuts(matchFlags) + if (matchFlags and ShortcutManager.FLAG_MATCH_CACHED != 0) cached else emptyList()
+
+    @Implementation
+    override fun removeLongLivedShortcuts(shortcutIds: List<String>) {
+        removedLongLived += shortcutIds
+        super.removeLongLivedShortcuts(shortcutIds)
     }
 }

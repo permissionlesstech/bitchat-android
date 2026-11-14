@@ -5,6 +5,7 @@ import com.bitchat.android.di.AppIdentityStartup
 import com.bitchat.android.mesh.PowerManager
 import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.nostr.RelayDirectory
+import com.bitchat.android.panic.PanicCleanup
 import com.bitchat.android.panic.StartupWipe
 import com.bitchat.android.service.MeshServicePreferences
 import com.bitchat.android.spam.SpamFilterPreferences
@@ -30,14 +31,19 @@ class BitchatApplication : Application() {
     @Inject lateinit var spamFilterPreferences: Lazy<SpamFilterPreferences>
     @Inject lateinit var debugPreferences: Lazy<DebugPreferenceManager>
     @Inject lateinit var meshServicePreferences: Lazy<MeshServicePreferences>
+    @Inject lateinit var panicCleanups: Lazy<Set<@JvmSuppressWildcards PanicCleanup>>
 
     override fun onCreate() {
         // A pending panic marker means a wipe did not finish. Finish it before Hilt, which injects
         // inside super.onCreate(), or anything else reads storage. If it cannot, the app goes on
         // and IdentityHolder refuses to build.
-        StartupWipe.finishPendingWipe(this)
+        val pendingWipe = StartupWipe.finishPendingWipe(this)
 
         super.onCreate()
+
+        // The panic may have died before it undid what it left outside the sandbox: notifications,
+        // conversation shortcuts, the clipboard. Undo them now, before this launch posts anything.
+        if (pendingWipe.foundPending) StartupWipe.replayCleanups(panicCleanups.get())
 
         // Start the single process-wide power policy before transport components are constructed.
         powerManager.get().start()

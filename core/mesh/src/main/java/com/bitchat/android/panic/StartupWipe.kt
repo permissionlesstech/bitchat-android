@@ -13,16 +13,23 @@ object StartupWipe {
     private const val ATTEMPTS = 2
 
     /**
-     * With no marker, does nothing and returns true. With one, tries the wipe up to [ATTEMPTS]
-     * times and clears the marker once one confirms. Returns whether the marker is now clear; when
-     * it is not, `IdentityHolder` refuses to build, so nothing runs over unwiped storage.
+     * @property foundPending a marker was pending at launch: a panic did not finish, so what it
+     * left outside the sandbox may be there too, and [replayCleanups] should run.
+     * @property markerClear the marker is now clear; when it is not, `IdentityHolder` refuses to
+     * build, so nothing runs over unwiped storage.
+     */
+    data class Outcome(val foundPending: Boolean, val markerClear: Boolean)
+
+    /**
+     * With no marker, does nothing. With one, tries the wipe up to [ATTEMPTS] times and clears the
+     * marker once one confirms.
      */
     fun finishPendingWipe(
         context: Context,
         wipe: SandboxWipeRunner = SandboxWipeRunner { SandboxWipe(context).run() },
         marker: PanicMarker = PanicMarker(context),
-    ): Boolean {
-        if (!marker.pending) return true
+    ): Outcome {
+        if (!marker.pending) return Outcome(foundPending = false, markerClear = true)
         repeat(ATTEMPTS) { attempt ->
             val result = try {
                 wipe.run()
@@ -33,7 +40,7 @@ object StartupWipe {
             if (result != null) {
                 if (result.confirmed) {
                     marker.clear()
-                    return !marker.pending
+                    return Outcome(foundPending = true, markerClear = !marker.pending)
                 }
                 Log.w(
                     TAG,
@@ -42,6 +49,24 @@ object StartupWipe {
                 )
             }
         }
-        return false
+        return Outcome(foundPending = true, markerClear = false)
+    }
+
+    /**
+     * Runs the panic's system-side cleanups again after a launch that found a pending marker: the
+     * process may have died before the panic reached them, leaving notifications, conversation
+     * shortcuts or a copied clip. Every cleanup runs; a failure is logged by name and never stops
+     * the launch.
+     */
+    fun replayCleanups(cleanups: Iterable<PanicCleanup>) {
+        for (cleanup in cleanups) {
+            val undone = try {
+                cleanup.run()
+            } catch (e: Exception) {
+                Log.e(TAG, "System-side cleanup threw: ${cleanup.name}: ${e.javaClass.simpleName}")
+                continue
+            }
+            if (!undone) Log.e(TAG, "System-side cleanup failed: ${cleanup.name}")
+        }
     }
 }
