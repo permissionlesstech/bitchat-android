@@ -136,8 +136,6 @@ class PanicSystemSideRulesTest {
                 "NotificationsPanicCleanup",
             "core/chat/src/main/java/com/bitchat/android/ui/NotificationManager.kt" to
                 "NotificationsPanicCleanup",
-            "core/chat/src/main/java/com/bitchat/android/ui/PanicClear.kt" to
-                "NotificationsPanicCleanup (PanicClear still cancels them itself until it runs the cleanup set)",
             "core/chat/src/main/java/com/bitchat/android/ui/PrivateChatSession.kt" to
                 "NotificationsPanicCleanup",
             "core/chat/src/main/java/com/bitchat/android/ui/VerificationHandler.kt" to

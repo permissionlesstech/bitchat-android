@@ -72,13 +72,9 @@ class MeshSingletonIdentityTest {
     }
 
     @Test
-    fun thePanicWipeClearsTheGraphsStores() {
+    fun thePanicWipeClosesTheGraphsStore() {
         rule.awaitChat()
-        val panicClear = panicClear()
 
-        assertSame(graph().appStateStore(), panicClear.appStateStore)
-        assertSame(graph().spamFilter(), panicClear.spamFilter)
-        assertSame(graph().favorites(), panicClear.favorites.get())
-        assertSame(graph().seenMessageStore(), panicClear.seenMessageStoreProvider.get())
+        assertSame(graph().appStateStore(), panicClear().appStateStore)
     }
 }

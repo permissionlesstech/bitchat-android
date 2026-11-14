@@ -13,6 +13,9 @@ import com.bitchat.android.model.AuthenticatedPeerState
 import com.bitchat.android.model.PeerCapabilities
 import com.bitchat.android.util.hexEncodedString
 import androidx.core.content.edit
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
+import kotlin.concurrent.write
 
 /**
  * Manages persistent identity storage and peer ID rotation - 100% compatible with iOS implementation
@@ -45,8 +48,34 @@ class SecureIdentityStateManager {
         // race a panic wipe.
         private val privateMediaPinsLock = Any()
         private var privateMediaPinsEpoch = 0L
+
+        /**
+         * Taken for writing while a panic ends the identity and wipes the sandbox, and for reading
+         * around every build of a manager and every write to its storage. Kept apart from
+         * [privateMediaPinsLock], and a write only ever tries it, so neither can wait on the other.
+         */
+        private val storageLock = ReentrantReadWriteLock()
+
+        /**
+         * Stops every manager built before this call from writing to its storage again, without
+         * touching storage. A panic calls it before it wipes the sandbox, so a write still queued
+         * on an old identity's manager cannot put that identity's state back into the storage the
+         * next identity starts on. [clearIdentityData] fences the same way.
+         */
+        fun fenceEarlierInstances() {
+            synchronized(privateMediaPinsLock) { privateMediaPinsEpoch += 1 }
+        }
+
+        /**
+         * Runs [block] with every other thread kept out of the identity's storage: a manager being
+         * built elsewhere waits until [block] returns, and a write from elsewhere is refused. The
+         * panic runs the end of the identity, the wipe and the build of the next identity inside
+         * it, so work of the ended identity still finishing on another thread can neither write
+         * into the wipe nor build encrypted storage over a key the wipe is deleting.
+         */
+        fun <T> excludingOtherThreads(block: () -> T): T = storageLock.write(block)
     }
-    
+
     private val prefs: SharedPreferences
     private val lock = Any()
     private var privateMediaPinsEpochAtCreation: Long
@@ -60,14 +89,17 @@ class SecureIdentityStateManager {
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
             .build()
         
-        // Create encrypted shared preferences
-        prefs = EncryptedSharedPreferences.create(
-            context,
-            PREFS_NAME,
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
+        // Create encrypted shared preferences. Building them writes a keyset under the master
+        // key, so it waits out a panic's wipe rather than racing it.
+        prefs = GatedPreferences(storageLock.read {
+            EncryptedSharedPreferences.create(
+                context,
+                PREFS_NAME,
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        })
     }
 
     /** Test-only storage injection; production always uses encrypted prefs. */
@@ -77,7 +109,58 @@ class SecureIdentityStateManager {
         privateMediaPinsEpochAtCreation = synchronized(privateMediaPinsLock) {
             privateMediaPinsEpoch
         }
-        this.prefs = prefs
+        this.prefs = GatedPreferences(prefs)
+    }
+
+    /** Whether no panic has fenced this manager since it was built or last cleared its own storage. */
+    private fun mayWrite(): Boolean =
+        synchronized(privateMediaPinsLock) { privateMediaPinsEpochAtCreation == privateMediaPinsEpoch }
+
+    /**
+     * The storage, with every commit and apply gated: refused once a panic has fenced this manager,
+     * and while a panic on another thread holds [storageLock]. A refused commit returns false, as a
+     * failed one does.
+     */
+    private inner class GatedPreferences(private val delegate: SharedPreferences) : SharedPreferences by delegate {
+        override fun edit(): SharedPreferences.Editor = GatedEditor(delegate.edit())
+    }
+
+    private inner class GatedEditor(private val delegate: SharedPreferences.Editor) : SharedPreferences.Editor by delegate {
+        private fun gated(write: () -> Boolean): Boolean {
+            if (!storageLock.readLock().tryLock()) {
+                Log.w(TAG, "Identity storage write refused while a panic wipes it")
+                return false
+            }
+            return try {
+                if (mayWrite()) write() else false
+            } finally {
+                storageLock.readLock().unlock()
+            }
+        }
+
+        override fun commit(): Boolean = gated(delegate::commit)
+
+        override fun apply() {
+            gated {
+                delegate.apply()
+                true
+            }
+        }
+
+        // Each put returns this editor, so a chained commit or apply is gated too.
+        private fun chain(edit: () -> Unit): SharedPreferences.Editor {
+            edit()
+            return this
+        }
+
+        override fun putString(key: String?, value: String?) = chain { delegate.putString(key, value) }
+        override fun putStringSet(key: String?, values: MutableSet<String>?) = chain { delegate.putStringSet(key, values) }
+        override fun putInt(key: String?, value: Int) = chain { delegate.putInt(key, value) }
+        override fun putLong(key: String?, value: Long) = chain { delegate.putLong(key, value) }
+        override fun putFloat(key: String?, value: Float) = chain { delegate.putFloat(key, value) }
+        override fun putBoolean(key: String?, value: Boolean) = chain { delegate.putBoolean(key, value) }
+        override fun remove(key: String?) = chain { delegate.remove(key) }
+        override fun clear() = chain { delegate.clear() }
     }
     
     // MARK: - Static Key Management

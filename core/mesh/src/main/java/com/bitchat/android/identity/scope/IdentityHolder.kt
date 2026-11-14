@@ -57,6 +57,11 @@ class IdentityHolder @Inject constructor(
      * Reads and this call share one lock, so a reader waits for the wipe and then gets the new
      * identity. A failed cleanup never stops [wipe]. If [wipe] or the build throws, nothing ended
      * stays current, and [generation] moves only once an identity is built after this.
+     *
+     * [wipe] must not read the identity, directly or through anything that does: the lock is
+     * reentrant, so a read inside it would build an identity in the middle of the wipe. A [wipe]
+     * that returns false must leave the panic marker set, since only the marker stops the next
+     * read from building over storage the wipe did not confirm.
      */
     fun replace(wipe: () -> Boolean): Replaced = synchronized(lock) {
         val old = component

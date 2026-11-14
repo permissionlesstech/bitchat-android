@@ -71,7 +71,8 @@ class IdentityCacheBatchRobolectricTest {
         assertEquals(null, pollManager.getCachedNoiseKey(peer.peerID))
         assertEquals(null, pollManager.getCachedNoiseFingerprint(peer.noiseKeyHex!!))
         assertEquals(null, pollManager.getCachedFingerprintNickname(peer.fingerprint))
-        pollManager.cachePeerIdentities(listOf(peer))
+        // The wipe fenced the poll's manager for good; the next identity's manager persists again.
+        SecureIdentityStateManager(prefs, testOnly = true).cachePeerIdentities(listOf(peer))
         assertEquals(4L, counts.writes)
     }
 

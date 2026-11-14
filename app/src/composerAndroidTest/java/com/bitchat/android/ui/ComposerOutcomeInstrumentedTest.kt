@@ -73,6 +73,9 @@ class ComposerOutcomeInstrumentedTest {
 
     @Test fun failedConversationWipeStillClearsConfirmedDraft() {
         val vm = start()
+        // The wipe by location still confirms, so the identity and its store go and the outcome
+        // shows in the new session: the swap is undone on the old store.
+        val oldStore = store()
         val original = currentRepository()
         val name = "synthetic-composer-failed-store.db"
         val path = context.getDatabasePath(name)
@@ -80,7 +83,7 @@ class ComposerOutcomeInstrumentedTest {
         val repository = ConversationRepository(context, databaseName = name)
         withCleanup(
             { compose.waitUntil(30_000) { !inProgress(vm) } },
-            { useRepository(original) },
+            { repositoryField.set(oldStore, original) },
             { repository.closeForTest() },
             { path.deleteRecursively() },
             {

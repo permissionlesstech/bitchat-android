@@ -86,13 +86,14 @@ class IdentityScopeRulesTest {
      * an identity's data are marked identity: they are still to be moved into the scope.
      */
     private val statefulObjects: Map<String, String> = mapOf(
-        "SecureIdentityStateManager.Companion" to "identity: private-media pin epoch counter, still to be reviewed",
+        "SecureIdentityStateManager.Companion" to "process: the epoch a panic advances before its wipe, so no manager built earlier writes into the wiped storage",
         "NotificationManager.Companion" to "identity: registry of live managers; chat-session lifetime",
         "ChatUiModeManager" to "process: display preference flow",
         "ThemePreferenceManager" to "process: display preference flow",
         "FileShareDispatcher" to "process: the foreground screen's share handler; holds no identity data",
         "LandData" to "process: decoded static globe geometry cache",
         "ReadinessOverride" to "process: debug-only readiness override",
+        "SandboxWipeObserver" to "process: debug-only test hook",
         "TestHookDriver" to "process: debug-only test hook",
         "WearTestHookDriver" to "process: debug-only test hook",
     )

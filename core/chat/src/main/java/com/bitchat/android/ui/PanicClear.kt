@@ -1,24 +1,21 @@
 package com.bitchat.android.ui
 
+import android.content.Context
+import android.util.Log
+import androidx.annotation.VisibleForTesting
+import com.bitchat.android.core.chat.R
+import com.bitchat.android.di.CurrentSession
+import com.bitchat.android.geohash.LocationChannelManager
+import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.identity.scope.IdentityHolder
 import com.bitchat.android.identity.scope.IdentityStartup
 import com.bitchat.android.mesh.MeshService
-import com.bitchat.android.spam.SpamFilter
+import com.bitchat.android.panic.PanicCleanup
+import com.bitchat.android.panic.PanicMarker
+import com.bitchat.android.panic.ProcessRestarter
+import com.bitchat.android.panic.SandboxWipeRunner
 import com.bitchat.android.services.AppStateStore
-import android.content.Context
-import android.util.Log
-import androidx.annotation.VisibleForTesting
-import com.bitchat.android.di.CurrentSession
-import com.bitchat.android.favorites.FavoritesPersistenceService
-import com.bitchat.android.geohash.GeohashBookmarksStore
-import com.bitchat.android.geohash.LocationChannelManager
-import com.bitchat.android.identity.SecureIdentityStateManager
-import com.bitchat.android.core.chat.R
-import com.bitchat.android.features.file.FileUtils
-import com.bitchat.android.services.ConversationListPreferences
-import com.bitchat.android.services.MessageRouterHolder
-import com.bitchat.android.services.SeenMessageStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.scopes.ActivityRetainedScoped
 import javax.inject.Inject
@@ -26,13 +23,16 @@ import javax.inject.Provider
 import kotlin.random.Random
 
 /**
- * The emergency wipe behind the triple tap. It stops admission, blanks the screen, erases messages,
- * keys, favourites, media, notifications and geohash state, picks a new nickname, and then ends the
- * identity and builds a new one, so what was only in memory is gone without being listed here.
+ * The emergency wipe behind the triple tap. It marks the wipe as pending, stops admission, blanks
+ * the screen, ends the session and the identity, wipes the sandbox by location, undoes what the
+ * app left outside it, and then builds a new identity, so what was in memory or on disk is gone
+ * without being listed here.
  *
- * The order of the steps is the contract: admission stops before storage is wiped, and a new identity
- * exists only once the conversation database is proven erased. The app keeps running throughout: same
- * Activity, same process. Screens follow the new session through [ChatSessionHolder.generation].
+ * The order of the steps is the contract: admission stops before storage is wiped, and a new
+ * identity exists only once the wipe confirms. The app keeps running throughout: same Activity,
+ * same process. Only a wipe or a teardown cleanup that cannot confirm restarts the process, with
+ * the marker still set, so the next launch finishes the wipe. Screens follow the new session
+ * through [ChatSessionHolder.generation].
  *
  * Runs on [PanicRunner], so ending the session or leaving the app cannot stop it, and on the main
  * thread like the cleanups it triggers.
@@ -45,6 +45,10 @@ class PanicClear @Inject constructor(
     private val identityStartup: IdentityStartup,
     private val sessionHolder: ChatSessionHolder,
     private val blankFrame: BlankFrame,
+    private val marker: PanicMarker,
+    private val sandboxWipe: SandboxWipeRunner,
+    private val cleanups: Set<@JvmSuppressWildcards PanicCleanup>,
+    private val restarter: ProcessRestarter,
     @CurrentSession private val stateProvider: Provider<ChatState>,
     @CurrentSession private val sessionMeshProvider: Provider<ChatSessionMesh>,
     @CurrentSession private val meshDelegateProvider: Provider<ChatMeshDelegate>,
@@ -53,19 +57,11 @@ class PanicClear @Inject constructor(
     @CurrentSession private val privateChatManagerProvider: Provider<PrivateChatManager>,
     @CurrentSession private val dataManagerProvider: Provider<DataManager>,
     @CurrentSession private val mediaSendingManagerProvider: Provider<MediaSendingManager>,
-    @CurrentSession private val notificationManagerProvider: Provider<NotificationManager>,
     @CurrentSession private val geohashSessionProvider: Provider<GeohashSession>,
-    @CurrentSession private val secureIdentityProvider: Provider<SecureIdentityStateManager>,
     @CurrentSession private val sessionStartupProvider: Provider<ChatSessionStartup>,
     @CurrentIdentity private val meshProvider: Provider<MeshService>,
-    @CurrentIdentity private val messageRouterHolder: Provider<MessageRouterHolder>,
-    @CurrentIdentity private val conversationListPreferencesProvider: Provider<ConversationListPreferences>,
-    @CurrentIdentity @get:VisibleForTesting val seenMessageStoreProvider: Provider<SeenMessageStore>,
     @CurrentIdentity private val locationChannelManagerProvider: Provider<LocationChannelManager>,
-    @CurrentIdentity private val geohashBookmarksStoreProvider: Provider<GeohashBookmarksStore>,
     @CurrentIdentity private val appStateStoreProvider: Provider<AppStateStore>,
-    @CurrentIdentity private val spamFilterProvider: Provider<SpamFilter>,
-    @CurrentIdentity @get:VisibleForTesting val favorites: Provider<FavoritesPersistenceService>,
 ) {
 
     private companion object {
@@ -75,9 +71,6 @@ class PanicClear @Inject constructor(
     /** The current identity's store. */
     @get:VisibleForTesting
     val appStateStore: AppStateStore get() = appStateStoreProvider.get()
-
-    @get:VisibleForTesting
-    val spamFilter: SpamFilter get() = spamFilterProvider.get()
 
     @get:VisibleForTesting
     val inProgress: Boolean get() = runner.isRunning
@@ -97,46 +90,44 @@ class PanicClear @Inject constructor(
             }
         }
 
-        val state by read(stateProvider)
         private val sessionMesh by read(sessionMeshProvider)
         val mesh by lazy { sessionMesh.unified }
         val messageManager by read(messageManagerProvider)
         val channelManager by read(channelManagerProvider)
         val privateChatManager by read(privateChatManagerProvider)
-        val dataManager by read(dataManagerProvider)
         val mediaSendingManager by read(mediaSendingManagerProvider)
-        val notificationManager by read(notificationManagerProvider)
         val geohashSession by read(geohashSessionProvider)
-        val secureIdentity by read(secureIdentityProvider)
-        val routerHolder by read(messageRouterHolder)
-        val conversationListPreferences by read(conversationListPreferencesProvider)
-        val seenMessageStore by read(seenMessageStoreProvider)
         val locationChannelManager by read(locationChannelManagerProvider)
-        val geohashBookmarksStore by read(geohashBookmarksStoreProvider)
         val appStateStore by read(appStateStoreProvider)
-        val spamFilter by read(spamFilterProvider)
-        val favorites by read(this@PanicClear.favorites)
     }
 
     /** Wipes everything and goes on under a new identity. Ignored while one runs, whoever started it. */
     fun run() {
         runner.runOnce {
+            // 0. Before anything else, so a process death from here on finishes the wipe at the next launch.
+            val markerSet = try {
+                marker.set()
+                true
+            } catch (e: Exception) {
+                Log.e(TAG, "Could not write the panic marker: ${e.javaClass.simpleName}")
+                false
+            }
             val old = Old()
             identityHolder.beginEnding()
             try {
-                wipeThenRebuild(old)
+                wipeThenRebuild(old, markerSet)
             } finally {
-                // Already off if the identity was replaced. Otherwise it stays, so things may start on it.
+                // Already off once the identity has ended.
                 identityHolder.cancelEnding()
             }
         }
     }
 
-    private suspend fun wipeThenRebuild(old: Old) {
+    private suspend fun wipeThenRebuild(old: Old, markerSet: Boolean) {
         Log.w(TAG, "Panic started")
-        // Every stage that wipes data at rest reports here. The success message is a security
-        // assurance, so it requires all of them, not just the conversation database.
-        var wipeComplete = true
+        // The success message is a security assurance, so every stage has to confirm, and a
+        // marker that could not be written already rules it out.
+        var complete = markerSet && !old.readFailed
 
         /** One stage; if it throws the panic goes on, and cannot then claim to have completed. */
         fun stage(name: String, block: () -> Unit) {
@@ -144,13 +135,8 @@ class PanicClear @Inject constructor(
                 block()
             } catch (e: Exception) {
                 Log.e(TAG, "Stage failed: $name: ${e.javaClass.simpleName}")
-                wipeComplete = false
+                complete = false
             }
-        }
-
-        /** A stage that confirms its wipe by returning true. */
-        fun confirmedStage(name: String, block: () -> Boolean) = stage(name) {
-            if (!block()) wipeComplete = false
         }
 
         // 1. Location off, and a pending one-shot media downgrade must not survive to become
@@ -164,23 +150,16 @@ class PanicClear @Inject constructor(
         // the wipe. The store's gate also rejects any transport callback already in flight, and that
         // store's gate is never opened again.
         stage("geohash sends") { old.geohashSession.cancelSendsInFlight() }
+        stage("mesh data") { old.mesh.clearAllInternalData() }
         try {
-            old.mesh.clearAllInternalData()
-        } catch (e: Exception) {
-            Log.e(TAG, "Could not clear the mesh's data: ${e.javaClass.simpleName}")
-        }
-        val databaseWiped = try {
-            old.appStateStore.panicClearPrivateConversations()
+            if (!old.appStateStore.panicClearPrivateConversations()) complete = false
         } catch (e: Exception) {
             Log.e(TAG, "The conversation wipe threw: ${e.javaClass.simpleName}")
-            false
+            complete = false
         }
 
-        // An object that could not be read leaves the old identity in place, like a failed wipe.
-        val conversationsCleared = databaseWiped && !old.readFailed
-
-        // 3. Blank the screen at once. The stages that follow are slow, and someone under duress must
-        // not see messages during them. These stay even with the rebuild for that reason alone.
+        // 3. Blank the screen at once. The steps that follow are slow, and someone under duress must
+        // not see messages during them.
         stage("store") { old.appStateStore.clear() }
         stage("messages") { old.messageManager.clearAllMessages() }
         stage("channels") { old.channelManager.clearAllChannels() }
@@ -189,92 +168,134 @@ class PanicClear @Inject constructor(
             blankFrame.await()
         } catch (e: Exception) {
             Log.e(TAG, "Could not blank the frame: ${e.javaClass.simpleName}")
-            wipeComplete = false
+            complete = false
         }
+        // What lives in the process rather than in the identity, which the wipe by location cannot
+        // reach: the identity storage managers built so far, which must never write again, and the
+        // subscriptions on the process-wide relay manager.
+        stage("identity storage fence") { SecureIdentityStateManager.fenceEarlierInstances() }
+        stage("geohash relays") { old.geohashSession.panicReleaseRelays() }
 
-        // 4. Wipe data at rest. Which stages report a result stays as it was: the first two and the
-        // notifications report nothing beyond not throwing.
-        stage("data") { old.dataManager.clearAllData() }
-        stage("list preferences") { old.conversationListPreferences.clearAll() }
-        stage("seen messages") { old.seenMessageStore.clear() }
-        stage("outbox") { old.routerHolder.peek()?.clearAll() }
-        confirmedStage("keys") { clearAllCryptographicData(old) }
-        stage("notifications") { old.notificationManager.clearAllNotifications(removeConversationShortcuts = true) }
-        confirmedStage("media") { FileUtils.clearAllMedia(context) }
-        stage("bookmarks") { old.geohashBookmarksStore.clearAll() }
-        stage("selected channel") { old.locationChannelManager.clearPersistedChannel() }
-        confirmedStage("geohash") { old.geohashSession.panicReset() }
-
-        // 5. The new nickname, from storage for the session to come and in the state for this one.
-        val newNickname = "anon${Random.nextInt(1000, 9999)}"
-        stage("nickname") {
-            old.dataManager.saveNickname(newNickname)
-            old.state.setNickname(newNickname)
+        // 4. The old mesh stops and reports to nobody before its identity ends.
+        stage("old mesh") {
+            old.mesh.delegate = null
+            old.mesh.stopServices()
         }
+        sessionHolder.end()
 
-        // 6. Privacy wins over availability: a new identity's store would open the gate over a
-        // database that may still hold conversations, so this one stays, with its gate closed.
-        if (!conversationsCleared) {
-            Log.e(TAG, "Panic incomplete: the conversation database wipe failed")
-            // The filter keeps recent message text and sender keys, and no rebuild drops them here.
-            try {
-                old.spamFilter.reset()
-            } catch (_: Exception) { }
-            // A wipe that does not commit must be as visible as the wipe itself: the person who
-            // triggered it may be relying on the device being clean.
-            try {
-                old.messageManager.addSystemMessage(context.getString(R.string.system_panic_incomplete))
-            } catch (e: Exception) {
-                Log.e(TAG, "Could not show that the panic is incomplete: ${e.javaClass.simpleName}")
+        // 5. End the identity and wipe the sandbox while none exists. Work of the ended identity and
+        // session can still be finishing on other threads; it is kept out of the identity's
+        // encrypted storage until the next identity is built over the wiped one.
+        var built = false
+        var wipeConfirmed = false
+        try {
+            val replaced = SecureIdentityStateManager.excludingOtherThreads {
+                identityHolder.replace {
+                    wipeSandbox().also { wipeConfirmed = it }
+                }
             }
+            if (replaced.failedCleanups.isNotEmpty()) {
+                Log.e(TAG, "Teardown cleanups failed: ${replaced.failedCleanups}")
+            }
+            built = replaced.built
+        } catch (e: Exception) {
+            Log.e(TAG, "Replacing the identity failed: ${e.javaClass.simpleName}")
+        }
+        // Also when the identity's end threw before the wipe could run.
+        if (!wipeConfirmed) holdMarker()
+        if (!built) complete = false
+
+        // 6. What the app left outside its sandbox. A failure here is reported, never restarted for:
+        // a new process would not undo it either.
+        for (cleanup in cleanups) {
+            val undone = try {
+                cleanup.run()
+            } catch (e: Exception) {
+                Log.e(TAG, "System-side cleanup threw: ${cleanup.name}: ${e.javaClass.simpleName}")
+                false
+            }
+            if (!undone) {
+                Log.e(TAG, "System-side cleanup failed: ${cleanup.name}")
+                complete = false
+            }
+        }
+
+        // 7. No identity in this process after a wipe or a teardown that did not confirm.
+        if (!built) {
+            Log.e(TAG, "Panic incomplete: restarting to finish the wipe")
+            restarter.restart()
             return
         }
 
-        // 7.
-        rebuild(old, newNickname, wipeComplete)
+        // 8.
+        startNext(complete)
     }
 
     /**
-     * Ends the old session and identity and starts their replacements. Not suspending, and on the main
-     * thread: while this runs, nothing that lives on that thread (onResume, the Activity's collectors,
-     * the foreground service) can build or start the new identity's mesh before its start-up has run.
+     * Runs the sandbox wipe inside [IdentityHolder.replace], and clears the marker only once it
+     * confirms. It must not read the identity: the holder's lock is reentrant, so a read here would
+     * build an identity in the middle of the wipe.
+     */
+    private fun wipeSandbox(): Boolean {
+        val result = try {
+            sandboxWipe.run()
+        } catch (e: Exception) {
+            Log.e(TAG, "The sandbox wipe threw: ${e.javaClass.simpleName}")
+            null
+        }
+        val confirmed = result?.confirmed == true
+        if (confirmed) {
+            Log.w(TAG, "Sandbox wiped")
+            marker.clear()
+        } else {
+            // Counts only: the paths themselves are what the wipe was meant to remove.
+            if (result != null) Log.e(TAG, "Sandbox wipe left ${result.leftovers.size} paths and ${result.aliasesLeft} keys")
+            holdMarker()
+        }
+        return confirmed
+    }
+
+    /**
+     * Makes sure the marker is set after a wipe that did not confirm, writing it again if the first
+     * write failed: while it is set, nothing builds an identity in this process and the next launch
+     * wipes again.
+     */
+    private fun holdMarker() {
+        try {
+            if (!marker.pending) marker.set()
+        } catch (e: Exception) {
+            Log.e(TAG, "Could not write the panic marker: ${e.javaClass.simpleName}")
+        }
+    }
+
+    /**
+     * Starts the new identity and, if one is wanted, its session. Not suspending, and on the main
+     * thread: while this runs, nothing that lives on that thread (onResume, the Activity's
+     * collectors, the foreground service) can build or start the new identity's mesh before its
+     * start-up has run.
      *
      * The session is built before the identity starts. Whatever the start-up's end wakes up, such as
      * the Activity attaching its delegate, finds the new session rather than building a stray one.
      */
-    private fun rebuild(old: Old, newNickname: String, wipeComplete: Boolean) {
+    private fun startNext(wipeComplete: Boolean) {
         var complete = wipeComplete
-        try {
-            old.mesh.delegate = null
-            old.mesh.stopServices()
-        } catch (e: Exception) {
-            Log.e(TAG, "Could not stop the old mesh: ${e.javaClass.simpleName}")
-            complete = false
-        }
-        sessionHolder.end()
-        try {
-            // The location wipe arrives with the new panic order; until then there is nothing to run here.
-            val replaced = identityHolder.replace { true }
-            if (replaced.failedCleanups.isNotEmpty()) {
-                Log.e(TAG, "Cleanups failed: ${replaced.failedCleanups}")
-                complete = false
-            }
-            if (!replaced.built) complete = false
-        } catch (e: Exception) {
-            // The next read tries the build again, and the steps below are that read.
-            Log.e(TAG, "Building the next identity failed: ${e.javaClass.simpleName}")
-            complete = false
-        }
-
         var hasSession = false
         try {
-            // False when the person left the app during the wipe: then nothing is left to show on.
+            // False when the person left the app during the wipe: then nothing is left to show on,
+            // and the next session's own nickname load makes a fresh one.
             hasSession = sessionHolder.replace()
             identityStartup.onIdentityStarted()
             val mesh = meshProvider.get()
             if (hasSession) {
                 // The mesh announces with the session's nickname, before the session has read it back.
-                stateProvider.get().setNickname(newNickname)
+                try {
+                    val newNickname = "anon${Random.nextInt(1000, 9999)}"
+                    dataManagerProvider.get().saveNickname(newNickname)
+                    stateProvider.get().setNickname(newNickname)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Could not set the new nickname: ${e.javaClass.simpleName}")
+                    complete = false
+                }
                 mesh.delegate = meshDelegateProvider.get()
             }
             mesh.startServices()
@@ -295,37 +316,5 @@ class PanicClear @Inject constructor(
             R.string.system_panic_incomplete
         }
         if (hasSession) messageManagerProvider.get().addSystemMessage(context.getString(outcome))
-    }
-
-    /** Returns true only when every identity, key, and favorites store confirmed its wipe. */
-    private fun clearAllCryptographicData(old: Old): Boolean {
-        var cleared = true
-        try {
-            // Clear encryption service persistent identity (Ed25519 signing keys)
-            if (!old.mesh.clearAllEncryptionData()) cleared = false
-
-            // Clear secure identity state, and the secure values FavoritesPersistenceService uses
-            // (favorites + peerID index)
-            try {
-                if (!old.secureIdentity.clearIdentityData()) cleared = false
-                if (!old.secureIdentity.clearSecureValuesSynchronously("favorite_relationships", "favorite_peerid_index")) {
-                    cleared = false
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Could not clear the secure identity state: ${e.javaClass.simpleName}")
-                cleared = false
-            }
-
-            // Clear FavoritesPersistenceService persistent relationships
-            try {
-                old.favorites.clearAllFavorites()
-            } catch (_: Exception) {
-                cleared = false
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Could not clear the cryptographic data: ${e.javaClass.simpleName}")
-            cleared = false
-        }
-        return cleared
     }
 }

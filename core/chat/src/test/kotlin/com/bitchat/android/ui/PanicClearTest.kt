@@ -5,30 +5,27 @@ import com.bitchat.android.core.chat.R
 import com.bitchat.android.di.ChatSessionBuilderEntryPoint
 import com.bitchat.android.di.ChatSessionComponent
 import com.bitchat.android.di.ChatSessionComponentBuilder
-import com.bitchat.android.favorites.FavoritesPersistenceService
-import com.bitchat.android.geohash.GeohashBookmarksStore
 import com.bitchat.android.geohash.LocationChannelManager
-import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.identity.scope.IdentityComponent
 import com.bitchat.android.identity.scope.IdentityComponentBuilder
 import com.bitchat.android.identity.scope.IdentityEnder
 import com.bitchat.android.identity.scope.IdentityHolder
-import com.bitchat.android.panic.testPanicMarker
 import com.bitchat.android.identity.scope.IdentityStartup
 import com.bitchat.android.mesh.MeshDelegate
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.panic.PanicCleanup
+import com.bitchat.android.panic.PanicMarker
+import com.bitchat.android.panic.ProcessRestarter
+import com.bitchat.android.panic.SandboxWipeRunner
+import com.bitchat.android.panic.WipeResult
 import com.bitchat.android.services.AppStateStore
-import com.bitchat.android.services.ConversationListPreferences
-import com.bitchat.android.services.ConversationRepository
-import com.bitchat.android.services.MessageRouter
-import com.bitchat.android.services.MessageRouterHolder
-import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.services.TestMeshStores
-import com.bitchat.android.spam.SpamFilter
 import dagger.hilt.android.ActivityRetainedLifecycle
 import dagger.hilt.android.lifecycle.RetainedLifecycle
 import dagger.hilt.internal.GeneratedComponent
+import java.io.File
+import java.nio.file.Files
 import java.util.Date
 import javax.inject.Provider
 import kotlinx.coroutines.CompletableDeferred
@@ -62,7 +59,8 @@ import org.robolectric.RuntimeEnvironment
 
 /**
  * The order and the outcomes of a panic, on recording fakes behind the real holders and the real
- * runner. No key, relay or file of a device is touched; every value is synthetic.
+ * runner. No key, relay or file of a device is touched; every value is synthetic, and the sandbox
+ * wipe, the system-side cleanups and the restart are fakes.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -75,7 +73,7 @@ class PanicClearTest {
     }
     private val log = ArrayList<String>()
 
-    /** Records each call as `name.method`. A wipe stage reports success unless a test says not. */
+    /** Records each call as `name.method`. A call that returns a Boolean reports success. */
     private inline fun <reified T : Any> recorded(name: String): T =
         Mockito.mock(T::class.java) { invocation: InvocationOnMock ->
             log += "$name.${invocation.method.name}"
@@ -100,16 +98,12 @@ class PanicClearTest {
 
     /** One identity's objects. Built only when the holder builds that identity. */
     private inner class Identity(name: String) : IdentityComponent, GeneratedComponent, ChatSessionBuilderEntryPoint {
-        val router = recorded<MessageRouter>("$name.router")
-        val routerHolder = Mockito.mock(MessageRouterHolder::class.java).also {
-            doReturn(router).whenever(it).peek()
+        val location = recorded<LocationChannelManager>("$name.location").also { location ->
+            doAnswer {
+                log += "$name.location.disableLocationServices(marker ${if (marker.pending) "set" else "unset"})"
+                Unit
+            }.whenever(location).disableLocationServices()
         }
-        val preferences = recorded<ConversationListPreferences>("$name.preferences")
-        val seen = recorded<SeenMessageStore>("$name.seen")
-        val location = recorded<LocationChannelManager>("$name.location")
-        val bookmarks = recorded<GeohashBookmarksStore>("$name.bookmarks")
-        val favorites = recorded<FavoritesPersistenceService>("$name.favorites")
-        val spam = recorded<SpamFilter>("$name.spam")
         val mesh = recordedMesh("$name.mesh")
         var store: AppStateStore = recorded<AppStateStore>("$name.store").also { store ->
             runBlocking {
@@ -132,9 +126,7 @@ class PanicClearTest {
         val channels = recorded<ChannelManager>("$name.channels")
         val privateChats = recorded<PrivateChatManager>("$name.privateChats")
         val media = recorded<MediaSendingManager>("$name.media")
-        val notifications = recorded<NotificationManager>("$name.notifications")
         val geohash = recorded<GeohashSession>("$name.geohash")
-        val secure = recorded<SecureIdentityStateManager>("$name.secure")
         val startup = recorded<ChatSessionStartup>("$name.startup")
         val delegate = recorded<ChatMeshDelegate>("$name.delegate")
         val mesh = Mockito.mock(ChatSessionMesh::class.java).also {
@@ -145,10 +137,52 @@ class PanicClearTest {
     private val identities = ArrayList<Identity>()
     private val sessions = ArrayList<Session>()
     private var identityBuildFailures = 0
-    private var failedCleanups: List<String> = emptyList()
+    private var failedTeardownCleanups: List<String> = emptyList()
     private var startupFails = false
     private var readFails = false
     private var frameFails = false
+
+    private val markerDir: File = Files.createTempDirectory("panic-marker").toFile()
+
+    /** In a directory, so a test can make writing it fail by putting a file where the directory goes. */
+    private val markerParent = File(markerDir, "no_backup")
+    private val marker = PanicMarker(File(markerParent, PanicMarker.NAME))
+
+    /** Makes [PanicMarker.set] throw until [unblockMarker]. */
+    private fun blockMarker() {
+        markerParent.deleteRecursively()
+        markerParent.writeText("synthetic file in the way")
+    }
+
+    private fun unblockMarker() {
+        markerParent.delete()
+    }
+
+    /** What the sandbox wipe reports; a test can make it leave something. */
+    private var wipeResult = WipeResult(leftovers = emptyList(), aliasesLeft = 0)
+    private var onWipe: () -> Unit = {}
+    private val sandboxWipe = SandboxWipeRunner {
+        log += "sandbox wiped (marker ${if (marker.pending) "set" else "unset"})"
+        onWipe()
+        wipeResult
+    }
+
+    private inner class RecordedCleanup(override val name: String) : PanicCleanup {
+        var result: () -> Boolean = { true }
+        override fun run(): Boolean {
+            log += "cleanup $name"
+            return result()
+        }
+    }
+
+    private val notificationsCleanup = RecordedCleanup("notifications")
+    private val clipboardCleanup = RecordedCleanup("clipboard")
+
+    private var restarts = 0
+    private val restarter = ProcessRestarter {
+        log += "restart"
+        restarts++
+    }
 
     private val identityHolder = IdentityHolder(
         Provider {
@@ -164,9 +198,9 @@ class PanicClearTest {
         },
         IdentityEnder {
             log += "identity ended"
-            failedCleanups
+            failedTeardownCleanups
         },
-        testPanicMarker(),
+        marker,
     )
 
     private class FakeLifecycle : ActivityRetainedLifecycle {
@@ -200,27 +234,23 @@ class PanicClearTest {
         identityStartup = startup,
         sessionHolder = sessionHolder,
         blankFrame = blankFrame,
+        marker = marker,
+        sandboxWipe = sandboxWipe,
+        cleanups = linkedSetOf(notificationsCleanup, clipboardCleanup),
+        restarter = restarter,
         stateProvider = { session.state },
         sessionMeshProvider = { session.mesh },
         meshDelegateProvider = { session.delegate },
         messageManagerProvider = { session.messages },
         channelManagerProvider = { session.channels },
         privateChatManagerProvider = { session.privateChats },
-        dataManagerProvider = { if (readFails) error("synthetic read failure") else session.data },
-        mediaSendingManagerProvider = { session.media },
-        notificationManagerProvider = { session.notifications },
+        dataManagerProvider = { session.data },
+        mediaSendingManagerProvider = { if (readFails) error("synthetic read failure") else session.media },
         geohashSessionProvider = { session.geohash },
-        secureIdentityProvider = { session.secure },
         sessionStartupProvider = { session.startup },
         meshProvider = { identity.mesh },
-        messageRouterHolder = { identity.routerHolder },
-        conversationListPreferencesProvider = { identity.preferences },
-        seenMessageStoreProvider = { identity.seen },
         locationChannelManagerProvider = { identity.location },
-        geohashBookmarksStoreProvider = { identity.bookmarks },
         appStateStoreProvider = { identity.store },
-        spamFilterProvider = { identity.spam },
-        favorites = { identity.favorites },
     )
 
     private val completed get() = application.getString(R.string.system_panic_completed)
@@ -241,14 +271,17 @@ class PanicClearTest {
     }
 
     @After
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() {
+        Dispatchers.resetMain()
+        markerDir.deleteRecursively()
+    }
 
     @Test
     fun `steps keep the design's order`() {
         panic.run()
 
         val old = listOf(
-            "identity0.location.disableLocationServices",
+            "identity0.location.disableLocationServices(marker set)",
             "session0.media.clearPendingPrivateMediaConsent",
             "session0.geohash.cancelSendsInFlight",
             "identity0.mesh.clearAllInternalData",
@@ -258,27 +291,18 @@ class PanicClearTest {
             "session0.channels.clearAllChannels",
             "session0.privateChats.clearAllPrivateChats",
             "frame",
-            "session0.data.clearAllData",
-            "identity0.preferences.clearAll",
-            "identity0.seen.clear",
-            "identity0.router.clearAll",
-            "identity0.mesh.clearAllEncryptionData",
-            "session0.secure.clearIdentityData",
-            "session0.secure.clearSecureValuesSynchronously",
-            "identity0.favorites.clearAllFavorites",
-            "session0.notifications.clearAllNotifications",
-            "identity0.bookmarks.clearAll",
-            "identity0.location.clearPersistedChannel",
-            "session0.geohash.panicReset",
-            "session0.data.saveNickname",
-            "session0.state.setNickname",
+            "session0.geohash.panicReleaseRelays",
             "identity0.mesh.setDelegate(none)",
             "identity0.mesh.stopServices",
             "session ended",
             "identity ended",
+            "sandbox wiped (marker set)",
+            "cleanup notifications",
+            "cleanup clipboard",
         )
         val new = listOf(
             "identity started",
+            "session1.data.saveNickname",
             "session1.state.setNickname",
             "identity1.mesh.setDelegate(session)",
             "identity1.mesh.startServices",
@@ -290,49 +314,239 @@ class PanicClearTest {
     }
 
     @Test
-    fun `the screen blanks before the first wipe stage`() {
+    fun theMarkerIsSetBeforeAnyStage() {
         panic.run()
 
-        val blanked = listOf("identity0.store.clear", "session0.messages.clearAllMessages", "session0.channels.clearAllChannels", "session0.privateChats.clearAllPrivateChats")
-        val frame = log.indexOf("frame")
-        val firstWipe = log.indexOf("session0.data.clearAllData")
-        assertTrue(blanked.all { log.indexOf(it) in 0 until frame })
-        assertTrue(frame < firstWipe)
+        assertEquals("identity0.location.disableLocationServices(marker set)", log.first())
+        assertTrue(log.contains("sandbox wiped (marker set)"))
     }
 
     @Test
-    fun `a failed database wipe does not replace the identity and shows incomplete`() {
-        databaseWipe = { false }
-        val oldIdentity = identity
+    fun admissionStopsAndTheScreenBlanksBeforeTheIdentityEnds() {
+        panic.run()
+
+        val before = listOf(
+            "session0.geohash.cancelSendsInFlight",
+            "identity0.mesh.clearAllInternalData",
+            "identity0.store.panicClearPrivateConversations",
+            "identity0.store.clear",
+            "session0.messages.clearAllMessages",
+            "session0.channels.clearAllChannels",
+            "session0.privateChats.clearAllPrivateChats",
+            "frame",
+        ).map(log::indexOf)
+        val sessionEnded = log.indexOf("session ended")
+        val identityEnded = log.indexOf("identity ended")
+        val wiped = log.indexOf("sandbox wiped (marker set)")
+        assertTrue(before.all { it >= 0 })
+        assertEquals("in that order", before.sorted(), before)
+        assertTrue(before.last() < sessionEnded)
+        assertTrue(sessionEnded < identityEnded)
+        assertTrue("the wipe runs once no identity exists", identityEnded < wiped)
+    }
+
+    @Test
+    fun aConfirmedWipeBuildsTheNextIdentityAndNeverRestarts() {
         val oldSession = session
 
         panic.run()
 
-        assertSame(oldIdentity, identity)
-        assertSame(oldSession, session)
-        assertEquals(1, identities.size)
-        assertEquals(1, sessions.size)
-        assertEquals(0, identityHolder.generation.value)
-        assertEquals(0, sessionHolder.generation.value)
-        assertFalse(log.contains("identity ended"))
-        assertFalse(log.contains("session ended"))
-        assertFalse(log.contains("identity started"))
-        verify(oldSession.messages).addSystemMessage(incomplete)
-        verify(oldSession.messages, never()).addSystemMessage(completed)
-        assertFalse(identityHolder.ending.value)
+        assertEquals(0, restarts)
+        assertFalse(marker.pending)
+        assertEquals(2, identities.size)
+        assertNotSame(oldSession, session)
+        assertSame(identities.last(), session.identity)
+        verify(session.messages).addSystemMessage(completed)
+        verify(oldSession.messages, never()).addSystemMessage(any())
+        assertEquals(1, identityHolder.generation.value)
+        assertEquals(1, sessionHolder.generation.value)
         assertFalse(runner.isRunning)
+        assertFalse(identityHolder.ending.value)
+    }
+
+    @Test
+    fun anUnconfirmedWipeRestartsAndLeavesTheMarker() {
+        wipeResult = WipeResult(leftovers = listOf("files/synthetic"), aliasesLeft = 0)
+        val oldSession = session
+
+        panic.run()
+
+        assertEquals(1, restarts)
+        assertTrue(marker.pending)
+        assertEquals("no identity is built over storage that may still hold data", 1, identities.size)
+        assertFalse(log.contains("identity started"))
+        assertTrue("the system-side cleanups still run before the restart", log.indexOf("cleanup clipboard") < log.indexOf("restart"))
+        assertEquals("restart", log.last())
+        verify(oldSession.messages, never()).addSystemMessage(any())
+        assertFalse(runner.isRunning)
+    }
+
+    @Test
+    fun aKeystoreAliasLeftOverRestarts() {
+        wipeResult = WipeResult(leftovers = emptyList(), aliasesLeft = 1)
+
+        panic.run()
+
+        assertEquals(1, restarts)
+        assertTrue(marker.pending)
+    }
+
+    @Test
+    fun aThrowingWipeRestartsAndLeavesTheMarker() {
+        onWipe = { error("synthetic wipe failure") }
+
+        panic.run()
+
+        assertEquals(1, restarts)
+        assertTrue(marker.pending)
+        assertEquals(1, identities.size)
+    }
+
+    @Test
+    fun aFailedTeardownCleanupRestarts() {
+        failedTeardownCleanups = listOf("SyntheticCleanup")
+
+        panic.run()
+
+        assertEquals(1, restarts)
+        assertTrue("the wipe still ran", log.contains("sandbox wiped (marker set)"))
+        assertEquals(1, identities.size)
+        assertFalse(log.contains("identity started"))
+    }
+
+    @Test
+    fun aBuildFailureAfterAConfirmedWipeRestarts() {
+        identityBuildFailures = 1
+
+        panic.run()
+
+        assertEquals(1, restarts)
+        assertFalse(log.contains("identity started"))
+        assertFalse(runner.isRunning)
+        assertFalse(identityHolder.ending.value)
+    }
+
+    @Test
+    fun aFailedSystemCleanupReportsIncompleteWithoutRestarting() {
+        notificationsCleanup.result = { false }
+
+        panic.run()
+
+        assertEquals(0, restarts)
+        assertTrue("the other cleanups still run", log.contains("cleanup clipboard"))
+        verify(session.messages).addSystemMessage(incomplete)
+        verify(session.messages, never()).addSystemMessage(completed)
+    }
+
+    @Test
+    fun aThrowingSystemCleanupReportsIncompleteWithoutRestarting() {
+        notificationsCleanup.result = { error("synthetic cleanup failure") }
+
+        panic.run()
+
+        assertEquals(0, restarts)
+        assertTrue(log.contains("cleanup clipboard"))
+        verify(session.messages).addSystemMessage(incomplete)
+    }
+
+    @Test
+    fun aThrowFromTheMeshClearReportsIncomplete() {
+        doAnswer { error("synthetic") }.whenever(identity.mesh).clearAllInternalData()
+
+        panic.run()
+
+        assertEquals(0, restarts)
+        assertEquals(2, identities.size)
+        verify(session.messages).addSystemMessage(incomplete)
+        verify(session.messages, never()).addSystemMessage(completed)
+    }
+
+    @Test
+    fun aFailedConversationClearStillWipesByLocationAndReportsIncomplete() {
+        databaseWipe = { false }
+
+        panic.run()
+
+        assertTrue(log.contains("sandbox wiped (marker set)"))
+        assertEquals(2, identities.size)
+        verify(session.messages).addSystemMessage(incomplete)
+    }
+
+    @Test
+    fun aMarkerThatCannotBeWrittenStillWipesAndCannotReportCompleted() {
+        blockMarker()
+
+        panic.run()
+
+        assertTrue(log.contains("sandbox wiped (marker unset)"))
+        assertEquals(0, restarts)
+        assertEquals(2, identities.size)
+        verify(session.messages).addSystemMessage(incomplete)
+        verify(session.messages, never()).addSystemMessage(completed)
+    }
+
+    @Test
+    fun anUnconfirmedWipeWritesAMarkerThatFailedAtTheStart() {
+        blockMarker()
+        onWipe = ::unblockMarker
+        wipeResult = WipeResult(leftovers = listOf("files/synthetic"), aliasesLeft = 0)
+
+        panic.run()
+
+        assertTrue("written again before the next read could build", marker.pending)
+        assertEquals(1, restarts)
+    }
+
+    @Test
+    fun aMarkerThatCanNeverBeWrittenStillRestartsAnUnconfirmedWipe() {
+        blockMarker()
+        wipeResult = WipeResult(leftovers = listOf("files/synthetic"), aliasesLeft = 0)
+
+        panic.run()
+
+        assertFalse(marker.pending)
+        assertEquals(1, restarts)
+    }
+
+    @Test
+    fun withNoSessionTheIdentityIsStillRebuilt() {
+        val hold = CompletableDeferred<Boolean>()
+        databaseWipe = { hold.await() }
+        val oldSession = session
+
+        panic.run()
+        lifecycle.clear()
+        hold.complete(true)
+
+        assertEquals(0, restarts)
+        assertEquals(2, identities.size)
+        assertEquals("no session is built for nobody", 1, sessions.size)
+        assertTrue(log.contains("identity started"))
+        assertTrue(log.contains("identity1.mesh.startServices"))
+        assertTrue(log.contains("identity1.mesh.sendBroadcastAnnounce"))
+        assertFalse("the next session makes its own nickname", log.any { it.endsWith(".saveNickname") })
+        assertNull(identities.last().mesh.delegate)
+        verify(oldSession.messages, never()).addSystemMessage(any())
+    }
+
+    @Test
+    fun `the screen blanks before the identity ends`() {
+        panic.run()
+
+        val blanked = listOf("identity0.store.clear", "session0.messages.clearAllMessages", "session0.channels.clearAllChannels", "session0.privateChats.clearAllPrivateChats")
+        val frame = log.indexOf("frame")
+        assertTrue(blanked.all { log.indexOf(it) in 0 until frame })
+        assertTrue(frame < log.indexOf("identity ended"))
     }
 
     @Test
     fun `a throw while reading the old objects shows incomplete and never completed`() {
         readFails = true
-        val oldSession = session
 
         panic.run()
 
-        verify(oldSession.messages).addSystemMessage(incomplete)
-        verify(oldSession.messages, never()).addSystemMessage(completed)
-        assertFalse(log.contains("identity ended"))
+        verify(session.messages).addSystemMessage(incomplete)
+        verify(session.messages, never()).addSystemMessage(completed)
         assertTrue("the stages that can run still do", log.contains("identity0.store.panicClearPrivateConversations"))
         assertFalse(identityHolder.ending.value)
         assertFalse(runner.isRunning)
@@ -341,101 +555,45 @@ class PanicClearTest {
     @Test
     fun `a throw while blanking the screen does not stop the wipe`() {
         frameFails = true
-        val oldSession = session
 
         panic.run()
 
-        assertTrue(log.contains("session0.data.clearAllData"))
-        verify(oldSession.messages, never()).addSystemMessage(completed)
+        assertTrue(log.contains("sandbox wiped (marker set)"))
+        verify(session.messages).addSystemMessage(incomplete)
+        verify(session.messages, never()).addSystemMessage(completed)
         assertFalse(identityHolder.ending.value)
         assertFalse(runner.isRunning)
     }
 
     @Test
-    fun `the failed path resets the spam filter it no longer rebuilds`() {
-        databaseWipe = { false }
-
-        panic.run()
-
-        verify(identity.spam).reset()
-    }
-
-    @Test
-    fun `the rebuilt path leaves the spam filter to the rebuild`() {
-        val old = identity
-
-        panic.run()
-
-        verify(old.spam, never()).reset()
-    }
-
-    @Test
-    fun `the failed path leaves the gate closed`() {
-        val failing = Mockito.mock(ConversationRepository::class.java)
-        runBlocking { doReturn(false).whenever(failing).clearAllAndWait() }
-        val real = TestMeshStores(application, failing).appStateStore
-        identity.store = real
-
-        panic.run()
-
-        assertEquals(1, identities.size)
-        verify(session.messages).addSystemMessage(incomplete)
-        assertFalse(real.addPrivateMessage("synthetic-peer", message("after-a-failed-wipe")))
-    }
-
-    @Test
-    fun `a throwing database wipe takes the failed path`() {
-        databaseWipe = { error("synthetic") }
-
-        panic.run()
-
-        assertEquals(1, identities.size)
-        verify(session.messages).addSystemMessage(incomplete)
-    }
-
-    @Test
-    fun `a stage not confirming still rebuilds and shows incomplete in the new session`() {
-        val oldSession = session
-        doReturn(false).whenever(oldSession.secure).clearIdentityData()
-
-        panic.run()
-
-        assertEquals(2, identities.size)
-        assertNotSame(oldSession, session)
-        verify(session.messages).addSystemMessage(incomplete)
-        verify(session.messages, never()).addSystemMessage(completed)
-        verify(oldSession.messages, never()).addSystemMessage(any())
-    }
-
-    @Test
     fun `a stage that throws counts as not confirming and the rest still run`() {
         val oldSession = session
-        doAnswer { error("synthetic") }.whenever(oldSession.data).clearAllData()
+        doAnswer { error("synthetic") }.whenever(oldSession.messages).clearAllMessages()
 
         panic.run()
 
-        assertTrue(log.contains("identity0.preferences.clearAll"))
+        assertTrue(log.contains("session0.channels.clearAllChannels"))
         verify(session.messages).addSystemMessage(incomplete)
     }
 
     @Test
-    fun `success shows completed in the new session`() {
+    fun `the process-wide relays are released, and a throw there reports incomplete`() {
         val oldSession = session
+        doAnswer { error("synthetic") }.whenever(oldSession.geohash).panicReleaseRelays()
 
         panic.run()
 
-        assertNotSame(oldSession, session)
-        verify(session.messages).addSystemMessage(completed)
-        verify(oldSession.messages, never()).addSystemMessage(any())
-        assertEquals(1, identityHolder.generation.value)
-        assertEquals(1, sessionHolder.generation.value)
+        assertEquals(0, restarts)
+        verify(session.messages).addSystemMessage(incomplete)
     }
 
     @Test
-    fun `the nickname reaches the new session's state before the mesh announces with it`() {
+    fun `the nickname reaches the new session's storage and state before the mesh announces with it`() {
         panic.run()
 
-        assertTrue(log.indexOf("session1.state.setNickname") < log.indexOf("identity1.mesh.sendBroadcastAnnounce"))
+        val announce = log.indexOf("identity1.mesh.sendBroadcastAnnounce")
+        assertTrue(log.indexOf("session1.data.saveNickname") < announce)
+        assertTrue(log.indexOf("session1.state.setNickname") < announce)
     }
 
     @Test
@@ -474,25 +632,7 @@ class PanicClearTest {
         assertEquals(3, identities.size)
         assertNotSame(second, session)
         verify(session.messages).addSystemMessage(completed)
-    }
-
-    @Test
-    fun `the session lifecycle clearing mid-wipe does not stop the wipe, and no message is shown`() {
-        val hold = CompletableDeferred<Boolean>()
-        databaseWipe = { hold.await() }
-        val oldSession = session
-
-        panic.run()
-        lifecycle.clear()
-        hold.complete(true)
-
-        assertTrue("the wipe went on", log.contains("session0.geohash.panicReset"))
-        assertEquals(2, identities.size)
-        assertEquals("no session is built for nobody", 1, sessions.size)
-        assertTrue(log.contains("identity1.mesh.startServices"))
-        assertTrue(log.contains("identity1.mesh.sendBroadcastAnnounce"))
-        assertNull(identities.last().mesh.delegate)
-        verify(oldSession.messages, never()).addSystemMessage(any())
+        assertEquals(0, restarts)
     }
 
     @Test
@@ -518,9 +658,9 @@ class PanicClearTest {
 
     @Test
     fun `an in-flight message into the old store does not reach the new one`() {
-        val real = realStore()
+        val real = TestMeshStores(application).appStateStore
         identity.store = real
-        val fresh = realStore()
+        val fresh = TestMeshStores(application).appStateStore
         val builtBefore = identities.size
 
         panic.run()
@@ -535,50 +675,13 @@ class PanicClearTest {
     }
 
     @Test
-    fun `a cleanup failure marks the outcome incomplete`() {
-        failedCleanups = listOf("SyntheticCleanup")
-
-        panic.run()
-
-        verify(session.messages).addSystemMessage(incomplete)
-    }
-
-    @Test
-    fun `a swap whose first build fails rebuilds and shows incomplete`() {
-        val oldSession = session
-        identityBuildFailures = 1
-
-        panic.run()
-
-        assertEquals(2, identities.size)
-        assertNotSame(oldSession, session)
-        assertSame(identities.last(), session.identity)
-        assertTrue(log.contains("identity started"))
-        verify(session.messages).addSystemMessage(incomplete)
-        assertEquals(1, identityHolder.generation.value)
-        assertFalse(runner.isRunning)
-    }
-
-    @Test
-    fun `a swap that cannot build at all announces nothing and does not reach the process`() {
-        val oldSession = session
-        identityBuildFailures = 2
-
-        panic.run()
-
-        verify(oldSession.messages, never()).addSystemMessage(any())
-        assertFalse(log.contains("session1.messages.addSystemMessage"))
-        assertFalse(runner.isRunning)
-        assertFalse(identityHolder.ending.value)
-    }
-
-    @Test
     fun `a start-up failure still announces incomplete in the new session`() {
         startupFails = true
 
         panic.run()
 
         verify(session.messages).addSystemMessage(incomplete)
+        assertEquals(0, restarts)
     }
 
     @Test
@@ -592,8 +695,6 @@ class PanicClearTest {
         hold.complete(true)
         assertFalse(identityHolder.ending.value)
     }
-
-    private fun realStore(): AppStateStore = TestMeshStores(application).appStateStore
 
     private fun message(id: String) = BitchatMessage(
         id = id,

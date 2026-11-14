@@ -160,25 +160,17 @@ class GeohashSession(
         }
     }
 
-    /** Returns true only when the persisted Nostr identity was wiped; the rest is in-memory teardown. */
-    fun panicReset(): Boolean {
-        repo.clearAll()
-        geohashAliases.clear()
-        geohashConversations.clear()
+    /**
+     * What a panic undoes on the process-wide relay manager, which outlives this session and its
+     * identity: the subscriptions this session, the identity's background runtime and the location
+     * notes hold there, and the manager's caches and connections. The rest of this session dies with
+     * it, and what it stored goes with the panic's wipe of the sandbox.
+     */
+    fun panicReleaseRelays() {
         subscriptionManager.unsubscribeAllOwned()
-        currentGeohashPresenceSubId = null
-        activeChannelGeohash = null
-        geoTimer?.cancel()
-        geoTimer = null
-        val identityCleared = try {
-            nostrIdentity.clearAllAssociations(application)
-        } catch (_: Exception) {
-            false
-        }
         nostrBackgroundRuntime.resetSubscriptions()
         try { relayManagerSource.get().clearAllOnPanic() } catch (_: Exception) {}
         try { locationNotesManagerSource.get().stop() } catch (_: Exception) {}
-        return identityCleared
     }
 
     /**
