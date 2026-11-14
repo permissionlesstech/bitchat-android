@@ -409,6 +409,7 @@ class PanicClearTest {
         panic.run()
 
         assertEquals(1, restarts)
+        assertTrue("the next launch wipes again", marker.pending)
         assertTrue("the wipe still ran", log.contains("sandbox wiped (marker set)"))
         assertEquals(1, identities.size)
         assertFalse(log.contains("identity started"))
@@ -421,6 +422,7 @@ class PanicClearTest {
         panic.run()
 
         assertEquals(1, restarts)
+        assertTrue("the next launch wipes again", marker.pending)
         assertFalse(log.contains("identity started"))
         assertFalse(runner.isRunning)
         assertFalse(identityHolder.ending.value)

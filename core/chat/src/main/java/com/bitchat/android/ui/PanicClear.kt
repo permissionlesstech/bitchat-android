@@ -201,8 +201,10 @@ class PanicClear @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Replacing the identity failed: ${e.javaClass.simpleName}")
         }
+        // Set again for any restart, even after a confirmed wipe: a teardown or build that failed
+        // means the old identity's work may still be writing, so the next launch wipes once more.
         // Also when the identity's end threw before the wipe could run.
-        if (!wipeConfirmed) holdMarker()
+        if (!built || !wipeConfirmed) holdMarker()
         if (!built) complete = false
 
         // 6. What the app left outside its sandbox. A failure here is reported, never restarted for:
