@@ -121,8 +121,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         androidx.core.app.NotificationManagerCompat.from(context.applicationContext)
     )
     
-    // Service state management
-    private var isActive = false
+    // Service state management. A start request is not treated as operational until the
+    // connection manager accepts the GATT component start requests.
+    private val startupState = MeshServiceStartupState()
+    private val isActive: Boolean get() = startupState.isActive
     
     // Delegate for message callbacks (maintains same interface)
     var delegate: BluetoothMeshDelegate? = null
@@ -132,6 +134,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     private var terminated = false
     
     init {
+        BleTestTrace.configure(context.applicationContext)
+        BleTestTrace.record(context, "mesh_service", "created", "ok")
         serviceScope.launch {
             for (request in voiceFrameQueue) dispatchVoiceFrame(request)
         }
@@ -145,6 +149,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         // instead of relying on the foreground-only UI poll.
         encryptionService.onSessionEstablished = { peerID ->
             Log.d(TAG, "BLE Noise session established with ${peerID.take(8)}")
+            BleTestTrace.record(context, "noise_session", "established", "ok")
             try {
                 com.bitchat.android.services.MessageRouter
                     .tryGetInstance()
@@ -434,6 +439,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             }
             
             override fun initiateNoiseHandshake(peerID: String) {
+                BleTestTrace.record(context, "noise_handshake", "start_requested", "requested")
                 try {
                     // Initiate proper Noise handshake with specific peer
                     val handshakeData = encryptionService.initiateHandshake(peerID)
@@ -454,10 +460,12 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                         broadcastRoutedPacket(RoutedPacket(signedPacket))
                     } else {
                         Log.w(TAG, "Failed to generate Noise handshake data for $peerID")
+                        BleTestTrace.record(context, "noise_handshake", "generate", "failed")
                     }
                     
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to initiate Noise handshake with $peerID: ${e.message}")
+                    BleTestTrace.record(context, "noise_handshake", "generate", "failed")
                 }
             }
             
@@ -750,37 +758,76 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
      * Start the mesh service
      */
     fun startServices() {
-        // Prevent double starts (defensive programming)
-        if (isActive) {
-            Log.w(TAG, "Mesh service already active, ignoring duplicate start request")
+        BleTestTrace.configure(context.applicationContext)
+        BleTestTrace.record(context, "mesh_start", "requested", "pending")
+        // If the lower-level manager failed without an observable callback, reconcile the stale
+        // mesh flag before deciding whether this is a duplicate start.
+        if (startupState.invalidateIfManagerStopped(connectionManager.isActiveForMesh)) {
+            clearFailedStartup("Connection manager became inactive after mesh startup")
+        }
+
+        val attempt = startupState.beginStart()
+        if (attempt == null) {
+            Log.w(TAG, "Mesh service is already starting or active, ignoring duplicate start request")
+            BleTestTrace.record(context, "mesh_start", "duplicate", "ignored")
             return
         }
         if (!isBleTransportEnabled()) {
             Log.i(TAG, "BLE transport disabled by debug settings; not starting mesh service")
+            startupState.markStopped()
             connectionManager.disableTransport()
-            TransportBridgeService.unregister("BLE")
-            com.bitchat.android.service.MeshServiceHolder.stopSharedGossip("BLE")
-            try { com.bitchat.android.services.AppStateStore.clearTransportPeers("BLE") } catch (_: Exception) { }
-            try { com.bitchat.android.services.AppStateStore.clearTransportDirectPeers("BLE") } catch (_: Exception) { }
+            clearFailedStartup("BLE transport is disabled")
+            BleTestTrace.record(context, "mesh_start", "transport", "disabled")
             return
         }
         if (terminated) {
             // This instance's scope was cancelled previously; refuse to start to avoid using dead scopes.
+            startupState.markFailed(attempt)
             Log.e(TAG, "Mesh service instance was terminated; create a new instance instead of restarting")
+            BleTestTrace.record(context, "mesh_start", "instance", "terminated")
             return
         }
         
         Log.i(TAG, "Starting Bluetooth mesh service with peer ID: $myPeerID")
         
-        if (connectionManager.startServices()) {
-            isActive = true
-            TransportBridgeService.register("BLE", this)
-            
-            // Start periodic syncs
-            com.bitchat.android.service.MeshServiceHolder.startSharedGossip("BLE")
-        } else {
+        val accepted = connectionManager.startServices(
+            onStarted = {
+                serviceScope.launch {
+                    if (startupState.markStarted(attempt)) {
+                        BleTestTrace.record(context, "mesh_start", "gatt_requests", "accepted")
+                        TransportBridgeService.register("BLE", this@BluetoothMeshService)
+                        com.bitchat.android.service.MeshServiceHolder.startSharedGossip("BLE")
+                    }
+                }
+            },
+            onStartupFailed = { reason ->
+                serviceScope.launch {
+                    if (startupState.markFailed(attempt)) {
+                        clearFailedStartup(reason)
+                        BleTestTrace.record(context, "mesh_start", "gatt_requests", "failed")
+                    }
+                }
+            }
+        )
+        if (!accepted) {
+            if (startupState.markFailed(attempt)) {
+                clearFailedStartup("Bluetooth connection manager rejected startup")
+            }
             Log.e(TAG, "Failed to start Bluetooth services")
+            BleTestTrace.record(context, "mesh_start", "manager_request", "rejected")
+        } else {
+            Log.i(TAG, "Bluetooth mesh startup is pending GATT component acceptance")
+            BleTestTrace.record(context, "mesh_start", "manager_request", "accepted")
         }
+    }
+
+    private fun clearFailedStartup(reason: String) {
+        Log.e(TAG, "BLE mesh startup is not active: $reason")
+        com.bitchat.android.service.MeshServiceHolder.stopSharedGossip("BLE")
+        TransportBridgeService.unregister("BLE")
+        try { com.bitchat.android.services.AppStateStore.clearTransportPeers("BLE") } catch (_: Exception) { }
+        try { com.bitchat.android.services.AppStateStore.clearTransportDirectPeers("BLE") } catch (_: Exception) { }
+        try { peerManager.refreshPeerList() } catch (_: Exception) { }
     }
 
     /**
@@ -796,7 +843,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
 
     private fun pauseServicesForTransportDisable() {
         Log.i(TAG, "Disabling BLE mesh transport")
-        isActive = false
+        startupState.markStopped()
         com.bitchat.android.service.MeshServiceHolder.stopSharedGossip("BLE")
         TransportBridgeService.unregister("BLE")
         try { com.bitchat.android.services.AppStateStore.clearTransportPeers("BLE") } catch (_: Exception) { }
@@ -809,13 +856,13 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
      * Stop all mesh services
      */
     fun stopServices() {
-        if (!isActive) {
+        if (!isActive && !startupState.isFailed) {
             Log.w(TAG, "Mesh service not active, ignoring stop request")
             return
         }
         
         Log.i(TAG, "Stopping Bluetooth mesh service")
-        isActive = false
+        startupState.markStopped()
         TransportBridgeService.unregister("BLE")
         try { com.bitchat.android.services.AppStateStore.clearTransportPeers("BLE") } catch (_: Exception) { }
         try { com.bitchat.android.services.AppStateStore.clearTransportDirectPeers("BLE") } catch (_: Exception) { }
@@ -857,6 +904,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
      */
     fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null) {
         if (content.isEmpty()) return
+        BleTestTrace.record(context, "mesh_tx", "public_message", "accepted", testMarker = content)
         
         serviceScope.launch {
             val packet = BitchatPacket(
@@ -872,7 +920,15 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
 
             // Sign the packet before broadcasting
             val signedPacket = signPacketBeforeBroadcast(packet)
-            broadcastRoutedPacket(RoutedPacket(signedPacket))
+            val queued = broadcastRoutedPacket(RoutedPacket(signedPacket))
+            BleTestTrace.record(
+                context,
+                "mesh_tx",
+                "ble_queue",
+                if (queued) "accepted" else "rejected",
+                messageId = com.bitchat.android.sync.PacketIdUtil.computeIdHex(signedPacket),
+                testMarker = content
+            )
             // Track our own broadcast message for sync
             try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
         }
@@ -908,10 +964,12 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     }
 
     fun sendFileBroadcast(file: com.bitchat.android.model.BitchatFilePacket) {
+        BleTestTrace.record(context, "media_tx", "public_file", "requested", bytes = file.fileSize)
         try {
             val payload = file.encode()
             if (payload == null) {
                 Log.e(TAG, "Failed to encode file packet in sendFileBroadcast")
+                BleTestTrace.record(context, "media_tx", "public_encode", "failed", bytes = file.fileSize)
                 return
             }
         serviceScope.launch {
@@ -928,33 +986,61 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             val signed = signPacketBeforeBroadcast(packet)
             // Use a stable transferId based on the file TLV payload for progress tracking
             val transferId = sha256Hex(payload)
-            broadcastRoutedPacket(RoutedPacket(signed, transferId = transferId))
+            val queued = broadcastRoutedPacket(RoutedPacket(signed, transferId = transferId))
+            BleTestTrace.record(
+                context,
+                "media_tx",
+                "public_queue",
+                if (queued) "accepted" else "rejected",
+                bytes = file.fileSize,
+                messageId = com.bitchat.android.sync.PacketIdUtil.computeIdHex(signed)
+            )
             try { gossipSyncManager.onPublicPacketSeen(signed) } catch (_: Exception) { }
         }
             } catch (e: Exception) {
             Log.e(TAG, "sendFileBroadcast failed (size=${file.fileSize}): ${e.message}", e)
+            BleTestTrace.record(context, "media_tx", "public_send", "failed", bytes = file.fileSize)
         }
     }
 
     /** Safe non-interactive entry point: encrypted sends commit; legacy sends require UI consent. */
     fun sendFilePrivate(recipientPeerID: String, file: com.bitchat.android.model.BitchatFilePacket) {
-        val payload = file.encode() ?: return
+        BleTestTrace.record(context, "media_tx", "private_file", "requested", bytes = file.fileSize)
+        val payload = file.encode() ?: run {
+            BleTestTrace.record(context, "media_tx", "encode", "failed", bytes = file.fileSize)
+            return
+        }
         when (val prepared = prepareFilePrivate(
             recipientPeerID,
             file,
             sha256Hex(payload),
             allowLegacyFallback = false
         )) {
-            is PrivateMediaPreparation.Ready -> prepared.transfer.commit()
-            is PrivateMediaPreparation.RequiresLegacyConsent ->
+            is PrivateMediaPreparation.Ready -> {
+                val committed = prepared.transfer.commit()
+                BleTestTrace.record(
+                    context,
+                    "media_tx",
+                    "commit",
+                    if (committed) "accepted" else "rejected",
+                    bytes = file.fileSize
+                )
+            }
+            is PrivateMediaPreparation.RequiresLegacyConsent -> {
                 Log.w(TAG, "Private media requires explicit one-shot legacy consent")
+                BleTestTrace.record(context, "media_tx", "prepare", "legacy_consent_required", bytes = file.fileSize)
+            }
             PrivateMediaPreparation.NeedsHandshake -> {
                 Log.d(TAG, "Private media needs a Noise handshake; initiating without sending")
+                BleTestTrace.record(context, "media_tx", "prepare", "handshake_required", bytes = file.fileSize)
                 initiateNoiseHandshake(recipientPeerID)
             }
-            PrivateMediaPreparation.AwaitingPeerState -> Unit
-            is PrivateMediaPreparation.Rejected ->
+            PrivateMediaPreparation.AwaitingPeerState ->
+                BleTestTrace.record(context, "media_tx", "prepare", "awaiting_peer_state", bytes = file.fileSize)
+            is PrivateMediaPreparation.Rejected -> {
                 Log.w(TAG, "Private media blocked: ${prepared.reason}")
+                BleTestTrace.record(context, "media_tx", "prepare", "rejected", bytes = file.fileSize)
+            }
         }
     }
 
@@ -1058,10 +1144,12 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         
         serviceScope.launch {
             val finalMessageID = messageID ?: java.util.UUID.randomUUID().toString()
+            BleTestTrace.record(context, "dm_tx", "ble_service_entry", "accepted", messageId = finalMessageID)
 
             // Check if we have an established Noise session
             if (encryptionService.hasEstablishedSession(recipientPeerID)) {
                 try {
+                    BleTestTrace.record(context, "dm_tx", "noise_session", "ready", messageId = finalMessageID)
                     // Create TLV-encoded private message exactly like iOS
                     val privateMessage = com.bitchat.android.model.PrivateMessagePacket(
                         messageID = finalMessageID,
@@ -1097,14 +1185,24 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                     
                     // Sign the packet before broadcasting
                     val signedPacket = signPacketBeforeBroadcast(packet)
-                    broadcastRoutedPacket(RoutedPacket(signedPacket))
+                    BleTestTrace.record(context, "dm_tx", "encrypted", "ok", bytes = encrypted.size.toLong(), messageId = finalMessageID)
+                    val queued = broadcastRoutedPacket(RoutedPacket(signedPacket))
+                    BleTestTrace.record(
+                        context,
+                        "dm_tx",
+                        "ble_queue",
+                        if (queued) "accepted" else "rejected",
+                        messageId = finalMessageID
+                    )
 
                     // The UI handles sent messages through its own sending path.
 
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to encrypt private message for $recipientPeerID: ${e.message}")
+                    BleTestTrace.record(context, "dm_tx", "encrypt", "failed", messageId = finalMessageID)
                 }
             } else {
+                BleTestTrace.record(context, "dm_tx", "noise_session", "missing", messageId = finalMessageID)
                 // Fire and forget - initiate handshake but don't queue exactly like iOS
                 messageHandler.delegate?.initiateNoiseHandshake(recipientPeerID)
                 
