@@ -219,4 +219,22 @@ class SandboxWipeTest {
             outside.deleteRecursively()
         }
     }
+
+    @Test
+    fun aKeptPrefsFileWhoseWriteFailsIsALeftover() {
+        context.getSharedPreferences("bitchat_settings", Context.MODE_PRIVATE).edit()
+            .putString("theme_preference", "dark")
+            .putString("secret_note", "x")
+            .commit()
+        val dir = File(dataDir, "shared_prefs")
+        assertTrue(dir.setWritable(false))
+        try {
+            val result = wipe()
+
+            assertFalse(result.confirmed)
+            assertTrue(result.leftovers.toString(), result.leftovers.contains("shared_prefs/bitchat_settings.xml"))
+        } finally {
+            dir.setWritable(true)
+        }
+    }
 }

@@ -42,7 +42,11 @@ class SandboxWipe(
     private val keptPrefs = keepList.prefs.associateBy { it.file }
     private val keptPaths = keepList.paths.map { it.relative }
 
+    /** Preferences files whose commit or delete reported failure; the memory map then proves nothing. */
+    private val prefsFailures = linkedSetOf<String>()
+
     fun run(): WipeResult {
+        prefsFailures.clear()
         wipePreferences()
         wipeDatabases()
         roots().forEach { (_, root, kept) -> deleteChildren(root, "", kept) }
@@ -74,11 +78,13 @@ class SandboxWipe(
             if (kept != null) {
                 val drop = prefs.all.keys.filterNot(kept::keeps)
                 if (drop.isNotEmpty()) {
-                    prefs.edit().apply { drop.forEach { remove(it) } }.commit()
+                    val committed = prefs.edit().apply { drop.forEach { remove(it) } }.commit()
+                    if (!committed) prefsFailures += "shared_prefs/$name.xml"
                 }
             } else {
-                prefs.edit().clear().commit()
-                context.deleteSharedPreferences(name)
+                val committed = prefs.edit().clear().commit()
+                val deleted = context.deleteSharedPreferences(name)
+                if (!committed || !deleted) prefsFailures += "shared_prefs/$name.xml"
             }
         }
     }
@@ -128,11 +134,13 @@ class SandboxWipe(
 
     private fun findLeftovers(): List<String> {
         val leftovers = mutableListOf<String>()
+        leftovers += prefsFailures
         for ((label, root, kept) in roots()) collect(root, "", label, kept, leftovers)
         for ((name, kept) in keptPrefs) {
             if (!File(dataDir, "shared_prefs/$name.xml").exists()) continue
             val prefs = context.getSharedPreferences(name, Context.MODE_PRIVATE)
-            if (prefs.all.keys.any { !kept.keeps(it) }) leftovers += "shared_prefs/$name.xml"
+            val rel = "shared_prefs/$name.xml"
+            if (rel !in leftovers && prefs.all.keys.any { !kept.keeps(it) }) leftovers += rel
         }
         return leftovers
     }
