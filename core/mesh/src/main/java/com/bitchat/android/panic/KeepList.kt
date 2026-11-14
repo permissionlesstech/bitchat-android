@@ -127,6 +127,9 @@ object KeepList {
     private val kept: List<KeptPath> = listOf(
         KeptPath("files/arti", "Tor route state"),
         KeptPath("files/nostr_relays_latest.csv", "public relay list"),
+        // RelayDirectory downloads into a "relays_" temp file before it replaces the list, on a
+        // process-wide refresh that a panic does not stop.
+        KeptPath("cache/relays_*", "public relay list download"),
         KeptPath("cache/universal_apk", "public release APK"),
         KeptPath("no_backup/androidx.work.workdb*", "APK download jobs only"),
         KeptPath("databases/androidx.work.workdb*", "APK download jobs only"),

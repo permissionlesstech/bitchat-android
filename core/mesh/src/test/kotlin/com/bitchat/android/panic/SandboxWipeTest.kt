@@ -100,6 +100,7 @@ class SandboxWipeTest {
     fun keepsKeptPathsWhole() {
         write("files/arti/state")
         write("cache/universal_apk/app.apk")
+        write("cache/relays_123.csv")
         write("no_backup/panic_pending")
         write("no_backup/androidx.work.workdb-wal")
         write("files/profileinstaller_x")
@@ -110,6 +111,7 @@ class SandboxWipeTest {
         for (path in listOf(
             "files/arti/state",
             "cache/universal_apk/app.apk",
+            "cache/relays_123.csv",
             "no_backup/panic_pending",
             "no_backup/androidx.work.workdb-wal",
             "files/profileinstaller_x",
@@ -189,6 +191,22 @@ class SandboxWipeTest {
             assertTrue(result.leftovers.none { File(it).isAbsolute })
         } finally {
             parent.setWritable(true)
+        }
+    }
+
+    @Test
+    fun aDirectoryOnTheWayToAKeptPathThatCannotBeListedIsALeftover() {
+        write("files/images/incoming/a.jpg")
+        val files = File(dataDir, "files")
+        assertTrue(files.setReadable(false))
+        try {
+            val result = wipe()
+
+            assertFalse(result.confirmed)
+            assertTrue(result.leftovers.toString(), result.leftovers.contains("files"))
+            assertTrue(result.leftovers.none { File(it).isAbsolute })
+        } finally {
+            files.setReadable(true)
         }
     }
 

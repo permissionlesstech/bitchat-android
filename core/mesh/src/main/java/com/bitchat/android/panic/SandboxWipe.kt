@@ -42,7 +42,10 @@ class SandboxWipe(
     private val keptPrefs = keepList.prefs.associateBy { it.file }
     private val keptPaths = keepList.paths.map { it.relative }
 
-    /** Preferences files whose commit or delete reported failure; the memory map then proves nothing. */
+    /**
+     * Preferences files whose commit or delete reported failure, where the memory map then proves
+     * nothing, and the preferences or database directory when it could not be listed.
+     */
     private val prefsFailures = linkedSetOf<String>()
 
     fun run(): WipeResult {
@@ -70,8 +73,11 @@ class SandboxWipe(
     }
 
     private fun wipePreferences() {
-        val names = File(dataDir, "shared_prefs").list { _, n -> n.endsWith(".xml") }.orEmpty()
-            .map { it.removeSuffix(".xml") }
+        val dir = File(dataDir, "shared_prefs")
+        val listed = dir.list { _, n -> n.endsWith(".xml") }
+        // A directory that cannot be listed is not proof it is empty.
+        if (listed == null && dir.exists()) prefsFailures += "shared_prefs"
+        val names = listed.orEmpty().map { it.removeSuffix(".xml") }
         for (name in names) {
             val kept = keptPrefs[name]
             val prefs = context.getSharedPreferences(name, Context.MODE_PRIVATE)
@@ -90,8 +96,10 @@ class SandboxWipe(
     }
 
     private fun wipeDatabases() {
-        val names = File(dataDir, "databases").list().orEmpty()
-        for (name in names) {
+        val dir = File(dataDir, "databases")
+        val listed = dir.list()
+        if (listed == null && dir.exists()) prefsFailures += "databases"
+        for (name in listed.orEmpty()) {
             if (isKept("databases/$name", keptPaths)) continue
             if (JOURNAL_SUFFIXES.any { name.endsWith(it) }) continue
             context.deleteDatabase(name)
@@ -152,7 +160,13 @@ class SandboxWipe(
         kept: List<String>,
         out: MutableList<String>,
     ) {
-        for (child in dir.listFiles().orEmpty()) {
+        val children = dir.listFiles()
+        if (children == null) {
+            // A directory that cannot be listed is not proof it is empty.
+            if (dir.exists()) out += label + relative.removeSuffix("/").ifEmpty { "." }
+            return
+        }
+        for (child in children) {
             val rel = relative + child.name
             if (relative.isEmpty() && child.name in SKIPPED_TOP_LEVEL) continue
             if (isKept(rel, kept)) continue
