@@ -33,7 +33,17 @@ import java.util.concurrent.atomic.AtomicLong
  *
  * Based on the original TorManager implementation.
  */
-class ArtiTorManager private constructor() {
+class ArtiTorManager internal constructor(
+    private val appScope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob()),
+    private val proxyFactory: (Application, Int, ArtiLogListener) -> ArtiProxy =
+        { application, socksPort, logListener ->
+            ArtiProxy.Builder(application)
+                .setSocksPort(socksPort)
+                .setDnsPort(socksPort + 1)
+                .setLogListener(logListener)
+                .build()
+        }
+) {
     enum class TorState {
         OFF,
         STARTING,
@@ -69,14 +79,14 @@ class ArtiTorManager private constructor() {
         }
     }
 
-    private val appScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-
     @Volatile
     private var initialized = false
     @Volatile
     private var socksAddr: InetSocketAddress? = null
     @Volatile
     private var artiProxy: ArtiProxy? = null
+    @Volatile
+    private var artiProxyPort: Int = DEFAULT_SOCKS_PORT
     @Volatile
     private var lastMode: TorMode = TorMode.OFF
     private val applyMutex = Mutex()
@@ -113,6 +123,17 @@ class ArtiTorManager private constructor() {
 
     private val stateChangeDeferred = AtomicReference<CompletableDeferred<TorState>?>(null)
 
+    private val artiLogListener = ArtiLogListener { logLine ->
+        val text = logLine ?: return@ArtiLogListener
+        val s = text
+        lastLogTime.set(System.currentTimeMillis())
+        _statusFlow.update { it.copy(lastLogLine = s) }
+        handleArtiLogLine(s)
+        if (_statusFlow.value.bootstrapPercent < 100) {
+            armBootstrapInactivityWatchdog()
+        }
+    }
+
     fun isProxyEnabled(): Boolean {
         val s = _statusFlow.value
         return s.mode != TorMode.OFF && s.running && s.bootstrapPercent >= 100 &&
@@ -127,22 +148,7 @@ class ArtiTorManager private constructor() {
             currentApplication = application
             TorPreferenceManager.init(application)
 
-            val logListener = ArtiLogListener { logLine ->
-                val text = logLine ?: return@ArtiLogListener
-                val s = text
-                lastLogTime.set(System.currentTimeMillis())
-                _statusFlow.update { it.copy(lastLogLine = s) }
-                handleArtiLogLine(s)
-                if (_statusFlow.value.bootstrapPercent < 100) {
-                    armBootstrapInactivityWatchdog()
-                }
-            }
-
-            artiProxy = ArtiProxy.Builder(application)
-                .setSocksPort(currentSocksPort)
-                .setDnsPort(currentSocksPort + 1)
-                .setLogListener(logListener)
-                .build()
+            artiProxy = buildArtiProxy(application)
 
             val savedMode = TorPreferenceManager.get(application)
             if (savedMode == TorMode.ON) {
@@ -266,7 +272,7 @@ class ArtiTorManager private constructor() {
                 delay(RESTART_DELAY_MS)
             }
 
-            val proxy = artiProxy ?: run {
+            val proxy = proxyForCurrentPort(application) ?: run {
                 Log.e(TAG, "ArtiProxy not initialized! This should not happen.")
                 _statusFlow.update { it.copy(state = TorState.ERROR) }
                 return
@@ -311,6 +317,23 @@ class ArtiTorManager private constructor() {
                 scheduleRetry(application)
             }
         }
+    }
+
+    private fun buildArtiProxy(application: Application): ArtiProxy {
+        val port = currentSocksPort
+        return proxyFactory(application, port, artiLogListener).also { artiProxyPort = port }
+    }
+
+    /**
+     * ArtiProxy fixes its ports at construction, so it must be rebuilt whenever
+     * [currentSocksPort] moves or Tor would bind a different port than [socksAddr].
+     * Call only after the previous proxy has been stopped.
+     */
+    private fun proxyForCurrentPort(application: Application): ArtiProxy? {
+        if (artiProxy != null && artiProxyPort != currentSocksPort) {
+            artiProxy = buildArtiProxy(application)
+        }
+        return artiProxy
     }
 
     private fun isBindError(exception: Exception): Boolean {
