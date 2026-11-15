@@ -77,6 +77,19 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         private const val CLIENT_SOCKET_ATTEMPTS = 3
         private const val CLIENT_ROLE_REVERSAL_FAILURES = 3
         private const val ROLE_REVERSAL_PREFIX = "ROLE_SERVER:"
+        private const val RECOVERY_RESTART_DELAY_MS = 500L
+        private const val ATTACH_RETRY_BASE_MS = 3_000L
+        private const val ATTACH_RETRY_MAX_MS = 60_000L
+
+        /**
+         * Delay before re-attaching after [consecutiveFailures] failed attaches in a row.
+         *
+         * A start counts as running until its attach is answered, so the controller's attempt
+         * limit never trips on repeated attach failures. This keeps them off the radio instead.
+         */
+        internal fun attachRetryDelayMs(consecutiveFailures: Int): Long =
+            (ATTACH_RETRY_BASE_MS shl (consecutiveFailures - 1).coerceIn(0, 5))
+                .coerceAtMost(ATTACH_RETRY_MAX_MS)
     }
 
     // Core crypto/services
@@ -105,6 +118,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     @Volatile private var isActive = false
     @Volatile private var recoveryInProgress = false
     private val sessionGeneration = AtomicInteger(0)
+    private val consecutiveAttachFailures = AtomicInteger(0)
 
     // Delegate
     override var delegate: WifiAwareMeshDelegate? = null
@@ -363,6 +377,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                     return
                 }
                 wifiAwareSession = session
+                consecutiveAttachFailures.set(0)
                 Log.i(TAG, "Wi-Fi Aware attached; starting publish & subscribe")
 
                 // PUBLISH (server role)
@@ -493,9 +508,10 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             override fun onAttachFailed() {
                 if (!isCurrentSession(generation)) return
                 Log.e(TAG, "Wi-Fi Aware attach failed")
-                handleUnexpectedStop(generation)
+                val retryDelayMs = attachRetryDelayMs(consecutiveAttachFailures.incrementAndGet())
+                handleUnexpectedStop(generation, retryDelayMs)
                 if (com.bitchat.android.wifiaware.WifiAwareController.enabled.value) {
-                    com.bitchat.android.wifiaware.WifiAwareController.restartIfStillEnabled(3000)
+                    com.bitchat.android.wifiaware.WifiAwareController.restartIfStillEnabled(retryDelayMs)
                 }
             }
 
@@ -516,7 +532,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
 
         meshCore.startCore()
         com.bitchat.android.service.MeshServiceHolder.startSharedGossip("WIFI")
-        startPeriodicConnectionMaintenance()
+        startPeriodicConnectionMaintenance(generation)
         connectionTracker.start()
     }
 
@@ -569,13 +585,16 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         return generation == sessionGeneration.get() && isActive
     }
 
-    private fun handleUnexpectedStop(generation: Int) {
+    private fun handleUnexpectedStop(generation: Int, restartDelayMs: Long = RECOVERY_RESTART_DELAY_MS) {
         if (generation != sessionGeneration.get()) return
         if (!isActive) {
             return
         }
         recoveryInProgress = true
         isActive = false
+        // Must follow isActive = false so a concurrent publish in the controller is either
+        // refused or overwritten here. Must precede the restart requests made by callers.
+        com.bitchat.android.wifiaware.WifiAwareController.onServiceInterrupted(this)
         TransportBridgeService.unregister("WIFI")
         com.bitchat.android.service.MeshServiceHolder.stopSharedGossip("WIFI")
         try { com.bitchat.android.services.AppStateStore.clearTransportPeers("WIFI") } catch (_: Exception) { }
@@ -590,7 +609,8 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                 try { oldPublishSession?.close() } catch (_: Exception) { }
                 try { oldSubscribeSession?.close() } catch (_: Exception) { }
                 try { oldWifiAwareSession?.close() } catch (_: Exception) { }
-                if (generation == sessionGeneration.get() && !isActive) {
+                // Qualified: a bare isActive here is the coroutine's, which is always true.
+                if (generation == sessionGeneration.get() && !this@WifiAwareMeshService.isActive) {
                     if (publishSession === oldPublishSession) publishSession = null
                     if (subscribeSession === oldSubscribeSession) subscribeSession = null
                     if (wifiAwareSession === oldWifiAwareSession) wifiAwareSession = null
@@ -605,7 +625,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                 // Recovery cleanup is done; nudge a restart now that startServices() will no
                 // longer be deferred by recoveryInProgress. The controller coalesces requests.
                 if (com.bitchat.android.wifiaware.WifiAwareController.enabled.value) {
-                    com.bitchat.android.wifiaware.WifiAwareController.restartIfStillEnabled(500)
+                    com.bitchat.android.wifiaware.WifiAwareController.restartIfStillEnabled(restartDelayMs)
                 }
             }
         }
@@ -645,13 +665,15 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     /**
      * Periodic active maintenance: retries connections to discovered but unconnected peers.
      */
-    private fun startPeriodicConnectionMaintenance() {
+    private fun startPeriodicConnectionMaintenance(generation: Int) {
         serviceScope.launch {
-            while (isActive) {
+            // Scoped to the session: a restart can finish while this loop is in delay(), and
+            // an isActive check alone would leave it running next to the new session's loop.
+            while (isCurrentSession(generation)) {
                 try {
                     val schedule = powerManager.profile.value.wifiAware
                     delay(schedule.connectionMaintenanceMs)
-                    if (!isActive) break
+                    if (!isCurrentSession(generation)) break
 
                     val now = System.currentTimeMillis()
 
