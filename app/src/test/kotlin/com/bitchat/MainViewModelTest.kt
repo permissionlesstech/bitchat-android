@@ -31,6 +31,17 @@ class MainViewModelTest {
     }
 
     @Test
+    fun `an activity intent is routed once until a new one arrives`() {
+        assertEquals(true, viewModel.consumeActivityIntentPending())
+        assertEquals(false, viewModel.consumeActivityIntentPending())
+
+        viewModel.markActivityIntentPending()
+
+        assertEquals(true, viewModel.consumeActivityIntentPending())
+        assertEquals(false, viewModel.consumeActivityIntentPending())
+    }
+
+    @Test
     fun shouldUpdateLocationStatusCorrectly() {
         val cases = listOf(
             LocationStatus.ENABLED,

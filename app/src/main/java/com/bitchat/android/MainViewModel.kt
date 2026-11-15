@@ -38,6 +38,9 @@ class MainViewModel : ViewModel() {
     private val _isBluetoothCheckSkipped = MutableStateFlow(false)
     val isBluetoothCheckSkipped: StateFlow<Boolean> = _isBluetoothCheckSkipped.asStateFlow()
 
+    // Kept here because a recreated activity gets its original intent back, already routed or not.
+    private var activityIntentPending = true
+
     // Public update functions for MainActivity
     fun updateOnboardingState(state: OnboardingState) {
         _onboardingState.value = state
@@ -73,5 +76,16 @@ class MainViewModel : ViewModel() {
 
     fun skipBluetoothCheck() {
         _isBluetoothCheckSkipped.value = true
+    }
+
+    fun markActivityIntentPending() {
+        activityIntentPending = true
+    }
+
+    /** Returns whether the current intent still needs routing, and marks it as routed. */
+    fun consumeActivityIntentPending(): Boolean {
+        val pending = activityIntentPending
+        activityIntentPending = false
+        return pending
     }
 }
