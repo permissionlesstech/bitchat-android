@@ -255,7 +255,8 @@ object WifiAwareController {
                     service = startedService
                     _running.value = true
                 } else {
-                    if (service === startedService) service = null
+                    // An existing service may only be waiting for recovery cleanup.
+                    // Keep it owned so the next attempt can reuse its resources.
                     _running.value = false
                 }
                 canPublish
@@ -306,6 +307,16 @@ object WifiAwareController {
             service = null
             _running.value = false
             try { com.bitchat.android.services.AppStateStore.clearTransportPeers("WIFI") } catch (_: Exception) { }
+            clearDebugSnapshot()
+        }
+    }
+
+    internal fun onServiceInactive(inactiveService: WifiAwareMeshService) {
+        synchronized(lifecycleLock) {
+            if (service !== inactiveService || inactiveService.isRunning()) return
+            // Unexpected-stop cleanup keeps the core, executor and scope reusable.
+            // Retain ownership until a full stop disposes them.
+            _running.value = false
             clearDebugSnapshot()
         }
     }
