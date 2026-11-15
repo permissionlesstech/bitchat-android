@@ -19,8 +19,16 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Manages WebSocket connections to Nostr relays
  * Compatible with iOS implementation with Android-specific optimizations
  */
-class NostrRelayManager private constructor() {
-    
+class NostrRelayManager internal constructor(
+    private val webSocketFactory: () -> WebSocket.Factory,
+    private val scope: CoroutineScope
+) {
+
+    private constructor() : this(
+        webSocketFactory = { com.bitchat.android.net.OkHttpProvider.webSocketClient() },
+        scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    )
+
     companion object {
         @JvmStatic
         val shared = NostrRelayManager()
@@ -85,6 +93,7 @@ class NostrRelayManager private constructor() {
     private val connections = ConcurrentHashMap<String, WebSocket>()
     private val reconnectJobs = ConcurrentHashMap<String, Job>()
     private val desiredConnected = AtomicBoolean(false)
+    private val panicReconnectWithheld = AtomicBoolean(false)
     private val subscriptions = ConcurrentHashMap<String, Set<String>>() // relay URL -> subscription IDs
     private val messageHandlers = ConcurrentHashMap<String, (NostrEvent) -> Unit>()
     
@@ -117,19 +126,16 @@ class NostrRelayManager private constructor() {
     // Bounded per-relay delivery queue for reconnect reliability.
     private val messageQueue = NostrPendingEventQueue(MAX_QUEUED_EVENTS)
     
-    // Coroutine scope for background operations
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    
     // Subscription validation timer
     private var subscriptionValidationJob: Job? = null
     private val powerManager: com.bitchat.android.mesh.PowerManager?
         get() = appContext?.let { com.bitchat.android.mesh.PowerManager.getInstance(it) }
     @Volatile private var appContext: android.content.Context? = null
     
-    // OkHttp client for WebSocket connections (via provider to honor Tor)
-    private val httpClient: OkHttpClient
-        get() = com.bitchat.android.net.OkHttpProvider.webSocketClient()
-    
+    // WebSocket factory, resolved per connection (via provider to honor Tor)
+    private val httpClient: WebSocket.Factory
+        get() = webSocketFactory()
+
     private val gson by lazy { NostrRequest.createGson() }
     
     // Per-geohash relay selection
@@ -726,22 +732,44 @@ class NostrRelayManager private constructor() {
 
     /**
      * Clear all subscription tracking, deduplication cache, message queue, and connections for panic mode.
+     *
+     * When [reconnect] is true and connectivity was desired, comes back online from scratch on the
+     * default relays. Pass false to stay offline when the wipe could not be confirmed.
      */
-    fun clearAllOnPanic() {
+    fun clearAllOnPanic(reconnect: Boolean) {
         try {
-            val wasConnected = desiredConnected.get()
+            val wantedConnected = desiredConnected.get() || panicReconnectWithheld.get()
             clearAllSubscriptions()
             clearDeduplicationCache()
             disconnect()
-            if (wasConnected) {
-                desiredConnected.set(true)
+            forgetSessionRelays()
+            // Remembered so a retried wipe that is confirmed can still come back online.
+            panicReconnectWithheld.set(wantedConnected && !reconnect)
+            if (wantedConnected && reconnect) {
+                connect()
             }
             Log.w(TAG, "🚨 Cleared NostrRelayManager subscriptions, cache, and connections for panic mode")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to clear NostrRelayManager on panic: ${e.message}")
         }
     }
-    
+
+    /**
+     * Drop every relay the wiped session added. Geohash-selected relays are chosen by proximity,
+     * so reconnecting to them would tie the fresh identity to the previous session's locations.
+     */
+    private fun forgetSessionRelays() {
+        liveGeohashTokens.clear()
+        liveLocationRelayTokens.clear()
+        nonLiveRelayUrls.retainAll(DEFAULT_RELAYS.toSet())
+        synchronized(relaysList) {
+            relaysList.clear()
+            relaysList.addAll(DEFAULT_RELAYS.map { Relay(it) })
+        }
+        updateRelaysList()
+        updateConnectionStatus()
+    }
+
     /**
      * Get detailed status for all relays
      */
