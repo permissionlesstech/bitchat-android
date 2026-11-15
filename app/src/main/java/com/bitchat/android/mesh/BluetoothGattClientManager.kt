@@ -473,6 +473,14 @@ class BluetoothGattClientManager(
                     connectionScope.launch {
                         delay(200) // A small delay can improve reliability of MTU request.
                         gatt.requestMtu(517)
+                        if (LiveMediaLinkBoost.isActive) {
+                            delay(300)
+                            runCatching { gatt.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH) }
+                        }
+                        if (LiveMediaLinkBoost.isActive) {
+                            delay(300)
+                            runCatching { gatt.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH) }
+                        }
                     }
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                     if (status != BluetoothGatt.GATT_SUCCESS) {

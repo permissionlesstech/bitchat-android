@@ -12,7 +12,9 @@ enum class BitchatMessageType : Parcelable {
     Message,
     Audio,
     Image,
-    File
+    File,
+    // Appended: persisted by ordinal.
+    Video
 }
 
 /**

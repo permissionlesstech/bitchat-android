@@ -285,10 +285,12 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">Afbeelding</string>
     <string name="media_type_file">Bestand</string>
+    <string name="media_type_video">Video</string>
 
     <!-- Berichtstatus-tekst helpers -->
     <string name="notification_sent_image">📷 heeft een afbeelding verstuurd</string>
     <string name="notification_sent_voice">🎤 heeft een spraakbericht verstuurd</string>
+    <string name="notification_sent_video">🎥 heeft een video verstuurd</string>
     <string name="notification_sent_file">📎 heeft een bestand verstuurd</string>
 
     <!-- Spraakspeler toegankelijkheid -->
@@ -427,4 +429,45 @@
     <string name="cd_show_whole_globe">Hele wereldbol tonen</string>
     <string name="cd_globe_activity">%1$d actieve chats, %2$d mensen online</string>
     <string name="cd_channel_activity">%1$d mensen, %2$d berichten in het afgelopen uur</string>
+
+    <!-- Live video and video messages -->
+    <string name="video_live_badge">LIVE</string>
+    <string name="video_joining_live">Verbinden met live…</string>
+    <string name="video_weak_signal">Zwak signaal</string>
+    <string name="video_weak_signal_reconnecting">Zwak signaal · inhalen</string>
+    <string name="video_reconnecting">Opnieuw verbinden…</string>
+    <string name="video_live_ended">Livevideo beëindigd</string>
+    <string name="video_live_ended_by">%1$s heeft de stream beëindigd</string>
+    <string name="video_watch_replay">Opname bekijken</string>
+    <string name="video_live_rate">%1$.1f kbps via mesh</string>
+    <string name="video_unavailable">Video niet beschikbaar</string>
+    <string name="video_too_short">Video te kort</string>
+    <string name="video_prepare_failed">Kan deze video niet voorbereiden voor het mesh</string>
+    <string name="video_camera_failed">Camera of video-encoder niet beschikbaar</string>
+    <string name="video_trimmed">Lange video ingekort tot de eerste minuut</string>
+    <string name="video_camera_permission">Cameratoegang is nodig om op te nemen of live te gaan</string>
+    <string name="video_grant_camera">Camera toestaan</string>
+    <string name="video_compressing">Comprimeren voor het mesh…</string>
+    <string name="video_finishing">Afronden…</string>
+    <string name="video_end_live_title">Livevideo beëindigen?</string>
+    <string name="video_end_live_message">Kijkers houden wat ze hebben ontvangen. De opname wordt in de chat gedeeld.</string>
+    <string name="video_end_live_confirm">Beëindigen</string>
+    <string name="video_uplink">↑ %1$.1f kbps · %2$s</string>
+    <string name="video_mode_live">LIVE</string>
+    <string name="video_mode_clip">VIDEO</string>
+    <string name="video_live_unavailable">Live vereist een mesh-peer in de buurt (of een versleutelde sessie in een privébericht)</string>
+    <string name="video_quality_low">Laag</string>
+    <string name="video_quality_medium">Gemiddeld</string>
+    <string name="video_quality_high">Hoog</string>
+    <string name="video_quality_low_hint">Het beste voor Bluetooth en veel hops</string>
+    <string name="video_quality_medium_hint">Eén of twee Bluetooth-hops</string>
+    <string name="video_quality_high_hint">Alleen Wi-Fi Aware-peers</string>
+    <string name="cd_live_video">Livevideo</string>
+    <string name="cd_video">Video</string>
+    <string name="cd_play_video">Video afspelen</string>
+    <string name="cd_pause_video">Video pauzeren</string>
+    <string name="cd_mute">Dempen</string>
+    <string name="cd_unmute">Dempen opheffen</string>
+    <string name="cd_switch_camera">Camera wisselen</string>
+    <string name="cd_pick_video">Kies een video</string>
 </resources>

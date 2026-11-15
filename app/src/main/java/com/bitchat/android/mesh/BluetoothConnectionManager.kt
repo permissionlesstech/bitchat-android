@@ -333,6 +333,22 @@ class BluetoothConnectionManager(
         return connectionScope.isActive
     }
     
+    /** Requests high (or balanced) connection priority on every client link. */
+    @android.annotation.SuppressLint("MissingPermission")
+    fun setLinkPriority(high: Boolean) {
+        val priority = if (high) {
+            android.bluetooth.BluetoothGatt.CONNECTION_PRIORITY_HIGH
+        } else {
+            android.bluetooth.BluetoothGatt.CONNECTION_PRIORITY_BALANCED
+        }
+        connectionTracker.getConnectedDevices().values
+            .filter { it.isClient }
+            .forEach { connection -> runCatching { connection.gatt?.requestConnectionPriority(priority) } }
+    }
+
+    /** Deepest per-link GATT send queue, in packets. */
+    fun deepestLinkBacklog(): Int = packetBroadcaster.deepestLinkBacklog()
+
     /**
      * Broadcast packet to connected devices with connection limit enforcement
      * Automatically fragments large packets to fit within BLE MTU limits

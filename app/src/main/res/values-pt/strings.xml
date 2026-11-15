@@ -285,10 +285,12 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">Imagem</string>
     <string name="media_type_file">Ficheiro</string>
+    <string name="media_type_video">Vídeo</string>
 
     <!-- Auxiliares de texto de notificação -->
     <string name="notification_sent_image">📷 enviou uma imagem</string>
     <string name="notification_sent_voice">🎤 enviou uma nota de voz</string>
+    <string name="notification_sent_video">🎥 enviou um vídeo</string>
     <string name="notification_sent_file">📎 enviou um ficheiro</string>
 
     <!-- Acessibilidade do reprodutor de voz -->
@@ -402,4 +404,45 @@
     <string name="cd_show_whole_globe">Mostrar o globo inteiro</string>
     <string name="cd_globe_activity">%1$d conversas ativas, %2$d pessoas online</string>
     <string name="cd_channel_activity">%1$d pessoas, %2$d mensagens na última hora</string>
+
+    <!-- Live video and video messages -->
+    <string name="video_live_badge">DIRETO</string>
+    <string name="video_joining_live">A entrar no direto…</string>
+    <string name="video_weak_signal">Sinal fraco</string>
+    <string name="video_weak_signal_reconnecting">Sinal fraco · a recuperar</string>
+    <string name="video_reconnecting">A ligar novamente…</string>
+    <string name="video_live_ended">Vídeo em direto terminado</string>
+    <string name="video_live_ended_by">%1$s terminou a transmissão</string>
+    <string name="video_watch_replay">Ver gravação</string>
+    <string name="video_live_rate">%1$.1f kbps pela rede mesh</string>
+    <string name="video_unavailable">Vídeo indisponível</string>
+    <string name="video_too_short">Vídeo demasiado curto</string>
+    <string name="video_prepare_failed">Não foi possível preparar este vídeo para a rede mesh</string>
+    <string name="video_camera_failed">Câmara ou codificador de vídeo indisponível</string>
+    <string name="video_trimmed">Vídeo longo cortado para o primeiro minuto</string>
+    <string name="video_camera_permission">É necessário acesso à câmara para gravar ou transmitir em direto</string>
+    <string name="video_grant_camera">Permitir câmara</string>
+    <string name="video_compressing">A comprimir para a rede mesh…</string>
+    <string name="video_finishing">A concluir…</string>
+    <string name="video_end_live_title">Terminar o vídeo em direto?</string>
+    <string name="video_end_live_message">Os espetadores mantêm o que receberam. A gravação é partilhada no chat.</string>
+    <string name="video_end_live_confirm">Terminar</string>
+    <string name="video_uplink">↑ %1$.1f kbps · %2$s</string>
+    <string name="video_mode_live">DIRETO</string>
+    <string name="video_mode_clip">VÍDEO</string>
+    <string name="video_live_unavailable">A transmissão em direto requer um peer mesh próximo (ou uma sessão encriptada numa mensagem direta)</string>
+    <string name="video_quality_low">Baixa</string>
+    <string name="video_quality_medium">Média</string>
+    <string name="video_quality_high">Alta</string>
+    <string name="video_quality_low_hint">Ideal para Bluetooth e muitos saltos</string>
+    <string name="video_quality_medium_hint">Um ou dois saltos Bluetooth</string>
+    <string name="video_quality_high_hint">Apenas peers Wi-Fi Aware</string>
+    <string name="cd_live_video">Vídeo em direto</string>
+    <string name="cd_video">Vídeo</string>
+    <string name="cd_play_video">Reproduzir vídeo</string>
+    <string name="cd_pause_video">Pausar vídeo</string>
+    <string name="cd_mute">Silenciar</string>
+    <string name="cd_unmute">Ativar som</string>
+    <string name="cd_switch_camera">Mudar de câmara</string>
+    <string name="cd_pick_video">Escolher um vídeo</string>
 </resources>

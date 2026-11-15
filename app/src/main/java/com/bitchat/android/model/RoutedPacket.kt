@@ -15,5 +15,7 @@ data class RoutedPacket(
     val preparedPackets: List<BitchatPacket>? = null,
     // Opaque, process-local ingress identity. Unlike relayAddress, this distinguishes replacement
     // sockets for the same provisional peer and must never be serialized onto the mesh.
-    val ingressLinkID: String? = null
+    val ingressLinkID: String? = null,
+    /** Process-local: live voice/video, which transports may drop rather than deliver late. */
+    val liveMedia: Boolean = false
 )

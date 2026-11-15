@@ -22,6 +22,15 @@ interface MeshService {
     fun sendFileBroadcast(file: BitchatFilePacket)
     fun sendFilePrivate(recipientPeerID: String, file: BitchatFilePacket)
     fun sendVoiceFrame(recipientPeerID: String?, payload: ByteArray)
+    /** Ephemeral live video packet; best-effort, never retransmitted. */
+    fun sendVideoFrame(recipientPeerID: String?, payload: ByteArray) {}
+    /** Packets waiting in the busiest outbound link queue; live senders treat growth as congestion. */
+    fun liveSendBacklog(): Int = 0
+    /**
+     * Live packets per second the route to [recipientPeerID] (null: public mesh) sustains without
+     * queueing. Measured BLE links carry about two dozen 512-byte writes per second.
+     */
+    fun liveSendPacketBudget(recipientPeerID: String?): Int = 24
     fun prepareFilePrivate(
         recipientPeerID: String,
         file: BitchatFilePacket,

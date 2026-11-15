@@ -285,10 +285,12 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">Hình ảnh</string>
     <string name="media_type_file">File</string>
+    <string name="media_type_video">Video</string>
 
     <!-- Trợ giúp văn bản thông báo -->
     <string name="notification_sent_image">📷 đã gửi hình ảnh</string>
     <string name="notification_sent_voice">🎤 đã gửi tin nhắn thoại</string>
+    <string name="notification_sent_video">🎥 đã gửi video</string>
     <string name="notification_sent_file">📎 đã gửi file</string>
 
     <!-- Khả năng truy cập trình phát thoại -->
@@ -389,4 +391,45 @@
     <string name="cd_show_whole_globe">Hiển thị toàn bộ địa cầu</string>
     <string name="cd_globe_activity">%1$d cuộc trò chuyện đang hoạt động, %2$d người trực tuyến</string>
     <string name="cd_channel_activity">%1$d người, %2$d tin nhắn trong giờ qua</string>
+
+    <!-- Live video and video messages -->
+    <string name="video_live_badge">LIVE</string>
+    <string name="video_joining_live">Đang tham gia phát trực tiếp…</string>
+    <string name="video_weak_signal">Tín hiệu yếu</string>
+    <string name="video_weak_signal_reconnecting">Tín hiệu yếu · đang bắt kịp</string>
+    <string name="video_reconnecting">Đang kết nối lại…</string>
+    <string name="video_live_ended">Video trực tiếp đã kết thúc</string>
+    <string name="video_live_ended_by">%1$s đã kết thúc phát trực tiếp</string>
+    <string name="video_watch_replay">Xem lại</string>
+    <string name="video_live_rate">%1$.1f kbps qua mesh</string>
+    <string name="video_unavailable">Video không khả dụng</string>
+    <string name="video_too_short">Video quá ngắn</string>
+    <string name="video_prepare_failed">Không thể chuẩn bị video này cho mesh</string>
+    <string name="video_camera_failed">Camera hoặc bộ mã hóa video không khả dụng</string>
+    <string name="video_trimmed">Video dài đã được cắt còn phút đầu tiên</string>
+    <string name="video_camera_permission">Cần quyền truy cập camera để quay hoặc phát trực tiếp</string>
+    <string name="video_grant_camera">Cho phép camera</string>
+    <string name="video_compressing">Đang nén cho mesh…</string>
+    <string name="video_finishing">Đang hoàn tất…</string>
+    <string name="video_end_live_title">Kết thúc video trực tiếp?</string>
+    <string name="video_end_live_message">Người xem giữ lại những gì họ đã nhận. Bản ghi được chia sẻ trong cuộc trò chuyện.</string>
+    <string name="video_end_live_confirm">Kết thúc</string>
+    <string name="video_uplink">↑ %1$.1f kbps · %2$s</string>
+    <string name="video_mode_live">LIVE</string>
+    <string name="video_mode_clip">VIDEO</string>
+    <string name="video_live_unavailable">Phát trực tiếp cần một peer mesh ở gần (hoặc một phiên mã hóa trong tin nhắn riêng)</string>
+    <string name="video_quality_low">Thấp</string>
+    <string name="video_quality_medium">Trung bình</string>
+    <string name="video_quality_high">Cao</string>
+    <string name="video_quality_low_hint">Tốt nhất cho Bluetooth và nhiều hop</string>
+    <string name="video_quality_medium_hint">Một hoặc hai hop Bluetooth</string>
+    <string name="video_quality_high_hint">Chỉ peer Wi-Fi Aware</string>
+    <string name="cd_live_video">Video trực tiếp</string>
+    <string name="cd_video">Video</string>
+    <string name="cd_play_video">Phát video</string>
+    <string name="cd_pause_video">Tạm dừng video</string>
+    <string name="cd_mute">Tắt tiếng</string>
+    <string name="cd_unmute">Bật tiếng</string>
+    <string name="cd_switch_camera">Đổi camera</string>
+    <string name="cd_pick_video">Chọn video</string>
 </resources>

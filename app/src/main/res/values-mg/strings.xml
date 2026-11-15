@@ -297,12 +297,14 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">Sary</string>
     <string name="media_type_file">Rakitra</string>
+    <string name="media_type_video">Horonan-tsary</string>
 
     <!-- Famantarana toe-javatra hafatra -->
 
     <!-- Mpanampy lahatsoratra fampandrenesana -->
     <string name="notification_sent_image">📷 nandefasa sary</string>
     <string name="notification_sent_voice">🎤 nandefasa hafatra feo</string>
+    <string name="notification_sent_video">🎥 nandefa horonan-tsary</string>
     <string name="notification_sent_file">📎 nandefasa rakitra</string>
     <string name="notification_file_pdf">📄</string>
     <string name="notification_file_zip">🗜️</string>
@@ -409,4 +411,45 @@
     <string name="cd_show_whole_globe">Asehoy ny tany manontolo</string>
     <string name="cd_globe_activity">resaka mavitrika %1$d, olona %2$d an-tserasera</string>
     <string name="cd_channel_activity">olona %1$d, hafatra %2$d tao anatin\'ny ora farany</string>
+
+    <!-- Live video and video messages -->
+    <string name="video_live_badge">LIVE</string>
+    <string name="video_joining_live">Miditra amin\'ny mivantana…</string>
+    <string name="video_weak_signal">Famantarana malemy</string>
+    <string name="video_weak_signal_reconnecting">Famantarana malemy · manenjika</string>
+    <string name="video_reconnecting">Mifandray indray…</string>
+    <string name="video_live_ended">Tapitra ny horonan-tsary mivantana</string>
+    <string name="video_live_ended_by">Notapitrin\'i %1$s ny fandefasana</string>
+    <string name="video_watch_replay">Jereo ny fandraketana</string>
+    <string name="video_live_rate">%1$.1f kbps amin\'ny mesh</string>
+    <string name="video_unavailable">Tsy misy ny horonan-tsary</string>
+    <string name="video_too_short">Fohy loatra ny horonan-tsary</string>
+    <string name="video_prepare_failed">Tsy voaomana ho an\'ny mesh ity horonan-tsary ity</string>
+    <string name="video_camera_failed">Tsy misy ny fakan-tsary na ny encoder horonan-tsary</string>
+    <string name="video_trimmed">Notapahina ho minitra voalohany ilay horonan-tsary lava</string>
+    <string name="video_camera_permission">Ilaina ny fidirana amin\'ny fakan-tsary mba handraketana na handefasana mivantana</string>
+    <string name="video_grant_camera">Avelao ny fakan-tsary</string>
+    <string name="video_compressing">Mampihena ny habeny ho an\'ny mesh…</string>
+    <string name="video_finishing">Mamarana…</string>
+    <string name="video_end_live_title">Hamarana ny horonan-tsary mivantana?</string>
+    <string name="video_end_live_message">Mitazona izay voarain\'izy ireo ny mpijery. Zaraina ao amin\'ny resaka ny fandraketana.</string>
+    <string name="video_end_live_confirm">Farano</string>
+    <string name="video_uplink">↑ %1$.1f kbps · %2$s</string>
+    <string name="video_mode_live">LIVE</string>
+    <string name="video_mode_clip">VIDEO</string>
+    <string name="video_live_unavailable">Mila peer mesh akaiky ny mivantana (na fivoriana voaro amin\'ny hafatra mivantana)</string>
+    <string name="video_quality_low">Ambany</string>
+    <string name="video_quality_medium">Antonony</string>
+    <string name="video_quality_high">Avo</string>
+    <string name="video_quality_low_hint">Tsara indrindra ho an\'ny Bluetooth sy hop maro</string>
+    <string name="video_quality_medium_hint">Hop Bluetooth iray na roa</string>
+    <string name="video_quality_high_hint">Peer Wi-Fi Aware ihany</string>
+    <string name="cd_live_video">Horonan-tsary mivantana</string>
+    <string name="cd_video">Horonan-tsary</string>
+    <string name="cd_play_video">Alefaso ny horonan-tsary</string>
+    <string name="cd_pause_video">Ajanony vetivety ny horonan-tsary</string>
+    <string name="cd_mute">Vonoy ny feo</string>
+    <string name="cd_unmute">Avereno ny feo</string>
+    <string name="cd_switch_camera">Ovay ny fakan-tsary</string>
+    <string name="cd_pick_video">Misafidiana horonan-tsary</string>
 </resources>

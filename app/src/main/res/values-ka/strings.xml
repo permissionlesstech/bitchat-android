@@ -285,10 +285,12 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">სურათი</string>
     <string name="media_type_file">ფაილი</string>
+    <string name="media_type_video">ვიდეო</string>
 
     <!-- შეტყობინებების ტექსტის დამხმარეები -->
     <string name="notification_sent_image">📷 გაგზავნა სურათი</string>
     <string name="notification_sent_voice">🎤 გაგზავნა ხმოვანი შენიშვნა</string>
+    <string name="notification_sent_video">🎥 გაგზავნა ვიდეო</string>
     <string name="notification_sent_file">📎 გაგზავნა ფაილი</string>
 
     <!-- ხმოვანი დამკვრელის ხელმისაწვდომობა -->
@@ -389,4 +391,45 @@
     <string name="cd_show_whole_globe">მთელი გლობუსის ჩვენება</string>
     <string name="cd_globe_activity">%1$d აქტიური ჩატი, %2$d ადამიანი ონლაინ</string>
     <string name="cd_channel_activity">%1$d ადამიანი, %2$d შეტყობინება ბოლო საათში</string>
+
+    <!-- Live video and video messages -->
+    <string name="video_live_badge">LIVE</string>
+    <string name="video_joining_live">პირდაპირ ეთერთან დაკავშირება…</string>
+    <string name="video_weak_signal">სუსტი სიგნალი</string>
+    <string name="video_weak_signal_reconnecting">სუსტი სიგნალი · სინქრონიზაცია</string>
+    <string name="video_reconnecting">ხელახლა დაკავშირება…</string>
+    <string name="video_live_ended">პირდაპირი ვიდეო დასრულდა</string>
+    <string name="video_live_ended_by">%1$s-მა დაასრულა ტრანსლაცია</string>
+    <string name="video_watch_replay">ჩანაწერის ნახვა</string>
+    <string name="video_live_rate">%1$.1f kbps mesh-ით</string>
+    <string name="video_unavailable">ვიდეო მიუწვდომელია</string>
+    <string name="video_too_short">ვიდეო ძალიან მოკლეა</string>
+    <string name="video_prepare_failed">ამ ვიდეოს mesh-ისთვის მომზადება ვერ მოხერხდა</string>
+    <string name="video_camera_failed">კამერა ან ვიდეო ენკოდერი მიუწვდომელია</string>
+    <string name="video_trimmed">გრძელი ვიდეო შემოკლდა პირველ წუთამდე</string>
+    <string name="video_camera_permission">ჩაწერისთვის ან პირდაპირი ეთერისთვის საჭიროა კამერაზე წვდომა</string>
+    <string name="video_grant_camera">კამერის დაშვება</string>
+    <string name="video_compressing">შეკუმშვა mesh-ისთვის…</string>
+    <string name="video_finishing">სრულდება…</string>
+    <string name="video_end_live_title">დავასრულოთ პირდაპირი ვიდეო?</string>
+    <string name="video_end_live_message">მაყურებლებს რჩებათ ის, რაც მიიღეს. ჩანაწერი გაზიარდება ჩატში.</string>
+    <string name="video_end_live_confirm">დასრულება</string>
+    <string name="video_uplink">↑ %1$.1f kbps · %2$s</string>
+    <string name="video_mode_live">LIVE</string>
+    <string name="video_mode_clip">ვიდეო</string>
+    <string name="video_live_unavailable">პირდაპირ ეთერს სჭირდება ახლომდებარე mesh peer (ან დაშიფრული სესია პირად შეტყობინებაში)</string>
+    <string name="video_quality_low">დაბალი</string>
+    <string name="video_quality_medium">საშუალო</string>
+    <string name="video_quality_high">მაღალი</string>
+    <string name="video_quality_low_hint">საუკეთესოა Bluetooth-ისა და მრავალი ჰოპისთვის</string>
+    <string name="video_quality_medium_hint">ერთი ან ორი Bluetooth ჰოპი</string>
+    <string name="video_quality_high_hint">მხოლოდ Wi-Fi Aware peer-ები</string>
+    <string name="cd_live_video">პირდაპირი ვიდეო</string>
+    <string name="cd_video">ვიდეო</string>
+    <string name="cd_play_video">ვიდეოს დაკვრა</string>
+    <string name="cd_pause_video">ვიდეოს პაუზა</string>
+    <string name="cd_mute">ხმის დადუმება</string>
+    <string name="cd_unmute">ხმის ჩართვა</string>
+    <string name="cd_switch_camera">კამერის გადართვა</string>
+    <string name="cd_pick_video">ვიდეოს არჩევა</string>
 </resources>

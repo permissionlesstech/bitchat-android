@@ -320,9 +320,19 @@ fun MessageInput(
     mentionPeerIdentities: Map<String, PeerIdentity> = emptyMap(),
     recorderFactory: ((String?, String?) -> VoiceRecorder)? = null,
     activePublicTalker: String? = null,
+    videoActions: com.bitchat.android.ui.media.VideoComposerActions? = null,
     modifier: Modifier = Modifier
 ) {
     val palette = LocalBitchatPalette.current
+    var showVideoStudio by remember { mutableStateOf(false) }
+    if (showVideoStudio && videoActions != null) {
+        com.bitchat.android.ui.media.VideoStudio(
+            peer = selectedPrivatePeer,
+            channel = currentChannel,
+            actions = videoActions,
+            onClose = { showVideoStudio = false }
+        )
+    }
     val colorScheme = MaterialTheme.colorScheme
     val isFocused = remember { mutableStateOf(false) }
     val hasText = value.text.isNotBlank()
@@ -598,6 +608,7 @@ fun MessageInput(
                                     )
                             ) {
                                 ImagePickerButton(
+                                    onVideo = videoActions?.let { { showVideoStudio = true } },
                                     onImageReady = { outPath ->
                                         onSendImageNote(
                                             latestSelectedPeer.value,

@@ -285,10 +285,12 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">이미지</string>
     <string name="media_type_file">파일</string>
+    <string name="media_type_video">동영상</string>
 
     <!-- 알림 텍스트 도우미 -->
     <string name="notification_sent_image">📷 이미지 보냄</string>
     <string name="notification_sent_voice">🎤 음성 메시지 보냄</string>
+    <string name="notification_sent_video">🎥 동영상 보냄</string>
     <string name="notification_sent_file">📎 파일 보냄</string>
 
     <!-- 음성 플레이어 접근성 -->
@@ -402,4 +404,45 @@
     <string name="cd_show_whole_globe">지구 전체 보기</string>
     <string name="cd_globe_activity">활성 채팅 %1$d개, 온라인 %2$d명</string>
     <string name="cd_channel_activity">%1$d명, 지난 1시간 메시지 %2$d개</string>
+
+    <!-- Live video and video messages -->
+    <string name="video_live_badge">LIVE</string>
+    <string name="video_joining_live">라이브 참여 중…</string>
+    <string name="video_weak_signal">신호 약함</string>
+    <string name="video_weak_signal_reconnecting">신호 약함 · 따라잡는 중</string>
+    <string name="video_reconnecting">다시 연결 중…</string>
+    <string name="video_live_ended">라이브 영상이 종료됨</string>
+    <string name="video_live_ended_by">%1$s님이 방송을 종료했습니다</string>
+    <string name="video_watch_replay">다시 보기</string>
+    <string name="video_live_rate">mesh를 통해 %1$.1f kbps</string>
+    <string name="video_unavailable">동영상을 사용할 수 없음</string>
+    <string name="video_too_short">동영상이 너무 짧음</string>
+    <string name="video_prepare_failed">이 동영상을 mesh용으로 준비할 수 없습니다</string>
+    <string name="video_camera_failed">카메라 또는 동영상 인코더를 사용할 수 없음</string>
+    <string name="video_trimmed">긴 동영상을 처음 1분으로 잘랐습니다</string>
+    <string name="video_camera_permission">녹화하거나 라이브를 하려면 카메라 접근 권한이 필요합니다</string>
+    <string name="video_grant_camera">카메라 허용</string>
+    <string name="video_compressing">mesh용으로 압축 중…</string>
+    <string name="video_finishing">마무리 중…</string>
+    <string name="video_end_live_title">라이브 영상을 종료할까요?</string>
+    <string name="video_end_live_message">시청자는 이미 받은 내용을 유지합니다. 녹화본은 채팅에 공유됩니다.</string>
+    <string name="video_end_live_confirm">종료</string>
+    <string name="video_uplink">↑ %1$.1f kbps · %2$s</string>
+    <string name="video_mode_live">LIVE</string>
+    <string name="video_mode_clip">동영상</string>
+    <string name="video_live_unavailable">라이브하려면 근처에 mesh 피어(또는 개인 메시지의 암호화된 세션)가 필요합니다</string>
+    <string name="video_quality_low">낮음</string>
+    <string name="video_quality_medium">보통</string>
+    <string name="video_quality_high">높음</string>
+    <string name="video_quality_low_hint">Bluetooth 및 다중 홉에 적합</string>
+    <string name="video_quality_medium_hint">Bluetooth 1~2홉</string>
+    <string name="video_quality_high_hint">Wi-Fi Aware 피어 전용</string>
+    <string name="cd_live_video">라이브 영상</string>
+    <string name="cd_video">동영상</string>
+    <string name="cd_play_video">동영상 재생</string>
+    <string name="cd_pause_video">동영상 일시정지</string>
+    <string name="cd_mute">음소거</string>
+    <string name="cd_unmute">음소거 해제</string>
+    <string name="cd_switch_camera">카메라 전환</string>
+    <string name="cd_pick_video">동영상 선택</string>
 </resources>

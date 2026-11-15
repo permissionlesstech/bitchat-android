@@ -272,9 +272,11 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">Bild</string>
     <string name="media_type_file">Fil</string>
+    <string name="media_type_video">Video</string>
 
     <string name="notification_sent_image">📷 skickade en bild</string>
     <string name="notification_sent_voice">🎤 skickade ett röstmeddelande</string>
+    <string name="notification_sent_video">🎥 skickade en video</string>
     <string name="notification_sent_file">📎 skickade en fil</string>
     <string name="notification_file_pdf">📄</string>
     <string name="notification_file_zip">🗜️</string>
@@ -387,4 +389,45 @@
     <string name="cd_show_whole_globe">Visa hela jordklotet</string>
     <string name="cd_globe_activity">%1$d aktiva chattar, %2$d personer online</string>
     <string name="cd_channel_activity">%1$d personer, %2$d meddelanden den senaste timmen</string>
+
+    <!-- Live video and video messages -->
+    <string name="video_live_badge">LIVE</string>
+    <string name="video_joining_live">Ansluter till live…</string>
+    <string name="video_weak_signal">Svag signal</string>
+    <string name="video_weak_signal_reconnecting">Svag signal · kommer ikapp</string>
+    <string name="video_reconnecting">Återansluter…</string>
+    <string name="video_live_ended">Livevideo avslutad</string>
+    <string name="video_live_ended_by">%1$s avslutade sändningen</string>
+    <string name="video_watch_replay">Se inspelningen</string>
+    <string name="video_live_rate">%1$.1f kbps över mesh</string>
+    <string name="video_unavailable">Video ej tillgänglig</string>
+    <string name="video_too_short">Videon är för kort</string>
+    <string name="video_prepare_failed">Det gick inte att förbereda videon för mesh-nätet</string>
+    <string name="video_camera_failed">Kamera eller videokodare ej tillgänglig</string>
+    <string name="video_trimmed">Lång video förkortad till första minuten</string>
+    <string name="video_camera_permission">Kameraåtkomst krävs för att spela in eller sända live</string>
+    <string name="video_grant_camera">Tillåt kamera</string>
+    <string name="video_compressing">Komprimerar för mesh-nätet…</string>
+    <string name="video_finishing">Slutför…</string>
+    <string name="video_end_live_title">Avsluta livevideo?</string>
+    <string name="video_end_live_message">Tittarna behåller det de har tagit emot. Inspelningen delas i chatten.</string>
+    <string name="video_end_live_confirm">Avsluta</string>
+    <string name="video_uplink">↑ %1$.1f kbps · %2$s</string>
+    <string name="video_mode_live">LIVE</string>
+    <string name="video_mode_clip">VIDEO</string>
+    <string name="video_live_unavailable">Live kräver en mesh-peer i närheten (eller en krypterad session i ett direktmeddelande)</string>
+    <string name="video_quality_low">Låg</string>
+    <string name="video_quality_medium">Medel</string>
+    <string name="video_quality_high">Hög</string>
+    <string name="video_quality_low_hint">Bäst för Bluetooth och många hopp</string>
+    <string name="video_quality_medium_hint">Ett eller två Bluetooth-hopp</string>
+    <string name="video_quality_high_hint">Endast Wi-Fi Aware-peers</string>
+    <string name="cd_live_video">Livevideo</string>
+    <string name="cd_video">Video</string>
+    <string name="cd_play_video">Spela upp video</string>
+    <string name="cd_pause_video">Pausa video</string>
+    <string name="cd_mute">Stäng av ljud</string>
+    <string name="cd_unmute">Slå på ljud</string>
+    <string name="cd_switch_camera">Byt kamera</string>
+    <string name="cd_pick_video">Välj en video</string>
 </resources>
