@@ -20,6 +20,22 @@ data class NostrEvent(
 ) {
     
     companion object {
+        /** NIP-42 proofs use the operation's own identity, never a gift-wrap key. */
+        fun createRelayAuthentication(
+            relayUrl: String,
+            challenge: String,
+            identity: NostrIdentity,
+            createdAt: Int = (System.currentTimeMillis() / 1000).toInt()
+        ): NostrEvent = identity.signEvent(
+            NostrEvent(
+                pubkey = identity.publicKeyHex,
+                createdAt = createdAt,
+                kind = NostrKind.RELAY_AUTHENTICATION,
+                tags = listOf(listOf("relay", relayUrl), listOf("challenge", challenge)),
+                content = ""
+            )
+        )
+
         /**
          * Create from JSON dictionary
          */
@@ -216,6 +232,7 @@ object NostrKind {
     const val GIFT_WRAP = 1059       // NIP-17 gift wrap
     const val EPHEMERAL_EVENT = 20000 // For geohash channels
     const val GEOHASH_PRESENCE = 20001 // For geohash presence heartbeat
+    const val RELAY_AUTHENTICATION = 22242 // NIP-42, sent via AUTH only
 }
 
 /**

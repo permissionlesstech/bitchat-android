@@ -5,7 +5,7 @@ import java.lang.reflect.Type
 
 /**
  * Nostr protocol request messages
- * Supports EVENT, REQ, and CLOSE message types
+ * Supports EVENT, REQ, CLOSE, and NIP-42 AUTH message types
  */
 sealed class NostrRequest {
     
@@ -13,6 +13,9 @@ sealed class NostrRequest {
      * EVENT message - publish an event
      */
     data class Event(val event: NostrEvent) : NostrRequest()
+
+    /** Authentication events are sent only to the challenging connection. */
+    data class Auth(val event: NostrEvent) : NostrRequest()
     
     /**
      * REQ message - subscribe to events
@@ -37,6 +40,11 @@ sealed class NostrRequest {
             when (src) {
                 is Event -> {
                     array.add("EVENT")
+                    array.add(context.serialize(src.event))
+                }
+
+                is Auth -> {
+                    array.add("AUTH")
                     array.add(context.serialize(src.event))
                 }
                 
@@ -81,7 +89,7 @@ sealed class NostrRequest {
 
 /**
  * Nostr protocol response messages
- * Handles EVENT, EOSE, OK, and NOTICE responses
+ * Handles EVENT, EOSE, OK, NOTICE, AUTH, and CLOSED responses
  */
 sealed class NostrResponse {
     
@@ -115,6 +123,10 @@ sealed class NostrResponse {
     data class Notice(
         val message: String
     ) : NostrResponse()
+
+    data class Auth(val challenge: String) : NostrResponse()
+
+    data class Closed(val subscriptionId: String, val message: String) : NostrResponse()
     
     /**
      * Unknown response type
@@ -151,7 +163,10 @@ sealed class NostrResponse {
                     }
                     
                     "OK" -> {
-                        if (jsonArray.size() >= 3) {
+                        if (jsonArray.size() >= 3 &&
+                            jsonArray[1].isJsonPrimitive && jsonArray[1].asJsonPrimitive.isString &&
+                            jsonArray[2].isJsonPrimitive && jsonArray[2].asJsonPrimitive.isBoolean
+                        ) {
                             val eventId = jsonArray[1].asString
                             val accepted = jsonArray[2].asBoolean
                             val message = if (jsonArray.size() >= 4) {
@@ -161,6 +176,20 @@ sealed class NostrResponse {
                         } else {
                             Unknown(jsonArray.toString())
                         }
+                    }
+
+                    "AUTH" -> {
+                        if (jsonArray.size() == 2 && jsonArray[1].isJsonPrimitive &&
+                            jsonArray[1].asJsonPrimitive.isString
+                        ) Auth(jsonArray[1].asString) else Unknown(jsonArray.toString())
+                    }
+
+                    "CLOSED" -> {
+                        if (jsonArray.size() == 3 &&
+                            jsonArray[1].isJsonPrimitive && jsonArray[1].asJsonPrimitive.isString &&
+                            jsonArray[2].isJsonPrimitive && jsonArray[2].asJsonPrimitive.isString
+                        ) Closed(jsonArray[1].asString, jsonArray[2].asString)
+                        else Unknown(jsonArray.toString())
                     }
                     
                     "NOTICE" -> {

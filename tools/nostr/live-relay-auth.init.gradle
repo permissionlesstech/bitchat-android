@@ -1,0 +1,16 @@
+// Explicit opt-in only: normal unit tests never compile or run the live probe.
+gradle.beforeProject { project ->
+    if (project.path == ':app') {
+        project.plugins.withId('com.android.application') {
+            project.android.sourceSets.getByName('test').kotlin.srcDir('src/liveRelayProbe/kotlin')
+            project.android.sourceSets.getByName('test').kotlin.srcDir('src/liveRelayProbeCommon/kotlin')
+            project.tasks.withType(Test).configureEach {
+                def relay = project.findProperty('nostrLiveRelay')
+                if (relay == null) {
+                    throw new GradleException('Provide -PnostrLiveRelay=wss://<relay-from-csv>')
+                }
+                systemProperty 'bitchat.liveRelay', relay
+            }
+        }
+    }
+}
