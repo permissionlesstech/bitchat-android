@@ -30,9 +30,13 @@ class VoiceNoteController(
     private val context: Context,
     private val scope: CoroutineScope,
     private val recorderFactory: () -> VoiceRecorder,
-    private val onSendVoice: (String) -> Unit
+    private val onSendVoice: (String) -> Unit,
+    private val clock: () -> Long = System::currentTimeMillis
 ) {
     private var recorder: VoiceRecorder? = null
+
+    /** Whether the overlay currently shows "Lift to cancel"; the 10 s cap honors the same choice. */
+    internal var hoveringCancel = false
 
     var recording by mutableStateOf(false)
         private set
@@ -52,9 +56,10 @@ class VoiceNoteController(
         activeRecorder.start() ?: return
         recorder = activeRecorder
         isLive = activeRecorder.isLive
-        startedAt = System.currentTimeMillis()
+        startedAt = clock()
         elapsedMs = 0L
         liveSamples = FloatArray(LIVE_BARS)
+        hoveringCancel = false
         recording = true
         WearHaptics.knock(context)
         pollJob = scope.launch {
@@ -62,10 +67,12 @@ class VoiceNoteController(
                 delay(AMPLITUDE_POLL_MS)
                 val amp = normalizeAmplitudeSample(recorder?.pollAmplitude() ?: 0)
                 liveSamples = liveSamples.copyOfRange(1, LIVE_BARS) + amp
-                val elapsed = System.currentTimeMillis() - startedAt
+                val elapsed = clock() - startedAt
                 elapsedMs = elapsed
                 if (elapsed >= MAX_VOICE_NOTE_MS) {
-                    stop(send = true)
+                    val cancel = hoveringCancel
+                    if (cancel) WearHaptics.reject(context)
+                    stop(send = !cancel)
                     break
                 }
             }
@@ -83,7 +90,7 @@ class VoiceNoteController(
         val file = recorder?.stop(canceled = !send)
         recorder = null
         isLive = false
-        val elapsed = System.currentTimeMillis() - startedAt
+        val elapsed = clock() - startedAt
         if (send && file != null && elapsed >= MIN_RECORDING_MS) {
             onSendVoice(file.absolutePath)
         } else {

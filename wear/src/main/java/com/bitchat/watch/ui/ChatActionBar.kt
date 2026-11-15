@@ -87,9 +87,11 @@ fun ChatActionBar(
     val context = LocalContext.current
     val palette = LocalBitchatPalette.current
 
+    // A grant never starts recording: answering the system dialog means no finger is holding
+    // the mic, and capture must only ever run under a deliberate press. The user presses again.
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { granted -> if (granted) voice.start() }
+    ) { }
 
     // Someone else holding the public channel tints the mic amber; recording fills it green.
     val micContainer by animateColorAsState(
