@@ -2,6 +2,7 @@ package com.bitchat.android.ui
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.core.net.toUri
 import com.bitchat.android.geohash.GeohashChannel
 import com.bitchat.android.geohash.GeohashChannelLevel
@@ -42,6 +43,14 @@ internal fun channelForGeohash(geohash: String): GeohashChannel {
         else -> GeohashChannelLevel.BLOCK
     }
     return GeohashChannel(level, geohash.lowercase())
+}
+
+/** Channel named by a `bitchat://geohash/<geohash>` link, or null if the link is not valid. */
+internal fun channelForGeohashLink(uri: Uri): GeohashChannel? {
+    if (uri.scheme != "bitchat" || uri.host != "geohash") return null
+    val geohash = uri.path.orEmpty().trim('/').lowercase()
+    if (geohash.length < 2 || !validateGeohash(geohash)) return null
+    return channelForManualGeohash(geohash)
 }
 
 internal fun navigateToGeohash(context: Context, geohash: String): Boolean =
