@@ -193,6 +193,14 @@
     <string name="disable_location_services">désactiver les services de localisation</string>
     <string name="enable_location_services">activer les services de localisation</string>
     <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+    <string name="location_bluetooth_long_range_subtitle">Bluetooth longue portée • env. %1$s</string>
+    <string name="location_bluetooth_long_range_wifi_subtitle">Bluetooth longue portée • Wifi • env. %1$s</string>
+    <string name="mesh_long_range_badge">longue portée</string>
+    <string name="mesh_long_range_all_coded">Connecté en longue portée (Coded PHY)</string>
+    <string name="mesh_long_range_some_coded">Certaines connexions en longue portée (Coded PHY)</string>
+    <string name="mesh_long_range_waiting">Longue portée active • en attente de pairs à proximité</string>
+    <string name="mesh_long_range_standard_links">Les pairs connectés utilisent le Bluetooth standard</string>
+    <string name="mesh_long_range_unsupported">Longue portée non prise en charge par ce téléphone • Bluetooth standard</string>
     <string name="mesh_label">mesh</string>
     <string name="location_level_block">bloc</string>
     <string name="location_level_neighborhood">quartier</string>

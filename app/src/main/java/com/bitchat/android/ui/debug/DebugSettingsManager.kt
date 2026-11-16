@@ -51,6 +51,15 @@ class DebugSettingsManager private constructor() {
     private val _wifiAwareVerbose = MutableStateFlow(false)
     val wifiAwareVerbose: StateFlow<Boolean> = _wifiAwareVerbose.asStateFlow()
 
+    // BLE long-range (LE Coded PHY) policy
+    private val _bleLongRangeMode = MutableStateFlow(com.bitchat.android.mesh.BleLongRangeMode.DEFAULT)
+    val bleLongRangeMode: StateFlow<com.bitchat.android.mesh.BleLongRangeMode> = _bleLongRangeMode.asStateFlow()
+    private val _bleCodedCoding = MutableStateFlow(com.bitchat.android.mesh.BleCodedCoding.DEFAULT)
+    val bleCodedCoding: StateFlow<com.bitchat.android.mesh.BleCodedCoding> = _bleCodedCoding.asStateFlow()
+    private val _bleAdaptiveTuning = MutableStateFlow(com.bitchat.android.mesh.AdaptivePhyTuning())
+    /** Adaptive PHY thresholds (debug-adjustable); always sanitized. */
+    val bleAdaptiveTuning: StateFlow<com.bitchat.android.mesh.AdaptivePhyTuning> = _bleAdaptiveTuning.asStateFlow()
+
     // Visibility of the debug sheet; gates heavy work
     private val _debugSheetVisible = MutableStateFlow(false)
     val debugSheetVisible: StateFlow<Boolean> = _debugSheetVisible.asStateFlow()
@@ -78,6 +87,20 @@ class DebugSettingsManager private constructor() {
             _bleEnabled.value = DebugPreferenceManager.getBleEnabled(true)
             _wifiAwareEnabled.value = DebugPreferenceManager.getWifiAwareEnabled(false)
             _wifiAwareVerbose.value = DebugPreferenceManager.getWifiAwareVerbose(false)
+            _bleLongRangeMode.value = com.bitchat.android.mesh.BleLongRangeMode.fromName(
+                DebugPreferenceManager.getBleLongRangeMode(com.bitchat.android.mesh.BleLongRangeMode.DEFAULT.name)
+            )
+            _bleCodedCoding.value = com.bitchat.android.mesh.BleCodedCoding.fromName(
+                DebugPreferenceManager.getBleCodedCoding(com.bitchat.android.mesh.BleCodedCoding.DEFAULT.name)
+            )
+            _bleAdaptiveTuning.value = com.bitchat.android.mesh.AdaptivePhyTuning(
+                enterCodedBelowDbm = DebugPreferenceManager.getBleAdaptiveEnterDbm(
+                    com.bitchat.android.mesh.AdaptivePhyTuning.DEFAULT_ENTER_CODED_BELOW_DBM
+                ),
+                leaveCodedAboveDbm = DebugPreferenceManager.getBleAdaptiveLeaveDbm(
+                    com.bitchat.android.mesh.AdaptivePhyTuning.DEFAULT_LEAVE_CODED_ABOVE_DBM
+                )
+            ).sanitized()
         } catch (_: Exception) {
             // Preferences not ready yet; keep defaults. They will be applied on first change.
         }
@@ -303,6 +326,35 @@ class DebugSettingsManager private constructor() {
         DebugPreferenceManager.setWifiAwareVerbose(enabled)
         _wifiAwareVerbose.value = enabled
         addDebugMessage(DebugMessage.SystemMessage(if (enabled) "🔊 Wi‑Fi Aware verbose logging enabled" else "🔇 Wi‑Fi Aware verbose logging disabled"))
+    }
+
+    fun setBleLongRangeMode(mode: com.bitchat.android.mesh.BleLongRangeMode) {
+        DebugPreferenceManager.setBleLongRangeMode(mode.name)
+        _bleLongRangeMode.value = mode
+        addDebugMessage(DebugMessage.SystemMessage("📶 BLE long-range mode: ${mode.name}"))
+    }
+
+    fun setBleCodedCoding(coding: com.bitchat.android.mesh.BleCodedCoding) {
+        DebugPreferenceManager.setBleCodedCoding(coding.name)
+        _bleCodedCoding.value = coding
+        addDebugMessage(DebugMessage.SystemMessage("📶 Coded PHY coding preference: ${coding.label}"))
+    }
+
+    fun setBleAdaptiveThresholds(enterCodedBelowDbm: Int, leaveCodedAboveDbm: Int) {
+        val tuning = _bleAdaptiveTuning.value
+            .copy(enterCodedBelowDbm = enterCodedBelowDbm, leaveCodedAboveDbm = leaveCodedAboveDbm)
+            .sanitized()
+        if (tuning == _bleAdaptiveTuning.value) return
+        DebugPreferenceManager.setBleAdaptiveThresholds(tuning.enterCodedBelowDbm, tuning.leaveCodedAboveDbm)
+        _bleAdaptiveTuning.value = tuning
+    }
+
+    fun resetBleAdaptiveThresholds() {
+        setBleAdaptiveThresholds(
+            com.bitchat.android.mesh.AdaptivePhyTuning.DEFAULT_ENTER_CODED_BELOW_DBM,
+            com.bitchat.android.mesh.AdaptivePhyTuning.DEFAULT_LEAVE_CODED_ABOVE_DBM
+        )
+        addDebugMessage(DebugMessage.SystemMessage("📶 Adaptive thresholds reset to defaults"))
     }
 
     fun setMaxConnectionsOverall(value: Int) {
@@ -648,6 +700,9 @@ data class DebugScanResult(
     val deviceAddress: String,
     val rssi: Int,
     val peerID: String?,
+    /** Primary advertising PHY (BluetoothDevice.PHY_LE_*), null when unknown. */
+    val primaryPhy: Int? = null,
+    val isLegacy: Boolean? = null,
     val timestamp: Date = Date()
 )
 

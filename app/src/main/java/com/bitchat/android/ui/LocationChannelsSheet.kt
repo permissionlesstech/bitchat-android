@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.PinDrop
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.SettingsInputAntenna
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Public
 import android.content.Intent
@@ -75,6 +76,8 @@ import com.bitchat.android.net.TorPreferenceManager
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 import com.bitchat.android.wifiaware.WifiAwareController
+import com.bitchat.android.mesh.BleLinkDiagnostics
+import com.bitchat.android.mesh.BleRangeIndicator
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -247,20 +250,20 @@ fun LocationChannelsSheet(
                                 color = colorScheme.surface,
                                 shape = AboutCardShape
                             ) {
+                                val rangeIndicator = rememberBleRangeIndicator()
+                                val longRange = rangeIndicator.kind == BleRangeIndicator.Kind.LONG_RANGE
                                 ChannelOptionRow(
                                     title = meshTitleWithCount(viewModel),
-                                    subtitle = stringResource(
-                                        if (wifiAwareEnabled) {
-                                            R.string.location_bluetooth_wifi_subtitle
-                                        } else {
-                                            R.string.location_bluetooth_subtitle
-                                        },
-                                        meshRangeString()
-                                    ),
+                                    subtitle = meshSubtitle(rangeIndicator, wifiAwareEnabled),
                                     isSelected = selectedChannel is ChannelID.Mesh,
                                     participantCount = meshCount(viewModel),
                                     titleColor = standardBlue,
                                     titleBold = meshCount(viewModel) > 0,
+                                    titleBadge = if (longRange) {
+                                        { LongRangeBadge(color = standardBlue) }
+                                    } else {
+                                        null
+                                    },
                                     onClick = {
                                         locationManager.select(ChannelID.Mesh)
                                         onDismiss()
@@ -721,6 +724,7 @@ private fun ChannelOptionRow(
     titleBold: Boolean = false,
     leadingIcon: ImageVector? = null,
     leadingIconRes: Int? = null,
+    titleBadge: (@Composable (() -> Unit))? = null,
     trailingContent: (@Composable (() -> Unit))? = null,
     onClick: () -> Unit
 ) {
@@ -791,6 +795,7 @@ private fun ChannelOptionRow(
                         color = colorScheme.onSurfaceVariant
                     )
                 }
+                titleBadge?.invoke()
             }
             Text(
                 text = subtitle,
@@ -1221,6 +1226,72 @@ private fun formatDistance(value: Double): String {
     }
 }
 
-private fun meshRangeString(): String = "~10–50m"
+private fun formatRange(meters: IntRange): String = "~${meters.first}–${meters.last}m"
+
+/** Samples BLE radio diagnostics while the sheet is visible; a cheap in-memory read, no radio work. */
+@Composable
+private fun rememberBleRangeIndicator(): BleRangeIndicator {
+    var indicator by remember { mutableStateOf(BleRangeIndicator.from(BleLinkDiagnostics.snapshot())) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            indicator = BleRangeIndicator.from(BleLinkDiagnostics.snapshot())
+            delay(1_000)
+        }
+    }
+    return indicator
+}
+
+@Composable
+private fun meshSubtitle(indicator: BleRangeIndicator, wifiAwareEnabled: Boolean): String {
+    val range = formatRange(indicator.estimatedRangeMeters)
+    if (indicator.kind != BleRangeIndicator.Kind.LONG_RANGE) {
+        val base = stringResource(
+            if (wifiAwareEnabled) R.string.location_bluetooth_wifi_subtitle else R.string.location_bluetooth_subtitle,
+            range
+        )
+        return if (indicator.kind == BleRangeIndicator.Kind.STANDARD_UNSUPPORTED) {
+            base + "\n" + stringResource(R.string.mesh_long_range_unsupported)
+        } else {
+            base
+        }
+    }
+    val base = stringResource(
+        if (wifiAwareEnabled) R.string.location_bluetooth_long_range_wifi_subtitle
+        else R.string.location_bluetooth_long_range_subtitle,
+        range
+    )
+    val status = when (indicator.links) {
+        BleRangeIndicator.Links.NONE -> stringResource(R.string.mesh_long_range_waiting)
+        BleRangeIndicator.Links.ALL_CODED -> stringResource(R.string.mesh_long_range_all_coded)
+        BleRangeIndicator.Links.SOME_CODED -> stringResource(R.string.mesh_long_range_some_coded)
+        BleRangeIndicator.Links.STANDARD -> stringResource(R.string.mesh_long_range_standard_links)
+    }
+    return "$base\n$status"
+}
+
+@Composable
+private fun LongRangeBadge(color: Color) {
+    Row(
+        modifier = Modifier
+            .background(color.copy(alpha = 0.12f), RoundedCornerShape(50))
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Filled.SettingsInputAntenna,
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.size(12.dp)
+        )
+        Text(
+            text = stringResource(R.string.mesh_long_range_badge),
+            fontSize = 10.sp,
+            fontFamily = BitchatFontFamily,
+            fontWeight = FontWeight.Medium,
+            color = color
+        )
+    }
+}
 
 private fun formattedNamePrefix(level: GeohashChannelLevel): String = "~"
