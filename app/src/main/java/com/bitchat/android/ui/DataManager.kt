@@ -233,16 +233,18 @@ class DataManager(private val context: Context) {
     fun loadGeohashBlockedUsers() {
         val savedGeohashBlockedUsers = prefs.getStringSet("geohash_blocked_users", emptySet()) ?: emptySet()
         _geohashBlockedUsers.clear()
-        _geohashBlockedUsers.addAll(savedGeohashBlockedUsers)
+        _geohashBlockedUsers.addAll(savedGeohashBlockedUsers.map { it.lowercase() })
     }
     
     fun saveGeohashBlockedUsers() {
-        prefs.edit().putStringSet("geohash_blocked_users", _geohashBlockedUsers).apply()
+        // Copy first. putStringSet keeps the set instance, so later adds would
+        // mutate the stored set and SharedPreferences would skip the write.
+        prefs.edit().putStringSet("geohash_blocked_users", HashSet(_geohashBlockedUsers)).apply()
     }
     
     @Synchronized
     fun addGeohashBlockedUser(pubkeyHex: String) {
-        _geohashBlockedUsers.add(pubkeyHex)
+        _geohashBlockedUsers.add(pubkeyHex.lowercase())
         saveGeohashBlockedUsers()
     }
     
@@ -254,7 +256,7 @@ class DataManager(private val context: Context) {
     
     @Synchronized
     fun isGeohashUserBlocked(pubkeyHex: String): Boolean {
-        return _geohashBlockedUsers.contains(pubkeyHex)
+        return _geohashBlockedUsers.contains(pubkeyHex.lowercase())
     }
     
     // MARK: - Emergency Clear
