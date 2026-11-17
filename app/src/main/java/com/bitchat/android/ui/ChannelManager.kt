@@ -37,7 +37,7 @@ class ChannelManager(
             if (state.getPasswordProtectedChannelsValue().contains(channelTag) && !channelKeys.containsKey(channelTag)) {
                 // Need password verification
                 if (password != null) {
-                    return verifyChannelPassword(channelTag, password)
+                    return refuseUnverifiablePassword(channelTag)
                 } else {
                     state.setPasswordPromptChannel(channelTag)
                     state.setShowPasswordPrompt(true)
@@ -53,9 +53,7 @@ class ChannelManager(
             if (dataManager.isChannelCreator(channelTag, myPeerID)) {
                 // Channel creator bypass
             } else if (password != null) {
-                if (!verifyChannelPassword(channelTag, password)) {
-                    return false
-                }
+                return refuseUnverifiablePassword(channelTag)
             } else {
                 state.setPasswordPromptChannel(channelTag)
                 state.setShowPasswordPrompt(true)
@@ -122,9 +120,17 @@ class ChannelManager(
     
     // MARK: - Channel Password and Encryption
     
-    private fun verifyChannelPassword(channel: String, password: String): Boolean {
-        // TODO: REMOVE THIS - FOR TESTING ONLY
-        return true
+    /**
+     * Refuses a submitted channel password. Nothing exists to check one against (no key
+     * commitment and no encrypted channel format), so accepting it would be claiming a
+     * verification that never happened.
+     */
+    private fun refuseUnverifiablePassword(channel: String): Boolean {
+        hidePasswordPrompt()
+        messageManager.addSystemMessageToActiveTimeline(
+            "could not join $channel: password-protected channels can't be verified yet."
+        )
+        return false
     }
     
     private fun deriveChannelKey(password: String, channelName: String): SecretKeySpec {
@@ -165,17 +171,24 @@ class ChannelManager(
         }
     }
     
-    fun sendEncryptedChannelMessage(
-        content: String, 
-        mentions: List<String>, 
-        channel: String, 
-        senderNickname: String?, 
-        myPeerID: String,
-        onEncryptedPayload: (ByteArray) -> Unit,
-        onFallback: () -> Unit
-    ) {
-        // TODO: REIMPLEMENT – REMOVED FOR NOW
-        return
+    /**
+     * Refuses a send to a password-protected channel and tells the user, returning true when
+     * refused. There is no encrypted channel format, and the transport would carry the content
+     * as plaintext, so callers must check this before echoing anything locally.
+     */
+    fun refuseSendIfPasswordProtected(channel: String): Boolean {
+        if (!isChannelPasswordProtected(channel)) return false
+        addChannelMessage(
+            channel,
+            BitchatMessage(
+                sender = "system",
+                content = "not sent: password-protected channels can't send messages yet.",
+                timestamp = Date(),
+                isRelay = false
+            ),
+            senderPeerID = null
+        )
+        return true
     }
     
     // MARK: - Channel Management
@@ -201,10 +214,6 @@ class ChannelManager(
     
     fun isChannelPasswordProtected(channel: String): Boolean {
         return state.getPasswordProtectedChannelsValue().contains(channel)
-    }
-    
-    fun hasChannelKey(channel: String): Boolean {
-        return channelKeys.containsKey(channel)
     }
     
     fun getChannelPassword(channel: String): String? {
