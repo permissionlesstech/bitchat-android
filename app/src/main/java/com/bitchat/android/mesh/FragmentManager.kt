@@ -296,7 +296,9 @@ class FragmentManager {
                     if (originalPacket != null) {
                         removeFragmentSetLocked(fragmentIDString)
 
-                        val suppressedTtlPacket = originalPacket.copy(ttl = 0u.toUByte())
+                        val suppressedTtlPacket = originalPacket.copy(
+                            ttl = 0u.toUByte(), reassembledOriginalTtl = originalPacket.ttl
+                        )
                         return suppressedTtlPacket
                     } else {
                         val metadata = fragmentMetadata[fragmentIDString]

@@ -159,3 +159,45 @@ Validation and limits (recommended):
 Versioning:
 
 - This document defines a fixed GCS hashing scheme (“v1”) with no explicit version field in the payload. Changing the hashing or ID recipe would require a new message or an additional TLV in a future revision; current deployments must adhere to the constants above.
+
+## Android public-message receive policy
+
+Public broadcast MESSAGE packets normally need a timestamp within 120 seconds
+of the receiver's clock. A marked response needs an open request to the neighbor
+that delivered it, and may carry a message up to six hours old. The future bound
+remains 120 seconds for requested history too. The signature must verify against
+the author's live signing key. This change does not add persisted-key lookup
+for senders absent from the live peer registry.
+
+Requests stay open for 60 seconds, measured with a monotonic elapsed clock.
+Periodic requests target the known direct neighbors every 30 seconds. A broadcast
+request used before neighbors are known does not open a response window.
+Repeated requests can keep a neighbor's response window continuously open.
+The registry records a request when it is handed to the send delegate; it does
+not acknowledge delivery or bind replies to a particular filter or request ID.
+Matching uses the current transport-to-peer mapping, not proof of authenticated
+link ownership. Reassembled packets use the completing fragment's ingress source;
+this does not establish that every fragment arrived from that neighbor.
+Reassembly suppresses relaying but retains the original inner TTL locally for
+legacy-response classification.
+
+Older clients omit the RSR flag. An unmarked TTL-zero message from a requested
+neighbor is eligible for the same age exception. Other unmarked public messages
+use the two-minute window. A marked public message without a matching request is
+rejected, including when its timestamp is recent.
+
+The request check uses the delivering neighbor, which can differ from the author.
+Bluetooth resolves the incoming device address through its peer map. Wi-Fi Aware
+resolves the socket's peer alias. The shared MeshCore also requires that resolved
+peer to be direct. A missing binding prevents the history exception.
+
+This policy leaves private packets, ANNOUNCE, FILE_TRANSFER and VOICE_FRAME on
+their existing validation paths. It can reject live messages when clocks differ
+by more than two minutes and history received after a request expires. A requested
+neighbor can still replay signed messages within the accepted age range.
+
+
+
+The packet codec recognizes and preserves the RSR header bit (`0x10`) for
+received packets. Android sync-response marking and persisted-identity history
+recovery are separate changes; this policy does not add them.

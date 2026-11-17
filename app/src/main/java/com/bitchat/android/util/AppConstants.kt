@@ -53,6 +53,14 @@ object AppConstants {
         const val KEY_EXCHANGE_DEDUP_TIMEOUT_MS: Long = 60_000L
     }
 
+    // Age limits follow iOS; the request window spans two Android sync intervals.
+    object Freshness {
+        const val PUBLIC_MESSAGE_MAX_SKEW_MS: Long = 120_000L
+        const val SYNC_RESPONSE_WINDOW_MS: Long = 60_000L
+        // Receive limit; archived public messages do not independently expire by timestamp.
+        const val SYNC_PUBLIC_MESSAGE_MAX_AGE_MS: Long = 6L * 60L * 60L * 1000L
+    }
+
     object Noise {
         const val REKEY_TIME_LIMIT_MS: Long = 3_600_000L // 1 hour
         const val REKEY_MESSAGE_LIMIT_ENCRYPTION: Long = 1_000L // per session, encryption service policy
