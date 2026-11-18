@@ -38,11 +38,12 @@ if str(REPOSITORY_ROOT) not in sys.path:
 
 from tools.release_gate.android_lab import APPLICATION_ID, find_adb, run_adb
 
+DEBUG_APPLICATION_ID = f"{APPLICATION_ID}.r40blefix"
 TEST_HOOK_ACTION = "com.bitchat.droid.TEST_HOOK"
-TEST_HOOK_COMPONENT = f"{APPLICATION_ID}/com.bitchat.android.testhook.TestHookReceiver"
+TEST_HOOK_COMPONENT = f"{DEBUG_APPLICATION_ID}/com.bitchat.android.testhook.TestHookReceiver"
 RESULTS_DIR = "cache/testhook/results"
 DEVICE_TMP_DIR = "/data/local/tmp/meshlab"
-APP_FIXTURE_DIR = f"/data/data/{APPLICATION_ID}/cache/fixtures"
+APP_FIXTURE_DIR = f"/data/data/{DEBUG_APPLICATION_ID}/cache/fixtures"
 
 WATCH_APPLICATION_ID = "com.bitchat.watch"
 WATCH_TEST_HOOK_ACTION = "com.bitchat.watch.TEST_HOOK"
@@ -83,7 +84,7 @@ class Device:
         self,
         serial: str,
         alias: str,
-        package: str = APPLICATION_ID,
+        package: str = DEBUG_APPLICATION_ID,
         hook_action: str = TEST_HOOK_ACTION,
         hook_component: str | None = None,
         permissions: list[str] = PERMISSIONS,
@@ -977,7 +978,7 @@ def build_parser() -> argparse.ArgumentParser:
     setup.add_argument("--serial-a", required=True)
     setup.add_argument("--serial-b")
     setup.add_argument("--serial-watch", help="watch serial; used as device B (overrides --serial-b)")
-    setup.add_argument("--package", default=APPLICATION_ID, help="phone app package (default: official package)")
+    setup.add_argument("--package", default=DEBUG_APPLICATION_ID, help="phone app package (default: debug diagnostic package)")
     setup.add_argument("--apk", type=Path, default=None)
     setup.add_argument("--watch-apk", type=Path, default=None)
     setup.add_argument("--nickname-a", default="alice")
@@ -988,12 +989,12 @@ def build_parser() -> argparse.ArgumentParser:
     scenario.add_argument("--serial-a", required=True)
     scenario.add_argument("--serial-b")
     scenario.add_argument("--serial-watch", help="watch serial; used as device B (overrides --serial-b)")
-    scenario.add_argument("--package", default=APPLICATION_ID, help="phone app package (default: official package)")
+    scenario.add_argument("--package", default=DEBUG_APPLICATION_ID, help="phone app package (default: debug diagnostic package)")
     scenario.add_argument("--out", type=Path, default=None, help="evidence output directory")
 
     raw = commands.add_parser("cmd", help="send a raw test-hook command to one device")
     raw.add_argument("--serial", required=True)
-    raw.add_argument("--package", default=APPLICATION_ID, help="phone app package (default: official package)")
+    raw.add_argument("--package", default=DEBUG_APPLICATION_ID, help="phone app package (default: debug diagnostic package)")
     raw.add_argument("cmd")
     raw.add_argument("--extra", action="append", default=[], help="key=value string extra (repeatable)")
     raw.add_argument("--extra-int", action="append", default=[], help="key=value int extra (repeatable)")
@@ -1003,7 +1004,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _resolve_devices(args: argparse.Namespace) -> tuple[Device, Device]:
     """Device A is always the phone; device B is a watch when --serial-watch is given."""
-    package = getattr(args, "package", APPLICATION_ID)
+    package = getattr(args, "package", DEBUG_APPLICATION_ID)
     a = Device(args.serial_a, "alpha", package=package)
     if getattr(args, "serial_watch", None):
         return a, WatchDevice(args.serial_watch)

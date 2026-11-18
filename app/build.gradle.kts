@@ -84,7 +84,8 @@ android {
                 "FORCE_FINISH_PERMISSION",
                 "\"$debugForceFinishPermission\""
             )
-            manifestPlaceholders["forceFinishPermission"] = debugForceFinishPermission            ndk {
+            manifestPlaceholders["forceFinishPermission"] = debugForceFinishPermission
+            ndk {
                 // Include x86_64 for emulator support during development
                 abiFilters += listOf("arm64-v8a", "x86_64", "armeabi-v7a", "x86")
             }

@@ -125,13 +125,6 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                         
                         // Notify delegate
                         delegate?.onMessageReceived(message)
-                        BleTestTrace.record(
-                            appContext,
-                            "dm_rx",
-                            "delivered_to_message_store",
-                            "ok",
-                            messageId = privateMessage.messageID
-                        )
                         
                         // Send delivery ACK exactly like iOS
                         sendDeliveryAck(privateMessage.messageID, peerID)
@@ -161,7 +154,6 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                         if (!LiveVoiceManager.getInstance(appContext).absorbFinalizedVoiceNote(message)) {
                             delegate?.onMessageReceived(message)
                         }
-                        BleTestTrace.record(appContext, "media_rx", "delivered_to_message_store", "ok", bytes = file.fileSize)
 
                         // Send delivery ACK with generated message ID
                         sendDeliveryAck(uniqueMsgId, peerID)

@@ -500,6 +500,21 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                         .admitToAppState(message)
                 ) return
 
+                // This is the only point where the app can claim a private DM/media is stored:
+                // MessageHandler's delegate callback may have been rejected by admission.
+                if (message.isPrivate) {
+                    val event = if (
+                        message.type == com.bitchat.android.model.BitchatMessageType.Message
+                    ) "dm_rx" else "media_rx"
+                    BleTestTrace.record(
+                        context,
+                        event,
+                        "delivered_to_message_store",
+                        "ok",
+                        messageId = message.id
+                    )
+                }
+
                 // And forward to UI delegate if attached
                 delegate?.didReceiveMessage(message)
 

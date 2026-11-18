@@ -108,7 +108,8 @@ def collect(args: argparse.Namespace) -> dict[str, object]:
 
 
 def disarm(args: argparse.Namespace) -> dict[str, object]:
-    adb(args.serial, "shell", "run-as", args.package, "rm", "-f", f"files/{CONFIG_NAME}")
+    files_dir = f"/data/data/{args.package}/files"
+    adb(args.serial, "shell", "run-as", args.package, "rm", "-f", f"{files_dir}/{CONFIG_NAME}")
     return {"status": "disarmed"}
 
 
