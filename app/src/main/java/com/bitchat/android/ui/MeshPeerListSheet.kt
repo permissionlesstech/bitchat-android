@@ -143,6 +143,12 @@ fun MeshPeerListSheet(
     val offlineConversations = remember(filteredConversations) {
         filteredConversations.filterNot(ConversationSummary::isConnected)
     }
+    val privateContacts = remember(filteredConversations) {
+        filteredConversations.filter(ConversationSummary::isPrivateContact)
+    }
+    val publicConversations = remember(filteredConversations) {
+        filteredConversations.filterNot(ConversationSummary::isPrivateContact)
+    }
     val sheetScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -282,6 +288,40 @@ fun MeshPeerListSheet(
                         }
                     }
 
+                    if (privateContacts.isNotEmpty()) {
+                        item(key = "private_contacts_label") {
+                            ConversationGroupLabel(
+                                text = stringResource(R.string.private_contacts)
+                            )
+                        }
+                        itemsIndexed(
+                            items = privateContacts,
+                            key = { _, conversation ->
+                                "conversation:${conversation.conversationID}"
+                            }
+                        ) { index, conversation ->
+                            ConversationSwipeItem(
+                                conversation = conversation,
+                                directPeerIdentityIDs = directPeerIdentityIDs,
+                                wifiAwareIdentityIDs = wifiAwareIdentityIDs,
+                                viewModel = viewModel,
+                                isFirst = index == 0,
+                                isLast = index == privateContacts.lastIndex,
+                                onPrivateChatStart = { conversationID ->
+                                    viewModel.showPrivateChatSheet(conversationID)
+                                    onDismiss()
+                                },
+                                onDeleteRequested = { pendingConversationDelete = it },
+                                onReadStateRequested = { item, isRead ->
+                                    sheetScope.launch {
+                                        viewModel.setConversationRead(item.conversationID, isRead)
+                                    }
+                                },
+                                modifier = Modifier.animateItem()
+                            )
+                        }
+                    }
+
                     if (onlineConversations.isNotEmpty()) {
                         item(key = "private_conversations_online_label") {
                             ConversationGroupLabel(
@@ -289,7 +329,7 @@ fun MeshPeerListSheet(
                             )
                         }
                         itemsIndexed(
-                            items = onlineConversations,
+                            items = onlineConversations.filterNot { it.isPrivateContact },
                             key = { _, conversation ->
                                 "conversation:${conversation.conversationID}"
                             }
@@ -323,7 +363,7 @@ fun MeshPeerListSheet(
                             )
                         }
                         itemsIndexed(
-                            items = offlineConversations,
+                            items = offlineConversations.filterNot { it.isPrivateContact },
                             key = { _, conversation ->
                                 "conversation:${conversation.conversationID}"
                             }
@@ -1330,6 +1370,14 @@ private fun ConversationRow(
                         tint = palette.textTertiary
                     )
                 }
+                if (conversation.isPrivateContact) {
+                    Icon(
+                        Icons.Filled.Lock,
+                        contentDescription = stringResource(R.string.private_contact_badge),
+                        modifier = Modifier.size(14.dp),
+                        tint = palette.accentOrange
+                    )
+                }
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -1405,6 +1453,24 @@ private fun ConversationRow(
                     onClick = {
                         showActions = false
                         onToggleMuted()
+                    }
+                )
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            if (conversation.isPrivateContact) {
+                                stringResource(R.string.remove_private_contact)
+                            } else {
+                                stringResource(R.string.add_private_contact)
+                            }
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Filled.Lock, contentDescription = null)
+                    },
+                    onClick = {
+                        showActions = false
+                        viewModel.togglePrivateContact(conversation.conversationID)
                     }
                 )
                 DropdownMenuItem(
