@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TODO: Hebrew translations -->
+    <!-- Machine-translated (Claude) — pending native-speaker review -->
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d הערה</item>
+    <item quantity="other">#%1$s ± 1 • %2$d הערות</item>
+  </plurals>
+  <string name="location_notes_description">הוסף הערות קצרות וקבועות למיקום זה כדי שמבקרים אחרים ימצאו אותן.</string>
+  <string name="location_notes_relays_unavailable">ממסרי מיקום אינם זמינים; ההערות הושהו</string>
+  <string name="location_notes_no_relays_title">אין ממסרי מיקום בקרבת מקום</string>
+  <string name="location_notes_no_relays_desc">ההערות תלויות בממסרי מיקום. בדוק חיבור ונסה שוב.</string>
+  <string name="loading_location_notes">טוען הערות…</string>
+  <string name="location_notes_empty_title">אין עדיין הערות</string>
+  <string name="location_notes_empty_desc">היה הראשון להוסיף הערה למקום זה.</string>
+  <string name="dismiss">סגור</string>
+  <string name="location_notes_input_placeholder">הוסף הערה למקום זה</string>
+  <string name="retry">נסה שוב</string>
+  <string name="cd_add_bookmark">הוסף סימנייה</string>
+  <string name="about_network">רשת</string>
+  <string name="cd_open_map">פתח מפה</string>
+  <string name="cd_remove_bookmark">הסר סימנייה</string>
+  <string name="cd_decrease_precision">הפחת דיוק</string>
+  <string name="cd_increase_precision">הגבר דיוק</string>
+  <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+  <string name="location_channels_title">#ערוצי מיקום</string>
+  <string name="location_channels_desc">שוחח עם אנשים בקרבתך באמצעות ערוצי geohash. משותף רק geohash גס, לעולם לא מיקום GPS מדויק. אל תצלם מסך או תשתף מסך זה כדי להגן על פרטיותך.</string>
+  <string name="location_permission_denied">הרשאת המיקום נדחתה. אפשר בהגדרות כדי להשתמש בערוצי מיקום.</string>
+  <string name="finding_nearby_channels">מחפש ערוצים בקרבת מקום…</string>
+  <string name="bookmarked">סומן</string>
+  <string name="geohash_placeholder">geohash</string>
+  <string name="invalid_geohash">geohash לא תקין</string>
+  <string name="teleport">טלפורט</string>
+  <string name="disable_location_services">בטל שירותי מיקום</string>
+  <string name="enable_location_services">אפשר שירותי מיקום</string>
+  <string name="location_level_block">רחוב</string>
+  <string name="location_level_neighborhood">שכונה</string>
+  <string name="location_level_city">עיר</string>
+  <string name="location_level_province">מחוז</string>
+  <string name="location_level_region">אזור</string>
+  <string name="hash_symbol">#</string>
+  <plurals name="people_count">
+    <item quantity="one">איש אחד</item>
+    <item quantity="other">%1$d אנשים</item>
+  </plurals>
+    <string name="globe_live">חי</string>
+    <string name="globe_connecting">מתחבר</string>
+    <string name="globe_offline">לא מחובר</string>
+    <string name="globe_hint_drag">סיבוב</string>
+    <string name="globe_hint_pinch">זום</string>
+    <string name="globe_hint_tap">הקש על נקודה</string>
+    <string name="globe_no_activity">אין פעילות אחרונה</string>
+    <string name="cd_show_whole_globe">הצג את כל הגלובוס</string>
+    <string name="cd_globe_activity">%1$d צ׳אטים פעילים, %2$d אנשים מחוברים</string>
+    <string name="cd_channel_activity">%1$d אנשים, %2$d הודעות בשעה האחרונה</string>
+    <string name="join">הצטרף</string>
+    <string name="cd_close">סגור</string>
+</resources>

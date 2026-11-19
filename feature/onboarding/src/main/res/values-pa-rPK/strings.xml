@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="battery_optimization_not_required">بیٹری آپٹمائزیشن دی لوڑ نئیں</string>
+    <string name="battery_optimization_not_supported_message">توانڈے ڈیوائس نوں بیٹری آپٹمائزیشن سیٹنگ دی لوڑ نئیں۔ bitchat عام طرح چلّو گا۔</string>
+    <string name="battery_optimization_success_message">bitchat پس منظر وچ قابلِ اعتماد چل سکدا اے</string>
+    <string name="battery_optimization_skip">ہور ویلے</string>
+    <string name="skip">سکِپ</string>
+
+    <string name="cd_location_services">لوکیشن سروسز</string>
+    <string name="cd_privacy">پرائیویسی</string>
+    <string name="cd_error">غلطی</string>
+    <string name="cd_battery_optimization">بیٹری آپٹمائزیشن</string>
+    <string name="cd_benefits">فائدے</string>
+    <string name="cd_checking_battery_optimization">بیٹری آپٹمائزیشن چیک ہورہی اے</string>
+    <string name="cd_not_supported_battery_optimization">بیٹری آپٹمائزیشن سپورٹڈ نئیں</string>
+    <string name="cd_bluetooth">بلوٹوتھ</string>
+    <string name="cd_privacy_protected">پرائیویسی محفوظ اے</string>
+    <!-- آن بورڈنگ سکرینا -->
+    <string name="location_services_required">لوکیشن سروسز لازمی نیں</string>
+    <string name="privacy_first">پرائیویسی پہلے</string>
+    <string name="location_explanation">bitchat توانڈی لوکیشن نئیں ٹریک کردا۔\n\nبلوٹوتھ سکیننگ تے geohash چیٹ فیچر لئی لوکیشن سروسز دی لوڑ اے۔</string>
+    <string name="location_needs_for">bitchat نوں لوکیشن سروسز دی لوڑ اے لئی:</string>
+    <string name="location_needs_bullets">• بلوٹوتھ ڈیوائس سکیننگ\n• میش نیٹ ورک وچ نیڑے یوزراں دی تلاش\n• geohash چیٹ فیچر\n• کوئی ٹریکنگ یا لوکیشن جمع نئیں</string>
+    <string name="open_location_settings">لوکیشن سیٹنگز کھولو</string>
+    <string name="check_again">فیر چیک کرو</string>
+    <string name="location_services_unavailable">لوکیشن سروسز دستیاب نئیں</string>
+    <string name="location_unavailable_explanation">اس ڈیوائس تے لوکیشن سروسز دستیاب نئیں۔ ایہ غیر معمولی اے کیونجے Android ڈیوائساں تے لوکیشن سروسز معیاری نیں۔\n\nبلوٹوتھ سکیننگ نوں ٹھیک کم کرن لئی bitchat نوں لوکیشن سروسز چاہیدیاں نیں (Android دی شرط)۔ بنا اس دے، ایپ نیڑے یوزر نئیں لبھ سکدی۔</string>
+    <string name="checking_location_services">لوکیشن سروسز چیک ہورھیاں نیں …</string>
+    <string name="bluetooth_needs_for">bitchat نوں بلوٹوتھ چاہیدا اے لئی:</string>
+    <string name="bluetooth_needs_bullets">• نیڑے یوزر لبھنا\n• میش نیٹ ورک کنکشن بنانا\n• پیغام بھیجنا تے لینا\n• انٹرنیٹ یا سرور توں بغیر کم کرنا</string>
+    <string name="enable_bluetooth">بلوٹوتھ چالو کرو</string>
+    <string name="bluetooth_not_supported">بلوٹوتھ سپورٹڈ نئیں</string>
+    <string name="bluetooth_unsupported_explanation">ایہ ڈیوائس Bluetooth Low Energy (BLE) نئیں سپورٹ کردا، جو bitchat لئی ضروری اے۔\n\nbitchat نوں BLE چاہیدا اے میش نیٹ ورک بناؤن تے نیڑے ڈیوائساں نال انٹرنیٹ توں بغیر گل کرن لئی۔</string>
+    <string name="checking_bluetooth_status">بلوٹوتھ حالت چیک ہورہی اے …</string>
+    <string name="battery_optimization_detected_title">بیٹری آپٹمائزیشن لبھیا گیا</string>
+    <string name="battery_optimization_enabled_title">بیٹری آپٹمائزیشن چالو اے</string>
+    <string name="battery_optimization_explanation_short">میش کنکشن قائم رکھن لئی bitchat نوں پس منظر وچ چلنا پوے گا۔ بیٹری آپٹمائزیشن ایہ کنکشناں وچ رکاوٹ پا سکدی اے۔</string>
+    <string name="benefits_of_disabling">بند کرن دے فائدے</string>
+    <string name="battery_benefits_short">• معتبر پیغام رسانی\n• میش کنکشن برقرار\n• کنکشن ٹٹّن توں بچاؤ</string>
+    <string name="disable_battery_optimization">بیٹری آپٹمائزیشن بند کرو</string>
+    <string name="battery_optimization_disabled_title">بیٹری آپٹمائزیشن بند اے</string>
+    <string name="continue_btn">جاری رکھو</string>
+    <string name="initializing_mesh_network">میش نیٹ ورک شروع ہورہا اے</string>
+    <string name="setting_up_bluetooth">بلوٹوتھ میش نیٹ ورک سیٹ اپ ہورہا …</string>
+    <string name="should_take_seconds">ایہ صرف چند سیکنڈ لگنے چاہیدے نیں</string>
+    <string name="setup_not_complete">سیٹ اپ مکمل نئیں</string>
+    <string name="try_again">فیر کوشِش کرو</string>
+    <string name="privacy_protected">توانڈی پرائیویسی محفوظ اے</string>
+    <string name="privacy_bullets">• کوئی ٹریکنگ یا ڈیٹا جمع نئیں\n• بلوٹوتھ میش چیٹ مکمل آف لائن\n• geohash چیٹ انٹرنیٹ استعمال کردی اے</string>
+    <string name="permissions_header">اجازتاں</string>
+    <string name="grant_permissions">اجازت دو</string>
+    <string name="bluetooth_recommended">Bluetooth Recommended</string>
+</resources>

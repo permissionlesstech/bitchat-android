@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="channels">Channel</string>
+    <string name="no_one_connected">Tidak ada yang terhubung</string>
+    <string name="your_network">Jaringan</string>
+
+    <!-- Aksesibilitas favorit -->
+    <string name="cd_add_favorite">Tambah ke favorit</string>
+    <string name="cd_remove_favorite">Hapus dari favorit</string>
+    <!-- Header chat &amp; aksesibilitas -->
+    <string name="cd_nostr_reachable">Dapat dijangkau melalui Nostr</string>
+    <string name="cd_unread_private_messages">Pesan pribadi yang belum dibaca</string>
+    <string name="cd_open_location_channels">Buka pengaturan lokasi dan channel</string>
+    <string name="cd_connected_peers">Peer yang terhubung</string>
+    <string name="cd_geohash_participants">Peserta geohash</string>
+    <string name="cd_ready_for_handshake">Siap untuk handshake</string>
+    <string name="cd_handshake_in_progress">Handshake sedang berlangsung</string>
+    <string name="cd_encrypted">Terenkripsi end-to-end</string>
+    <string name="cd_handshake_failed">Handshake gagal</string>
+
+    <!-- Dialog penampil file -->
+    <string name="file_viewer_title">📎 File diterima</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="file_viewer_size">📏 Ukuran: %1$s</string>
+    <string name="file_viewer_type">🏷️ Jenis: %1$s</string>
+    <string name="file_viewer_open_save">📂 Buka / Simpan</string>
+    <string name="close_with_emoji">❌ Tutup</string>
+    <string name="pick_image">Pilih gambar</string>
+
+    <string name="cancel_lower">batal</string>
+
+    <string name="cd_unread_message">Pesan yang belum dibaca</string>
+    <string name="cd_reachable_via_nostr">Dapat dijangkau melalui Nostr</string>
+    <string name="cd_offline_favorite">Favorit (offline)</string>
+    <string name="cd_scroll_to_bottom">Gulir ke bawah</string>
+    <string name="cd_file">File</string>
+    <string name="cd_image">Gambar</string>
+    <string name="cd_cancel">Batal</string>
+    <string name="cd_link">Tautan</string>
+    <string name="cd_pick_media">Pilih media</string>
+    <string name="cd_pick_file">Pilih file</string>
+    <string name="cd_save_current_image">Simpan gambar saat ini</string>
+    <string name="cd_close">Tutup</string>
+    <string name="cd_image_index_of">Gambar %1$d dari %2$d</string>
+    <string name="cd_record_voice">Rekam pesan suara</string>
+    <string name="image_unavailable">Gambar tidak tersedia</string>
+    <string name="toast_image_saved">Gambar disimpan ke \"Downloads\"</string>
+    <string name="toast_failed_to_save_image">Gagal menyimpan gambar</string>
+    <string name="file_unavailable">[File tidak tersedia]</string>
+    <!-- Sheet aksi pengguna -->
+    <string name="choose_action_message_or_user">Pilih aksi untuk pesan atau pengguna ini</string>
+    <string name="choose_action_user">Pilih aksi untuk pengguna ini</string>
+    <string name="action_copy_message_title">Salin pesan</string>
+    <string name="action_copy_message_subtitle">Salin pesan ini ke clipboard</string>
+    <string name="action_slap_title">Tampar %1$s</string>
+    <string name="action_slap_subtitle">Kirim tamparan main-main</string>
+    <string name="action_hug_title">Peluk %1$s</string>
+    <string name="action_hug_subtitle">Kirim pelukan yang ramah</string>
+    <string name="action_block_title">Blokir %1$s</string>
+    <string name="action_block_subtitle">Blokir semua pesan dari pengguna ini</string>
+
+    <string name="mesh_label">mesh</string>
+    <string name="nobody_around">tidak ada orang di sekitar …</string>
+    <string name="you_suffix"> (Anda)</string>
+    <string name="type_a_message_placeholder">Ketik pesan …</string>
+    <string name="mention">sebut</string>
+    <string name="media_type_image">Gambar</string>
+    <string name="media_type_file">File</string>
+
+    <!-- Pembantu teks notifikasi -->
+    <string name="notification_sent_image">📷 mengirim gambar</string>
+    <string name="notification_sent_voice">🎤 mengirim pesan suara</string>
+    <string name="notification_sent_file">📎 mengirim file</string>
+
+    <!-- Dialog kata sandi -->
+    <string name="pwd_prompt_title">Masukkan kata sandi channel</string>
+    <string name="pwd_prompt_message">Channel %1$s dilindungi kata sandi. Masukkan kata sandi untuk bergabung.</string>
+    <string name="pwd_label">Kata sandi</string>
+    <string name="join">Bergabung</string>
+  <string name="verify_title">verify</string>
+  <string name="verify_my_qr_title">scan to verify me</string>
+  <string name="verify_scan_prompt_friend">scan someone elses qr</string>
+  <string name="verify_remove">remove verification</string>
+  <string name="verify_qr_unavailable">qr unavailable</string>
+  <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
+  <string name="verify_request_camera">enable camera</string>
+  <string name="security_verification_title">security verification</string>
+  <string name="fingerprint_their">their fingerprint</string>
+  <string name="fingerprint_yours">your fingerprint</string>
+  <string name="fingerprint_pending">handshake pending</string>
+  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
+  <string name="fingerprint_status_encrypted">encrypted</string>
+  <string name="fingerprint_status_handshaking">handshaking</string>
+  <string name="fingerprint_status_failed">handshake failed</string>
+  <string name="fingerprint_status_uninitialized">not encrypted</string>
+  <string name="fingerprint_verified_message">you have verified this persons identity.</string>
+  <string name="fingerprint_not_verified_label">not verified</string>
+  <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
+  <string name="fingerprint_mark_verified">mark as verified</string>
+  <string name="fingerprint_start_handshake">start handshake</string>
+  <string name="fingerprint_copy">copy</string>
+    <string name="cd_open_about">Buka Tentang</string>
+</resources>

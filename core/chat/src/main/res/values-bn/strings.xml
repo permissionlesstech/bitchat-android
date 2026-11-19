@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="notification_messages_from_people">%2$d জন থেকে %1$d বার্তা</string>
+    <string name="notification_more_conversations">এবং %1$d আরো কথোপকথন</string>
+    <string name="notification_new_messages">নতুন বার্তা</string>
+    <string name="notification_new_location_messages">নতুন অবস্থান বার্তা</string>
+    <string name="notification_mentions_in">%1$s এ উল্লিখিত</string>
+    <string name="notification_mentions_in_more">%1$s এ উল্লিখিত (+%2$d আরো)</string>
+    <string name="notification_mentions_in_plural">%2$s এ %1$d উল্লেখ</string>
+    <string name="notification_new_activity_in">%1$s এ নতুন কার্যকলাপ</string>
+    <string name="notification_messages_in">%1$s এ বার্তা</string>
+    <string name="notification_joined_conversation">%1$s কথোপকথনে যোগ দিয়েছে</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d উল্লেখ</string>
+    <string name="notification_geohash_summary_title">bitchat – অবস্থান চ্যাট</string>
+    <string name="notification_geohash_summary_text">%2$d অবস্থান থেকে %1$d বার্তা</string>
+    <string name="notification_mesh_mention_title_singular">মেশ চ্যাটে উল্লিখিত</string>
+    <string name="notification_mesh_mention_title_plural">মেশ চ্যাটে %1$d উল্লেখ</string>
+    <string name="notification_more_locations">এবং %1$d আরো অবস্থান</string>
+    <plurals name="notification_and_more">
+        <item quantity="one">এবং %d আরো</item>
+        <item quantity="other">এবং %d আরো</item>
+    </plurals>
+  <string name="verify_mutual_match_title">Mutual verification</string>
+  <string name="verify_mutual_match_body">You and %1$s verified each other</string>
+  <string name="verify_mutual_system_message">mutual verification with %1$s</string>
+  <string name="verify_success_title">Verified</string>
+  <string name="verify_success_body">You verified %1$s</string>
+  <string name="verify_success_system_message">verified %1$s</string>
+</resources>

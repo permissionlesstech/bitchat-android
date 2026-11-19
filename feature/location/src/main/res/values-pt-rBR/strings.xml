@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retry">Tentar novamente</string>
+    <string name="cd_add_bookmark">Adicionar favorito</string>
+
+    <string name="about_network">Rede</string>
+    <string name="cd_open_map">Abrir mapa</string>
+    <string name="cd_remove_bookmark">Remover favorito</string>
+    <string name="cd_decrease_precision">Diminuir precisão</string>
+    <string name="cd_increase_precision">Aumentar precisão</string>
+    <!-- Canais geohash -->
+    <string name="location_channels_title">#Canais de localização</string>
+    <string name="location_channels_desc">Converse com pessoas próximas através de canais geohash. Apenas um geohash aproximado é compartilhado, nunca dados exatos de GPS. Para preservar sua privacidade, não tire capturas de tela nem compartilhe esta tela.</string>
+    <string name="location_permission_denied">Permissão de localização negada. Ative nas configurações para usar canais de localização.</string>
+    <string name="finding_nearby_channels">Procurando canais próximos…</string>
+    <string name="bookmarked">Marcado</string>
+    <string name="geohash_placeholder">Geohash</string>
+    <string name="invalid_geohash">Geohash inválido</string>
+    <string name="teleport">teletransportar</string>
+    <string name="disable_location_services">Desativar serviços de localização</string>
+    <string name="enable_location_services">Ativar serviços de localização</string>
+    <string name="location_level_block">Quadra</string>
+    <string name="location_level_neighborhood">Vizinhança</string>
+    <string name="location_level_city">Cidade</string>
+    <string name="location_level_province">Estado</string>
+    <string name="location_level_region">Região</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <plurals name="people_count">
+        <item quantity="one">1 pessoa</item>
+        <item quantity="other">%d pessoas</item>
+    </plurals>
+
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d nota</item>
+    <item quantity="other">#%1$s ± 1 • %2$d notas</item>
+  </plurals>
+  <string name="location_notes_description">adicione notas curtas e permanentes a este local para que outros visitantes as encontrem.</string>
+  <string name="location_notes_relays_unavailable">relés geográficos indisponíveis; notas em pausa</string>
+  <string name="location_notes_no_relays_title">nenhum relé geográfico nas proximidades</string>
+  <string name="location_notes_no_relays_desc">as notas dependem de relés geográficos. verifique a conexão e tente novamente.</string>
+  <string name="loading_location_notes">carregando notas…</string>
+  <string name="location_notes_empty_title">ainda não há notas</string>
+  <string name="location_notes_empty_desc">seja o primeiro a adicionar uma para este local.</string>
+  <string name="dismiss">fechar</string>
+  <string name="location_notes_input_placeholder">adicione uma nota para este local</string>
+  <string name="nearby_notes_reveal">ver se há notas deixadas aqui</string>
+    <string name="globe_live">ao vivo</string>
+    <string name="globe_connecting">conectando</string>
+    <string name="globe_offline">offline</string>
+    <string name="globe_hint_drag">girar</string>
+    <string name="globe_hint_pinch">zoom</string>
+    <string name="globe_hint_tap">toque em um ponto</string>
+    <string name="globe_no_activity">sem atividade recente</string>
+    <string name="cd_show_whole_globe">Mostrar o globo inteiro</string>
+    <string name="cd_globe_activity">%1$d chats ativos, %2$d pessoas online</string>
+    <string name="cd_channel_activity">%1$d pessoas, %2$d mensagens na última hora</string>
+    <string name="join">Entrar</string>
+    <string name="cd_close">Fechar</string>
+</resources>

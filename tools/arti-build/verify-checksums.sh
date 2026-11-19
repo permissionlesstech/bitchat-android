@@ -19,7 +19,7 @@ else
   shasum -a 256 -c "$CHECKSUM_FILE"
 fi
 
-for library in app/src/main/jniLibs/*/libarti_android.so; do
+for library in core/tor/src/main/jniLibs/*/libarti_android.so; do
   if strings "$library" | grep -Eq '/Users/|/home/|[A-Za-z]:\\\\Users\\\\'; then
     echo "error: host-specific path detected in a native library" >&2
     exit 1

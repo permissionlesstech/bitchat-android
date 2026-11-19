@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="notification_messages_from_people">%2$d 人からの %1$d 件のメッセージ</string>
+    <string name="notification_more_conversations">ほか %1$d 会話</string>
+    <string name="notification_new_messages">新着メッセージ</string>
+    <string name="notification_new_location_messages">新しい位置情報メッセージ</string>
+    <string name="notification_mentions_in">%1$s でのメンション</string>
+    <string name="notification_mentions_in_more">%1$s でのメンション (+%2$d)</string>
+    <string name="notification_mentions_in_plural">%2$s で %1$d 件のメンション</string>
+    <string name="notification_new_activity_in">%1$s の新しいアクティビティ</string>
+    <string name="notification_messages_in">%1$s のメッセージ</string>
+    <string name="notification_joined_conversation">%1$s が会話に参加しました</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d 件のメンション</string>
+    <string name="notification_geohash_summary_title">bitchat – ロケーションチャット</string>
+    <string name="notification_geohash_summary_text">%2$d 箇所からの %1$d 件のメッセージ</string>
+    <string name="notification_mesh_mention_title_singular">メッシュチャットでメンション</string>
+    <string name="notification_mesh_mention_title_plural">メッシュチャットで %1$d 件のメンション</string>
+    <string name="notification_more_locations">ほか %1$d 箇所</string>
+    <plurals name="notification_and_more">
+        <item quantity="one">ほか %d</item>
+        <item quantity="other">ほか %d</item>
+    </plurals>
+  <string name="verify_mutual_match_title">相互検証</string>
+  <string name="verify_mutual_match_body">あなたと %1$s は相互に検証しました</string>
+  <string name="verify_mutual_system_message">%1$s と相互検証しました</string>
+  <string name="verify_success_title">検証済み</string>
+  <string name="verify_success_body">%1$s を検証しました</string>
+  <string name="verify_success_system_message">%1$s を検証しました</string>
+</resources>

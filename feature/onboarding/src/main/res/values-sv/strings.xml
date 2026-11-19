@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="battery_optimization_not_required">Batterioptimering krävs inte</string>
+    <string name="battery_optimization_not_supported_message">Din enhet kräver inte batterioptimeringsinställningar. bitchat körs normalt.</string>
+    <string name="battery_optimization_success_message">bitchat kan köras tillförlitligt i bakgrunden</string>
+    <string name="battery_optimization_skip">Hoppa över nu</string>
+    <string name="skip">Hoppa över</string>
+
+    <string name="cd_location_services">Plats­tjänster</string>
+    <string name="cd_privacy">Integritet</string>
+    <string name="cd_error">Fel</string>
+    <string name="cd_battery_optimization">Batterioptimering</string>
+    <string name="cd_benefits">Fördelar</string>
+    <string name="cd_checking_battery_optimization">Kontrollerar optimering</string>
+    <string name="cd_not_supported_battery_optimization">Stöds ej</string>
+    <string name="cd_bluetooth">Bluetooth</string>
+    <string name="location_services_required">Platstjänster krävs</string>
+    <string name="privacy_first">Integritet först</string>
+    <string name="location_explanation">bitchat SPÅRAR INTE din plats.\n\nPlatstjänster krävs för Bluetooth‑skanning och Geohash‑chatt.</string>
+    <string name="location_needs_for">bitchat behöver platstjänster för:</string>
+    <string name="location_needs_bullets">• Bluetooth‑skanning av enheter\n• Hitta användare i närheten i mesh‑nätet\n• Geohash‑chatt\n• Ingen spårning eller insamling</string>
+    <string name="open_location_settings">Öppna platsinställningar</string>
+    <string name="check_again">Kontrollera igen</string>
+    <string name="location_services_unavailable">Platstjänster inte tillgängliga</string>
+    <string name="location_unavailable_explanation">Platstjänster saknas på den här enheten. Det är ovanligt.\n\nAndroid kräver dem för att Bluetooth‑skanning ska fungera. Utan dem kan vi inte hitta användare i närheten.</string>
+    <string name="checking_location_services">Kontrollerar platstjänster…</string>
+    <string name="bluetooth_needs_for">bitchat behöver Bluetooth för:</string>
+    <string name="bluetooth_needs_bullets">• Hitta användare i närheten\n• Skapa mesh‑anslutningar\n• Skicka och ta emot meddelanden\n• Fungera utan internet/ servrar</string>
+    <string name="enable_bluetooth">Aktivera Bluetooth</string>
+    <string name="bluetooth_not_supported">Bluetooth stöds inte</string>
+    <string name="bluetooth_unsupported_explanation">Denna enhet stöder inte Bluetooth Low Energy (BLE), vilket krävs för bitchat.\n\nBLE behövs för att bygga mesh och kommunicera utan internet.</string>
+    <string name="checking_bluetooth_status">Kontrollerar Bluetooth‑status…</string>
+    <string name="battery_optimization_detected_title">batterioptimering upptäckt</string>
+    <string name="battery_optimization_enabled_title">Batterioptimering på</string>
+    <string name="battery_optimization_explanation_short">bitchat måste köra i bakgrunden för mesh; optimering kan bryta.</string>
+    <string name="benefits_of_disabling">Fördelar med inaktivering</string>
+    <string name="battery_benefits_short">• tillförlitlig leverans\n• håller anslutning\n• förhindrar avbrott</string>
+    <string name="disable_battery_optimization">Inaktivera optimering</string>
+    <string name="battery_optimization_disabled_title">optimering av</string>
+    <string name="continue_btn">Fortsätt</string>
+    <string name="initializing_mesh_network">Initierar mesh‑nätverk</string>
+    <string name="dot">.</string>
+    <string name="setting_up_bluetooth">Ställer in Bluetooth‑mesh…</string>
+    <string name="should_take_seconds">Det tar bara några sekunder</string>
+    <string name="warning_emoji">⚠️</string>
+    <string name="setup_not_complete">Slutför inte inställningen</string>
+    <string name="try_again">Försök igen</string>
+    <string name="privacy_protected">Din integritet är skyddad</string>
+    <string name="privacy_bullets">• ingen spårning eller insamling\n• Bluetooth‑mesh‑chattar helt offline\n• geohash‑chattar använder internet</string>
+    <string name="permissions_header">behörigheter</string>
+    <string name="grant_permissions">Ge behörigheter</string>
+    <string name="bluetooth_recommended">Bluetooth rekommenderas</string>
+</resources>

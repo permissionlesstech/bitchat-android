@@ -1,0 +1,1298 @@
+package com.bitchat.android.architecture
+
+import java.io.File
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/**
+ * Every singleton declares its lifetime, and identity types are reached only the allowed ways.
+ *
+ * An identity type is one that belongs to a single identity: a class annotated `@IdentityScoped`
+ * or one a `@CurrentIdentity` `@Provides` bridge hands out. Outside the identity scope it is taken
+ * as `@CurrentIdentity Provider<T>`, so every `get()` asks the holder and nothing caches an
+ * identity's object past a wipe. Read as source text from the module sources, comments and string
+ * literals dropped. The tables below are the allowlists.
+ *
+ * A session type is the same one level down: a class annotated `@ChatSessionScoped`, or one a
+ * `@ChatSessionScoped` or `@CurrentSession` `@Provides` hands out. Outside its scope it always
+ * carries `@CurrentSession`, and is taken as `Provider<T>` unless the consumer is a ViewModel, which
+ * a panic discards. An `@IdentityScoped` class outlives a session too, but needs no rule here: a
+ * parent component cannot see its child's bindings, so Dagger refuses it. Inside the session scope
+ * both are unqualified: a qualifier there would go round the holder, to whichever identity or session
+ * is current, rather than to the one the class belongs to.
+ *
+ * An Activity-retained class outlives both, so it follows the same rule as a singleton: only a
+ * ViewModel, which a panic discards, takes either directly. It stays out of the session with a reason.
+ *
+ * The construction rule scans only `init` blocks and property initialisers, so `init { setup() }`
+ * and a method that stores `provider.get()` in a field are not caught. The Dagger qualifier is the
+ * primary enforcement; this scan is a backstop.
+ */
+class IdentityScopeRulesTest {
+
+    // ---- Allowlists -------------------------------------------------------------------------
+
+    /** Singletons that are process-wide on purpose, with the reason. */
+    private val processWide: Map<String, String> = mapOf(
+        "IdentityHolder" to "owns the identity component, so it outlives every identity",
+        "AppIdentityStartup" to "starts each identity through Providers and keeps none of its objects",
+        "PanicRunner" to "the scope a panic runs on, which must outlive the session and identity it ends; holds no identity data",
+        "ArtiTorManager" to "network route only; holds no identity data",
+        "OkHttpProvider" to "network route only; holds no identity data",
+        "TorPreferenceManager" to "network route only; holds no identity data",
+        "NostrHttpClients" to "the Tor-routed HTTP clients; network route only",
+        "NostrRelayManager" to "sockets and relay list; identity subscriptions belong to their owners",
+        "RelayDirectory" to "sockets and relay list; identity subscriptions belong to their owners",
+        "LiveLocationPrivacyGate" to "consent gate; panic turns location off",
+        "PowerManager" to "device and process state",
+        "AppShutdownCoordinator" to "device and process state",
+        "MeshServicePreferences" to "device and process state",
+        "DeviceReadiness" to "reads the device and stored onboarding choices; no identity data",
+        "DebugSettingsManager" to "debug settings; the wipe list must cover its buffers",
+        "DebugPreferenceManager" to "debug settings; the wipe list must cover its buffers",
+        "SpamFilterPreferences" to "settings only",
+        "PoWPreferenceManager" to "settings only",
+        "WearNotificationCoordinator" to "system notifications",
+    )
+
+    /**
+     * Unscoped classes the identity scope builds, which take identity types like an `@IdentityScoped`
+     * class does but cannot carry the annotation, with the reason.
+     */
+    private val builtInsideTheScope: Map<String, String> = mapOf(
+        "BluetoothMeshService" to "@AssistedInject, which Dagger refuses to scope; built only by MeshServiceHolder",
+        "UnifiedMeshService" to "@AssistedInject, which Dagger refuses to scope; built only by MeshServiceHolder",
+        "MessageRouter" to "@AssistedInject, which Dagger refuses to scope; built only by MessageRouterHolder",
+        "WifiAwareMeshService" to "a fresh instance per start, so unscoped; built only by WifiAwareController",
+    )
+
+    /**
+     * What stays in `ActivityRetainedComponent` rather than moving into the chat session, with the
+     * reason. A class holding a session's data or running its jobs does not belong here.
+     */
+    private val stayRetained: Map<String, String> = mapOf(
+        "ChatSessionHolder" to "owns the session component, so it outlives every session",
+        "PanicClear" to "ends the session it clears from outside it, and takes each session object through a Provider",
+        "AppNavigator" to "the back stack: UI state of the Activity, holding routes and no session object",
+        "GenerationViewModelStoreOwner" to "must outlive a session to discard its ViewModels at the next one; holds them only until then",
+        "AppStartupGate" to "startup phase across configuration changes; decides whether a session is reachable at all",
+        "BluetoothSkipSession" to "a startup choice for this launch; holds no identity data",
+        "CoroutineScope" to "AppStartupGate's own scope, with the gate's lifetime; runs no session work",
+    )
+
+    /**
+     * Stateful Kotlin objects, with the reason. A companion is `Owner.Companion`. Entries that hold
+     * an identity's data are marked identity: they are still to be moved into the scope.
+     */
+    private val statefulObjects: Map<String, String> = mapOf(
+        "SecureIdentityStateManager.Companion" to "identity: private-media pin epoch counter, still to be reviewed",
+        "NotificationManager.Companion" to "identity: registry of live managers; chat-session lifetime",
+        "ChatUiModeManager" to "process: display preference flow",
+        "ThemePreferenceManager" to "process: display preference flow",
+        "FileShareDispatcher" to "process: the foreground screen's share handler; holds no identity data",
+        "LandData" to "process: decoded static globe geometry cache",
+        "ReadinessOverride" to "process: debug-only readiness override",
+        "TestHookDriver" to "process: debug-only test hook",
+        "WearTestHookDriver" to "process: debug-only test hook",
+    )
+
+    /**
+     * `@IdentityScoped` or session classes that make their own scope, timer, executor, receiver or
+     * gate listener yet take nothing that ends with them, with the reason a cleanup is not needed.
+     */
+    private val teardownExempt: Map<String, String> = mapOf(
+        "WearMeshService" to "the watch's identity never ends: its holder never calls replace(), so nothing runs a cleanup",
+    )
+
+    // ---- Tests against the real sources -----------------------------------------------------
+
+    @Test
+    fun everySingletonIsProcessWideWithAReason() {
+        val model = realModel()
+        assertTrue("Scanned no singletons; the scan is broken", model.singletons().size > 10)
+        val offenders = singletonViolations(model, processWide)
+        assertTrue(offenders.joinToString("\n"), offenders.isEmpty())
+    }
+
+    @Test
+    fun theAllowlistsHoldNoStaleOrContradictoryEntry() {
+        val problems = tableProblems(realModel(), processWide)
+        assertTrue(problems.joinToString("\n"), problems.isEmpty())
+    }
+
+    @Test
+    fun aClassBuiltInsideTheScopeIsUnscopedAndGivesItsReason() {
+        val problems = insideScopeProblems(realModel(), builtInsideTheScope)
+        assertTrue(problems.joinToString("\n"), problems.isEmpty())
+    }
+
+    @Test
+    fun aStatefulObjectIsAllowlistedWithAReason() {
+        val model = realModel()
+        val offenders = statefulObjectViolations(model, statefulObjects)
+        assertTrue(offenders.joinToString("\n"), offenders.isEmpty())
+    }
+
+    @Test
+    fun outsideTheScopeAnIdentityTypeIsTakenAsACurrentIdentityProvider() {
+        val model = realModel()
+        assertTrue("No identity type found; the scan is broken", model.identityTypes().isNotEmpty())
+        val offenders = providerViolations(model, builtInsideTheScope.keys)
+        assertTrue(offenders.joinToString("\n"), offenders.isEmpty())
+    }
+
+    @Test
+    fun onlyAViewModelMayTakeAnIdentityTypeDirectly() {
+        val offenders = directViolations(realModel(), builtInsideTheScope.keys)
+        assertTrue(offenders.joinToString("\n"), offenders.isEmpty())
+    }
+
+    @Test
+    fun outsideItsScopeASessionTypeIsTakenThroughCurrentSession() {
+        val model = realModel()
+        assertTrue("No session type found; the scan is broken", model.sessionTypes().isNotEmpty())
+        val offenders = sessionViolations(model)
+        assertTrue(offenders.joinToString("\n"), offenders.isEmpty())
+    }
+
+    @Test
+    fun aClassStayingRetainedGivesItsReason() {
+        val problems = retainedProblems(realModel(), stayRetained)
+        assertTrue(problems.joinToString("\n"), problems.isEmpty())
+    }
+
+    @Test
+    fun insideTheSessionScopeNothingIsReachedThroughAQualifier() {
+        val offenders = sessionQualifierViolations(realModel())
+        assertTrue(offenders.joinToString("\n"), offenders.isEmpty())
+    }
+
+    @Test
+    fun theSessionHoldsItsClasses() {
+        val session = realModel().sessionTypes()
+        val expected = listOf(
+            "ChatState", "DataManager", "MessageManager", "NotificationManager", "SecureIdentityStateManager",
+            "ChannelManager", "PrivateChatManager", "CommandProcessor", "VerificationHandler", "MediaSendingManager",
+            "GeohashSession", "MeshDelegateHandler", "ChatMeshDelegate", "MessageSender", "ConversationDirectory",
+            "ContactFavorites", "ChatSessionStartup", "ChatBackUnwinder", "PrivateChatSession", "ComposerMedia",
+            "ChatSessionMesh",
+        )
+        assertEquals(emptyList<String>(), expected.filter { it !in session })
+        assertTrue("a qualified scope is not a session type", "CoroutineScope" !in session)
+    }
+
+    @Test
+    fun anIdentityClassThatOwnsAScopeOrReceiverRegistersItsTeardown() {
+        val offenders = teardownViolations(realModel(), teardownExempt)
+        assertTrue(offenders.joinToString("\n"), offenders.isEmpty())
+    }
+
+    @Test
+    fun onlyAPanicEndsAnIdentityOrASession() {
+        val offenders = replaceViolations(realModel())
+        assertTrue(offenders.joinToString("\n"), offenders.isEmpty())
+    }
+
+    @Test
+    fun aLongerLivedClassDoesNotCallAProviderOfAScopedTypeWhileBeingBuilt() {
+        val offenders = constructionViolations(realModel())
+        assertTrue(offenders.joinToString("\n"), offenders.isEmpty())
+    }
+
+    // ---- Each rule, proven against synthetic source -----------------------------------------
+
+    @Test
+    fun theReplaceRuleSeesACallAnywhereButPanicClear() {
+        val model = Model(
+            listOf(
+                Src("core/chat/src/main/java/x/PanicClear.kt", "class PanicClear { fun f() { identityHolder.replace(); sessionHolder.replace() } }"),
+                Src("app/src/main/java/x/Stray.kt", "class Stray { fun f() { holder.replace() } }"),
+                Src("app/src/main/java/x/Wrapped.kt", "class Wrapped { fun f() { holder\n  .replace() } }"),
+                Src("app/src/debug/java/x/Hook.kt", "class Hook { fun f() = holder.replace() }"),
+                Src("app/src/main/java/x/Text.kt", "class Text { fun f() = name.replace(\"a\", \"b\") }"),
+                Src("app/src/main/java/x/Mesh.kt", "class Mesh { fun f() = mesh.replace(other) }"),
+                Src("core/mesh/src/main/java/x/IdentityHolder.kt", "class IdentityHolder { fun replace(): List<String> = emptyList() }"),
+            ),
+        )
+        val found = replaceViolations(model)
+        assertEquals(listOf("Hook.kt", "Stray.kt", "Wrapped.kt"), found.map { it.substringBefore(" ").substringAfterLast("/") }.sorted())
+    }
+
+    private val identityCache = """
+        package x
+        @IdentityScoped
+        class Cache @Inject constructor()
+    """.trimIndent()
+
+    @Test
+    fun `no class is left pending`() {
+        val model = modelOf(
+            identityCache,
+            "@ChatSessionScoped class Held @Inject constructor()",
+            "@ActivityRetainedScoped class TakesIdentity @Inject constructor(@CurrentIdentity private val c: Cache)",
+            "@ActivityRetainedScoped class TakesSession @Inject constructor(@CurrentSession private val h: Held)",
+            "@Module @InstallIn(ActivityRetainedComponent::class) object InstallerIdentity { @Provides fun i(@CurrentIdentity c: Cache): A = A(c) }",
+            "@Module @InstallIn(ActivityRetainedComponent::class) object InstallerSession { @Provides fun i(@CurrentSession h: Held): B = B(h) }",
+            "@ActivityRetainedScoped class GoodRetained @Inject constructor(@CurrentIdentity private val c: Provider<Cache>, @CurrentSession private val h: Provider<Held>)",
+            "@HiltViewModel class GoodVm @Inject constructor(@CurrentIdentity private val c: Cache, @CurrentSession private val h: Held) : ViewModel()",
+        )
+        val direct = directViolations(model)
+        val session = sessionViolations(model)
+        listOf("TakesIdentity", "InstallerIdentity").forEach { name ->
+            assertTrue("$name not reported in $direct", direct.any { it.contains("'$name'") })
+        }
+        listOf("TakesSession", "InstallerSession").forEach { name ->
+            assertTrue("$name not reported in $session", session.any { it.contains("'$name'") })
+        }
+        listOf("GoodRetained", "GoodVm").forEach { name ->
+            assertTrue("$name wrongly reported in $direct", direct.none { it.contains("'$name'") })
+            assertTrue("$name wrongly reported in $session", session.none { it.contains("'$name'") })
+        }
+    }
+
+    @Test
+    fun aRetainedClassIsListedWithAReason() {
+        val model = modelOf(
+            "@ActivityRetainedScoped class Listed @Inject constructor()",
+            "@ActivityRetainedScoped class Unlisted @Inject constructor()",
+            "@ActivityRetainedScoped class Blank @Inject constructor()",
+            "@Module @InstallIn(ActivityRetainedComponent::class) object M { @Provides @ActivityRetainedScoped fun made(): Made = Made() }",
+            "@Module @InstallIn(ActivityRetainedComponent::class) object U { @Provides fun free(): Free = Free() }",
+            "@HiltViewModel class Vm @Inject constructor() : ViewModel()",
+        )
+        val problems = retainedProblems(model, mapOf("Listed" to "why", "Blank" to " ", "Gone" to "why"))
+        listOf("Unlisted", "Blank", "Made", "Gone").forEach { name ->
+            assertTrue("no problem named for $name in $problems", problems.any { "'$name'" in it })
+        }
+        listOf("Listed", "Free", "Vm").forEach { name ->
+            assertTrue("$name wrongly reported in $problems", problems.none { "'$name'" in it })
+        }
+    }
+
+    @Test
+    fun aSessionClassReachesNothingThroughAQualifier() {
+        val model = modelOf(
+            identityCache,
+            "@ChatSessionScoped class Direct @Inject constructor(private val c: Cache, private val p: Provider<Cache>)",
+            "@ChatSessionScoped class ViaIdentity @Inject constructor(@CurrentIdentity private val c: Provider<Cache>)",
+            "@ChatSessionScoped class ViaSession @Inject constructor(@CurrentSession private val c: Provider<Direct>)",
+            "@Module @InstallIn(ChatSessionComponent::class) object Made { @Provides fun made(@CurrentIdentity c: Cache): M = M(c) }",
+            "@Module @InstallIn(ChatSessionComponent::class) object Fine { @Provides fun fine(c: Cache): F = F(c) }",
+        )
+        val found = sessionQualifierViolations(model)
+        listOf("ViaIdentity", "ViaSession", "Made").forEach { name ->
+            assertTrue("$name not reported in $found", found.any { it.contains("'$name'") })
+        }
+        listOf("Direct", "Fine").forEach { name ->
+            assertTrue("$name wrongly reported in $found", found.none { it.contains("'$name'") })
+        }
+    }
+
+    @Test
+    fun theSessionRuleWantsTheQualifierAndAProviderOutsideAViewModel() {
+        val model = modelOf(
+            "@ChatSessionScoped class Cache @Inject constructor()",
+            "@Module @InstallIn(ChatSessionComponent::class) object Made { @Provides @ChatSessionScoped fun m(c: Context): Provided = Provided(c) }",
+            "@Module @InstallIn(ActivityRetainedComponent::class) object Bridge { @Provides @CurrentSession fun b(h: H): Bridged = h.x() }",
+            "@HiltViewModel class VmDirect @Inject constructor(@CurrentSession private val c: Cache) : ViewModel()",
+            "@HiltViewModel class VmProvider @Inject constructor(@CurrentSession private val c: Provider<Cache>) : ViewModel()",
+            "@HiltViewModel class VmUnqualified @Inject constructor(private val c: Cache) : ViewModel()",
+            "@ActivityRetainedScoped class RetainedGood @Inject constructor(@CurrentSession private val c: Provider<Bridged>)",
+            "@ActivityRetainedScoped class RetainedDirect @Inject constructor(@CurrentSession private val c: Provided)",
+            "@ActivityRetainedScoped class RetainedPlain @Inject constructor(private val c: Provider<Cache>)",
+            "@ActivityRetainedScoped class RetainedLazy @Inject constructor(@CurrentSession private val c: Lazy<Cache>)",
+            "@Singleton class ProcessDirect @Inject constructor(@CurrentSession private val c: Cache)",
+            "@Singleton class ProcessGood @Inject constructor(@CurrentSession private val c: Provider<Cache>)",
+            "class ActivityDirect { @Inject @CurrentSession lateinit var c: Cache }",
+            "class ActivityGood { @Inject @CurrentSession lateinit var c: Provider<Cache> }",
+            "@Module @InstallIn(ActivityRetainedComponent::class) object TakesDirect { @Provides fun t(@CurrentSession c: Cache): Other = Other(c) }",
+            "@Module @InstallIn(ActivityRetainedComponent::class) object TakesGood { @Provides fun t(@CurrentSession c: Provider<Cache>): Fine = Fine(c) }",
+            "@Module @InstallIn(ActivityRetainedComponent::class) object Leak { @Provides fun l(h: H): Cache = h.x() }",
+            "@EntryPoint @InstallIn(ActivityComponent::class) interface HookPlain { fun c(): Cache }",
+            "@EntryPoint @InstallIn(ActivityComponent::class) interface HookGood { @CurrentSession fun c(): Cache }",
+            "@ChatSessionScoped class Sibling @Inject constructor(private val c: Cache, private val b: Bridged)",
+            "@Module @InstallIn(ChatSessionComponent::class) object Inside { @Provides fun i(c: Cache): Within = Within(c) }",
+            "@EntryPoint @InstallIn(ChatSessionComponent::class) interface InsideHook { fun c(): Cache }",
+            "class NotInjected(private val c: Cache)",
+            "@Module @InstallIn(ChatSessionComponent::class) object Scopes { @Provides @ChatSessionScoped @ChatSessionScope fun s(): CoroutineScope = CoroutineScope(Dispatchers.Main) }",
+        )
+        assertEquals(setOf("Cache", "Provided", "Bridged", "Sibling"), model.sessionTypes())
+        val found = sessionViolations(model)
+        listOf(
+            "VmUnqualified", "RetainedDirect", "RetainedPlain", "RetainedLazy", "ProcessDirect", "ActivityDirect",
+            "TakesDirect", "Leak", "HookPlain",
+        ).forEach { name -> assertTrue("$name not reported in $found", found.any { it.contains("'$name'") }) }
+        listOf(
+            "VmDirect", "VmProvider", "RetainedGood", "ProcessGood", "ActivityGood", "TakesGood", "Bridge", "Made",
+            "HookGood", "Sibling", "Inside", "InsideHook", "NotInjected",
+        ).forEach { name -> assertTrue("$name wrongly reported in $found", found.none { it.contains("'$name'") }) }
+    }
+
+    @Test
+    fun aSessionBridgeWithoutAnExplicitReturnTypeFails() {
+        val model = modelOf(
+            "@Module @InstallIn(ActivityRetainedComponent::class) object NoType { @Provides @CurrentSession fun c(h: H) = h.x() }",
+        )
+        val found = sessionViolations(model)
+        assertEquals(found.toString(), 1, found.size)
+        assertTrue(found.single().contains("explicit return type") && found.single().contains("'c'"))
+    }
+
+    @Test
+    fun theSingletonRuleSeesAnUnclassifiedClassAndAProvidedSingleton() {
+        val model = modelOf(
+            "@Singleton class Known @Inject constructor()",
+            "@Singleton class Stray @Inject constructor()",
+            "@javax.inject.Singleton class Qualified @javax.inject.Inject constructor()",
+            "@Module object M { @Provides @Singleton fun strayProvided(a: A): Provided = Provided(a) }",
+            "@Module abstract class B { @Binds @Singleton abstract fun bind(i: Impl): Bound }",
+            "// @Singleton class Commented()\n/* @Singleton class Blocked() */ val s = \"@Singleton class Quoted()\"",
+        )
+        val found = singletonViolations(model, mapOf("Known" to "why", "Bound" to "why"))
+        assertEquals(found.toString(), 3, found.size)
+        listOf("Stray", "Provided", "Qualified").forEach { name -> assertTrue(found.any { it.contains("'$name'") }) }
+        assertTrue(found.all { "PROCESS_WIDE" in it && "@IdentityScoped" in it })
+    }
+
+    @Test
+    fun theTablesRefuseAStaleBlankOrDoubleEntry() {
+        val model = modelOf(
+            identityCache,
+            "@Singleton class Gone @Inject constructor()",
+            "@IdentityScoped @Singleton class TwoLifetimes @Inject constructor()",
+        )
+        val problems = tableProblems(
+            model,
+            processWide = mapOf("Missing" to "why", "Blank" to " ", "Cache" to "why"),
+        )
+        listOf("Missing", "Blank", "Cache", "TwoLifetimes").forEach { name ->
+            assertTrue("no problem named for $name in $problems", problems.any { name in it })
+        }
+    }
+
+    @Test
+    fun theObjectRuleSeesEachFormOfState() {
+        val model = modelOf(
+            "object ByVar { private var count = 0 }",
+            "object ByFlow { val flow = MutableStateFlow(0) }",
+            "object ByMap { val map = ConcurrentHashMap<String, Int>() }",
+            "object ByList {\n val list =\n   mutableListOf<Int>()\n}",
+            "class Owner { companion object { @Volatile private var cache: Int? = null } }",
+            "object Allowed { var x = 0 }",
+            "object Constants { const val A = 1; val B = listOf(1); fun f() { var local = 0 } }",
+            "val anonymous = object : Runnable { var n = 0; override fun run() {} }",
+        )
+        val found = statefulObjectViolations(model, mapOf("Allowed" to "why"))
+        listOf("ByVar", "ByFlow", "ByMap", "ByList", "Owner.Companion").forEach { name ->
+            assertTrue("$name not reported in $found", found.any { it.contains("'$name'") })
+        }
+        assertEquals(found.toString(), 5, found.size)
+        val stale = statefulObjectViolations(model, mapOf("Constants" to "why", "Allowed" to "why"))
+        assertTrue("a stateless allowlisted object should be reported: $stale", stale.any { it.contains("'Constants'") })
+    }
+
+    @Test
+    fun theProviderRuleSeesEveryDirectLazyAndUnqualifiedUse() {
+        val model = modelOf(
+            identityCache,
+            "@Singleton class Direct @Inject constructor(private val c: Cache)",
+            "@Singleton class FullyQualified @javax.inject.Inject constructor(private val c: com.x.Cache)",
+            "@Singleton class Qualified @Inject constructor(@CurrentIdentity private val c: Cache)",
+            "@Singleton class Lazily @Inject constructor(@CurrentIdentity private val c: Lazy<Cache>)",
+            "@Singleton class Plain @Inject constructor(private val c: Provider<Cache>)",
+            "@Singleton class Good @Inject constructor(@CurrentIdentity private val c: Provider<Cache>)",
+            "@Singleton class Multi @Inject constructor(\n private val a: Int,\n @param:CurrentIdentity private val c: Provider<Cache>,\n)",
+            "class Activity { @Inject lateinit var field: Cache\n @Inject @CurrentIdentity lateinit var good: Provider<Cache> }",
+            "@EntryPoint @InstallIn(SingletonComponent::class) interface Hook { fun cache(): Cache\n @CurrentIdentity fun ok(): Cache }",
+            "@Module @InstallIn(SingletonComponent::class) object Bridge { @Provides @CurrentIdentity fun c(h: H): Cache = h.x() }",
+            "@Module @InstallIn(SingletonComponent::class) object Leak { @Provides fun c(h: H): Cache = h.x() }",
+            "@Module @InstallIn(SingletonComponent::class) object Takes { @Provides fun t(c: Cache): Other = Other(c) }",
+            "@Module @InstallIn(IdentityComponent::class) object Inside { @Provides fun t(c: Cache): Other = Other(c) }",
+            "@EntryPoint @InstallIn(IdentityComponent::class) interface InsideHook { fun cache(): Cache }",
+            "@IdentityScoped class Sibling @Inject constructor(private val c: Cache)",
+            "class NotInjected(private val c: Cache)",
+            "@Singleton class SecLazy(private val n: Int) {\n @Inject constructor(@CurrentIdentity c: Lazy<Cache>) : this(1)\n}",
+            "@Singleton class SecPlain(private val n: Int) {\n @Inject constructor(c: Provider<Cache>) : this(1)\n}",
+            "@Singleton class SecDirect(private val n: Int) {\n @Inject constructor(c: Cache) : this(1)\n}",
+            "@Singleton class SecGood(private val c: Cache) {\n @Inject constructor(@CurrentIdentity p: Provider<Cache>) : this(p.get())\n}",
+        )
+        val found = providerViolations(model)
+        val expected = listOf("SecLazy", "SecPlain", "SecDirect", "Direct", "FullyQualified", "Lazily", "Plain", "Activity", "Hook", "Leak", "Takes")
+        expected.forEach { name -> assertTrue("$name not reported in $found", found.any { it.contains("'$name") }) }
+        listOf("SecGood", "Qualified", "Good", "Multi", "Bridge", "Inside", "InsideHook", "Sibling", "NotInjected").forEach { name ->
+            assertTrue("$name wrongly reported in $found", found.none { it.contains("'$name") })
+        }
+    }
+
+    @Test
+    fun aClassBuiltInsideTheScopeMayTakeAnIdentityTypeOnlyWhenListedAndUnscoped() {
+        val model = modelOf(
+            identityCache,
+            "class Listed @AssistedInject constructor(private val c: Cache, @Assisted n: Int)",
+            "class Unlisted @AssistedInject constructor(private val c: Cache, @Assisted n: Int)",
+            "@Singleton class Scoped @Inject constructor(private val c: Provider<Cache>)",
+        )
+        val found = providerViolations(model, setOf("Listed"))
+        assertTrue("Listed wrongly reported in $found", found.none { it.contains("'Listed") })
+        assertTrue("Unlisted not reported in $found", found.any { it.contains("'Unlisted") })
+        val problems = insideScopeProblems(model, mapOf("Listed" to "why", "Scoped" to "why", "Gone" to "why", "Cache" to "why", "Unlisted" to " "))
+        listOf("Scoped", "Gone", "Cache", "Unlisted").forEach { name ->
+            assertTrue("no problem named for $name in $problems", problems.any { name in it })
+        }
+        assertTrue("Listed wrongly reported in $problems", problems.none { "Listed" in it.replace("Unlisted", "") })
+    }
+
+    @Test
+    fun aBridgeWithoutAnExplicitReturnTypeFails() {
+        val model = modelOf(
+            identityCache,
+            "@Module @InstallIn(SingletonComponent::class) object NoType { @Provides @CurrentIdentity fun c(h: H) = h.x() }",
+        )
+        val found = providerViolations(model)
+        assertEquals(found.toString(), 1, found.size)
+        assertTrue(found.single().contains("explicit return type") && found.single().contains("'c'"))
+    }
+
+    @Test
+    fun theDirectRuleAllowsOnlyAViewModel() {
+        val model = modelOf(
+            identityCache,
+            "@ActivityRetainedScoped class Retained @Inject constructor(@CurrentIdentity private val c: Cache)",
+            "@HiltViewModel class Vm @Inject constructor(@CurrentIdentity private val c: Cache) : ViewModel()",
+            "@HiltViewModel class VmSecondary internal constructor(private val n: Int) : ViewModel() {\n @Inject constructor(@CurrentIdentity c: Cache) : this(1)\n}",
+            "@Singleton class Process @Inject constructor(@CurrentIdentity private val c: Cache)",
+            "class Activity { @Inject @CurrentIdentity lateinit var c: Cache }",
+            "@Module @InstallIn(ActivityRetainedComponent::class) object M { @Provides @ActivityRetainedScoped fun s(@CurrentIdentity c: Cache): Made = Made(c) }",
+            "@Module @InstallIn(ViewModelComponent::class) object ForVm { @Provides fun u(@CurrentIdentity c: Cache): InVm = InVm(c) }",
+            "@Module @InstallIn(SingletonComponent::class) object Proc { @Provides fun u(@CurrentIdentity c: Cache): InProcess = InProcess(c) }",
+            "@EntryPoint @InstallIn(SingletonComponent::class) interface EP { @CurrentIdentity fun c(): Cache }",
+        )
+        val found = directViolations(model)
+        listOf("Retained", "Process", "Activity", "M", "Proc").forEach { name ->
+            assertTrue("$name not reported in $found", found.any { it.contains("'$name'") })
+        }
+        listOf("Vm", "VmSecondary", "ForVm", "EP").forEach { name ->
+            assertTrue("$name wrongly reported in $found", found.none { it.contains("'$name'") })
+        }
+    }
+
+    @Test
+    fun theConstructionRuleSeesAProviderCalledWhileBuilding() {
+        val model = modelOf(
+            identityCache,
+            "@Singleton class Init @Inject constructor(@CurrentIdentity private val p: Provider<Cache>) {\n init { p.get().start() }\n}",
+            "@Singleton class Prop @Inject constructor(@CurrentIdentity private val p: Provider<Cache>) {\n private val c = p.get()\n}",
+            "@Singleton class PropWrapped @Inject constructor(@CurrentIdentity private val p: Provider<Cache>) {\n private val n = p\n   .get()\n   .name\n}",
+            "@Singleton class Holder @Inject constructor(private val holder: IdentityHolder) {\n private val c = holder.entryPoint<Hook>()\n}",
+            "@Singleton class Later @Inject constructor(@CurrentIdentity private val p: Provider<Cache>) {\n" +
+                " private val lazyOne by lazy { p.get() }\n" +
+                " private val lazyTwo = lazy { p.get() }\n" +
+                " private val gap: Cache get() = p.get()\n" +
+                " fun use() = p.get().start()\n" +
+                " fun run() {\n  p.get().start()\n }\n" +
+                " init { scope.launch { p.get().start() } }\n" +
+                "}",
+            "class NotProcess @Inject constructor(@CurrentIdentity private val p: Provider<Cache>) {\n init { p.get() }\n}",
+            "@Singleton class Run @Inject constructor(@CurrentIdentity private val p: Provider<Cache>) {\n private val c = run { p.get() }\n}",
+            "@ChatSessionScoped class Held @Inject constructor()",
+            "@ActivityRetainedScoped class RetainedInit @Inject constructor(@CurrentSession private val h: Provider<Held>) {\n init { h.get().start() }\n}",
+            "@ActivityRetainedScoped class RetainedProp @Inject constructor(@CurrentSession private val h: Provider<Held>) {\n private val c = h.get()\n}",
+            "@ActivityRetainedScoped class RetainedHolder @Inject constructor(private val holder: ChatSessionHolder) {\n private val c = holder.entryPoint<Hook>()\n}",
+            "@ActivityRetainedScoped class RetainedLater @Inject constructor(@CurrentSession private val h: Provider<Held>) {\n private val c get() = h.get()\n fun use() = h.get()\n}",
+        )
+        val found = constructionViolations(model)
+        listOf("Init", "Prop", "PropWrapped", "Holder", "Run", "RetainedInit", "RetainedProp", "RetainedHolder").forEach { name ->
+            assertTrue("$name not reported in $found", found.any { it.contains("'$name'") })
+        }
+        listOf("Later", "NotProcess", "RetainedLater").forEach { name ->
+            assertTrue("$name wrongly reported in $found", found.none { it.contains("'$name'") })
+        }
+    }
+
+    @Test
+    fun `scan flags an identity class creating its own scope with no teardown`() {
+        val model = modelOf(
+            "@IdentityScoped class Scope @Inject constructor() {\n private val scope = CoroutineScope(Dispatchers.IO)\n}",
+            "@ChatSessionScoped class Session @Inject constructor() {\n private val t = Timer()\n}",
+            "@IdentityScoped class Receiver @Inject constructor(private val c: Context) {\n fun go() { c.registerReceiver(r, f) }\n}",
+            "@IdentityScoped class Listener @Inject constructor(private val g: Gate) {\n init { g.addRevocationListener(::x) }\n}",
+            "@IdentityScoped class Pool @Inject constructor() {\n private val e = Executors.newSingleThreadExecutor()\n}",
+            "@IdentityScoped class Thread @Inject constructor() {\n private val h = HandlerThread(\"x\")\n}",
+            "@IdentityScoped class Clean @Inject constructor() {\n fun go() = 1\n}",
+            "class NotScoped @Inject constructor() {\n private val scope = CoroutineScope(Dispatchers.IO)\n}",
+        )
+        val offenders = teardownViolations(model, emptyMap())
+        assertEquals(
+            listOf("Listener", "Pool", "Receiver", "Scope", "Session", "Thread"),
+            offenders.map { Regex("""^'(\w+)'""").find(it)!!.groupValues[1] }.sorted(),
+        )
+        assertEquals(listOf("Scope"), teardownViolations(model, mapOf("Session" to "r", "Listener" to "r", "Pool" to "r", "Receiver" to "r", "Thread" to "r")).map { Regex("""^'(\w+)'""").find(it)!!.groupValues[1] })
+    }
+
+    @Test
+    fun `scan accepts one taking what ends with its own scope`() {
+        val model = modelOf(
+            "@IdentityScoped class A @Inject constructor(teardown: IdentityTeardown) {\n private val s = CoroutineScope(Dispatchers.IO)\n}",
+            "@IdentityScoped class B @Inject constructor(@IdentityCoroutineScope private val s: CoroutineScope) {\n fun go() { s.launch { } }\n}",
+            "@ChatSessionScoped class C @Inject constructor(@ChatSessionScope s: CoroutineScope, c: Context) {\n fun go() { c.registerReceiver(r, f) }\n}",
+            "@IdentityScoped class D(private val n: Int) {\n @Inject constructor(teardown: IdentityTeardown) : this(1)\n private val s = CoroutineScope(Dispatchers.IO)\n}",
+            "@IdentityScoped class E @Inject constructor(\n private val a: Int,\n teardown: IdentityTeardown,\n) {\n init { Timer() }\n}",
+            "@ChatSessionScoped class F @Inject constructor(teardown: ChatSessionTeardown) {\n private val s = CoroutineScope(Dispatchers.IO)\n}",
+        )
+        assertEquals(emptyList<String>(), teardownViolations(model, emptyMap()))
+    }
+
+    @Test
+    fun `a session class must end with the session, not with the identity`() {
+        val model = modelOf(
+            "@ChatSessionScoped class ByTeardown @Inject constructor(teardown: IdentityTeardown) {\n private val s = CoroutineScope(Dispatchers.IO)\n}",
+            "@ChatSessionScoped class ByScope @Inject constructor(@IdentityCoroutineScope s: CoroutineScope, c: Context) {\n fun go() { c.registerReceiver(r, f) }\n}",
+            "@IdentityScoped class WrongWayRound @Inject constructor(teardown: ChatSessionTeardown) {\n private val s = CoroutineScope(Dispatchers.IO)\n}",
+        )
+        val found = teardownViolations(model, emptyMap())
+        listOf("ByTeardown", "ByScope", "WrongWayRound").forEach { name ->
+            assertTrue("$name not reported in $found", found.any { it.contains("'$name'") })
+        }
+        assertTrue(found.first { "'ByTeardown'" in it }.contains("ChatSessionTeardown"))
+    }
+
+    @Test
+    fun `a class the session module provides must end with the session too`() {
+        val model = modelOf(
+            "class Unended(c: Int) {\n private val s = CoroutineScope(Dispatchers.IO)\n}",
+            "class Ended(c: Int) {\n private val s = CoroutineScope(Dispatchers.IO)\n}",
+            "class Quiet(c: Int)",
+            "@Module @InstallIn(ChatSessionComponent::class) object M {\n" +
+                " @Provides @ChatSessionScoped fun u(): Unended = Unended(1)\n" +
+                " @Provides @ChatSessionScoped fun e(teardown: ChatSessionTeardown): Ended = Ended(1)\n" +
+                " @Provides @ChatSessionScoped fun q(): Quiet = Quiet(1)\n" +
+                "}",
+        )
+        val found = teardownViolations(model, emptyMap())
+        assertEquals(found.toString(), 1, found.size)
+        assertTrue(found.single().contains("'Unended'"))
+    }
+
+    @Test
+    fun theScanDropsCommentsAndStrings() {
+        val code = mask("val a = \"// not a comment\" // real\n/* x\n y */ val b = '{' \"\"\"raw \" {\"\"\"")
+        assertEquals(2, code.count { it == '\n' })
+        assertTrue("//" !in code && "real" !in code && "{" !in code && "raw" !in code)
+        assertEquals(listOf("a", "b"), Regex("""val (\w)""").findAll(code).map { it.groupValues[1] }.toList())
+    }
+
+    // ---- Rules ------------------------------------------------------------------------------
+
+    private fun singletonViolations(model: Model, processWide: Map<String, String>): List<String> =
+        model.singletons().filter { (name, _) -> name !in processWide }.map { (name, file) ->
+            "'$name' ($file) is a singleton that declares no lifetime. If it holds one identity's data, " +
+                "make it @IdentityScoped; if it is process-wide on purpose, " +
+                "add it to PROCESS_WIDE with the reason."
+        }
+
+    private fun tableProblems(model: Model, processWide: Map<String, String>): List<String> {
+        val declared = model.declaredNames()
+        val identity = model.scopedClasses()
+        val problems = mutableListOf<String>()
+        processWide.keys.filter { it !in declared }.forEach {
+            problems += "'$it' is in an allowlist but no such class or provided type exists; remove the stale entry."
+        }
+        processWide.filterValues { it.isBlank() }.keys.forEach {
+            problems += "'$it' is in PROCESS_WIDE without a reason; write why it holds no identity's data."
+        }
+        (processWide.keys intersect identity).forEach {
+            problems += "'$it' is @IdentityScoped but listed in PROCESS_WIDE; remove it."
+        }
+        model.classes.filter { it.has("IdentityScoped") && it.has("Singleton") }.forEach {
+            problems += "'${it.name}' (${it.file}) is both @IdentityScoped and @Singleton; it has one lifetime."
+        }
+        return problems
+    }
+
+    private fun retainedProblems(model: Model, table: Map<String, String>): List<String> {
+        val retained = model.classes.filter { it.kind == "class" && it.has("ActivityRetainedScoped") }.map { it.name to it.file } +
+            model.functions.filter { it.has("ActivityRetainedScoped") && it.has("Provides") }.map { it.returnName.ifEmpty { it.name } to it.file }
+        val names = retained.map { it.first }.toSet()
+        return retained.filter { (name, _) -> name !in table }.map { (name, file) ->
+            "'$name' ($file) is Activity-retained with no reason. If it holds session data or runs session jobs, make it " +
+                "@ChatSessionScoped; otherwise add it to STAY_RETAINED with the reason."
+        } + table.keys.filter { it !in names }.map {
+            "'$it' is in STAY_RETAINED but nothing is Activity-retained under that name; remove the entry."
+        } + table.filterValues { it.isBlank() }.keys.map { "'$it' is in STAY_RETAINED without a reason." }
+    }
+
+    /** Inside the session scope a qualified read goes round the holder, to whatever is current by then. */
+    private fun sessionQualifierViolations(model: Model): List<String> {
+        val qualifier = Regex("""@(?:\w+:)?(?:[a-z]\w*\.)*Current(?:Identity|Session)\b""")
+        val fromClasses = model.classes.filter { it.kind == "class" && it.has("ChatSessionScoped") && !it.has("DefineComponent") }
+            .flatMap { decl ->
+                (listOfNotNull(decl.ctor) + model.secondaryInjectConstructors(decl)).flatMap { params(it) }
+                    .filter { qualifier.containsMatchIn(it.annotations) }
+                    .map { "'${decl.name}' (${decl.file}) takes `${it.name}` through a qualifier inside the session scope. Take it unqualified." }
+            }
+        val fromModules = model.functions.filter { it.has("Provides") && model.installedIn(it, "ChatSessionComponent") }
+            .flatMap { fn ->
+                params(fn.params).filter { qualifier.containsMatchIn(it.annotations) }.map {
+                    "'${model.enclosing(fn.file, fn.index).first().name}' (${fn.file}) takes `${it.name}` of `${fn.name}` through a qualifier inside the session scope. Take it unqualified."
+                }
+            }
+        return fromClasses + fromModules
+    }
+
+    private fun statefulObjectViolations(model: Model, allowed: Map<String, String>): List<String> {
+        val stateful = model.classes.filter { it.kind == "object" }.mapNotNull { decl ->
+            val body = decl.bodyText(model) ?: return@mapNotNull null
+            val state = members(body).firstOrNull(::isStatefulMember) ?: return@mapNotNull null
+            Triple(model.objectKey(decl), decl.file, state.lineSequence().first().trim())
+        }
+        val names = stateful.map { it.first }.toSet()
+        val unlisted = stateful.filter { it.first !in allowed }.map { (name, file, member) ->
+            "'$name' ($file) is an object with state (`$member`). State in an object outlives an identity: " +
+                "move it into a scoped class, or add it to STATEFUL_OBJECTS with the reason."
+        }
+        val stale = allowed.keys.filter { it !in names }.map {
+            "'$it' is in STATEFUL_OBJECTS but is not a stateful object any more; remove the entry."
+        }
+        val blank = allowed.filterValues { it.isBlank() }.keys.map { "'$it' is in STATEFUL_OBJECTS without a reason." }
+        return unlisted + stale + blank
+    }
+
+    private fun insideScopeProblems(model: Model, table: Map<String, String>): List<String> =
+        table.flatMap { (name, reason) ->
+            val decl = model.classes.firstOrNull { it.name == name && it.kind == "class" }
+            listOfNotNull(
+                "'$name' is built inside the scope by the table but no such class exists; remove the entry.".takeIf { decl == null },
+                "'$name' carries a scope; a scoped class does not belong in the built-inside table."
+                    .takeIf { decl != null && (decl.has("Singleton") || decl.has("IdentityScoped")) },
+                "'$name' is built inside the scope by the table without a reason.".takeIf { reason.isBlank() },
+            )
+        }
+
+    private fun providerViolations(model: Model, insideScope: Set<String> = emptySet()): List<String> =
+        model.bridges().filter { it.returnName.isEmpty() }.map {
+            "'${it.name}' (${it.file}) is a @CurrentIdentity bridge without an explicit return type; " +
+                "the bridge needs an explicit return type so the scan knows which type it hands out."
+        } + model.sites().filter { it.owner !in insideScope }.flatMap { site -> site.problem(model.identityTypes(), directAllowedKinds = false) }
+
+    private fun directViolations(model: Model, insideScope: Set<String> = emptySet()): List<String> =
+        model.sites().filter { it.owner !in insideScope }.flatMap { site -> site.problem(model.identityTypes(), directAllowedKinds = true) }
+
+    private fun sessionViolations(model: Model): List<String> =
+        model.sessionBridges().filter { it.returnName.isEmpty() }.map {
+            "'${it.name}' (${it.file}) is a @CurrentSession bridge without an explicit return type; " +
+                "the bridge needs an explicit return type so the scan knows which type it hands out."
+        } + model.sites().flatMap { site -> site.sessionProblem(model.sessionTypes()) }
+
+    private fun teardownViolations(model: Model, exempt: Map<String, String>): List<String> {
+        val owns = Regex("""\bCoroutineScope\(|\bTimer\(|\bExecutors\.|\bregisterReceiver\(|\baddRevocationListener\b|\bHandlerThread\(""")
+        val endsWithIdentity = Regex("""\bIdentityTeardown\b|@(?:\w+:)?IdentityCoroutineScope\b""")
+        val endsWithSession = Regex("""\bChatSessionTeardown\b|@(?:\w+:)?ChatSessionScope\b""")
+        val providedInSession = model.functions.filter { it.has("ChatSessionScoped") && it.has("Provides") }.groupBy { it.returnName }
+        return model.classes.filter { decl ->
+            decl.kind == "class" && !decl.has("DefineComponent") &&
+                (decl.has("IdentityScoped") || decl.has("ChatSessionScoped") || decl.name in providedInSession)
+        }.mapNotNull { decl ->
+            val body = decl.bodyText(model) ?: return@mapNotNull null
+            val found = owns.find(body)?.value ?: return@mapNotNull null
+            val constructors = (listOfNotNull(decl.ctor) + model.secondaryInjectConstructors(decl)).joinToString(" ")
+            val inIdentity = decl.has("IdentityScoped")
+            val providers = providedInSession[decl.name].orEmpty().joinToString(" ") { it.params }
+            val ends = if (inIdentity) endsWithIdentity else endsWithSession
+            if (ends.containsMatchIn("$constructors $providers") || decl.name in exempt) return@mapNotNull null
+            val needed = if (inIdentity) "IdentityTeardown nor @IdentityCoroutineScope" else "ChatSessionTeardown nor @ChatSessionScope"
+            "'${decl.name}' (${decl.file}) creates or registers `$found` but takes neither $needed. " +
+                "Register a cleanup with ${needed.substringBefore(" ")}, or add the class to TEARDOWN_EXEMPT with the reason none is needed."
+        } + exempt.keys.filter { name -> model.classes.none { it.name == name } }.map {
+            "'$it' is in TEARDOWN_EXEMPT but no such class exists; remove the entry."
+        } + exempt.filterValues { it.isBlank() }.keys.map { "'$it' is in TEARDOWN_EXEMPT without a reason." }
+    }
+
+    /** A call with no argument is one of the two holders': nothing else has a `replace()`. */
+    private fun replaceViolations(model: Model): List<String> =
+        model.sources.filterNot { it.path.endsWith("/PanicClear.kt") }.mapNotNull { src ->
+            if (Regex("""\.\s*replace\(\s*\)""").containsMatchIn(src.code)) {
+                "${src.path} calls replace() on a holder. Only PanicClear ends an identity or a session."
+            } else {
+                null
+            }
+        }
+
+    private fun constructionViolations(model: Model): List<String> {
+        val scoped = model.identityTypes() + model.sessionTypes()
+        val holders = setOf("IdentityHolder", "ChatSessionHolder")
+        return model.classes.filter {
+            it.kind == "class" && (it.has("Singleton") || it.has("ActivityRetainedScoped")) && !it.has("IdentityScoped")
+        }.flatMap { decl ->
+            val body = decl.bodyText(model) ?: return@flatMap emptyList()
+            val watched = (listOfNotNull(decl.ctor) + model.secondaryInjectConstructors(decl)).flatMap { params(it) }.filter { p ->
+                providerOf(p.type)?.let { it in scoped } == true || p.type.trim() in holders
+            }.map { it.name }
+            if (watched.isEmpty()) return@flatMap emptyList()
+            val built = constructionCode(body)
+            watched.filter { name ->
+                Regex("""\b$name\s*\.\s*(get|entryPoint|current)\b""").containsMatchIn(built)
+            }.map { name ->
+                "'${decl.name}' (${decl.file}) reads `$name` while it is being built (an initialiser or init block). " +
+                    "A class that outlives an identity or a session must read its Provider inside a function, when it is used."
+            }
+        }
+    }
+
+    // ---- Model ------------------------------------------------------------------------------
+
+    private class ClassDecl(
+        val file: String,
+        val kind: String,
+        val name: String,
+        val annotations: String,
+        val ctorPrefix: String,
+        val ctor: String?,
+        val start: Int,
+        val bodyStart: Int,
+        val bodyEnd: Int,
+    ) {
+        fun has(annotation: String) = Regex("""@(?:\w+:)?(?:[a-z]\w*\.)*$annotation\b""").containsMatchIn(annotations)
+        val hasBody get() = bodyStart >= 0
+        fun bodyText(model: Model): String? = if (hasBody) model.codeOf(file).substring(bodyStart + 1, bodyEnd) else null
+    }
+
+    private class FunDecl(
+        val file: String,
+        val name: String,
+        val annotations: String,
+        val params: String,
+        val returnType: String,
+        val index: Int,
+    ) {
+        fun has(annotation: String) = Regex("""@(?:\w+:)?(?:[a-z]\w*\.)*$annotation\b""").containsMatchIn(annotations)
+        val returnName get() = baseName(returnType)
+    }
+
+    private enum class Kind { CONSTRUCTOR, FIELD, ENTRY_POINT, PROVIDES_PARAM, PROVIDES_RETURN }
+
+    private class Site(
+        val file: String,
+        val owner: String,
+        val kind: Kind,
+        val what: String,
+        val label: String,
+        val annotations: String,
+        val type: String,
+        val ownerViewModel: Boolean = false,
+    ) {
+        /** What a session type's consumer got wrong, if anything. */
+        fun sessionProblem(session: Set<String>): List<String> {
+            val t = type.trim().replace(Regex("""\b[a-z]\w*\."""), "")
+            val qualified = Regex("""@(?:\w+:)?(?:[a-z]\w*\.)*CurrentSession\b""").containsMatchIn(annotations)
+            val provided = providerOf(t)?.takeIf { it in session }
+            val direct = t.removeSuffix("?").trim().takeIf { it in session }
+            val mentioned = session.firstOrNull { Regex("""\b$it\b""").containsMatchIn(t) }
+            val where = "'$label' ($file), $what"
+            return when {
+                provided != null ->
+                    if (qualified) emptyList() else listOf("$where takes Provider<$provided> without @CurrentSession. Add the qualifier.")
+                direct != null && !qualified ->
+                    listOf("$where takes $direct outside the session scope without @CurrentSession. Take @CurrentSession Provider<$direct>.")
+                direct != null ->
+                    if (ownerViewModel || kind == Kind.ENTRY_POINT || kind == Kind.PROVIDES_RETURN) emptyList() else listOf(
+                        "$where takes @CurrentSession $direct directly. Only a ViewModel may; take @CurrentSession Provider<$direct> and call get() when used."
+                    )
+                mentioned != null -> listOf(
+                    "$where takes `$t`, which wraps $mentioned outside the session scope. Take @CurrentSession Provider<$mentioned> and call get() when used."
+                )
+                else -> emptyList()
+            }
+        }
+
+        /** [directAllowedKinds] picks the rule: false is the Provider rule, true the direct rule. */
+        fun problem(identity: Set<String>, directAllowedKinds: Boolean): List<String> {
+            val t = type.trim().replace(Regex("""\b[a-z]\w*\."""), "")
+            val qualified = Regex("""@(?:\w+:)?(?:[a-z]\w*\.)*CurrentIdentity\b""").containsMatchIn(annotations)
+            val provided = providerOf(t)
+            val lazyOf = Regex("""^(?:[\w.]*\.)?Lazy\s*<\s*(\w+)\s*>$""").find(t)?.groupValues?.get(1)
+            val direct = t.removeSuffix("?").trim().takeIf { it in identity }
+            val mentioned = identity.filter { Regex("""\b$it\b""").containsMatchIn(t) }
+            val where = "'$label' ($file), $what"
+            return when {
+                provided != null && provided in identity ->
+                    if (directAllowedKinds || qualified) emptyList() else listOf(
+                        "$where takes Provider<$provided> without @CurrentIdentity. Add @CurrentIdentity so the process graph supplies it."
+                    )
+                lazyOf != null && lazyOf in identity ->
+                    if (directAllowedKinds) emptyList() else listOf(
+                        "$where takes Lazy<$lazyOf>, which caches across identities. Take @CurrentIdentity Provider<$lazyOf> and call get() when used."
+                    )
+                direct != null && qualified ->
+                    when {
+                        !directAllowedKinds -> emptyList()
+                        kind == Kind.ENTRY_POINT || kind == Kind.PROVIDES_RETURN -> emptyList()
+                        ownerViewModel -> emptyList()
+                        else -> listOf(
+                            "$where takes @CurrentIdentity $direct directly. Only a ViewModel may; " +
+                                "take @CurrentIdentity Provider<$direct> instead."
+                        )
+                    }
+                direct != null ->
+                    if (directAllowedKinds) emptyList() else listOf(
+                        "$where takes $direct outside the identity scope. Take @CurrentIdentity Provider<$direct> and call get() when used."
+                    )
+                mentioned.isNotEmpty() ->
+                    if (directAllowedKinds) emptyList() else listOf(
+                        "$where takes `$t`, which wraps ${mentioned.first()} outside the identity scope. " +
+                            "Take @CurrentIdentity Provider<${mentioned.first()}> instead."
+                    )
+                else -> emptyList()
+            }
+        }
+    }
+
+    private class Src(val path: String, val code: String)
+
+    private class Model(val sources: List<Src>) {
+        val classes: List<ClassDecl>
+        val functions: List<FunDecl>
+
+        init {
+            val cs = mutableListOf<ClassDecl>()
+            val fs = mutableListOf<FunDecl>()
+            sources.forEach { src ->
+                cs += parseClasses(src)
+                fs += parseFunctions(src)
+            }
+            classes = cs
+            functions = fs
+        }
+
+        private val byPath = sources.associate { it.path to it.code }
+        fun codeOf(path: String) = byPath.getValue(path)
+
+        /** Innermost-first chain of declarations whose body holds [index] of [file]. */
+        fun enclosing(file: String, index: Int): List<ClassDecl> =
+            classes.filter { it.file == file && it.hasBody && index > it.bodyStart && index < it.bodyEnd }
+                .sortedByDescending { it.bodyStart }
+
+        fun objectKey(decl: ClassDecl): String {
+            if (decl.name != "Companion") return decl.name
+            val owner = enclosing(decl.file, decl.start).firstOrNull()?.name ?: "?"
+            return "$owner.Companion"
+        }
+
+        /** Singleton class names and provided singleton type names, with a file. */
+        fun singletons(): List<Pair<String, String>> {
+            val fromClasses = classes.filter { it.kind != "object" && it.has("Singleton") }.map { it.name to it.file }
+            val provided = functions.filter { it.has("Singleton") && (it.has("Provides") || it.has("Binds")) }
+                .map { it.returnName.ifEmpty { it.name } to it.file }
+            return (fromClasses + provided).distinctBy { it.first }
+        }
+
+        fun declaredNames(): Set<String> =
+            classes.map { it.name }.toSet() +
+                functions.filter { it.has("Provides") || it.has("Binds") }.map { it.returnName }
+
+        fun scopedClasses(): Set<String> =
+            classes.filter { it.has("IdentityScoped") && it.kind == "class" && !it.has("DefineComponent") }.map { it.name }.toSet()
+
+        /** `@IdentityScoped` classes plus the types `@CurrentIdentity` bridges hand out. */
+        fun identityTypes(): Set<String> = identityCache
+
+        private val identityCache: Set<String> by lazy {
+            scopedClasses() + bridges().map { it.returnName }.filter { it.isNotEmpty() }
+        }
+
+        fun bridges(): List<FunDecl> = functions.filter { it.has("CurrentIdentity") && (it.has("Provides") || it.has("Binds")) }
+
+        fun sessionBridges(): List<FunDecl> = functions.filter { it.has("CurrentSession") && (it.has("Provides") || it.has("Binds")) }
+
+        /** `@ChatSessionScoped` classes plus the types `@ChatSessionScoped` and `@CurrentSession` bindings hand out. */
+        fun sessionTypes(): Set<String> = sessionCache
+
+        private val sessionCache: Set<String> by lazy {
+            classes.filter { it.has("ChatSessionScoped") && it.kind == "class" && !it.has("DefineComponent") }.map { it.name }.toSet() +
+                (sessionBridges() + functions.filter { it.has("ChatSessionScoped") && (it.has("Provides") || it.has("Binds")) })
+                    // The session's coroutine scope is reached by its own qualifier; `CoroutineScope` is everyone's type.
+                    .filterNot { it.has("ChatSessionScope") }
+                    .map { it.returnName }.filter { it.isNotEmpty() }
+        }
+
+        fun installedIn(fn: FunDecl, component: String): Boolean =
+            enclosing(fn.file, fn.index).firstOrNull()?.let {
+                Regex("""@InstallIn\(\s*$component::class""").containsMatchIn(it.annotations)
+            } == true
+
+        private fun exempt(file: String, index: Int): Boolean =
+            enclosing(file, index).any {
+                it.has("IdentityScoped") || it.has("ChatSessionScoped") ||
+                    Regex("""@InstallIn\(\s*(?:IdentityComponent|ChatSessionComponent)::class""").containsMatchIn(it.annotations)
+            }
+
+        /** Parameter lists of the `@Inject constructor(...)` members declared directly in [decl]'s body. */
+        fun secondaryInjectConstructors(decl: ClassDecl): List<String> {
+            if (!decl.hasBody) return emptyList()
+            val code = codeOf(decl.file)
+            val modifier = """(?:(?:internal|private|public|protected)\s+)?"""
+            return Regex("""$modifier@(?:[a-z]\w*\.)*(?:Assisted)?Inject\s*${modifier}constructor\s*\(""")
+                .findAll(code.substring(0, decl.bodyEnd))
+                .filter { it.range.first > decl.bodyStart && enclosing(decl.file, it.range.first).firstOrNull() === decl }
+                .mapNotNull { m -> closing(code, m.range.last).takeIf { it > 0 }?.let { code.substring(m.range.last + 1, it) } }
+                .toList()
+        }
+
+        fun sites(): List<Site> {
+            val out = mutableListOf<Site>()
+            // Constructors of classes the graph builds.
+            classes.filter { it.kind == "class" }.forEach { decl ->
+                if (exempt(decl.file, decl.start) || decl.has("IdentityScoped") || decl.has("ChatSessionScoped")) return@forEach
+                val primaryDi = decl.ctor != null &&
+                    (Regex("""@(?:[a-z]\w*\.)*(?:Assisted)?Inject\b""").containsMatchIn(decl.ctorPrefix) || decl.has("HiltViewModel"))
+                // An `@Inject` secondary constructor is the one the graph calls; the primary is then plain Kotlin.
+                val injected = secondaryInjectConstructors(decl).ifEmpty { listOfNotNull(decl.ctor.takeIf { primaryDi }) }
+                injected.forEach { ctor ->
+                    params(ctor).forEach {
+                        out += Site(decl.file, decl.name, Kind.CONSTRUCTOR, "constructor parameter `${it.name}`", decl.name, it.annotations, it.type, decl.has("HiltViewModel"))
+                    }
+                }
+            }
+            // `@Inject` fields.
+            sources.forEach { src ->
+                Regex("""@(?:\w+:)?Inject\b((?:\s|@(?:\w+:)?\w+(?:\([^)]*\))?|lateinit|private|internal|public)*)\b(?:var|val)\s+(\w+)\s*:\s*([^\n=;}]+)""").findAll(src.code).forEach { m ->
+                    if (exempt(src.path, m.range.first)) return@forEach
+                    val ownerDecl = enclosing(src.path, m.range.first).firstOrNull()
+                    out += Site(
+                        src.path, ownerDecl?.name ?: "<top level>", Kind.FIELD, "@Inject field `${m.groupValues[2]}`",
+                        ownerDecl?.name ?: "<top level>", m.groupValues[1], m.groupValues[3].trim(), ownerDecl?.has("HiltViewModel") == true,
+                    )
+                }
+            }
+            // Entry-point accessors, and `@Provides` parameters and results.
+            functions.forEach { fn ->
+                val enclosing = enclosing(fn.file, fn.index)
+                if (exempt(fn.file, fn.index)) return@forEach
+                val inEntryPoint = enclosing.firstOrNull()?.has("EntryPoint") == true
+                if (inEntryPoint) {
+                    out += Site(fn.file, enclosing.first().name, Kind.ENTRY_POINT, "entry-point function `${fn.name}`", enclosing.first().name, fn.annotations, fn.returnType)
+                } else if (fn.has("Provides")) {
+                    val owner = fn.returnName.ifEmpty { fn.name }
+                    val module = enclosing.firstOrNull()?.name ?: "<top level>"
+                    val forViewModel = enclosing.firstOrNull()?.let {
+                        Regex("""@InstallIn\(\s*ViewModelComponent::class""").containsMatchIn(it.annotations)
+                    } == true
+                    params(fn.params).forEach {
+                        out += Site(fn.file, owner, Kind.PROVIDES_PARAM, "@Provides parameter `${it.name}` of `${fn.name}`", module, it.annotations, it.type, forViewModel)
+                    }
+                    out += Site(fn.file, owner, Kind.PROVIDES_RETURN, "@Provides function `${fn.name}` result", module, fn.annotations, fn.returnType)
+                }
+            }
+            return out
+        }
+    }
+
+    // ---- Parsing ----------------------------------------------------------------------------
+
+    private class Param(val name: String, val annotations: String, val type: String)
+
+    private companion object {
+        val annotationToken = Regex("""@(?:\w+:)?[\w.]+(?:\([^)]*\))?\s*""")
+        val statePattern = Regex(
+            """\bMutable\w*|\bmutable\w+Of\b|\bConcurrentHashMap\b|\bAtomic\w+|\bCopyOnWrite\w+|\bHashMap\b|\bHashSet\b|\bWeakHashMap\b|\bnewSetFromMap\b|""" +
+                """\bArrayList\b|\bArrayDeque\b|\bLinkedHashMap\b|\bLruCache\b|\bCollections\.synchronized\w+""",
+        )
+
+        fun baseName(type: String): String =
+            Regex("""[A-Za-z_][\w.]*""").find(type.trim())?.value?.substringAfterLast('.').orEmpty()
+
+        /** The `T` in `Provider<T>` (javax, dagger or any package), or null. */
+        fun providerOf(type: String): String? =
+            Regex("""^Provider\s*<\s*(\w+)\s*>$""").find(type.trim().replace(Regex("""\b[a-z]\w*\."""), ""))?.groupValues?.get(1)
+
+        /** Drops comments and the contents of string and char literals, keeping every offset and newline. */
+        fun mask(src: String): String {
+            val out = StringBuilder(src.length)
+            fun keepNewline(c: Char) = if (c == '\n') '\n' else ' '
+            var i = 0
+            while (i < src.length) {
+                val c = src[i]
+                when {
+                    src.startsWith("//", i) -> while (i < src.length && src[i] != '\n') { out.append(' '); i++ }
+                    src.startsWith("/*", i) -> {
+                        var depth = 0
+                        do {
+                            when {
+                                src.startsWith("/*", i) -> { depth++; out.append("  "); i += 2 }
+                                src.startsWith("*/", i) -> { depth--; out.append("  "); i += 2 }
+                                else -> { out.append(keepNewline(src[i])); i++ }
+                            }
+                        } while (i < src.length && depth > 0)
+                    }
+                    src.startsWith("\"\"\"", i) -> {
+                        out.append("\"\"\""); i += 3
+                        while (i < src.length && !src.startsWith("\"\"\"", i)) { out.append(keepNewline(src[i])); i++ }
+                        if (i < src.length) { out.append("\"\"\""); i += 3 }
+                    }
+                    c == '"' -> {
+                        out.append('"'); i++
+                        while (i < src.length && src[i] != '"' && src[i] != '\n') {
+                            if (src[i] == '\\' && i + 1 < src.length) { out.append("  "); i += 2 } else { out.append(' '); i++ }
+                        }
+                        if (i < src.length && src[i] == '"') { out.append('"'); i++ }
+                    }
+                    c == '\'' && Regex("""'(?:\\.|[^'\\\n])'""").matchesAt(src, i) -> {
+                        val end = src.indexOf('\'', i + 2 + if (src[i + 1] == '\\') 1 else 0)
+                        out.append('\''); repeat(end - i - 1) { out.append(' ') }; out.append('\''); i = end + 1
+                    }
+                    else -> { out.append(c); i++ }
+                }
+            }
+            return out.toString()
+        }
+
+        /** Index of the bracket closing the one at [open], or -1. */
+        fun closing(text: String, open: Int): Int {
+            val up = text[open]
+            val down = when (up) { '(' -> ')'; '{' -> '}'; '[' -> ']'; else -> error("not a bracket: $up") }
+            var depth = 0
+            for (i in open until text.length) {
+                if (text[i] == up) depth++
+                if (text[i] == down && --depth == 0) return i
+            }
+            return -1
+        }
+
+        /** Splits at commas that are not inside brackets or generics. */
+        fun splitTopLevel(text: String): List<String> {
+            val parts = mutableListOf<String>()
+            var depth = 0
+            var from = 0
+            text.forEachIndexed { i, c ->
+                when {
+                    c in "([{<" -> depth++
+                    c == '>' && i > 0 && text[i - 1] == '-' -> Unit
+                    c in ")]}>" -> depth--
+                    c == ',' && depth == 0 -> { parts += text.substring(from, i); from = i + 1 }
+                }
+            }
+            parts += text.substring(from)
+            return parts.map { it.trim() }.filter { it.isNotEmpty() }
+        }
+
+        fun params(text: String): List<Param> = splitTopLevel(text).mapNotNull { rawWithAnnotations ->
+            val annotations = annotationToken.findAll(rawWithAnnotations).joinToString(" ") { it.value }
+            val raw = rawWithAnnotations.replace(annotationToken, "")
+            var depth = 0
+            var eq = raw.length
+            var colon = -1
+            raw.forEachIndexed { i, c ->
+                when {
+                    c in "([{<" -> depth++
+                    c == '>' && i > 0 && raw[i - 1] == '-' -> Unit
+                    c in ")]}>" -> depth--
+                    c == ':' && depth == 0 && colon < 0 && eq == raw.length &&
+                        raw.getOrNull(i + 1) != ':' && raw.getOrNull(i - 1) != ':' -> colon = i
+                    c == '=' && depth == 0 && eq == raw.length && raw.getOrNull(i + 1) != '=' -> eq = i
+                }
+            }
+            if (colon < 0 || colon > eq) return@mapNotNull null
+            val name = Regex("""(\w+)\s*$""").find(raw.substring(0, colon))?.groupValues?.get(1) ?: return@mapNotNull null
+            Param(name, annotations, raw.substring(colon + 1, eq).trim())
+        }
+
+        /** Annotations and modifiers written before the declaration keyword at [index]. */
+        fun annotationsBefore(code: String, index: Int): String {
+            var lineStart = code.lastIndexOf('\n', index - 1) + 1
+            var acc = code.substring(lineStart, index)
+            val cut = acc.lastIndexOfAny(charArrayOf('{', '}', ';'))
+            if (cut >= 0) return acc.substring(cut + 1)
+            while (lineStart > 0) {
+                val prevStart = code.lastIndexOf('\n', lineStart - 2) + 1
+                val line = code.substring(prevStart, lineStart - 1)
+                val unbalanced = acc.count { it == ')' } > acc.count { it == '(' }
+                if ((line.trim().startsWith("@") && line.replace(annotationToken, "").isBlank()) || (unbalanced && line.isNotBlank())) {
+                    acc = line + "\n" + acc
+                    lineStart = prevStart
+                } else {
+                    break
+                }
+            }
+            return acc
+        }
+
+        fun parseClasses(src: Src): List<ClassDecl> {
+            val code = src.code
+            return Regex("""\b(class|interface|object)\b[ \t]*(\w*)""").findAll(code).mapNotNull { m ->
+                if (code.substring(0, m.range.first).endsWith("::")) return@mapNotNull null
+                val kind = if (m.groupValues[1] == "interface") "class" else m.groupValues[1]
+                val before = code.substring(code.lastIndexOf('\n', m.range.first - 1) + 1, m.range.first)
+                var name = m.groupValues[2]
+                if (kind == "object" && name.isEmpty()) {
+                    if (!before.trimEnd().endsWith("companion")) return@mapNotNull null
+                    name = "Companion"
+                }
+                if (name.isEmpty() || name == "constructor") return@mapNotNull null
+                var pos = m.range.last + 1
+                // Generics, then an optional primary constructor with its own annotations.
+                Regex("""\G\s*<[^>]*(?:<[^>]*>[^>]*)*>""").find(code, pos)?.let { pos = it.range.last + 1 }
+                val prefix = Regex("""\G\s*((?:@[\w.]+(?:\([^)]*\))?|private|internal|public|protected)\s*)*(?:constructor)?\s*(?=\()""")
+                    .find(code, pos)
+                var ctor: String? = null
+                var ctorPrefix = ""
+                if (prefix != null && kind == "class") {
+                    val open = prefix.range.last + 1
+                    val close = closing(code, open)
+                    if (close > 0) {
+                        ctor = code.substring(open + 1, close)
+                        ctorPrefix = prefix.value
+                        pos = close + 1
+                    }
+                }
+                val bodyStart = bodyBrace(code, pos)
+                val bodyEnd = if (bodyStart >= 0) closing(code, bodyStart) else -1
+                ClassDecl(
+                    src.path, kind, name, annotationsBefore(code, m.range.first), ctorPrefix, ctor,
+                    m.range.first, if (bodyEnd < 0) -1 else bodyStart, bodyEnd,
+                )
+            }.toList()
+        }
+
+        /** The `{` opening a declaration's body after [from], or -1 when the declaration has none. */
+        fun bodyBrace(code: String, from: Int): Int {
+            var depth = 0
+            var i = from
+            var lastSignificant = ' '
+            while (i < code.length) {
+                val c = code[i]
+                when {
+                    c in "(<[" -> depth++
+                    c == '>' && i > 0 && code[i - 1] == '-' -> Unit
+                    c in ")>]" -> depth--
+                    c == '{' && depth <= 0 -> return i
+                    c == '\n' && depth <= 0 -> {
+                        var k = i
+                        while (k < code.length && code[k].isWhitespace()) k++
+                        val next = code.getOrNull(k) ?: return -1
+                        if (lastSignificant !in ":," && next !in ":,{") return -1
+                    }
+                    c == '=' && depth <= 0 && code.getOrNull(i + 1) != '=' -> return -1
+                    c == ';' && depth <= 0 -> return -1
+                }
+                if (!c.isWhitespace()) lastSignificant = c
+                i++
+            }
+            return -1
+        }
+
+        fun parseFunctions(src: Src): List<FunDecl> {
+            val code = src.code
+            return Regex("""\bfun\b\s*(?:<[^>]*>\s*)?(?:[\w.<>?]+\.)?(\w+)\s*\(""").findAll(code).mapNotNull { m ->
+                val open = m.range.last
+                val close = closing(code, open)
+                if (close < 0) return@mapNotNull null
+                val tail = code.substring(close + 1)
+                val ret = Regex("""^\s*:\s*([^{=\n;}]+)""").find(tail)?.groupValues?.get(1)?.trim().orEmpty()
+                FunDecl(
+                    src.path, m.groupValues[1], annotationsBefore(code, m.range.first), code.substring(open + 1, close),
+                    ret, m.range.first,
+                )
+            }.toList()
+        }
+
+        /**
+         * Splits a body into its direct members. A member starts at the first line at bracket depth 0
+         * that does not continue the one before it.
+         */
+        fun members(body: String): List<String> {
+            val out = mutableListOf<String>()
+            var depth = 0
+            var current = StringBuilder()
+            var lastSignificant = ' '
+            body.lines().forEach { line ->
+                val t = line.trim()
+                val continues = depth > 0 || t.isEmpty() || lastSignificant in "=,(&|+:." ||
+                    Regex("""^(?:\.|\?\.|\?:|&&|\|\||\)|\}|else\b|by\b)""").containsMatchIn(t) || current.isBlank()
+                if (!continues && current.isNotBlank()) {
+                    out += current.toString(); current = StringBuilder()
+                }
+                current.appendLine(line)
+                line.forEach { c ->
+                    when {
+                        c in "({[" -> depth++
+                        c in ")}]" -> depth--
+                    }
+                }
+                if (t.isNotEmpty()) lastSignificant = t.last()
+            }
+            if (current.isNotBlank()) out += current.toString()
+            return out
+        }
+
+        /** Text of [member] with everything inside braces removed. */
+        fun withoutBraces(member: String): String {
+            var depth = 0
+            val sb = StringBuilder()
+            member.forEach { c ->
+                if (c == '}') depth--
+                if (depth == 0) sb.append(c)
+                if (c == '{') depth++
+            }
+            return sb.toString()
+        }
+
+        fun isStatefulMember(member: String): Boolean {
+            val flat = withoutBraces(member).trim()
+            val header = Regex("""^((?:@\w+(?:\([^)]*\))?|\w+)\s+)*?(val|var|fun|init|class|object|companion|const)\b""")
+                .find(flat)?.groupValues?.get(2) ?: return false
+            return when (header) {
+                "var" -> true
+                "val" -> statePattern.containsMatchIn(flat)
+                else -> false
+            }
+        }
+
+        /** Callees whose lambda runs later, not while the instance is built. Everything else counts as eager. */
+        val deferredCallee = Regex("""\b(?:lazy|launch|async)\s*(?:\([^)]*\))?\s*\{""")
+
+        /** Code that runs while an instance is built: initialisers and init blocks, not functions, getters or lazies. */
+        fun constructionCode(body: String): String = members(body).mapNotNull { member ->
+            val flat = withoutBraces(member).trim()
+            val keyword = Regex("""^(?:(?:@\w+(?:\([^)]*\))?|\w+)\s+)*?(val|var|fun|init|class|object|companion)\b""")
+                .find(flat)?.groupValues?.get(1)
+            when (keyword) {
+                "init" -> withoutDeferredBodies(member)
+                "val", "var" ->
+                    if (Regex("""\bby\b|\bget\s*\(""").containsMatchIn(flat.substringBefore("="))) null
+                    else withoutDeferredBodies(member)
+                else -> null
+            }
+        }.joinToString("\n")
+
+        /** Drops the lambdas handed to [deferredCallee]; any other lambda is kept, because it may run now. */
+        fun withoutDeferredBodies(text: String): String {
+            var result = text
+            while (true) {
+                val m = deferredCallee.find(result) ?: return result
+                val open = m.range.last
+                val close = closing(result, open).takeIf { it > 0 } ?: return result
+                result = result.substring(0, open) + result.substring(close + 1)
+            }
+        }
+    }
+
+    // ---- Reading the repository -------------------------------------------------------------
+
+    private val root = generateSequence(File("").absoluteFile) { it.parentFile }
+        .first { File(it, "settings.gradle.kts").isFile }
+
+    private fun modelOf(vararg sources: String): Model =
+        Model(sources.mapIndexed { i, s -> Src("Synthetic$i.kt", mask(s)) })
+
+    private fun realModel(): Model {
+        val files = listOf("app", "core", "feature", "wear").flatMap { top ->
+            File(root, top).walkTopDown()
+                .onEnter { it.name != "build" && it.name != ".gradle" }
+                .filter { it.isFile && it.extension == "kt" }
+                .filter { Regex("""(^|/)src/(main|debug|release)/""").containsMatchIn(it.relativeTo(root).path.replace(File.separatorChar, '/')) }
+                .toList()
+        }
+        assertTrue("Found no sources under $root; the scan is broken", files.size > 100)
+        return Model(files.map { Src(it.relativeTo(root).path.replace(File.separatorChar, '/'), mask(it.readText())) })
+    }
+}

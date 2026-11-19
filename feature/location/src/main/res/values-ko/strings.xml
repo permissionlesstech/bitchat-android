@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retry">다시 시도</string>
+    <string name="cd_add_bookmark">북마크 추가</string>
+
+    <string name="about_network">네트워크</string>
+    <string name="cd_open_map">지도 열기</string>
+    <string name="cd_remove_bookmark">북마크 제거</string>
+    <string name="cd_decrease_precision">정밀도 낮추기</string>
+    <string name="cd_increase_precision">정밀도 높이기</string>
+    <!-- geohash 채널 시트 -->
+    <string name="location_channels_title">#위치 채널</string>
+    <string name="location_channels_desc">geohash 채널을 통해 주변 사람들과 채팅하세요. 정확한 GPS 데이터가 아닌 대략적인 geohash만 공유됩니다. 개인 정보 보호를 위해 이 화면을 스크린샷하거나 공유하지 마세요.</string>
+    <string name="location_permission_denied">위치 권한이 거부되었습니다. 위치 채널을 사용하려면 설정에서 활성화하세요.</string>
+    <string name="finding_nearby_channels">주변 채널 찾는 중 …</string>
+    <string name="bookmarked">북마크됨</string>
+    <string name="geohash_placeholder">Geohash</string>
+    <string name="invalid_geohash">유효하지 않은 geohash</string>
+    <string name="teleport">텔레포트</string>
+    <string name="disable_location_services">위치 서비스 비활성화</string>
+    <string name="enable_location_services">위치 서비스 활성화</string>
+    <string name="location_level_block">블록</string>
+    <string name="location_level_neighborhood">이웃</string>
+    <string name="location_level_city">도시</string>
+    <string name="location_level_province">주/도</string>
+    <string name="location_level_region">지역</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <plurals name="people_count">
+        <item quantity="one">1명</item>
+        <item quantity="other">%d명</item>
+    </plurals>
+
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d개의 노트</item>
+    <item quantity="other">#%1$s ± 1 • %2$d개의 노트</item>
+  </plurals>
+  <string name="location_notes_description">다른 방문자들이 볼 수 있도록 이 위치에 짧은 영구 노트를 추가하세요.</string>
+  <string name="location_notes_relays_unavailable">지오 릴레이를 사용할 수 없음; 노트 일시 중지됨</string>
+  <string name="location_notes_no_relays_title">주변에 지오 릴레이가 없음</string>
+  <string name="location_notes_no_relays_desc">노트는 지오 릴레이에 의존합니다. 연결을 확인하고 다시 시도하세요.</string>
+  <string name="loading_location_notes">노트 불러오는 중…</string>
+  <string name="location_notes_empty_title">아직 노트가 없습니다</string>
+  <string name="location_notes_empty_desc">이 장소에 첫 번째 노트를 추가해 보세요.</string>
+  <string name="dismiss">닫기</string>
+  <string name="location_notes_input_placeholder">이 장소에 노트 추가</string>
+  <string name="nearby_notes_reveal">여기 남겨진 쪽지 확인</string>
+    <string name="globe_live">라이브</string>
+    <string name="globe_connecting">연결 중</string>
+    <string name="globe_offline">오프라인</string>
+    <string name="globe_hint_drag">회전</string>
+    <string name="globe_hint_pinch">확대</string>
+    <string name="globe_hint_tap">점을 탭하세요</string>
+    <string name="globe_no_activity">최근 활동 없음</string>
+    <string name="cd_show_whole_globe">지구 전체 보기</string>
+    <string name="cd_globe_activity">활성 채팅 %1$d개, 온라인 %2$d명</string>
+    <string name="cd_channel_activity">%1$d명, 지난 1시간 메시지 %2$d개</string>
+    <string name="join">참가</string>
+    <string name="cd_close">닫기</string>
+</resources>

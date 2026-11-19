@@ -1,14 +1,24 @@
 package com.bitchat.android.mesh
 
+import com.bitchat.android.di.DefaultDispatcher
+import kotlinx.coroutines.CoroutineDispatcher
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.favorites.FavoriteControlMessage
 import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.noise.NoiseSession
+import com.bitchat.android.nostr.NostrIdentityBridge
+import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.ui.debug.DebugPreferenceManager
+import com.bitchat.android.ui.debug.DebugSettingsManager
 import com.bitchat.android.wifiaware.WifiAwareController
+import dagger.Lazy
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
@@ -24,18 +34,31 @@ import kotlinx.coroutines.launch
  * BLE remains the canonical origin for broadcast packets when it is enabled so existing BLE mesh
  * behavior and bridge semantics stay intact. Addressed Noise traffic is routed over whichever
  * local transport already has the peer/session, falling back to a connected transport handshake.
+ *
+ * Built only by `MeshServiceHolder`, through [Factory], around the holder's current [bluetooth].
  */
-class UnifiedMeshService(
-    private val context: Context,
-    private val bluetooth: BluetoothMeshService
+class UnifiedMeshService @AssistedInject constructor(
+    @ApplicationContext private val context: Context,
+    @Assisted private val bluetooth: BluetoothMeshService,
+    private val wifiAwareController: WifiAwareController,
+    private val appStateStore: AppStateStore,
+    private val debugSettingsManager: Lazy<DebugSettingsManager>,
+    private val debugPreferenceManager: DebugPreferenceManager,
+    private val nostrIdentityBridge: NostrIdentityBridge,
+    private val powerManager: PowerManager,
+    @DefaultDispatcher defaultDispatcher: CoroutineDispatcher,
 ) : MeshService, BluetoothMeshDelegate {
+
+    @AssistedFactory
+    interface Factory {
+        fun create(bluetooth: BluetoothMeshService): UnifiedMeshService
+    }
 
     companion object {
         private const val TAG = "UnifiedMeshService"
     }
 
-    private val serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-    private val powerManager = PowerManager.getInstance(context.applicationContext)
+    private val serviceScope = CoroutineScope(defaultDispatcher + SupervisorJob())
     private var announcementJob: Job? = null
 
     override val myPeerID: String
@@ -60,7 +83,7 @@ class UnifiedMeshService(
         } else {
             try { bluetooth.setBleTransportEnabled(false) } catch (_: Exception) { }
         }
-        try { WifiAwareController.startIfPossible() } catch (e: Exception) {
+        try { wifiAwareController.startIfPossible() } catch (e: Exception) {
             Log.w(TAG, "Failed to start Wi-Fi Aware transport: ${e.message}")
         }
         startAnnouncementScheduler()
@@ -71,7 +94,7 @@ class UnifiedMeshService(
         announcementJob?.cancel()
         announcementJob = null
         try { bluetooth.stopServices() } catch (_: Exception) { }
-        try { WifiAwareController.stop() } catch (_: Exception) { }
+        try { wifiAwareController.stop() } catch (_: Exception) { }
     }
 
     private fun startAnnouncementScheduler() {
@@ -123,9 +146,9 @@ class UnifiedMeshService(
         }
     }
 
-    override fun sendFavoriteNotification(peerID: String, isFavorite: Boolean) {
+    fun sendFavoriteNotification(peerID: String, isFavorite: Boolean) {
         val myNpub = try {
-            com.bitchat.android.nostr.NostrIdentityBridge.getCurrentNostrIdentity(context)?.npub
+            nostrIdentityBridge.getCurrentNostrIdentity(context)?.npub
         } catch (_: Exception) {
             null
         }
@@ -154,16 +177,6 @@ class UnifiedMeshService(
         when {
             isBleEnabled() -> bluetooth.sendFileBroadcast(file)
             else -> wifiService()?.sendFileBroadcast(file)
-        }
-    }
-
-    override fun sendFilePrivate(recipientPeerID: String, file: BitchatFilePacket) {
-        when {
-            isBleReady(recipientPeerID) -> bluetooth.sendFilePrivate(recipientPeerID, file)
-            isWifiReady(recipientPeerID) -> wifiService()?.sendFilePrivate(recipientPeerID, file)
-            isBleConnected(recipientPeerID) || (isBleEnabled() && !isWifiConnected(recipientPeerID)) ->
-                bluetooth.sendFilePrivate(recipientPeerID, file)
-            else -> wifiService()?.sendFilePrivate(recipientPeerID, file)
         }
     }
 
@@ -301,42 +314,10 @@ class UnifiedMeshService(
         }
     }
 
-    override fun updatePeerInfo(
-        peerID: String,
-        nickname: String,
-        noisePublicKey: ByteArray,
-        signingPublicKey: ByteArray,
-        isVerified: Boolean
-    ): Boolean {
-        val bleUpdated = try {
-            bluetooth.updatePeerInfo(peerID, nickname, noisePublicKey, signingPublicKey, isVerified)
-        } catch (_: Exception) {
-            false
-        }
-        val wifiUpdated = try {
-            wifiService()?.updatePeerInfo(peerID, nickname, noisePublicKey, signingPublicKey, isVerified) == true
-        } catch (_: Exception) {
-            false
-        }
-        return bleUpdated || wifiUpdated
-    }
-
     override fun getIdentityFingerprint(): String = bluetooth.getIdentityFingerprint()
 
     override fun getStaticNoisePublicKey(): ByteArray? {
         return bluetooth.getStaticNoisePublicKey() ?: wifiService()?.getStaticNoisePublicKey()
-    }
-
-    override fun shouldShowEncryptionIcon(peerID: String): Boolean {
-        return hasEstablishedSession(peerID)
-    }
-
-    override fun getEncryptedPeers(): List<String> {
-        val encrypted = linkedSetOf<String>()
-        try { encrypted.addAll(bluetooth.getEncryptedPeers()) } catch (_: Exception) { }
-        try { encrypted.addAll(wifiService()?.getEncryptedPeers().orEmpty()) } catch (_: Exception) { }
-        mergedPeerIDs().filterTo(encrypted) { hasEstablishedSession(it) }
-        return encrypted.toList()
     }
 
     override fun getDeviceAddressForPeer(peerID: String): String? {
@@ -349,16 +330,6 @@ class UnifiedMeshService(
         try { merged.putAll(wifiService()?.getDeviceAddressToPeerMapping().orEmpty()) } catch (_: Exception) { }
         try { merged.putAll(bluetooth.getDeviceAddressToPeerMapping()) } catch (_: Exception) { }
         return merged
-    }
-
-    override fun printDeviceAddressesForPeers(): String {
-        return buildString {
-            appendLine(bluetooth.printDeviceAddressesForPeers())
-            wifiService()?.let {
-                appendLine()
-                appendLine(it.printDeviceAddressesForPeers())
-            }
-        }
     }
 
     override fun getDebugStatus(): String {
@@ -428,7 +399,7 @@ class UnifiedMeshService(
 
     private fun mergedPeerIDs(): List<String> {
         val ids = linkedSetOf<String>()
-        try { ids.addAll(com.bitchat.android.services.AppStateStore.peers.value) } catch (_: Exception) { }
+        try { ids.addAll(appStateStore.peers.value) } catch (_: Exception) { }
         try { ids.addAll(bluetooth.getPeerNicknames().keys) } catch (_: Exception) { }
         try { ids.addAll(wifiService()?.getPeerNicknames()?.keys.orEmpty()) } catch (_: Exception) { }
         return ids.toList()
@@ -436,7 +407,7 @@ class UnifiedMeshService(
 
     private fun wifiService(): MeshService? {
         return try {
-            WifiAwareController.getService()?.also { service ->
+            wifiAwareController.getService()?.also { service ->
                 if (delegate != null && service.delegate !== this) {
                     service.delegate = this
                 }
@@ -448,9 +419,9 @@ class UnifiedMeshService(
 
     private fun isBleEnabled(): Boolean {
         return try {
-            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().bleEnabled.value
+            debugSettingsManager.get().bleEnabled.value
         } catch (_: Exception) {
-            try { com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
+            try { debugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
         }
     }
 

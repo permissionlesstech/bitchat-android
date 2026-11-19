@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="notification_messages_from_people">%1$d pesan dari %2$d orang</string>
+    <string name="notification_more_conversations">dan %1$d percakapan lagi</string>
+    <string name="notification_new_messages">Pesan baru</string>
+    <string name="notification_new_location_messages">Pesan lokasi baru</string>
+    <string name="notification_mentions_in">Disebut di %1$s</string>
+    <string name="notification_mentions_in_more">Disebut di %1$s (+%2$d lagi)</string>
+    <string name="notification_mentions_in_plural">%1$d penyebutan di %2$s</string>
+    <string name="notification_new_activity_in">Aktivitas baru di %1$s</string>
+    <string name="notification_messages_in">Pesan di %1$s</string>
+    <string name="notification_joined_conversation">%1$s bergabung dengan percakapan</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d penyebutan</string>
+    <string name="notification_geohash_summary_title">bitchat – Chat lokasi</string>
+    <string name="notification_geohash_summary_text">%1$d pesan dari %2$d lokasi</string>
+    <string name="notification_mesh_mention_title_singular">Disebut di Mesh Chat</string>
+    <string name="notification_mesh_mention_title_plural">%1$d penyebutan di Mesh Chat</string>
+    <string name="notification_more_locations">dan %1$d lokasi lagi</string>
+    <plurals name="notification_and_more">
+        <item quantity="one">dan %d lagi</item>
+        <item quantity="other">dan %d lagi</item>
+    </plurals>
+  <string name="verify_mutual_match_title">Mutual verification</string>
+  <string name="verify_mutual_match_body">You and %1$s verified each other</string>
+  <string name="verify_mutual_system_message">mutual verification with %1$s</string>
+  <string name="verify_success_title">Verified</string>
+  <string name="verify_success_body">You verified %1$s</string>
+  <string name="verify_success_system_message">verified %1$s</string>
+</resources>

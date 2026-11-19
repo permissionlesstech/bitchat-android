@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="channels">Каналы</string>
+    <string name="no_one_connected">Нет подключённых</string>
+    <string name="your_network">Сеть</string>
+
+    <string name="cd_add_favorite">В избранное</string>
+    <string name="cd_remove_favorite">Убрать из избранного</string>
+    <string name="cd_nostr_reachable">Доступен через Nostr</string>
+    <string name="cd_unread_private_messages">Непрочитанные личные</string>
+    <string name="cd_open_location_channels">Открыть настройки местоположения и каналов</string>
+    <string name="cd_connected_peers">Подключённые узлы</string>
+    <string name="cd_geohash_participants">Участники geohash</string>
+    <string name="cd_ready_for_handshake">Готов к рукопожатию</string>
+    <string name="cd_handshake_in_progress">Рукопожатие…</string>
+    <string name="cd_encrypted">Сквозное шифрование</string>
+    <string name="cd_handshake_failed">Не удалось договориться</string>
+
+    <string name="file_viewer_title">📎 Получен файл</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="file_viewer_size">📏 Размер: %1$s</string>
+    <string name="file_viewer_type">🏷️ Тип: %1$s</string>
+    <string name="file_viewer_open_save">📂 Открыть / Сохранить</string>
+    <string name="close_with_emoji">❌ Закрыть</string>
+    <string name="pick_image">Выбрать изображение</string>
+
+    <string name="cancel_lower">отмена</string>
+
+    <string name="cd_unread_message">Непрочитанное сообщение</string>
+    <string name="cd_reachable_via_nostr">Доступен через Nostr</string>
+    <string name="cd_offline_favorite">Избранное (оффлайн)</string>
+    <string name="cd_scroll_to_bottom">Прокрутить вниз</string>
+    <string name="cd_file">Файл</string>
+    <string name="cd_image">Изображение</string>
+    <string name="cd_cancel">Отмена</string>
+    <string name="cd_link">Ссылка</string>
+    <string name="cd_pick_media">Выбрать медиа</string>
+    <string name="cd_record_voice">Записать голос</string>
+    <string name="image_unavailable">Изображение недоступно</string>
+    <string name="file_unavailable">[файл недоступен]</string>
+    <string name="choose_action_message_or_user">выберите действие для сообщения или пользователя</string>
+    <string name="choose_action_user">выберите действие для пользователя</string>
+    <string name="action_copy_message_title">копировать сообщение</string>
+    <string name="action_copy_message_subtitle">скопировать сообщение в буфер</string>
+    <string name="action_slap_title">дать пощёчину %1$s</string>
+    <string name="action_slap_subtitle">отправить шутливую пощёчину</string>
+    <string name="action_hug_title">обнять %1$s</string>
+    <string name="action_hug_subtitle">отправить дружеские объятия</string>
+    <string name="action_block_title">заблокировать %1$s</string>
+    <string name="action_block_subtitle">заблокировать все сообщения от этого пользователя</string>
+
+    <string name="mesh_label">mesh</string>
+    <string name="at_symbol">@</string>
+    <string name="channel_count_prefix"> · ⧉ </string>
+    <string name="nobody_around">никого рядом…</string>
+    <string name="you_suffix"> (вы)</string>
+    <string name="type_a_message_placeholder">введите сообщение…</string>
+    <string name="mention_suggestion_at">@%1$s</string>
+    <string name="mention">упоминание</string>
+    <string name="image_counter">%1$d / %2$d</string>
+    <string name="at_nickname">@%1$s</string>
+    <string name="underscore">_</string>
+    <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
+    <string name="progress_filled">█</string>
+    <string name="progress_empty">░</string>
+    <string name="media_type_image">Изображение</string>
+    <string name="media_type_file">Файл</string>
+
+    <string name="notification_sent_image">📷 отправил изображение</string>
+    <string name="notification_sent_voice">🎤 отправил голосовое</string>
+    <string name="notification_sent_file">📎 отправил файл</string>
+    <string name="pwd_prompt_title">Введите пароль канала</string>
+    <string name="pwd_prompt_message">Канал %1$s защищён паролем. Введите пароль, чтобы присоединиться.</string>
+    <string name="pwd_label">Пароль</string>
+    <string name="join">Войти</string>
+  <string name="verify_title">проверить</string>
+  <string name="verify_my_qr_title">сканируй для проверки</string>
+  <string name="verify_scan_prompt_friend">сканировать чужой QR</string>
+  <string name="verify_remove">удалить проверку</string>
+  <string name="verify_qr_unavailable">QR недоступен</string>
+  <string name="verify_camera_permission">нужен доступ к камере</string>
+  <string name="verify_request_camera">включить камеру</string>
+  <string name="security_verification_title">проверка безопасности</string>
+  <string name="fingerprint_their">их отпечаток</string>
+  <string name="fingerprint_yours">ваш отпечаток</string>
+  <string name="fingerprint_pending">ожидание рукопожатия</string>
+  <string name="fingerprint_status_verified">шифровано и проверено</string>
+  <string name="fingerprint_status_encrypted">шифровано</string>
+  <string name="fingerprint_status_handshaking">рукопожатие</string>
+  <string name="fingerprint_status_failed">сбой рукопожатия</string>
+  <string name="fingerprint_status_uninitialized">не шифровано</string>
+  <string name="fingerprint_verified_message">вы проверили этого человека.</string>
+  <string name="fingerprint_not_verified_label">не проверено</string>
+  <string name="fingerprint_not_verified_message_fmt">сравните с %1$s.</string>
+  <string name="fingerprint_mark_verified">отметить проверенным</string>
+  <string name="fingerprint_start_handshake">начать рукопожатие</string>
+  <string name="fingerprint_copy">копировать</string>
+    <string name="cd_open_about">Открыть раздел «О приложении»</string>
+</resources>

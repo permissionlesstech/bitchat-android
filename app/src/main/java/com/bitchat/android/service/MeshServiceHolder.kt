@@ -1,23 +1,46 @@
 package com.bitchat.android.service
 
 import android.content.Context
+import com.bitchat.android.identity.scope.IdentityScoped
+import com.bitchat.android.identity.scope.IdentityTeardown
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.mesh.UnifiedMeshService
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.sync.GossipSyncManager
+import javax.inject.Inject
 
 /**
- * Process-wide holder to share a single BluetoothMeshService instance
- * between the foreground service and UI (MainActivity/ViewModels).
+ * Holds the identity's single BluetoothMeshService instance, shared between
+ * the foreground service and UI (MainActivity/ViewModels).
+ *
+ * The only builder of the mesh services: [newBluetooth] is asked for a fresh
+ * [BluetoothMeshService] and [newUnified] wraps the current one. The `context` the
+ * accessors take is kept for their callers; the services are built with the
+ * application context either way.
  */
-object MeshServiceHolder {
-    private const val TAG = "MeshServiceHolder"
+@IdentityScoped
+class MeshServiceHolder @Inject constructor(
+    private val newBluetooth: BluetoothMeshService.Factory,
+    private val newUnified: UnifiedMeshService.Factory,
+    private val transportBridgeService: TransportBridgeService,
+    teardown: IdentityTeardown,
+) {
+    private companion object {
+        const val TAG = "MeshServiceHolder"
+        const val ENDED = "the identity has ended"
+    }
+
     @Volatile
     var sharedGossipSyncManager: GossipSyncManager? = null
         private set
 
     private val activeGossipOwners = mutableSetOf<String>()
+    private var ended = false
+
+    init {
+        teardown.register("MeshServiceHolder", ::end)
+    }
 
     @Synchronized
     fun setGossipManager(
@@ -29,7 +52,7 @@ object MeshServiceHolder {
             try { previous?.stop() } catch (_: Exception) { }
         }
         sharedGossipSyncManager = mgr
-        mgr.delegate = TransportGossipDelegate(signer)
+        mgr.delegate = TransportGossipDelegate(transportBridgeService, signer)
         if (activeGossipOwners.isNotEmpty()) {
             mgr.start()
         }
@@ -53,14 +76,15 @@ object MeshServiceHolder {
     }
 
     private class TransportGossipDelegate(
+        private val transportBridgeService: TransportBridgeService,
         private val signer: (BitchatPacket) -> BitchatPacket
     ) : GossipSyncManager.Delegate {
         override fun sendPacket(packet: BitchatPacket) {
-            TransportBridgeService.broadcastFromLocal(RoutedPacket(packet))
+            transportBridgeService.broadcastFromLocal(RoutedPacket(packet))
         }
 
         override fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
-            TransportBridgeService.sendToPeerFromLocal(peerID, packet)
+            transportBridgeService.sendToPeerFromLocal(peerID, packet)
         }
 
         override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket {
@@ -78,6 +102,7 @@ object MeshServiceHolder {
 
     @Synchronized
     fun getOrCreate(context: Context): BluetoothMeshService {
+        if (ended) return meshService ?: error(ENDED)
         val existing = meshService
         if (existing != null) {
             // If the existing instance is healthy, reuse it; otherwise, replace it.
@@ -91,7 +116,7 @@ object MeshServiceHolder {
                     try { existing.stopServices() } catch (e: Exception) {
                         android.util.Log.w(TAG, "Error while stopping non-reusable instance: ${e.message}")
                     }
-                    val created = BluetoothMeshService(context.applicationContext)
+                    val created = newBluetooth.create()
                     android.util.Log.i(TAG, "Created new BluetoothMeshService (replacement)")
                     meshService = created
                     unifiedMeshService = null
@@ -99,13 +124,13 @@ object MeshServiceHolder {
                 }
             } catch (e: Exception) {
                 android.util.Log.e(TAG, "Error checking service reusability; creating new instance: ${e.message}")
-                val created = BluetoothMeshService(context.applicationContext)
+                val created = newBluetooth.create()
                 meshService = created
                 unifiedMeshService = null
                 created
             }
         }
-        val created = BluetoothMeshService(context.applicationContext)
+        val created = newBluetooth.create()
         android.util.Log.i(TAG, "Created new BluetoothMeshService (no existing instance)")
         meshService = created
         unifiedMeshService = null
@@ -114,13 +139,14 @@ object MeshServiceHolder {
 
     @Synchronized
     fun getUnifiedOrCreate(context: Context): UnifiedMeshService {
+        if (ended) return unifiedMeshService ?: error(ENDED)
         val bluetooth = getOrCreate(context)
         val existing = unifiedMeshService
         if (existing != null) {
             existing.refreshDelegates()
             return existing
         }
-        val created = UnifiedMeshService(context.applicationContext, bluetooth)
+        val created = newUnified.create(bluetooth)
         unifiedMeshService = created
         android.util.Log.i(TAG, "Created new UnifiedMeshService")
         return created
@@ -136,11 +162,34 @@ object MeshServiceHolder {
     @Synchronized
     fun clear() {
         android.util.Log.d(TAG, "Clearing BluetoothMeshService from holder")
+        releaseGossip()
+        meshService = null
+        unifiedMeshService = null
+    }
+
+    /**
+     * The identity is over. Whatever mesh is held stops, including one built during a wipe after the
+     * session's had stopped. The references stay so a late reader of this holder gets that stopped
+     * mesh: an ended identity builds nothing, since a new mesh would generate and store keys over the
+     * next identity's. With no mesh to give back, a late reader gets an exception instead.
+     */
+    @Synchronized
+    private fun end() {
+        ended = true
+        val unified = unifiedMeshService
+        try {
+            unified?.delegate = null
+            unified?.stopServices() ?: meshService?.stopServices()
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "Error while stopping the ended identity's mesh: ${e.javaClass.simpleName}")
+        }
+        releaseGossip()
+    }
+
+    private fun releaseGossip() {
         try { sharedGossipSyncManager?.clear() } catch (_: Exception) { }
         try { sharedGossipSyncManager?.stop() } catch (_: Exception) { }
         sharedGossipSyncManager = null
         activeGossipOwners.clear()
-        meshService = null
-        unifiedMeshService = null
     }
 }

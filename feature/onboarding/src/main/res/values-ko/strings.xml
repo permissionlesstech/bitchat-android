@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="battery_optimization_not_required">배터리 최적화 필요 없음</string>
+    <string name="battery_optimization_not_supported_message">이 기기는 배터리 최적화 설정이 필요하지 않습니다. bitchat은 정상적으로 동작합니다.</string>
+    <string name="battery_optimization_success_message">bitchat이 백그라운드에서 안정적으로 실행됩니다</string>
+    <string name="battery_optimization_skip">지금 건너뛰기</string>
+    <string name="skip">건너뛰기</string>
+
+    <string name="cd_location_services">위치 서비스</string>
+    <string name="cd_privacy">개인정보</string>
+    <string name="cd_error">오류</string>
+    <string name="cd_battery_optimization">배터리 최적화</string>
+    <string name="cd_benefits">이점</string>
+    <string name="cd_checking_battery_optimization">배터리 최적화 확인 중</string>
+    <string name="cd_not_supported_battery_optimization">배터리 최적화 미지원</string>
+    <string name="cd_bluetooth">블루투스</string>
+    <string name="cd_privacy_protected">개인정보 보호됨</string>
+    <!-- 온보딩 화면 -->
+    <string name="location_services_required">위치 서비스 필요</string>
+    <string name="privacy_first">개인정보 우선</string>
+    <string name="location_explanation">bitchat은 사용자의 위치를 추적하지 않습니다.\n\n블루투스 스캔 및 geohash 채팅 기능에 위치 서비스가 필요합니다.</string>
+    <string name="location_needs_for">bitchat은 다음을 위해 위치 서비스가 필요합니다:</string>
+    <string name="location_needs_bullets">• 블루투스 기기 스캔\n• 메쉬 네트워크에서 근처 사용자 발견\n• geohash 채팅 기능\n• 추적 또는 위치 수집 없음</string>
+    <string name="open_location_settings">위치 설정 열기</string>
+    <string name="check_again">다시 확인</string>
+    <string name="location_services_unavailable">위치 서비스를 사용할 수 없음</string>
+    <string name="location_unavailable_explanation">이 기기에서는 위치 서비스를 사용할 수 없습니다. Android 기기에서 위치 서비스는 표준이므로 이는 드문 경우입니다.\n\n블루투스 스캔이 제대로 작동하려면 bitchat에 위치 서비스가 필요합니다(Android 요구 사항). 그렇지 않으면 앱이 주변 사용자를 찾지 못합니다.</string>
+    <string name="checking_location_services">위치 서비스 확인 중 …</string>
+    <string name="bluetooth_needs_for">bitchat은 다음을 위해 블루투스가 필요합니다:</string>
+    <string name="bluetooth_needs_bullets">• 근처 사용자 찾기\n• 메쉬 네트워크 연결 생성\n• 메시지 보내고 받기\n• 인터넷이나 서버 없이 작동</string>
+    <string name="enable_bluetooth">블루투스 켜기</string>
+    <string name="bluetooth_not_supported">블루투스 미지원</string>
+    <string name="bluetooth_unsupported_explanation">이 기기는 bitchat이 동작하는 데 필요한 Bluetooth Low Energy (BLE)를 지원하지 않습니다.\n\nbitchat은 인터넷 없이 근처 장치와 통신하고 메쉬 네트워크를 생성하기 위해 BLE가 필요합니다.</string>
+    <string name="checking_bluetooth_status">블루투스 상태 확인 중 …</string>
+    <string name="battery_optimization_detected_title">배터리 최적화 감지됨</string>
+    <string name="battery_optimization_enabled_title">배터리 최적화 활성화됨</string>
+    <string name="battery_optimization_explanation_short">메쉬 연결을 유지하려면 bitchat이 백그라운드에서 실행되어야 합니다. 배터리 최적화는 이러한 연결을 방해할 수 있습니다.</string>
+    <string name="benefits_of_disabling">비활성화의 이점</string>
+    <string name="battery_benefits_short">• 신뢰할 수 있는 메시지 전달\n• 메쉬 연결 유지\n• 연결 끊김 방지</string>
+    <string name="disable_battery_optimization">배터리 최적화 끄기</string>
+    <string name="battery_optimization_disabled_title">배터리 최적화 비활성화됨</string>
+    <string name="continue_btn">계속</string>
+    <string name="initializing_mesh_network">메쉬 네트워크 초기화 중</string>
+    <string name="setting_up_bluetooth">블루투스 메쉬 네트워크 설정 중 …</string>
+    <string name="should_take_seconds">몇 초 정도 소요됩니다</string>
+    <string name="setup_not_complete">설정이 완료되지 않았습니다</string>
+    <string name="try_again">다시 시도</string>
+    <string name="privacy_protected">개인정보가 보호됩니다</string>
+    <string name="privacy_bullets">• 추적 또는 데이터 수집 없음\n• 블루투스 메쉬 채팅은 완전 오프라인\n• geohash 채팅은 인터넷 사용</string>
+    <string name="permissions_header">권한</string>
+    <string name="grant_permissions">권한 허용</string>
+    <string name="bluetooth_recommended">블루투스 권장</string>
+</resources>

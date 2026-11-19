@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="battery_optimization_not_required">Optimización de batería no requerida</string>
+    <string name="battery_optimization_not_supported_message">Tu dispositivo no requiere configuraciones de optimización de batería. bitchat funcionará normalmente.</string>
+    <string name="battery_optimization_success_message">bitchat puede funcionar de manera confiable en segundo plano</string>
+    <string name="battery_optimization_skip">Omitir por ahora</string>
+    <string name="skip">Omitir</string>
+
+    <string name="cd_location_services">Servicios de ubicación</string>
+    <string name="cd_privacy">Privacidad</string>
+    <string name="cd_error">Error</string>
+    <string name="cd_battery_optimization">Optimización de batería</string>
+    <string name="cd_benefits">Beneficios</string>
+    <string name="cd_checking_battery_optimization">Verificando optimización de batería</string>
+    <string name="cd_not_supported_battery_optimization">Optimización de batería no soportada</string>
+    <string name="cd_bluetooth">Bluetooth</string>
+    <string name="cd_privacy_protected">Privacidad protegida</string>
+    <!-- Pantallas de incorporación -->
+    <string name="location_services_required">Servicios de ubicación requeridos</string>
+    <string name="privacy_first">Privacidad primero</string>
+    <string name="location_explanation">bitchat NO rastrea tu ubicación.\n\nLos servicios de ubicación son requeridos para el escaneo Bluetooth y la función de chat geohash.</string>
+    <string name="location_needs_for">bitchat necesita servicios de ubicación para:</string>
+    <string name="location_needs_bullets">• Escaneo de dispositivos Bluetooth\n• Descubrir usuarios cercanos en la red mesh\n• Función de chat geohash\n• Sin rastreo o recolección de ubicación</string>
+    <string name="open_location_settings">Abrir configuraciones de ubicación</string>
+    <string name="check_again">Verificar de nuevo</string>
+    <string name="location_services_unavailable">Servicios de ubicación no disponibles</string>
+    <string name="location_unavailable_explanation">Los servicios de ubicación no están disponibles en este dispositivo. Esto es inusual ya que los servicios de ubicación son estándar en dispositivos Android.\n\nbitchat requiere servicios de ubicación para el funcionamiento adecuado del escaneo Bluetooth (requisito de Android). Sin esto, la app no puede descubrir usuarios cercanos.</string>
+    <string name="checking_location_services">Verificando servicios de ubicación…</string>
+    <string name="bluetooth_needs_for">bitchat necesita Bluetooth para:</string>
+    <string name="bluetooth_needs_bullets">• Descubrir usuarios cercanos\n• Crear conexiones de red mesh\n• Enviar y recibir mensajes\n• Funcionar sin internet o servidores</string>
+    <string name="enable_bluetooth">Habilitar Bluetooth</string>
+    <string name="bluetooth_not_supported">Bluetooth no soportado</string>
+    <string name="bluetooth_unsupported_explanation">Este dispositivo no soporta Bluetooth Low Energy (BLE), que es requerido para que bitchat funcione.\n\nbitchat requiere BLE para crear redes mesh y comunicarse con dispositivos cercanos sin internet.</string>
+    <string name="checking_bluetooth_status">Verificando estado de Bluetooth…</string>
+    <string name="battery_optimization_detected_title">Optimización de batería detectada</string>
+    <string name="battery_optimization_enabled_title">Optimización de batería habilitada</string>
+    <string name="battery_optimization_explanation_short">bitchat necesita funcionar en segundo plano para mantener conexiones mesh. La optimización de batería puede interrumpir estas conexiones.</string>
+    <string name="benefits_of_disabling">Beneficios de deshabilitar</string>
+    <string name="battery_benefits_short">• entrega confiable de mensajes\n• mantiene conectividad mesh\n• previene desconexiones</string>
+    <string name="disable_battery_optimization">Deshabilitar optimización de batería</string>
+    <string name="battery_optimization_disabled_title">Optimización de batería deshabilitada</string>
+    <string name="continue_btn">Continuar</string>
+    <string name="initializing_mesh_network">Inicializando red mesh</string>
+    <string name="setting_up_bluetooth">Configurando red mesh Bluetooth…</string>
+    <string name="should_take_seconds">Esto debería tomar solo unos segundos</string>
+    <string name="setup_not_complete">Configuración no completada</string>
+    <string name="try_again">Intentar de nuevo</string>
+    <string name="privacy_protected">Tu privacidad está protegida</string>
+    <string name="privacy_bullets">• sin rastreo o recolección de datos\n• chats mesh Bluetooth son completamente offline\n• chats geohash usan internet</string>
+    <string name="permissions_header">Permisos</string>
+    <string name="grant_permissions">Otorgar permisos</string>
+    <string name="bluetooth_recommended">Bluetooth recomendado</string>
+</resources>

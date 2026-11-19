@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="about_offline_mesh_title">Оффлайн Mesh‑чат</string>
+    <string name="about_offline_mesh_desc">Общение напрямую по Bluetooth LE без интернета и серверов. Сообщения ретранслируются близлежащими устройствами.</string>
+    <string name="about_online_geohash_title">Онлайн‑каналы Geohash</string>
+    <string name="about_online_geohash_desc">Общайся с людьми поблизости через каналы на основе geohash. Расширяй mesh через публичные ретрансляторы.</string>
+    <string name="about_e2e_title">Сквозное шифрование</string>
+    <string name="about_e2e_desc">Личные сообщения — зашифрованы. Канальные — публичны.</string>
+    <string name="about_system">система</string>
+    <string name="about_light">светлая</string>
+    <string name="about_dark">тёмная</string>
+    <string name="about_pow">proof of work</string>
+    <string name="about_pow_tip">добавь proof of work к сообщениям geohash для защиты от спама.</string>
+    <string name="about_pow_desc_none">proof of work не требуется</string>
+    <string name="about_pow_desc_very_low">очень низкая — минимальная защита</string>
+    <string name="about_pow_desc_low">низкая — базовая защита</string>
+    <string name="about_pow_desc_medium">средняя — хорошая защита</string>
+    <string name="about_pow_desc_high">высокая — сильная защита</string>
+    <string name="about_pow_desc_very_high">очень высокая — возможны задержки</string>
+    <string name="about_pow_desc_extreme">экстремальная — требуется много вычислений</string>
+    <string name="about_tor_route">направляй интернет через Tor для приватности.</string>
+    <string name="about_debug_settings">Настройки отладки</string>
+    <string name="about_footer">Open Source • Privacy First • Децентрализация</string>
+    <string name="unknown">неизвестно</string>
+
+    <string name="debug_tools">инструменты отладки</string>
+    <string name="debug_verbose_logging">подробное логирование</string>
+    <string name="debug_bluetooth_roles">роли Bluetooth</string>
+    <string name="debug_gatt_server">сервер GATT</string>
+    <string name="debug_connections_fmt">подключения: %1$d / %2$d</string>
+    <string name="debug_max_server">макс. сервер</string>
+    <string name="debug_gatt_client">клиент GATT</string>
+    <string name="debug_max_client">макс. клиент</string>
+    <string name="debug_overall_connections_fmt">подключения: %1$d / %2$d</string>
+    <string name="debug_max_overall">макс. всего</string>
+    <string name="debug_packet_relay">ретрансляция пакетов</string>
+    <string name="debug_max_packets_per_sync_fmt">макс. пакетов на синхр.: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">макс. размер фильтра GCS: %1$d байт (128–1024)</string>
+    <string name="debug_target_fpr_fmt">целевой FPR: %1$.2f%%</string>
+    <string name="debug_connected_devices">подключённые устройства</string>
+    <string name="debug_our_device_id_fmt">ID нашего устройства: %1$s</string>
+    <string name="debug_none">нет</string>
+    <string name="debug_disconnect">отключить</string>
+    <string name="debug_recent_scan_results">последние результаты сканирования</string>
+    <string name="debug_connect">подключить</string>
+    <string name="debug_debug_console">консоль отладки</string>
+    <string name="debug_clear">очистить</string>
+    <string name="debug_derived_p_fmt">выведенный P: %1$s • оцен. макс. элементов: %2$s</string>
+    <string name="debug_direct_suffix"> • напрямую</string>
+    <string name="debug_question_mark">?</string>
+    <string name="debug_role_server">как сервер (мы хостим)</string>
+    <string name="debug_role_client">как клиент (мы подключаемся)</string>
+
+    <string name="version_prefix">v%1$s</string>
+    <string name="about_language">Язык</string>
+    <string name="about_app_language">Язык приложения</string>
+    <string name="about_system_default">Системный язык</string>
+    <string name="about_select_language">Выбрать язык</string>
+    <string name="about_spam_filter_title">Спам-фильтр</string>
+    <string name="about_spam_filter_desc">Скрывать публичные сообщения от тех, кто пишет слишком быстро, повторяется или отправляет слишком много ссылок.</string>
+</resources>

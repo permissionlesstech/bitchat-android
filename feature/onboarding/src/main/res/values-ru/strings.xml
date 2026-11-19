@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="battery_optimization_not_required">Оптимизация батареи не требуется</string>
+    <string name="battery_optimization_not_supported_message">На вашем устройстве не требуются настройки оптимизации. bitchat будет работать штатно.</string>
+    <string name="battery_optimization_success_message">bitchat может надёжно работать в фоне</string>
+    <string name="battery_optimization_skip">Пропустить пока</string>
+    <string name="skip">Пропустить</string>
+
+    <string name="cd_location_services">Службы локации</string>
+    <string name="cd_privacy">Приватность</string>
+    <string name="cd_error">Ошибка</string>
+    <string name="cd_battery_optimization">Оптимизация батареи</string>
+    <string name="cd_benefits">Преимущества</string>
+    <string name="cd_checking_battery_optimization">Проверка оптимизации</string>
+    <string name="cd_not_supported_battery_optimization">Не поддерживается</string>
+    <string name="cd_bluetooth">Bluetooth</string>
+    <string name="location_services_required">Требуются службы локации</string>
+    <string name="privacy_first">Приватность прежде всего</string>
+    <string name="location_explanation">bitchat НЕ отслеживает вашу геопозицию.\n\nСлужбы локации нужны для сканирования Bluetooth и функции чата Geohash.</string>
+    <string name="location_needs_for">bitchat нужны службы локации для:</string>
+    <string name="location_needs_bullets">• Сканирования устройств Bluetooth\n• Поиска ближайших пользователей в mesh\n• Функции чата Geohash\n• Без отслеживания и сбора геоданных</string>
+    <string name="open_location_settings">Открыть настройки локации</string>
+    <string name="check_again">Проверить снова</string>
+    <string name="location_services_unavailable">Службы локации недоступны</string>
+    <string name="location_unavailable_explanation">На этом устройстве службы локации недоступны — это необычно.\n\nОни требуются Android для корректной работы сканирования Bluetooth. Иначе невозможно обнаружить ближайших пользователей.</string>
+    <string name="checking_location_services">Проверка служб локации…</string>
+    <string name="bluetooth_needs_for">bitchat нужен Bluetooth для:</string>
+    <string name="bluetooth_needs_bullets">• Обнаружения ближайших пользователей\n• Создания mesh‑подключений\n• Отправки и получения сообщений\n• Работы без интернета/серверов</string>
+    <string name="enable_bluetooth">Включить Bluetooth</string>
+    <string name="bluetooth_not_supported">Bluetooth не поддерживается</string>
+    <string name="bluetooth_unsupported_explanation">Это устройство не поддерживает Bluetooth Low Energy (BLE), необходимый для работы bitchat.\n\nBLE нужен для построения mesh и обмена с ближайшими устройствами без интернета.</string>
+    <string name="checking_bluetooth_status">Проверка статуса Bluetooth…</string>
+    <string name="battery_optimization_detected_title">обнаружена оптимизация батареи</string>
+    <string name="battery_optimization_enabled_title">Оптимизация включена</string>
+    <string name="battery_optimization_explanation_short">bitchat должен работать в фоне для mesh; оптимизация может прерывать.</string>
+    <string name="benefits_of_disabling">Преимущества отключения</string>
+    <string name="battery_benefits_short">• надёжная доставка\n• поддержка связности\n• предотвращает обрывы</string>
+    <string name="disable_battery_optimization">Отключить оптимизацию</string>
+    <string name="battery_optimization_disabled_title">оптимизация отключена</string>
+    <string name="continue_btn">Продолжить</string>
+    <string name="initializing_mesh_network">Инициализация mesh‑сети</string>
+    <string name="dot">.</string>
+    <string name="setting_up_bluetooth">Настройка Bluetooth mesh…</string>
+    <string name="should_take_seconds">Займёт лишь несколько секунд</string>
+    <string name="warning_emoji">⚠️</string>
+    <string name="setup_not_complete">Настройка не завершена</string>
+    <string name="try_again">Повторить</string>
+    <string name="privacy_protected">Ваша приватность защищена</string>
+    <string name="privacy_bullets">• без трекинга и сбора данных\n• Bluetooth‑mesh чаты полностью оффлайн\n• Geohash‑чаты используют интернет</string>
+    <string name="permissions_header">разрешения</string>
+    <string name="grant_permissions">Выдать разрешения</string>
+    <string name="bluetooth_recommended">Рекомендуется Bluetooth</string>
+</resources>

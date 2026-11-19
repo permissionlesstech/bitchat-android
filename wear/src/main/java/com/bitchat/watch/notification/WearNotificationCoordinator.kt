@@ -12,21 +12,31 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.content.ContextCompat
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.ui.NotificationTextUtils
 import com.bitchat.watch.MainActivity
 import com.bitchat.watch.R
 import com.bitchat.watch.ui.WearChatState
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.ConcurrentHashMap
+import javax.inject.Inject
+import javax.inject.Provider
+import javax.inject.Singleton
 
 /**
  * Process-wide owner for local Wear notifications.
  *
  * Mesh delivery must not depend on an Activity being alive, so the foreground service invokes this
  * coordinator directly. UI state is consulted only to suppress an alert for the exact DM that is
- * currently visible while the app is resumed.
+ * currently visible while the app is resumed. Building it creates the notification channel, so
+ * the first injection, in `Application.onCreate`, is when that happens.
  */
-class WearNotificationCoordinator private constructor(context: Context) {
+@Singleton
+class WearNotificationCoordinator @Inject constructor(
+    @ApplicationContext context: Context,
+    @CurrentIdentity private val chatState: Provider<WearChatState>,
+) {
 
     companion object {
         const val EXTRA_OPEN_DM = "com.bitchat.watch.extra.OPEN_DM"
@@ -34,17 +44,6 @@ class WearNotificationCoordinator private constructor(context: Context) {
 
         private const val MESSAGE_CHANNEL_ID = "bitchat_watch_messages"
         private const val CONVERSATION_NOTIFICATION_ID_BASE = 10_000
-
-        @Volatile
-        private var instance: WearNotificationCoordinator? = null
-
-        fun getInstance(context: Context): WearNotificationCoordinator {
-            return instance ?: synchronized(this) {
-                instance ?: WearNotificationCoordinator(context.applicationContext).also {
-                    instance = it
-                }
-            }
-        }
     }
 
     private data class PendingMessage(
@@ -67,11 +66,12 @@ class WearNotificationCoordinator private constructor(context: Context) {
         senderPeerID: String,
         senderNickname: String
     ) {
+        val state = chatState.get()
         val shouldNotify = WearNotificationPolicy.shouldNotifyPrivateMessage(
             senderPeerID = senderPeerID,
             senderIsSystem = message.sender == "system",
-            appInForeground = WearChatState.appInForeground,
-            openDmPeer = WearChatState.openDmPeer
+            appInForeground = state.appInForeground,
+            openDmPeer = state.openDmPeer
         )
         if (!shouldNotify || !canPostNotifications()) return
 

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+
+    <string name="send_message">بھیجیں</string>
+    <string name="back">واپس</string>
+    <string name="cd_teleported">ٹیلی پورٹ</string>
+    <string name="close_plain">بند کریں</string>
+    <string name="open_settings">سیٹنگز کھولیں</string>
+  <string name="fingerprint_verified_label">verified</string>
+    <string name="cancel">منسوخ کریں</string>
+
+  <string name="nearby_notes_one">یہاں 1 نوٹ چھوڑا گیا ہے — پڑھنے کے لیے تھپتھپائیں</string>
+  <string name="nearby_notes_many">یہاں %d نوٹ چھوڑے گئے ہیں — پڑھنے کے لیے تھپتھپائیں</string>
+</resources>

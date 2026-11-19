@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="channels">არხები</string>
+    <string name="no_one_connected">არავინ არის დაკავშირებული</string>
+    <string name="your_network">თქვენი ქსელი</string>
+
+    <!-- რჩეულების ხელმისაწვდომობა -->
+    <string name="cd_add_favorite">რჩეულებში დამატება</string>
+    <string name="cd_remove_favorite">რჩეულებიდან წაშლა</string>
+    <!-- ჩათის სათაური &amp; ხელმისაწვდომობა -->
+    <string name="cd_nostr_reachable">მისაწვდომია Nostr-ით</string>
+    <string name="cd_unread_private_messages">წაუკითხავი პირადი შეტყობინებები</string>
+    <string name="cd_open_location_channels">მდებარეობისა და არხების პარამეტრების გახსნა</string>
+    <string name="cd_connected_peers">დაკავშირებული პირები</string>
+    <string name="cd_geohash_participants">geohash მონაწილეები</string>
+    <string name="cd_ready_for_handshake">მზადაა ხელის ჩამოსართმევად</string>
+    <string name="cd_handshake_in_progress">მიმდინარეობს ხელის ჩამორთმევა</string>
+    <string name="cd_encrypted">ბოლო-მდე დაშიფვრა</string>
+    <string name="cd_handshake_failed">ხელის ჩამორთმევა წარუმატებლად დასრულდა</string>
+
+    <!-- ფაილის დამთვალიერებელი დიალოგი -->
+    <string name="file_viewer_title">📎 ფაილი მიღებულია</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="file_viewer_size">📏 ზომა: %1$s</string>
+    <string name="file_viewer_type">🏷️ ტიპი: %1$s</string>
+    <string name="file_viewer_open_save">📂 გახსნა / შენახვა</string>
+    <string name="close_with_emoji">❌ დახურვა</string>
+    <string name="pick_image">სურათის არჩევა</string>
+
+    <string name="cancel_lower">გაუქმება</string>
+
+    <string name="cd_unread_message">წაუკითხავი შეტყობინება</string>
+    <string name="cd_reachable_via_nostr">მისაწვდომია Nostr-ით</string>
+    <string name="cd_offline_favorite">რჩეული (ოფლაინ)</string>
+    <string name="cd_scroll_to_bottom">ქვემოთ გადახვევა</string>
+    <string name="cd_file">ფაილი</string>
+    <string name="cd_image">სურათი</string>
+    <string name="cd_cancel">გაუქმება</string>
+    <string name="cd_link">ბმული</string>
+    <string name="cd_pick_media">მედიის არჩევა</string>
+    <string name="cd_pick_file">ფაილის არჩევა</string>
+    <string name="cd_save_current_image">მიმდინარე სურათის შენახვა</string>
+    <string name="cd_close">დახურვა</string>
+    <string name="cd_image_index_of">სურათი %1$d %2$d-დან</string>
+    <string name="cd_record_voice">ხმოვანი ჩანაწერის ჩაწერა</string>
+    <string name="image_unavailable">სურათი მიუწვდომელია</string>
+    <string name="toast_image_saved">სურათი შენახულია "ჩამოტვირთვებში"</string>
+    <string name="toast_failed_to_save_image">სურათის შენახვა ვერ მოხერხდა</string>
+    <string name="file_unavailable">[ფაილი მიუწვდომელია]</string>
+    <!-- მომხმარებლის ქმედებების შიტი -->
+    <string name="choose_action_message_or_user">აირჩიეთ ქმედება ამ შეტყობინებისთვის ან მომხმარებლისთვის</string>
+    <string name="choose_action_user">აირჩიეთ ქმედება ამ მომხმარებლისთვის</string>
+    <string name="action_copy_message_title">შეტყობინების კოპირება</string>
+    <string name="action_copy_message_subtitle">ამ შეტყობინების კოპირება ბუფერში</string>
+    <string name="action_slap_title">%1$s-ის ლ®აპით დარტყმა</string>
+    <string name="action_slap_subtitle">გაგზავნეთ ხუმრობით ლ®აპი</string>
+    <string name="action_hug_title">%1$s-ის ჩახუტება</string>
+    <string name="action_hug_subtitle">გაგზავნეთ მეგობრული ჩახუტება</string>
+    <string name="action_block_title">%1$s-ის დაბლოკვა</string>
+    <string name="action_block_subtitle">ამ მომხმარებლის ყველა შეტყობინების დაბლოკვა</string>
+
+    <string name="mesh_label">mesh</string>
+    <string name="nobody_around">არავინ არის ახლოს…</string>
+    <string name="you_suffix"> (თქვენ)</string>
+    <string name="type_a_message_placeholder">შეიყვანეთ შეტყობინება…</string>
+    <string name="mention">ხსენება</string>
+    <string name="media_type_image">სურათი</string>
+    <string name="media_type_file">ფაილი</string>
+
+    <!-- შეტყობინებების ტექსტის დამხმარეები -->
+    <string name="notification_sent_image">📷 გაგზავნა სურათი</string>
+    <string name="notification_sent_voice">🎤 გაგზავნა ხმოვანი შენიშვნა</string>
+    <string name="notification_sent_file">📎 გაგზავნა ფაილი</string>
+
+    <!-- პაროლის დიალოგი -->
+    <string name="pwd_prompt_title">შეიყვანეთ არხის პაროლი</string>
+    <string name="pwd_prompt_message">არხი %1$s დაცულია პაროლით. შეიყვანეთ პაროლი შესაერთებლად.</string>
+    <string name="pwd_label">პაროლი</string>
+    <string name="join">შეუერთდი</string>
+  <string name="verify_title">verify</string>
+  <string name="verify_my_qr_title">scan to verify me</string>
+  <string name="verify_scan_prompt_friend">scan someone elses qr</string>
+  <string name="verify_remove">remove verification</string>
+  <string name="verify_qr_unavailable">qr unavailable</string>
+  <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
+  <string name="verify_request_camera">enable camera</string>
+  <string name="security_verification_title">security verification</string>
+  <string name="fingerprint_their">their fingerprint</string>
+  <string name="fingerprint_yours">your fingerprint</string>
+  <string name="fingerprint_pending">handshake pending</string>
+  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
+  <string name="fingerprint_status_encrypted">encrypted</string>
+  <string name="fingerprint_status_handshaking">handshaking</string>
+  <string name="fingerprint_status_failed">handshake failed</string>
+  <string name="fingerprint_status_uninitialized">not encrypted</string>
+  <string name="fingerprint_verified_message">you have verified this persons identity.</string>
+  <string name="fingerprint_not_verified_label">not verified</string>
+  <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
+  <string name="fingerprint_mark_verified">mark as verified</string>
+  <string name="fingerprint_start_handshake">start handshake</string>
+  <string name="fingerprint_copy">copy</string>
+    <string name="cd_open_about">აპის შესახებ გახსნა</string>
+</resources>

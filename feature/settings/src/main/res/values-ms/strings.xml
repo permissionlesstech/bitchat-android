@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="about_offline_mesh_title">Sembang Mesh Luar Talian</string>
+  <string name="about_offline_mesh_desc">Berkomunikasi terus melalui Bluetooth LE tanpa internet atau pelayan. Mesej digeganti melalui peranti berdekatan untuk melanjutkan jarak.</string>
+  <string name="about_online_geohash_title">Saluran Geohash Dalam Talian</string>
+  <string name="about_online_geohash_desc">Berhubung dengan orang di kawasan anda menggunakan saluran berasaskan geohash. Melanjutkan mesh menggunakan geganti internet awam.</string>
+  <string name="about_e2e_title">Penyulitan Hujung-ke-Hujung</string>
+  <string name="about_e2e_desc">Mesej peribadi disulitkan. Mesej saluran adalah awam.</string>
+  <string name="about_system">sistem</string>
+  <string name="about_light">cerah</string>
+  <string name="about_dark">gelap</string>
+  <string name="about_pow">bukti kerja</string>
+  <string name="about_pow_tip">tambah bukti kerja pada mesej geohash untuk mengelakkan spam.</string>
+  <string name="about_pow_desc_none">tiada bukti kerja diperlukan</string>
+  <string name="about_pow_desc_very_low">sangat rendah - perlindungan spam minimum</string>
+  <string name="about_pow_desc_low">rendah - perlindungan spam asas</string>
+  <string name="about_pow_desc_medium">sederhana - perlindungan spam yang baik</string>
+  <string name="about_pow_desc_high">tinggi - perlindungan spam yang kuat</string>
+  <string name="about_pow_desc_very_high">sangat tinggi - mungkin menyebabkan kelewatan</string>
+  <string name="about_pow_desc_extreme">melampau - pengiraan besar diperlukan</string>
+  <string name="about_tor_route">laluan internet melalui tor untuk privasi yang lebih baik.</string>
+  <string name="about_debug_settings">Tetapan Nyahpepijat</string>
+  <string name="about_footer">Sumber Terbuka • Privasi Diutamakan • Terdesentralisasi</string>
+  <string name="about_background_title">jalankan di latar belakang</string>
+  <string name="about_background_desc">kekalkan mesh aktif apabila apl ditutup (perkhidmatan latar depan)</string>
+  <string name="unknown">tidak diketahui</string>
+
+  <!-- Debug / Diagnostics -->
+  <string name="debug_tools">alat nyahpepijat</string>
+  <string name="debug_tools_desc">utiliti pembangun untuk diagnostik dan kawalan</string>
+  <string name="debug_verbose_logging">log terperinci</string>
+  <string name="debug_verbose_hint">merekod penyertaan/pemergian rakan, arah sambungan, penghalaan paket dan geganti</string>
+  <string name="debug_bluetooth_roles">peranan bluetooth</string>
+  <string name="debug_gatt_server">pelayan gatt</string>
+  <string name="debug_connections_fmt">sambungan: %1$d / %2$d</string>
+  <string name="debug_max_server">maksimum pelayan</string>
+  <string name="debug_gatt_client">klien gatt</string>
+  <string name="debug_max_client">maksimum klien</string>
+  <string name="debug_overall_connections_fmt">sambungan: %1$d / %2$d</string>
+  <string name="debug_max_overall">maksimum keseluruhan</string>
+  <string name="debug_packet_relay">geganti paket</string>
+  <string name="debug_roles_hint">hidup/matikan peranan dan tutup semua sambungan apabila dilumpuhkan</string>
+  <string name="debug_max_packets_per_sync_fmt">maksimum paket setiap penyegerakan: %1$d</string>
+  <string name="debug_max_gcs_filter_size_fmt">saiz penapis GCS maksimum: %1$d bait (128–1024)</string>
+  <string name="debug_target_fpr_fmt">FPR sasaran: %1$.2f%%</string>
+  <string name="debug_connected_devices">peranti disambungkan</string>
+  <string name="debug_our_device_id_fmt">id peranti kami: %1$s</string>
+  <string name="debug_none">tiada</string>
+  <string name="debug_disconnect">putuskan sambungan</string>
+  <string name="debug_recent_scan_results">keputusan imbasan terkini</string>
+
+  <string name="debug_connect">sambung</string>
+  <string name="debug_debug_console">konsol nyahpepijat</string>
+  <string name="debug_clear">kosongkan</string>
+  <string name="debug_derived_p_fmt">P terbitan: %1$s • anggaran unsur maks: %2$s</string>
+  <string name="debug_direct_suffix"> • terus</string>
+  <string name="debug_rssi_fmt">RSSI: %1$s</string>
+  <string name="debug_question_mark">?</string>
+  <string name="debug_role_server">sebagai pelayan (kami hos)</string>
+  <string name="debug_role_client">sebagai klien (kami sambung)</string>
+
+  <string name="version_prefix">v%1$s</string>
+    <string name="about_language">Bahasa</string>
+    <string name="about_app_language">Bahasa aplikasi</string>
+    <string name="about_system_default">Lalai sistem</string>
+    <string name="about_select_language">Pilih bahasa</string>
+  <string name="about_spam_filter_title">Penapis spam</string>
+  <string name="about_spam_filter_desc">Sembunyikan mesej awam daripada orang yang menghantar terlalu pantas, mengulang mesej atau membanjiri perbualan dengan pautan.</string>
+</resources>
