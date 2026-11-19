@@ -102,11 +102,18 @@ fun ChatUserSheet(
                                 onClick = {
                                     val selectedLocationChannel = viewModel.selectedLocationChannel.value
                                     if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location) {
-                                        if (selectedMessage?.senderPeerID?.startsWith("nostr:") == true) {
-                                            val shortId = selectedMessage.senderPeerID!!.substring(6)
-                                            viewModel.startGeohashDMByShortId(shortId)
-                                        } else {
-                                            viewModel.startGeohashDMByNickname(targetNickname)
+                                        // Prefer the Nostr pubkey stamped on the message (#898).
+                                        // Nickname / short-id fallbacks miss when presence has aged out.
+                                        val nostrPubkey = selectedMessage?.senderNostrPubkey
+                                        when {
+                                            !nostrPubkey.isNullOrBlank() ->
+                                                viewModel.startGeohashDM(nostrPubkey)
+                                            selectedMessage?.senderPeerID?.startsWith("nostr:") == true -> {
+                                                val shortId = selectedMessage.senderPeerID!!.substring(6)
+                                                viewModel.startGeohashDMByShortId(shortId)
+                                            }
+                                            else ->
+                                                viewModel.startGeohashDMByNickname(targetNickname)
                                         }
                                     } else {
                                         // Mesh chat
