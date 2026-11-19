@@ -1,0 +1,33 @@
+language,selected_text_records,dialogue_records,characters,status
+ar,39990,10000,3307365,dialogue data and supplementary text
+bn,31483,10000,3610914,dialogue data and supplementary text
+de,40212,20000,5306679,dialogue data and supplementary text
+en,44116,20000,5376832,dialogue data and supplementary text
+es,41626,20000,5257502,dialogue data and supplementary text
+eu,17999,9997,2560505,dialogue data and supplementary text
+fa,31496,9999,2979831,dialogue data and supplementary text
+fil,21533,0,1177025,assistant utterances and QA; general-dialogue gap
+fr,41895,20000,5798989,dialogue data and supplementary text
+he,30000,10000,2109017,dialogue data and supplementary text
+hi,31368,9997,3349995,dialogue data and supplementary text
+id,30531,10000,3251950,dialogue data and supplementary text
+it,40311,20000,4940540,dialogue data and supplementary text
+ja,39998,10000,2262766,dialogue data and supplementary text
+ka,31972,10000,4016507,dialogue data and supplementary text
+ko,30352,10000,1552624,dialogue data and supplementary text
+mg,30073,9999,11873912,dialogue data and supplementary text
+ms,37462,10000,4979311,dialogue data and supplementary text
+ne,20482,9713,3054564,dialogue data and supplementary text
+nl,32160,10000,3500041,dialogue data and supplementary text
+pa,1750,0,496891,limited domain QA and translated sentences; general-chat gap
+pl,30863,10000,2803873,dialogue data and supplementary text
+pt,39264,9999,4245489,dialogue data and supplementary text
+ru,30229,10000,2847023,dialogue data and supplementary text
+sv,30233,9999,2727911,dialogue data and supplementary text
+ta,30556,9965,5064260,dialogue data and supplementary text
+th,27322,9999,2227992,dialogue data and supplementary text
+tr,36045,10000,3689709,dialogue data and supplementary text
+uk,20437,9997,2469948,dialogue data and supplementary text
+ur,23620,9992,2983349,dialogue data and supplementary text
+vi,38956,10000,8580554,dialogue data and supplementary text
+zh,37330,10000,1104084,dialogue data and supplementary text

@@ -258,8 +258,11 @@ object WearTestHookDriver {
     private suspend fun msgRecv(context: Context, intent: Intent): JSONObject {
         val timeoutMs = intent.getLongExtra("timeout_ms", DEFAULT_RECV_TIMEOUT_MS)
         val contains = intent.getStringExtra("contains")
+        // Only opt in with unique synthetic content; preserve the arrival-based default.
+        val includeExisting = intent.getBooleanExtra("include_existing", false)
         val mesh = mesh(context)
-        val matcher = ArrivedMessageMatcher(AppStateStore.publicMessages.value) { msg ->
+        val initial = if (includeExisting) emptyList() else AppStateStore.publicMessages.value
+        val matcher = ArrivedMessageMatcher(initial) { msg ->
             msg.senderPeerID != mesh.myPeerID &&
                 (contains == null || msg.content.contains(contains))
         }

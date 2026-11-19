@@ -556,6 +556,43 @@ def scenario_broadcast_spam(a: Device, b: Device) -> dict:
     return {"delivered": delivered}
 
 
+def scenario_broadcast_gibberish(a: Device, b: Device) -> dict:
+    """Two synthetic gibberish messages are absent, then five languages are received on B.
+
+    Requires default filtering on B and bypass off. This covers the physical admission path;
+    identity rotation and detection rates are exercised by the deterministic JVM benchmark.
+    """
+    id_a = whoami(a)["peer_id"]
+    token = uuid.uuid4().hex[:12]
+    messages = [
+        f"9!qxjv7#zmxq2%jkvxz8@vxjq4&qzpv6*jk {token}-a",
+        f"vxqjzmpqzjxvktxjkvzpqzvxmjkpvxqjzt {token}-b",
+        f"This ordinary synthetic example should remain visible after the unwanted messages. The text is an invented conversation for checking message delivery. Thank you for the clear explanation. We can read the result and try the next example when everything is ready. {token}-c",
+        f"これはソフトウェアの練習のために作った架空の例です。わかりやすい説明と役立つ提案をありがとうございます。この小さなアプリはインターネット接続なしで動作します。 {token}-d",
+        f"هذا مثال مختلق لتجربة البرنامج. شكرا على الشرح الواضح والاقتراح المفيد. يعمل هذا التطبيق الصغير دون اتصال بالإنترنت. هل يمكنك شرح كيف يغير هذا الخيار النتيجة؟ {token}-e",
+        f"이것은 소프트웨어 연습을 위해 만든 가상의 예제입니다. 명확한 설명과 유용한 제안에 감사드립니다. 이 작은 앱은 인터넷 연결 없이 작동합니다. 이 옵션이 결과를 어떻게 바꾸는지 설명해 주실 수 있나요? {token}-f",
+        f"这是为软件练习编写的虚构示例。感谢清楚的解释和有用的建议。这个小应用无需连接互联网就能工作。你能解释这个选项如何改变结果吗？ {token}-g",
+    ]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(messages)) as pool:
+        # The per-run token excludes stale matches. Lookback avoids an arbitrary startup sleep
+        # and still works if the ADB worker reaches msg_recv after the send completes.
+        recvs = [pool.submit(b.cmd, "msg_recv", 30_000, contains=text, include_existing=True) for text in messages]
+        for text in messages:
+            a.cmd_ok("broadcast_msg", 30_000, content=text)
+        results = [recv.result() for recv in recvs]
+    delivered = [result.get("status") == "ok" for result in results]
+    if delivered != [False, False, True, True, True, True, True]:
+        raise MeshLabError(f"expected gibberish absent and ordinary multilingual controls delivered, got {delivered}")
+    for result in results[:2]:
+        if not str(result.get("error", "")).startswith("timeout after "):
+            raise MeshLabError("negative receive did not complete its observation window")
+    for result, text in zip(results[2:], messages[2:]):
+        if result.get("from") != id_a or result.get("content") != text:
+            raise MeshLabError("ordinary control did not match its synthetic sender and content")
+    return {"delivered": delivered, "gibberish_hidden": 2, "ordinary_delivered": 5,
+            "control_languages": ["en", "ja", "ar", "ko", "zh"]}
+
+
 def _ptt_one_way(
     sender: Device,
     receiver: Device,
@@ -894,6 +931,7 @@ SCENARIOS = {
     "favorite_verification": scenario_favorite_verification,
     "broadcast": scenario_broadcast,
     "broadcast_spam": scenario_broadcast_spam,
+    "broadcast_gibberish": scenario_broadcast_gibberish,
     "ptt_dm": scenario_ptt_dm,
     "ptt_broadcast": scenario_ptt_broadcast,
     # Broadcast transfers are receiver-capped at 256 fragments (~120 KB); only
@@ -925,6 +963,7 @@ WATCH_SCENARIOS = [
     "favorite_verification",
     "broadcast",
     "broadcast_spam",
+    "broadcast_gibberish",
     "ptt_dm",
     "ptt_broadcast",
     "raw",

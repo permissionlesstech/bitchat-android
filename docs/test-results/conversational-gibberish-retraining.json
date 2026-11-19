@@ -1,0 +1,1100 @@
+{
+  "comparison": "Previous UI/synthetic multilingual pack versus conversational-corpus retraining",
+  "training": {
+    "offlineOnly": true,
+    "runtimeTraining": false,
+    "families": 32,
+    "corpusPartitions": {
+      "train": 810272,
+      "calibration": 100630,
+      "test": 100618
+    },
+    "sourceCatalog": "tools/spam_filter/corpus-sources.json",
+    "modelManifest": "tools/spam_filter/language-models.json",
+    "positiveCalibrationMargin": 0.55,
+    "selection": "Conversation-group split across translations; conservative global duplicate partition; repository fixtures excluded"
+  },
+  "modelPack": {
+    "gzipBytes": 1587413,
+    "decodedArrayBytes": 3015144,
+    "maxRawModelBytes": 998540,
+    "alphabetLimit": 16384,
+    "decompressionLimitPerModel": 1048576,
+    "calibrationConflicts": 0
+  },
+  "heldOutCorpus": {
+    "measurement": "Exact JVM normalization, script selection, decoder and quantized scoring; aggregate counts only",
+    "limitations": "Public held-out corpus candidates, not verified real-world spam labels or a population accuracy estimate",
+    "total": 100618,
+    "baselineHidden": 16945,
+    "retrainedHidden": 1506,
+    "languages": {
+      "ar": {
+        "total": 3862,
+        "baselineHidden": 434,
+        "retrainedHidden": 64,
+        "shortTexts": {
+          "baselineHidden": 206,
+          "total": 1238,
+          "retrainedHidden": 57
+        }
+      },
+      "bn": {
+        "total": 3131,
+        "baselineHidden": 125,
+        "retrainedHidden": 30,
+        "shortTexts": {
+          "baselineHidden": 73,
+          "total": 587,
+          "retrainedHidden": 27
+        }
+      },
+      "de": {
+        "total": 4088,
+        "baselineHidden": 205,
+        "retrainedHidden": 13,
+        "shortTexts": {
+          "baselineHidden": 39,
+          "total": 316,
+          "retrainedHidden": 9
+        }
+      },
+      "en": {
+        "total": 4509,
+        "baselineHidden": 307,
+        "retrainedHidden": 22,
+        "shortTexts": {
+          "baselineHidden": 49,
+          "total": 490,
+          "retrainedHidden": 11
+        }
+      },
+      "es": {
+        "total": 4311,
+        "baselineHidden": 290,
+        "retrainedHidden": 26,
+        "shortTexts": {
+          "baselineHidden": 100,
+          "total": 460,
+          "retrainedHidden": 18
+        }
+      },
+      "eu": {
+        "total": 1855,
+        "baselineHidden": 75,
+        "retrainedHidden": 13,
+        "shortTexts": {
+          "baselineHidden": 42,
+          "total": 224,
+          "retrainedHidden": 10
+        }
+      },
+      "fa": {
+        "total": 3036,
+        "baselineHidden": 412,
+        "retrainedHidden": 20,
+        "shortTexts": {
+          "baselineHidden": 17,
+          "total": 502,
+          "retrainedHidden": 16
+        }
+      },
+      "fil": {
+        "total": 2112,
+        "baselineHidden": 38,
+        "retrainedHidden": 7,
+        "shortTexts": {
+          "baselineHidden": 10,
+          "total": 310,
+          "retrainedHidden": 1
+        }
+      },
+      "fr": {
+        "total": 4300,
+        "baselineHidden": 597,
+        "retrainedHidden": 14,
+        "shortTexts": {
+          "baselineHidden": 91,
+          "total": 339,
+          "retrainedHidden": 10
+        }
+      },
+      "he": {
+        "total": 2964,
+        "baselineHidden": 509,
+        "retrainedHidden": 45,
+        "shortTexts": {
+          "baselineHidden": 324,
+          "total": 912,
+          "retrainedHidden": 36
+        }
+      },
+      "hi": {
+        "total": 3157,
+        "baselineHidden": 129,
+        "retrainedHidden": 56,
+        "shortTexts": {
+          "baselineHidden": 99,
+          "total": 661,
+          "retrainedHidden": 50
+        }
+      },
+      "id": {
+        "total": 2968,
+        "baselineHidden": 30,
+        "retrainedHidden": 10,
+        "shortTexts": {
+          "baselineHidden": 19,
+          "total": 435,
+          "retrainedHidden": 8
+        }
+      },
+      "it": {
+        "total": 4084,
+        "baselineHidden": 268,
+        "retrainedHidden": 21,
+        "shortTexts": {
+          "baselineHidden": 98,
+          "total": 483,
+          "retrainedHidden": 16
+        }
+      },
+      "ja": {
+        "total": 3949,
+        "baselineHidden": 2735,
+        "retrainedHidden": 178,
+        "shortTexts": {
+          "baselineHidden": 1238,
+          "total": 2060,
+          "retrainedHidden": 152
+        }
+      },
+      "ka": {
+        "total": 3185,
+        "baselineHidden": 365,
+        "retrainedHidden": 43,
+        "shortTexts": {
+          "baselineHidden": 41,
+          "total": 707,
+          "retrainedHidden": 40
+        }
+      },
+      "ko": {
+        "total": 2998,
+        "baselineHidden": 2694,
+        "retrainedHidden": 237,
+        "shortTexts": {
+          "baselineHidden": 1434,
+          "total": 1710,
+          "retrainedHidden": 208
+        }
+      },
+      "mg": {
+        "total": 3008,
+        "baselineHidden": 261,
+        "retrainedHidden": 36,
+        "shortTexts": {
+          "baselineHidden": 8,
+          "total": 40,
+          "retrainedHidden": 6
+        }
+      },
+      "ms": {
+        "total": 3753,
+        "baselineHidden": 62,
+        "retrainedHidden": 7,
+        "shortTexts": {
+          "baselineHidden": 12,
+          "total": 351,
+          "retrainedHidden": 5
+        }
+      },
+      "ne": {
+        "total": 2058,
+        "baselineHidden": 196,
+        "retrainedHidden": 47,
+        "shortTexts": {
+          "baselineHidden": 58,
+          "total": 237,
+          "retrainedHidden": 37
+        }
+      },
+      "nl": {
+        "total": 3252,
+        "baselineHidden": 111,
+        "retrainedHidden": 10,
+        "shortTexts": {
+          "baselineHidden": 59,
+          "total": 487,
+          "retrainedHidden": 7
+        }
+      },
+      "pa": {
+        "total": 166,
+        "baselineHidden": 3,
+        "retrainedHidden": 2,
+        "shortTexts": {
+          "baselineHidden": 2,
+          "total": 10,
+          "retrainedHidden": 2
+        }
+      },
+      "pl": {
+        "total": 3061,
+        "baselineHidden": 186,
+        "retrainedHidden": 12,
+        "shortTexts": {
+          "baselineHidden": 100,
+          "total": 514,
+          "retrainedHidden": 9
+        }
+      },
+      "pt": {
+        "total": 3864,
+        "baselineHidden": 519,
+        "retrainedHidden": 47,
+        "shortTexts": {
+          "baselineHidden": 152,
+          "total": 483,
+          "retrainedHidden": 38
+        }
+      },
+      "ru": {
+        "total": 2916,
+        "baselineHidden": 151,
+        "retrainedHidden": 12,
+        "shortTexts": {
+          "baselineHidden": 88,
+          "total": 472,
+          "retrainedHidden": 11
+        }
+      },
+      "sv": {
+        "total": 2954,
+        "baselineHidden": 175,
+        "retrainedHidden": 11,
+        "shortTexts": {
+          "baselineHidden": 89,
+          "total": 631,
+          "retrainedHidden": 9
+        }
+      },
+      "ta": {
+        "total": 2949,
+        "baselineHidden": 1072,
+        "retrainedHidden": 36,
+        "shortTexts": {
+          "baselineHidden": 243,
+          "total": 379,
+          "retrainedHidden": 30
+        }
+      },
+      "th": {
+        "total": 2730,
+        "baselineHidden": 381,
+        "retrainedHidden": 44,
+        "shortTexts": {
+          "baselineHidden": 189,
+          "total": 780,
+          "retrainedHidden": 40
+        }
+      },
+      "tr": {
+        "total": 3538,
+        "baselineHidden": 73,
+        "retrainedHidden": 23,
+        "shortTexts": {
+          "baselineHidden": 38,
+          "total": 485,
+          "retrainedHidden": 17
+        }
+      },
+      "uk": {
+        "total": 2026,
+        "baselineHidden": 586,
+        "retrainedHidden": 19,
+        "shortTexts": {
+          "baselineHidden": 185,
+          "total": 397,
+          "retrainedHidden": 16
+        }
+      },
+      "ur": {
+        "total": 2356,
+        "baselineHidden": 13,
+        "retrainedHidden": 7,
+        "shortTexts": {
+          "baselineHidden": 7,
+          "total": 312,
+          "retrainedHidden": 5
+        }
+      },
+      "vi": {
+        "total": 3745,
+        "baselineHidden": 454,
+        "retrainedHidden": 60,
+        "shortTexts": {
+          "baselineHidden": 146,
+          "total": 455,
+          "retrainedHidden": 31
+        }
+      },
+      "zh": {
+        "total": 3733,
+        "baselineHidden": 3489,
+        "retrainedHidden": 334,
+        "shortTexts": {
+          "baselineHidden": 2048,
+          "total": 2266,
+          "retrainedHidden": 294
+        }
+      }
+    }
+  },
+  "syntheticAndStaticCohorts": {
+    "phoneWatchIdentical": true,
+    "languages": {
+      "baseline": {
+        "ar": {
+          "total": 13,
+          "hidden": 1,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "bn": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "de": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "en": {
+          "total": 20,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "es": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "eu": {
+          "total": 20,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "fa": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "fil": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "fr": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "he": {
+          "total": 14,
+          "hidden": 2,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "hi": {
+          "total": 13,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "id": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "it": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ja": {
+          "total": 14,
+          "hidden": 3,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ka": {
+          "total": 13,
+          "hidden": 1,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ko": {
+          "total": 14,
+          "hidden": 3,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "mg": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ms": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ne": {
+          "total": 13,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "nl": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "pa": {
+          "total": 13,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "pl": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "pt": {
+          "total": 20,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ru": {
+          "total": 14,
+          "hidden": 1,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "sv": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ta": {
+          "total": 13,
+          "hidden": 1,
+          "syntheticTotal": 4,
+          "syntheticHidden": 1
+        },
+        "th": {
+          "total": 13,
+          "hidden": 2,
+          "syntheticTotal": 4,
+          "syntheticHidden": 1
+        },
+        "tr": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "uk": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ur": {
+          "total": 13,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "vi": {
+          "total": 13,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "zh": {
+          "total": 29,
+          "hidden": 6,
+          "syntheticTotal": 4,
+          "syntheticHidden": 1
+        }
+      },
+      "retrained": {
+        "ar": {
+          "total": 13,
+          "hidden": 1,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "bn": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "de": {
+          "total": 14,
+          "hidden": 1,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "en": {
+          "total": 20,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "es": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "eu": {
+          "total": 20,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "fa": {
+          "total": 14,
+          "hidden": 2,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "fil": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "fr": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "he": {
+          "total": 14,
+          "hidden": 2,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "hi": {
+          "total": 13,
+          "hidden": 1,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "id": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "it": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ja": {
+          "total": 14,
+          "hidden": 3,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ka": {
+          "total": 13,
+          "hidden": 3,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ko": {
+          "total": 14,
+          "hidden": 5,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "mg": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ms": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ne": {
+          "total": 13,
+          "hidden": 2,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "nl": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "pa": {
+          "total": 13,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "pl": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "pt": {
+          "total": 20,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ru": {
+          "total": 14,
+          "hidden": 1,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "sv": {
+          "total": 14,
+          "hidden": 1,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ta": {
+          "total": 13,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "th": {
+          "total": 13,
+          "hidden": 1,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "tr": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "uk": {
+          "total": 14,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "ur": {
+          "total": 13,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "vi": {
+          "total": 13,
+          "hidden": 0,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        },
+        "zh": {
+          "total": 29,
+          "hidden": 3,
+          "syntheticTotal": 4,
+          "syntheticHidden": 0
+        }
+      }
+    },
+    "characters": {
+      "baseline": {
+        "numbers_in_chat": {
+          "total": 20,
+          "modelFlagged": 2,
+          "filterHidden": 2,
+          "unscored": 0
+        },
+        "punctuation_in_chat": {
+          "total": 20,
+          "modelFlagged": 2,
+          "filterHidden": 2,
+          "unscored": 0
+        },
+        "numeric_and_math": {
+          "total": 20,
+          "modelFlagged": 19,
+          "filterHidden": 19,
+          "unscored": 0
+        },
+        "code_and_structured": {
+          "total": 20,
+          "modelFlagged": 17,
+          "filterHidden": 17,
+          "unscored": 0
+        },
+        "urls": {
+          "total": 20,
+          "modelFlagged": 10,
+          "filterHidden": 10,
+          "unscored": 0
+        },
+        "hashes_and_identifiers": {
+          "total": 20,
+          "modelFlagged": 18,
+          "filterHidden": 18,
+          "unscored": 0
+        },
+        "short_replies": {
+          "total": 20,
+          "modelFlagged": 11,
+          "filterHidden": 11,
+          "unscored": 0
+        },
+        "unicode": {
+          "total": 20,
+          "modelFlagged": 3,
+          "filterHidden": 3,
+          "unscored": 0
+        },
+        "english": {
+          "total": 60,
+          "modelFlagged": 0,
+          "filterHidden": 0,
+          "unscored": 0
+        }
+      },
+      "retrained": {
+        "numbers_in_chat": {
+          "total": 20,
+          "modelFlagged": 1,
+          "filterHidden": 1,
+          "unscored": 0
+        },
+        "punctuation_in_chat": {
+          "total": 20,
+          "modelFlagged": 1,
+          "filterHidden": 1,
+          "unscored": 0
+        },
+        "numeric_and_math": {
+          "total": 20,
+          "modelFlagged": 19,
+          "filterHidden": 19,
+          "unscored": 0
+        },
+        "code_and_structured": {
+          "total": 20,
+          "modelFlagged": 16,
+          "filterHidden": 16,
+          "unscored": 0
+        },
+        "urls": {
+          "total": 20,
+          "modelFlagged": 15,
+          "filterHidden": 15,
+          "unscored": 0
+        },
+        "hashes_and_identifiers": {
+          "total": 20,
+          "modelFlagged": 18,
+          "filterHidden": 18,
+          "unscored": 0
+        },
+        "short_replies": {
+          "total": 20,
+          "modelFlagged": 9,
+          "filterHidden": 9,
+          "unscored": 0
+        },
+        "unicode": {
+          "total": 20,
+          "modelFlagged": 1,
+          "filterHidden": 1,
+          "unscored": 0
+        },
+        "english": {
+          "total": 60,
+          "modelFlagged": 0,
+          "filterHidden": 0,
+          "unscored": 0
+        }
+      }
+    },
+    "numberSymbolSubtotal": {
+      "total": 120,
+      "baselineHidden": 68,
+      "retrainedHidden": 70
+    }
+  },
+  "randomIdentityFloods": [
+    {
+      "transport": "mesh",
+      "text": "mixed-printable-ascii",
+      "messages": 10000,
+      "modelHidden": 10000,
+      "modelDisabledAllowed": 9994
+    },
+    {
+      "transport": "mesh",
+      "text": "spaced-letters",
+      "messages": 10000,
+      "modelHidden": 10000,
+      "modelDisabledAllowed": 10000
+    },
+    {
+      "transport": "mesh",
+      "text": "unbroken-letters",
+      "messages": 10000,
+      "modelHidden": 10000,
+      "modelDisabledAllowed": 10000
+    },
+    {
+      "transport": "nostr",
+      "text": "mixed-printable-ascii",
+      "messages": 10000,
+      "modelHidden": 10000,
+      "modelDisabledAllowed": 9994
+    },
+    {
+      "transport": "nostr",
+      "text": "spaced-letters",
+      "messages": 10000,
+      "modelHidden": 10000,
+      "modelDisabledAllowed": 10000
+    },
+    {
+      "transport": "nostr",
+      "text": "unbroken-letters",
+      "messages": 10000,
+      "modelHidden": 10000,
+      "modelDisabledAllowed": 10000
+    }
+  ],
+  "nativeScriptNoise": {
+    "total": 3200,
+    "hidden": 3200,
+    "perLanguage": {
+      "ar": {
+        "total": 100,
+        "hidden": 100
+      },
+      "bn": {
+        "total": 100,
+        "hidden": 100
+      },
+      "de": {
+        "total": 100,
+        "hidden": 100
+      },
+      "en": {
+        "total": 100,
+        "hidden": 100
+      },
+      "es": {
+        "total": 100,
+        "hidden": 100
+      },
+      "eu": {
+        "total": 100,
+        "hidden": 100
+      },
+      "fa": {
+        "total": 100,
+        "hidden": 100
+      },
+      "fil": {
+        "total": 100,
+        "hidden": 100
+      },
+      "fr": {
+        "total": 100,
+        "hidden": 100
+      },
+      "he": {
+        "total": 100,
+        "hidden": 100
+      },
+      "hi": {
+        "total": 100,
+        "hidden": 100
+      },
+      "id": {
+        "total": 100,
+        "hidden": 100
+      },
+      "it": {
+        "total": 100,
+        "hidden": 100
+      },
+      "ja": {
+        "total": 100,
+        "hidden": 100
+      },
+      "ka": {
+        "total": 100,
+        "hidden": 100
+      },
+      "ko": {
+        "total": 100,
+        "hidden": 100
+      },
+      "mg": {
+        "total": 100,
+        "hidden": 100
+      },
+      "ms": {
+        "total": 100,
+        "hidden": 100
+      },
+      "ne": {
+        "total": 100,
+        "hidden": 100
+      },
+      "nl": {
+        "total": 100,
+        "hidden": 100
+      },
+      "pa": {
+        "total": 100,
+        "hidden": 100
+      },
+      "pl": {
+        "total": 100,
+        "hidden": 100
+      },
+      "pt": {
+        "total": 100,
+        "hidden": 100
+      },
+      "ru": {
+        "total": 100,
+        "hidden": 100
+      },
+      "sv": {
+        "total": 100,
+        "hidden": 100
+      },
+      "ta": {
+        "total": 100,
+        "hidden": 100
+      },
+      "th": {
+        "total": 100,
+        "hidden": 100
+      },
+      "tr": {
+        "total": 100,
+        "hidden": 100
+      },
+      "uk": {
+        "total": 100,
+        "hidden": 100
+      },
+      "ur": {
+        "total": 100,
+        "hidden": 100
+      },
+      "vi": {
+        "total": 100,
+        "hidden": 100
+      },
+      "zh": {
+        "total": 100,
+        "hidden": 100
+      }
+    }
+  },
+  "validation": {
+    "app": {
+      "unitTests": {
+        "tests": 777,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 3,
+        "passed": 774
+      },
+      "debugBuild": "pass",
+      "bundledModelDigestsVerifiedInApk": 32,
+      "lint": "completed under repository nonblocking configuration",
+      "lintCounts": {
+        "Hint": 19,
+        "Warning": 356,
+        "Error": 311
+      },
+      "findingsInChangedModelFiles": 0
+    },
+    "wear": {
+      "unitTests": {
+        "tests": 305,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 305
+      },
+      "debugBuild": "pass",
+      "bundledModelDigestsVerifiedInApk": 32,
+      "lint": "completed under repository nonblocking configuration",
+      "lintCounts": {
+        "Error": 37,
+        "Warning": 51,
+        "Hint": 10
+      },
+      "findingsInChangedModelFiles": 0
+    },
+    "deterministicGeneration": "pass --check",
+    "hostTests": {
+      "passed": 21,
+      "failed": 0
+    },
+    "physicalMeshLab": {
+      "status": "blocked (not run)",
+      "reason": "No physical endpoints connected",
+      "scenario": "broadcast_gibberish"
+    }
+  },
+  "limitations": [
+    "Held-out public corpus texts are candidates, not independently verified real-world abuse labels; these are corpus-specific rejection rates.",
+    "Filipino broad-dialogue coverage and Shahmukhi Punjabi general-chat coverage remain limited.",
+    "Chinese and Korean held-out rejection rates remain comparatively high.",
+    "Strict scoring retains false positives on standalone numbers, symbols, code, URLs and identifiers; no content exemptions were introduced.",
+    "Static/UI held-out text can regress despite improved conversational data; per-language and category counts are included.",
+    "No physical BLE delivery validation was possible."
+  ]
+}

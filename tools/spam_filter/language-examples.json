@@ -1,0 +1,770 @@
+{
+  "en": {
+    "train": [
+      "This is an invented example for a software exercise.",
+      "Thank you for the clear explanation and helpful suggestion.",
+      "The small application works without an internet connection.",
+      "Could you explain how this option changes the result?"
+    ],
+    "calibration": [
+      "Please check the example before trying the next step.",
+      "The answer became clearer after reading the explanation.",
+      "I thought it was broken, but after trying once more it started working properly.",
+      "Sometimes I forget a step, so a short explanation beside the button would be helpful."
+    ],
+    "test": [
+      "I changed the setting and the text became easier to read.",
+      "The second attempt finished successfully without any error.",
+      "Could we make the buttons slightly larger in this view?",
+      "That was useful, thank you for taking the time to help."
+    ]
+  },
+  "ar": {
+    "train": [
+      "هذا مثال مختلق لتجربة البرنامج.",
+      "شكرا على الشرح الواضح والاقتراح المفيد.",
+      "يعمل هذا التطبيق الصغير دون اتصال بالإنترنت.",
+      "هل يمكنك شرح كيف يغير هذا الخيار النتيجة؟"
+    ],
+    "calibration": [
+      "يرجى مراجعة المثال قبل تجربة الخطوة التالية.",
+      "أصبحت الإجابة أوضح بعد قراءة الشرح.",
+      "ظننت أنه معطل، لكنه بدأ يعمل بشكل صحيح بعد أن حاولت مرة أخرى.",
+      "أنسى أحيانا إحدى الخطوات، لذلك سيكون وجود شرح قصير بجانب الزر مفيدا."
+    ],
+    "test": [
+      "غيرت الإعداد فأصبح النص أسهل للقراءة.",
+      "اكتملت المحاولة الثانية بنجاح دون أي خطأ.",
+      "هل يمكننا تكبير الأزرار قليلا في هذه الشاشة؟",
+      "كان ذلك مفيدا، شكرا على وقتك ومساعدتك."
+    ]
+  },
+  "bn": {
+    "train": [
+      "এটি সফটওয়্যার পরীক্ষার জন্য বানানো একটি উদাহরণ।",
+      "স্পষ্ট ব্যাখ্যা এবং দরকারি পরামর্শের জন্য ধন্যবাদ।",
+      "ছোট অ্যাপটি ইন্টারনেট সংযোগ ছাড়াই কাজ করে।",
+      "এই বিকল্পটি কীভাবে ফলাফল বদলায় তা বুঝিয়ে বলবেন?"
+    ],
+    "calibration": [
+      "পরের ধাপটি চেষ্টা করার আগে উদাহরণটি পরীক্ষা করুন।",
+      "ব্যাখ্যাটি পড়ার পরে উত্তরটি আরও স্পষ্ট হয়েছে।",
+      "আমি ভেবেছিলাম এটি নষ্ট হয়েছে, কিন্তু আবার চেষ্টা করার পরে এটি ঠিকমতো কাজ করতে শুরু করল।",
+      "মাঝে মাঝে একটি ধাপ ভুলে যাই, তাই বোতামের পাশে ছোট একটি ব্যাখ্যা থাকলে ভালো হয়।"
+    ],
+    "test": [
+      "সেটিং বদলানোর পরে লেখাটি পড়া সহজ হয়েছে।",
+      "দ্বিতীয় চেষ্টাটি কোনো ত্রুটি ছাড়াই সফল হয়েছে।",
+      "এই পর্দায় বোতামগুলো একটু বড় করা যাবে কি?",
+      "আপনার সাহায্যটি কাজে লেগেছে, সময় দেওয়ার জন্য ধন্যবাদ।"
+    ]
+  },
+  "de": {
+    "train": [
+      "Dies ist ein erfundenes Beispiel für eine Softwareübung.",
+      "Danke für die klare Erklärung und den hilfreichen Vorschlag.",
+      "Die kleine Anwendung funktioniert ohne Internetverbindung.",
+      "Kannst du erklären, wie diese Option das Ergebnis verändert?"
+    ],
+    "calibration": [
+      "Bitte prüfe das Beispiel, bevor du den nächsten Schritt versuchst.",
+      "Nach dem Lesen der Erklärung wurde die Antwort verständlicher.",
+      "Ich dachte, es wäre kaputt, aber nach einem weiteren Versuch funktionierte es wieder richtig.",
+      "Manchmal vergesse ich einen Schritt, deshalb wäre eine kurze Erklärung neben der Schaltfläche hilfreich."
+    ],
+    "test": [
+      "Ich habe die Einstellung geändert und der Text ist leichter lesbar.",
+      "Der zweite Versuch wurde ohne Fehler erfolgreich abgeschlossen.",
+      "Könnten wir die Schaltflächen in dieser Ansicht etwas größer machen?",
+      "Das war hilfreich, vielen Dank für deine Zeit und Unterstützung."
+    ]
+  },
+  "es": {
+    "train": [
+      "Este es un ejemplo inventado para un ejercicio de software.",
+      "Gracias por la explicación clara y la sugerencia útil.",
+      "La pequeña aplicación funciona sin conexión a internet.",
+      "¿Puedes explicar cómo cambia el resultado esta opción?"
+    ],
+    "calibration": [
+      "Comprueba el ejemplo antes de intentar el siguiente paso.",
+      "La respuesta quedó más clara después de leer la explicación.",
+      "Pensé que estaba roto, pero tras intentarlo una vez más empezó a funcionar correctamente.",
+      "A veces olvido un paso, así que sería útil una breve explicación junto al botón."
+    ],
+    "test": [
+      "Cambié la configuración y ahora el texto resulta más fácil de leer.",
+      "El segundo intento terminó correctamente sin ningún error.",
+      "¿Podemos hacer los botones un poco más grandes en esta vista?",
+      "Eso fue útil, gracias por dedicar tiempo a ayudar."
+    ]
+  },
+  "eu": {
+    "train": [
+      "Hau software ariketa baterako asmatutako adibidea da.",
+      "Eskerrik asko azalpen argiagatik eta iradokizun lagungarriagatik.",
+      "Aplikazio txikiak interneteko konexiorik gabe funtzionatzen du.",
+      "Azalduko al duzu aukera honek emaitza nola aldatzen duen?"
+    ],
+    "calibration": [
+      "Mesedez, egiaztatu adibidea hurrengo urratsa saiatu aurretik.",
+      "Azalpena irakurri ondoren erantzuna argiago geratu da.",
+      "Hondatuta zegoela uste nuen, baina berriro saiatu ondoren behar bezala funtzionatzen hasi zen.",
+      "Batzuetan urrats bat ahazten dut, beraz botoiaren ondoan azalpen labur bat lagungarria litzateke."
+    ],
+    "test": [
+      "Ezarpena aldatu dut eta testua errazago irakurtzen da orain.",
+      "Bigarren saiakera arrakastaz amaitu da akatsik gabe.",
+      "Ikuspegi honetan botoiak pixka bat handiagoak egin ditzakegu?",
+      "Lagungarria izan da, eskerrik asko laguntzeko denbora hartzeagatik."
+    ]
+  },
+  "fa": {
+    "train": [
+      "این یک نمونه ساختگی برای تمرین نرم‌افزار است.",
+      "از توضیح روشن و پیشنهاد مفید شما سپاسگزارم.",
+      "این برنامه کوچک بدون اتصال اینترنت کار می‌کند.",
+      "می‌توانید توضیح دهید این گزینه چگونه نتیجه را تغییر می‌دهد؟"
+    ],
+    "calibration": [
+      "لطفا پیش از امتحان مرحله بعد نمونه را بررسی کنید.",
+      "پس از خواندن توضیح پاسخ روشن‌تر شد.",
+      "فکر می‌کردم خراب شده، اما پس از یک بار تلاش دیگر شروع به کار درست کرد.",
+      "گاهی یک مرحله را فراموش می‌کنم، پس توضیح کوتاهی کنار دکمه مفید خواهد بود."
+    ],
+    "test": [
+      "تنظیم را تغییر دادم و خواندن متن آسان‌تر شد.",
+      "تلاش دوم بدون هیچ خطایی با موفقیت تمام شد.",
+      "آیا می‌توانیم دکمه‌ها را در این نما کمی بزرگ‌تر کنیم؟",
+      "این کمک مفید بود، از وقتی که گذاشتید سپاسگزارم."
+    ]
+  },
+  "fil": {
+    "train": [
+      "Ito ay kathang halimbawa para sa pagsubok ng programa.",
+      "Salamat sa malinaw na paliwanag at kapaki-pakinabang na mungkahi.",
+      "Gumagana ang maliit na programa nang walang koneksiyon sa internet.",
+      "Maaari mo bang ipaliwanag kung paano binabago ng opsiyong ito ang resulta?"
+    ],
+    "calibration": [
+      "Pakisuri ang halimbawa bago subukan ang susunod na hakbang.",
+      "Mas naging malinaw ang sagot pagkatapos basahin ang paliwanag.",
+      "Akala ko ay sira ito, pero matapos subukan muli ay gumana na ito nang maayos.",
+      "Minsan ay nakakalimutan ko ang isang hakbang, kaya makatutulong ang maikling paliwanag sa tabi ng pindutan."
+    ],
+    "test": [
+      "Binago ko ang setting at mas madali nang basahin ang teksto.",
+      "Matagumpay na natapos ang ikalawang pagsubok nang walang error.",
+      "Maaari ba nating palakihin nang kaunti ang mga pindutan sa tanawing ito?",
+      "Nakatulong iyon, salamat sa paglalaan ng oras upang tumulong."
+    ]
+  },
+  "fr": {
+    "train": [
+      "Ceci est un exemple inventé pour un exercice logiciel.",
+      "Merci pour cette explication claire et cette suggestion utile.",
+      "La petite application fonctionne sans connexion internet.",
+      "Peux-tu expliquer comment cette option modifie le résultat ?"
+    ],
+    "calibration": [
+      "Vérifie cet exemple avant de passer à la prochaine étape.",
+      "La réponse est devenue plus claire après la lecture des explications.",
+      "Je pensais que c'était cassé, mais après une nouvelle tentative cela s'est mis à fonctionner correctement.",
+      "Il m'arrive d'oublier une étape, alors une petite explication à côté du bouton serait utile."
+    ],
+    "test": [
+      "J'ai changé le réglage et le texte est devenu plus facile à lire.",
+      "La deuxième tentative s'est terminée sans aucune erreur.",
+      "Pourrait-on agrandir un peu les boutons dans cette vue ?",
+      "Cela m'a aidé, merci d'avoir pris le temps de répondre."
+    ]
+  },
+  "he": {
+    "train": [
+      "זוהי דוגמה מומצאת לתרגיל בתוכנה.",
+      "תודה על ההסבר הברור ועל ההצעה המועילה.",
+      "היישום הקטן פועל ללא חיבור לאינטרנט.",
+      "אפשר להסביר כיצד האפשרות הזאת משנה את התוצאה?"
+    ],
+    "calibration": [
+      "נא לבדוק את הדוגמה לפני שמנסים את השלב הבא.",
+      "התשובה נעשתה ברורה יותר לאחר קריאת ההסבר.",
+      "חשבתי שזה מקולקל, אבל אחרי ניסיון נוסף זה התחיל לפעול כראוי.",
+      "לפעמים אני שוכח שלב, ולכן הסבר קצר ליד הכפתור יכול לעזור."
+    ],
+    "test": [
+      "שיניתי את ההגדרה ועכשיו קל יותר לקרוא את הטקסט.",
+      "הניסיון השני הסתיים בהצלחה ללא שגיאה.",
+      "אפשר להגדיל מעט את הכפתורים בתצוגה הזאת?",
+      "זה היה מועיל, תודה שהקדשת זמן לעזור."
+    ]
+  },
+  "hi": {
+    "train": [
+      "यह सॉफ्टवेयर के अभ्यास के लिए बनाया गया एक काल्पनिक उदाहरण है।",
+      "स्पष्ट जानकारी और उपयोगी सुझाव के लिए धन्यवाद।",
+      "यह छोटा ऐप इंटरनेट कनेक्शन के बिना काम करता है।",
+      "क्या आप बता सकते हैं कि यह विकल्प परिणाम को कैसे बदलता है?"
+    ],
+    "calibration": [
+      "अगला कदम आजमाने से पहले उदाहरण की जाँच करें।",
+      "समझाने वाला पाठ पढ़ने के बाद जवाब अधिक स्पष्ट हो गया।",
+      "मुझे लगा था कि यह खराब हो गया है, लेकिन एक बार और कोशिश करने पर यह ठीक से काम करने लगा।",
+      "कभी कोई कदम भूल जाता हूँ, इसलिए बटन के पास छोटी सी जानकारी हो तो मदद मिलेगी।"
+    ],
+    "test": [
+      "मैंने सेटिंग बदली और अब पाठ पढ़ना आसान हो गया है।",
+      "दूसरा प्रयास बिना किसी त्रुटि के सफलतापूर्वक पूरा हो गया।",
+      "क्या हम इस स्क्रीन पर बटन थोड़े बड़े कर सकते हैं?",
+      "यह मददगार था, सहायता के लिए समय देने का धन्यवाद।"
+    ]
+  },
+  "id": {
+    "train": [
+      "Ini adalah contoh rekaan untuk latihan perangkat lunak.",
+      "Terima kasih atas penjelasan yang jelas dan saran yang berguna.",
+      "Aplikasi kecil ini bekerja tanpa sambungan internet.",
+      "Bisakah kamu menjelaskan bagaimana pilihan ini mengubah hasilnya?"
+    ],
+    "calibration": [
+      "Periksa contohnya sebelum mencoba langkah berikutnya.",
+      "Jawabannya menjadi lebih jelas setelah membaca penjelasan.",
+      "Saya kira ini rusak, tetapi setelah mencoba sekali lagi ternyata mulai bekerja dengan benar.",
+      "Kadang saya lupa satu langkah, jadi penjelasan singkat di samping tombol akan membantu."
+    ],
+    "test": [
+      "Saya mengubah pengaturan dan teksnya menjadi lebih mudah dibaca.",
+      "Percobaan kedua selesai dengan baik tanpa kesalahan.",
+      "Bisakah kita membuat tombol sedikit lebih besar pada tampilan ini?",
+      "Itu sangat membantu, terima kasih sudah meluangkan waktu."
+    ]
+  },
+  "it": {
+    "train": [
+      "Questo è un esempio inventato per un esercizio software.",
+      "Grazie per la spiegazione chiara e il suggerimento utile.",
+      "La piccola applicazione funziona senza connessione internet.",
+      "Puoi spiegare come questa opzione cambia il risultato?"
+    ],
+    "calibration": [
+      "Controlla l'esempio prima di provare il passaggio successivo.",
+      "La risposta è diventata più chiara dopo aver letto la spiegazione.",
+      "Pensavo che fosse guasto, ma dopo un altro tentativo ha iniziato a funzionare correttamente.",
+      "A volte dimentico un passaggio, quindi una breve spiegazione accanto al pulsante sarebbe utile."
+    ],
+    "test": [
+      "Ho cambiato l'impostazione e adesso il testo è più facile da leggere.",
+      "Il secondo tentativo si è concluso correttamente senza alcun errore.",
+      "Possiamo rendere i pulsanti un po' più grandi in questa vista?",
+      "È stato utile, grazie per aver dedicato del tempo ad aiutare."
+    ]
+  },
+  "ja": {
+    "train": [
+      "これはソフトウェアの練習のために作った架空の例です。",
+      "わかりやすい説明と役立つ提案をありがとうございます。",
+      "この小さなアプリはインターネット接続なしで動作します。",
+      "この選択肢で結果がどのように変わるか説明してもらえますか。",
+      "今の表示は前よりも読みやすいと思います。文字の大きさを変えられるとさらに便利ですね。",
+      "まだ全部は終わっていませんが、簡単な部分から少しずつ進めています。もう少し待ってください。",
+      "さっき開いていた画面を閉じてから、もう一度開いてみました。入力した内容はそのまま残っていました。",
+      "詳しく教えていただいて助かりました。最初は難しく感じましたが、今は理由がわかります。",
+      "この方法でも大丈夫そうですが、もっと単純な手順にできないでしょうか。初めて使う人にもわかる説明が必要です。",
+      "明るい背景と暗い背景の両方で確認しました。どちらの場合もボタンの位置は変わりませんでした。",
+      "写真を送っている間は少し時間がかかりました。完了した後で一覧に新しい項目が追加されました。",
+      "架空の小さなロボットが大きなパズルを完成させました。この文章は表示を試すために作った物語です。",
+      "二つの結果を並べて比べてみると、最初の結果にだけ余分な空白がありました。ほかの違いは見つかりません。",
+      "同じ問題がまた起きたら、どの順番で操作したか教えてください。説明だけでは原因を決められません。",
+      "質問の意味を少し勘違いしていたようです。読み直してから別の答えを考えてみます。",
+      "何度か使っているうちに慣れてきました。最初の印象ほど複雑ではないですね。",
+      "今すぐ決める必要はありません。良い点と気になる点を確認してから選びましょう。",
+      "ボタン同士が近すぎるので間違えて押すことがあります。間隔を広げると使いやすくなると思います。",
+      "変更した箇所を確かめるため、新しいテスト用の文章を書きました。以前のようなエラーは出ませんでした。",
+      "自動で次の画面へ進んでしまい、最後まで読めませんでした。一時的に止める方法はありますか。",
+      "説明を短くするのは良いですが、必要な情報まで消さないでください。具体例があると理解しやすいです。",
+      "別のソフトにも似た機能がありました。こちらでは少し違う動きになるので注意して見ています。",
+      "音量を下げてもう一度再生しました。話している内容は聞こえますが、背景に少し雑音があります。",
+      "一覧の下まで移動すると続きが表示されます。戻ってから開き直しても同じ場所が見えると便利です。",
+      "準備ができたら始めてください。その前に説明を読んで必要な項目を確認しておきます。",
+      "もう一度試したところ、今度は普通に動きました。最初に失敗した理由はまだわかりません。",
+      "どの方法が良いかは条件によって変わります。一つの答えだけでなく、複数の場合を調べましょう。",
+      "短い返事でも構いませんが、理由も一緒に書いていただけると参考になります。質問が長くなってしまいました。",
+      "空白を消したら二つの言葉がつながってしまいました。改行した場合も読みやすく表示してください。",
+      "初期設定のままでも十分だと思います。必要になった時だけ詳しい設定を変えれば良さそうです。",
+      "完了したという通知が出たのに、画面の内容は変わっていません。一覧を更新すると結果が見えますか。",
+      "念のため元の例も残しておきました。後で結果を比較するときに使えます。",
+      "画像がぼやけて見えるのは小さな表示だからかもしれません。全体を表示すると細かい部分まで見えます。",
+      "長い文章を書いてから途中の部分を直してみました。文字を選ぶ操作が少し難しく感じました。",
+      "いつも同じ順序で表示されると便利です。新しい項目が増えても元の並び方を保てるでしょうか。",
+      "作業が途中で止まったように見えましたが、少し待つと先へ進みました。進行状況がわかる表示が欲しいです。"
+    ],
+    "calibration": [
+      "次の手順を試す前に例を確認してください。",
+      "説明を読んだ後で答えがもっとわかりやすくなりました。",
+      "壊れたのかと思いましたが、もう一度試してみたら正しく動くようになりました。",
+      "時々手順を忘れてしまうので、ボタンの横に短い説明があると助かります。"
+    ],
+    "test": [
+      "設定を変更したら文字が読みやすくなりました。",
+      "二回目の試みはエラーなく正常に完了しました。",
+      "この画面のボタンを少し大きくできますか。",
+      "助かりました。時間をかけて教えてくれてありがとう。"
+    ]
+  },
+  "ka": {
+    "train": [
+      "ეს პროგრამის სავარჯიშოდ გამოგონილი მაგალითია.",
+      "გმადლობთ გასაგები ახსნისა და სასარგებლო რჩევისთვის.",
+      "ეს პატარა პროგრამა ინტერნეტის გარეშეც მუშაობს.",
+      "შეგიძლიათ ახსნათ, როგორ ცვლის ეს არჩევანი შედეგს?"
+    ],
+    "calibration": [
+      "შემდეგი ნაბიჯის ცდამდე შეამოწმეთ მაგალითი.",
+      "ახსნის წაკითხვის შემდეგ პასუხი უფრო გასაგები გახდა.",
+      "ვფიქრობდი, რომ გაფუჭდა, მაგრამ კიდევ ერთი ცდის შემდეგ სწორად ამუშავდა.",
+      "ზოგჯერ ერთი ნაბიჯი მავიწყდება, ამიტომ ღილაკის გვერდით მოკლე ახსნა სასარგებლო იქნებოდა."
+    ],
+    "test": [
+      "პარამეტრი შევცვალე და ტექსტის წაკითხვა გამარტივდა.",
+      "მეორე მცდელობა წარმატებით დასრულდა შეცდომის გარეშე.",
+      "შეგვიძლია ამ ეკრანზე ღილაკები ოდნავ გავადიდოთ?",
+      "ეს სასარგებლო იყო, გმადლობთ დახმარებისთვის დახარჯული დროისთვის."
+    ]
+  },
+  "ko": {
+    "train": [
+      "이것은 소프트웨어 연습을 위해 만든 가상의 예제입니다.",
+      "명확한 설명과 유용한 제안에 감사드립니다.",
+      "이 작은 앱은 인터넷 연결 없이 작동합니다.",
+      "이 옵션이 결과를 어떻게 바꾸는지 설명해 주실 수 있나요?",
+      "지금 화면에 표시되는 글씨는 충분히 선명해요. 작은 글자도 편하게 읽을 수 있으면 좋겠어요.",
+      "아까 열어 둔 창을 닫았는데 다시 열어 보니 내용이 남아 있었어요. 저장 기능은 제대로 작동하는 것 같아요.",
+      "새로운 기능을 켜기 전에 설명부터 읽어 봤어요. 어떤 차이가 있는지 이제 조금 이해가 돼요.",
+      "아직 모든 작업을 끝내지는 못했어요. 우선 쉬운 부분부터 하나씩 해 보면 될 것 같아요.",
+      "잠깐 기다렸다가 다시 눌러 보세요. 바로 반응하지 않아도 작업이 진행 중일 수 있어요.",
+      "답장을 늦게 확인했네요. 자세하게 알려 주셔서 정말 고마워요. 덕분에 문제를 해결했어요.",
+      "그 방법도 괜찮지만 조금 더 간단하게 만들 수 있을까요? 처음 사용하는 사람도 쉽게 알 수 있으면 좋겠어요.",
+      "글자 크기와 배경 색을 함께 바꿀 수 있어요. 밝은 색과 어두운 색을 모두 확인해 주세요.",
+      "사진을 보내는 동안에는 다른 버튼을 누르지 않았어요. 전송이 끝나자 목록에 새 항목이 생겼어요.",
+      "가상의 작은 로봇이 커다란 퍼즐을 완성했어요. 이 이야기는 테스트를 위해 지어낸 것이에요.",
+      "두 가지 결과를 나란히 놓고 비교해 봤어요. 첫 번째 결과에는 빈 줄이 하나 더 들어 있네요.",
+      "혹시 같은 현상이 또 나타나면 어떤 순서로 했는지 알려 주세요. 설명만으로는 원인을 알기 어려워요.",
+      "제가 질문을 잘못 이해한 것 같아요. 다시 읽어 보니 다른 뜻으로 말씀하셨군요.",
+      "이제 조금씩 익숙해지고 있어요. 처음에는 어려웠지만 여러 번 해 보니 별로 복잡하지 않네요.",
+      "지금 당장 결정할 필요는 없어요. 장점과 단점을 충분히 살펴본 다음에 선택하면 돼요.",
+      "버튼이 너무 가까이 붙어 있어서 가끔 잘못 눌러요. 간격을 조금 넓히면 사용하기 편할 것 같아요.",
+      "수정한 부분을 확인하려고 새 예제를 만들었어요. 이전과 달리 오류가 생기지 않았어요.",
+      "이 문장은 실제 대화가 아니라 가상으로 작성한 내용이에요. 특별한 뜻은 없고 글자 표시를 확인하는 용도예요.",
+      "자동으로 넘어가는 화면 때문에 내용을 끝까지 못 읽었어요. 잠시 멈출 수 있는 방법이 있나요?",
+      "설명을 짧게 쓰는 것도 좋지만 필요한 내용은 빠지면 안 돼요. 예시를 함께 넣으면 이해하기 쉬워요.",
+      "다른 프로그램에서도 비슷한 기능을 본 적이 있어요. 그래도 여기서는 조금 다른 방식으로 동작하네요.",
+      "소리를 줄이고 다시 재생해 봤어요. 말소리는 잘 들리는데 뒤에서 작은 잡음이 들려요.",
+      "목록 맨 아래로 내려가면 추가 항목이 나타나요. 위로 올라갔다가 내려와도 위치가 유지되네요.",
+      "준비가 되면 시작해 주세요. 저는 설명을 먼저 읽고 필요한 항목을 확인해 둘게요.",
+      "다시 해 보니까 정상으로 돌아왔어요. 왜 처음에 실패했는지는 아직 잘 모르겠어요.",
+      "어떤 방식이 더 나은지는 상황에 따라 달라요. 한 가지 답만 정하기보다는 여러 경우를 확인해요.",
+      "짧은 답변도 좋지만 이유를 함께 설명해 주시면 더 도움이 돼요. 궁금한 점이 많아서 질문이 길어졌네요.",
+      "공백을 지웠더니 두 단어가 붙어 버렸어요. 줄을 바꿀 때에도 읽기 좋게 표시되면 좋겠어요.",
+      "기본값을 그대로 써도 충분할 것 같아요. 필요한 경우에만 고급 옵션을 바꾸면 되겠네요.",
+      "완료되었다는 안내가 나왔는데 화면은 그대로예요. 목록을 새로 고치면 결과가 보이나요?",
+      "혹시 모르니 원래 예제도 남겨 두었어요. 나중에 결과를 비교할 때 쓸 수 있어요.",
+      "그림이 흐리게 보이는 것은 미리보기 크기 때문일 수 있어요. 전체 화면에서는 더 또렷하게 보이네요."
+    ],
+    "calibration": [
+      "다음 단계를 시도하기 전에 예제를 확인해 주세요.",
+      "설명을 읽고 나니 답이 더 명확해졌습니다.",
+      "고장 난 줄 알았는데 한 번 더 시도하니 제대로 작동하기 시작했어요.",
+      "가끔 단계를 잊어버리기 때문에 버튼 옆에 짧은 설명이 있으면 도움이 될 것 같아요."
+    ],
+    "test": [
+      "설정을 바꾸었더니 글을 읽기가 더 쉬워졌어요.",
+      "두 번째 시도는 오류 없이 성공적으로 완료되었습니다.",
+      "이 화면의 버튼을 조금 더 크게 만들 수 있을까요?",
+      "도움이 되었어요. 시간을 내어 알려 주셔서 감사합니다."
+    ]
+  },
+  "mg": {
+    "train": [
+      "Ohatra noforonina ho an'ny fanandramana rindranasa ity.",
+      "Misaotra tamin'ny fanazavana mazava sy ny soso-kevitra mahasoa.",
+      "Miasa tsy mila fifandraisana amin'ny aterineto ity rindranasa kely ity.",
+      "Azonao hazavaina ve ny fomba anovan'ity safidy ity ny valiny?"
+    ],
+    "calibration": [
+      "Jereo ilay ohatra alohan'ny hanandramana ny dingana manaraka.",
+      "Lasa mazava kokoa ny valiny rehefa avy namaky ny fanazavana.",
+      "Nihevitra aho fa simba ilay izy, nefa rehefa nanandrana indray dia nanomboka niasa tsara.",
+      "Indraindray aho manadino dingana iray, ka ilaina ny fanazavana fohy eo akaikin'ny bokotra."
+    ],
+    "test": [
+      "Nanova ny fikirana aho ka mora vakina kokoa izao ny lahatsoratra.",
+      "Vita soa aman-tsara tsy nisy hadisoana ny fanandramana faharoa.",
+      "Afaka ampitomboina kely ve ny bokotra amin'ity efijery ity?",
+      "Tena nanampy izany, misaotra tamin'ny fotoana nomenao hanampiana."
+    ]
+  },
+  "ms": {
+    "train": [
+      "Ini contoh rekaan untuk latihan perisian.",
+      "Terima kasih atas penerangan yang jelas dan cadangan yang berguna.",
+      "Aplikasi kecil ini berfungsi tanpa sambungan internet.",
+      "Bolehkah anda jelaskan bagaimana pilihan ini mengubah hasilnya?"
+    ],
+    "calibration": [
+      "Sila semak contoh sebelum mencuba langkah seterusnya.",
+      "Jawapan menjadi lebih jelas selepas membaca penerangan.",
+      "Saya sangka ia rosak, tetapi selepas mencuba sekali lagi ia mula berfungsi dengan betul.",
+      "Kadangkala saya terlupa satu langkah, jadi penerangan ringkas di sebelah butang tentu membantu."
+    ],
+    "test": [
+      "Saya mengubah tetapan dan teks kini lebih mudah dibaca.",
+      "Percubaan kedua selesai dengan jayanya tanpa sebarang ralat.",
+      "Bolehkah kita membesarkan sedikit butang pada paparan ini?",
+      "Itu sangat membantu, terima kasih kerana meluangkan masa."
+    ]
+  },
+  "ne": {
+    "train": [
+      "यो सफ्टवेयरको अभ्यासका लागि बनाइएको काल्पनिक उदाहरण हो।",
+      "स्पष्ट व्याख्या र उपयोगी सुझावका लागि धन्यवाद।",
+      "यो सानो एपले इन्टरनेट जडानबिना काम गर्छ।",
+      "यो विकल्पले नतिजा कसरी बदल्छ भनेर बुझाउन सक्नुहुन्छ?"
+    ],
+    "calibration": [
+      "अर्को चरण प्रयास गर्नुअघि उदाहरण जाँच गर्नुहोस्।",
+      "व्याख्या पढेपछि उत्तर अझ स्पष्ट भयो।",
+      "बिग्रिएको जस्तो लागेको थियो, तर फेरि प्रयास गरेपछि यसले राम्ररी काम गर्न थाल्यो।",
+      "कहिलेकाहीँ एउटा चरण बिर्सन्छु, त्यसैले बटनको छेउमा छोटो व्याख्या भए सहयोग पुग्छ।"
+    ],
+    "test": [
+      "मैले सेटिङ बदलेपछि पाठ पढ्न सजिलो भयो।",
+      "दोस्रो प्रयास कुनै त्रुटिबिना सफलतापूर्वक पूरा भयो।",
+      "के हामी यो पर्दामा बटनहरू अलि ठूला बनाउन सक्छौँ?",
+      "यो उपयोगी भयो, सहयोगका लागि समय दिनुभएकोमा धन्यवाद।"
+    ]
+  },
+  "nl": {
+    "train": [
+      "Dit is een verzonnen voorbeeld voor een softwareoefening.",
+      "Bedankt voor de duidelijke uitleg en de nuttige suggestie.",
+      "De kleine toepassing werkt zonder internetverbinding.",
+      "Kun je uitleggen hoe deze optie het resultaat verandert?"
+    ],
+    "calibration": [
+      "Controleer het voorbeeld voordat je de volgende stap probeert.",
+      "Het antwoord werd duidelijker na het lezen van de uitleg.",
+      "Ik dacht dat het kapot was, maar na nog een poging begon het weer goed te werken.",
+      "Soms vergeet ik een stap, dus een korte uitleg naast de knop zou handig zijn."
+    ],
+    "test": [
+      "Ik heb de instelling veranderd en de tekst is nu makkelijker te lezen.",
+      "De tweede poging is zonder fouten succesvol afgerond.",
+      "Kunnen we de knoppen in deze weergave iets groter maken?",
+      "Dat was nuttig, bedankt dat je de tijd nam om te helpen."
+    ]
+  },
+  "pa": {
+    "train": [
+      "ایہہ سافٹ ویئر دی مشق لئی بنایا گیا اک فرضی نمونہ اے۔",
+      "صاف وضاحت تے فائدہ مند صلاح لئی شکریہ۔",
+      "ایہہ چھوٹی ایپ انٹرنیٹ دے کنکشن توں بغیر کم کردی اے۔",
+      "تسی دَس سکدے او کہ ایہہ چُون نتیجہ کِویں بدل دی اے؟"
+    ],
+    "calibration": [
+      "اگلا قدم آزمان توں پہلاں نمونے نوں ویکھ لو۔",
+      "وضاحت پڑھ کے جواب ہور صاف ہو گیا اے۔",
+      "مینوں لگیا سی ایہہ خراب ہو گیا اے، پر اک واری ہور کوشش کیتی تے ٹھیک کم کرن لگ پیا۔",
+      "کدی کدی اک قدم بھل جاندا اے، ایس لئی بٹن دے نال چھوٹی جیہی وضاحت فائدہ مند ہووے گی۔"
+    ],
+    "test": [
+      "میں سیٹنگ بدلی تے ہُن لکھت پڑھنی سوکھی ہو گئی اے۔",
+      "دوجی کوشش بغیر کسے غلطی دے کامیاب ہو گئی اے۔",
+      "کی اسی ایس سکرین اُتے بٹن تھوڑے وڈے کر سکدے آں؟",
+      "ایہہ فائدہ مند سی، مدد لئی ویلا کڈھن دا شکریہ۔"
+    ]
+  },
+  "pl": {
+    "train": [
+      "To jest wymyślony przykład do ćwiczenia oprogramowania.",
+      "Dziękuję za jasne wyjaśnienie i przydatną sugestię.",
+      "Mała aplikacja działa bez połączenia z internetem.",
+      "Czy możesz wyjaśnić, jak ta opcja zmienia wynik?"
+    ],
+    "calibration": [
+      "Sprawdź przykład przed wypróbowaniem następnego kroku.",
+      "Po przeczytaniu wyjaśnienia odpowiedź stała się bardziej zrozumiała.",
+      "Myślałem, że to się zepsuło, ale po kolejnej próbie zaczęło działać prawidłowo.",
+      "Czasem zapominam o jednym kroku, więc krótki opis obok przycisku byłby pomocny."
+    ],
+    "test": [
+      "Zmieniłem ustawienie i tekst jest teraz łatwiejszy do odczytania.",
+      "Druga próba zakończyła się pomyślnie bez żadnego błędu.",
+      "Czy możemy nieco powiększyć przyciski w tym widoku?",
+      "To było pomocne, dziękuję za poświęcony czas i pomoc."
+    ]
+  },
+  "pt": {
+    "train": [
+      "Este é um exemplo inventado para um exercício de software.",
+      "Obrigado pela explicação clara e pela sugestão útil.",
+      "O pequeno aplicativo funciona sem conexão com a internet.",
+      "Você pode explicar como esta opção altera o resultado?"
+    ],
+    "calibration": [
+      "Confira o exemplo antes de tentar a próxima etapa.",
+      "A resposta ficou mais clara depois de ler a explicação.",
+      "Achei que estava quebrado, mas depois de tentar mais uma vez começou a funcionar corretamente.",
+      "Às vezes esqueço uma etapa, então uma explicação curta ao lado do botão seria útil."
+    ],
+    "test": [
+      "Mudei a configuração e agora o texto ficou mais fácil de ler.",
+      "A segunda tentativa terminou com sucesso e sem nenhum erro.",
+      "Podemos deixar os botões um pouco maiores nesta tela?",
+      "Isso ajudou, obrigado por dedicar seu tempo para ajudar."
+    ]
+  },
+  "ru": {
+    "train": [
+      "Это выдуманный пример для упражнения с программой.",
+      "Спасибо за понятное объяснение и полезный совет.",
+      "Это небольшое приложение работает без подключения к интернету.",
+      "Можешь объяснить, как этот параметр меняет результат?"
+    ],
+    "calibration": [
+      "Пожалуйста, проверь пример перед следующим шагом.",
+      "После прочтения объяснения ответ стал понятнее.",
+      "Я думал, что всё сломалось, но после ещё одной попытки оно начало работать правильно.",
+      "Иногда я забываю один шаг, поэтому короткое пояснение рядом с кнопкой было бы полезно."
+    ],
+    "test": [
+      "Я изменил настройку, и теперь текст легче читать.",
+      "Вторая попытка успешно завершилась без ошибок.",
+      "Можно сделать кнопки в этом окне немного больше?",
+      "Это помогло, спасибо за уделённое время и помощь."
+    ]
+  },
+  "sv": {
+    "train": [
+      "Det här är ett påhittat exempel för en programövning.",
+      "Tack för den tydliga förklaringen och det hjälpsamma förslaget.",
+      "Den lilla appen fungerar utan internetanslutning.",
+      "Kan du förklara hur det här alternativet ändrar resultatet?"
+    ],
+    "calibration": [
+      "Kontrollera exemplet innan du provar nästa steg.",
+      "Svaret blev tydligare efter att jag läst förklaringen.",
+      "Jag trodde att det var trasigt, men efter ännu ett försök började det fungera som det skulle.",
+      "Ibland glömmer jag ett steg, så en kort förklaring bredvid knappen skulle vara bra."
+    ],
+    "test": [
+      "Jag ändrade inställningen och texten blev lättare att läsa.",
+      "Det andra försöket slutfördes utan några fel.",
+      "Kan vi göra knapparna lite större i den här vyn?",
+      "Det var till hjälp, tack för att du tog dig tid att hjälpa."
+    ]
+  },
+  "ta": {
+    "train": [
+      "இது மென்பொருள் பயிற்சிக்காக உருவாக்கப்பட்ட கற்பனை எடுத்துக்காட்டு.",
+      "தெளிவான விளக்கத்திற்கும் பயனுள்ள ஆலோசனைக்கும் நன்றி.",
+      "இந்தச் சிறிய செயலி இணைய இணைப்பு இல்லாமல் இயங்கும்.",
+      "இந்தத் தேர்வு முடிவை எப்படி மாற்றுகிறது என்று விளக்க முடியுமா?"
+    ],
+    "calibration": [
+      "அடுத்த படியை முயல்வதற்கு முன் எடுத்துக்காட்டைச் சரிபார்க்கவும்.",
+      "விளக்கத்தைப் படித்த பிறகு பதில் மேலும் தெளிவானது.",
+      "இது பழுதாகிவிட்டது என்று நினைத்தேன், ஆனால் மீண்டும் முயன்றபோது சரியாக வேலை செய்யத் தொடங்கியது.",
+      "சில நேரங்களில் ஒரு படியை மறந்துவிடுகிறேன், எனவே பொத்தானுக்கு அருகில் ஒரு சிறிய விளக்கம் இருந்தால் உதவியாக இருக்கும்."
+    ],
+    "test": [
+      "அமைப்பை மாற்றிய பிறகு உரையைப் படிப்பது எளிதானது.",
+      "இரண்டாவது முயற்சி பிழை இல்லாமல் வெற்றிகரமாக முடிந்தது.",
+      "இந்தத் திரையில் பொத்தான்களைச் சற்று பெரிதாக்க முடியுமா?",
+      "இது உதவியாக இருந்தது, நேரம் ஒதுக்கி உதவியதற்கு நன்றி."
+    ]
+  },
+  "th": {
+    "train": [
+      "นี่เป็นตัวอย่างสมมติสำหรับฝึกทดสอบซอฟต์แวร์",
+      "ขอบคุณสำหรับคำอธิบายที่ชัดเจนและคำแนะนำที่เป็นประโยชน์",
+      "แอปเล็กนี้ทำงานได้โดยไม่ต้องเชื่อมต่ออินเทอร์เน็ต",
+      "ช่วยอธิบายได้ไหมว่าตัวเลือกนี้เปลี่ยนผลลัพธ์อย่างไร"
+    ],
+    "calibration": [
+      "กรุณาตรวจสอบตัวอย่างก่อนลองขั้นตอนถัดไป",
+      "หลังจากอ่านคำอธิบายแล้วคำตอบก็ชัดเจนขึ้น",
+      "ฉันนึกว่ามันเสียแล้ว แต่พอลองอีกครั้งก็เริ่มทำงานได้ตามปกติ",
+      "บางครั้งฉันลืมขั้นตอน จึงคิดว่าคำอธิบายสั้นๆ ข้างปุ่มน่าจะช่วยได้"
+    ],
+    "test": [
+      "ฉันเปลี่ยนการตั้งค่าแล้วอ่านข้อความได้ง่ายขึ้น",
+      "การลองครั้งที่สองเสร็จสมบูรณ์โดยไม่มีข้อผิดพลาด",
+      "เราทำให้ปุ่มบนหน้าจอนี้ใหญ่ขึ้นอีกนิดได้ไหม",
+      "มีประโยชน์มาก ขอบคุณที่สละเวลามาช่วยอธิบาย"
+    ]
+  },
+  "tr": {
+    "train": [
+      "Bu yazılım alıştırması için uydurulmuş bir örnektir.",
+      "Açık açıklama ve yararlı öneri için teşekkür ederim.",
+      "Bu küçük uygulama internet bağlantısı olmadan çalışır.",
+      "Bu seçeneğin sonucu nasıl değiştirdiğini açıklayabilir misin?"
+    ],
+    "calibration": [
+      "Sonraki adımı denemeden önce lütfen örneği kontrol et.",
+      "Açıklamayı okuduktan sonra yanıt daha anlaşılır oldu.",
+      "Bozulduğunu düşünmüştüm ama bir kez daha deneyince düzgün çalışmaya başladı.",
+      "Bazen bir adımı unutuyorum, bu yüzden düğmenin yanında kısa bir açıklama olması yararlı olurdu."
+    ],
+    "test": [
+      "Ayarı değiştirdim ve artık metni okumak daha kolay.",
+      "İkinci deneme hiçbir hata olmadan başarıyla tamamlandı.",
+      "Bu görünümde düğmeleri biraz daha büyük yapabilir miyiz?",
+      "Bu yardımcı oldu, yardım etmek için zaman ayırdığın için teşekkürler."
+    ]
+  },
+  "uk": {
+    "train": [
+      "Це вигаданий приклад для вправи з програмою.",
+      "Дякую за зрозуміле пояснення та корисну пораду.",
+      "Цей невеликий застосунок працює без підключення до інтернету.",
+      "Можеш пояснити, як цей параметр змінює результат?"
+    ],
+    "calibration": [
+      "Будь ласка, перевір приклад перед наступним кроком.",
+      "Після читання пояснення відповідь стала зрозумілішою.",
+      "Я думав, що все зламалося, але після ще однієї спроби воно почало працювати правильно.",
+      "Іноді я забуваю один крок, тому коротке пояснення поруч із кнопкою було б корисним."
+    ],
+    "test": [
+      "Я змінив налаштування, і тепер текст легше читати.",
+      "Друга спроба успішно завершилася без помилок.",
+      "Можна зробити кнопки в цьому вікні трохи більшими?",
+      "Це допомогло, дякую за витрачений час і допомогу."
+    ]
+  },
+  "ur": {
+    "train": [
+      "یہ سافٹ ویئر کی مشق کے لیے بنایا گیا ایک فرضی نمونہ ہے۔",
+      "واضح وضاحت اور مفید مشورے کے لیے شکریہ۔",
+      "یہ چھوٹی ایپ انٹرنیٹ کے بغیر کام کرتی ہے۔",
+      "کیا آپ بتا سکتے ہیں کہ یہ انتخاب نتیجے کو کیسے بدلتا ہے؟"
+    ],
+    "calibration": [
+      "اگلا مرحلہ آزمانے سے پہلے براہ کرم نمونہ دیکھیں۔",
+      "وضاحت پڑھنے کے بعد جواب زیادہ واضح ہو گیا۔",
+      "مجھے لگا کہ یہ خراب ہو گیا ہے، مگر ایک بار پھر کوشش کرنے پر یہ ٹھیک کام کرنے لگا۔",
+      "کبھی کبھی ایک مرحلہ بھول جاتا ہوں، اس لیے بٹن کے ساتھ مختصر وضاحت مددگار ہو گی۔"
+    ],
+    "test": [
+      "میں نے ترتیب بدلی اور اب متن پڑھنا آسان ہو گیا ہے۔",
+      "دوسری کوشش کسی غلطی کے بغیر کامیابی سے مکمل ہو گئی۔",
+      "کیا ہم اس اسکرین پر بٹن کچھ بڑے کر سکتے ہیں؟",
+      "یہ مددگار تھا، مدد کے لیے وقت دینے کا شکریہ۔"
+    ]
+  },
+  "vi": {
+    "train": [
+      "Đây là ví dụ hư cấu dành cho bài tập phần mềm.",
+      "Cảm ơn lời giải thích rõ ràng và gợi ý hữu ích.",
+      "Ứng dụng nhỏ này hoạt động mà không cần kết nối internet.",
+      "Bạn có thể giải thích tùy chọn này thay đổi kết quả ra sao không?"
+    ],
+    "calibration": [
+      "Hãy kiểm tra ví dụ trước khi thử bước tiếp theo.",
+      "Câu trả lời trở nên rõ hơn sau khi đọc lời giải thích.",
+      "Tôi tưởng nó bị hỏng, nhưng sau khi thử thêm một lần nữa thì nó bắt đầu hoạt động đúng.",
+      "Đôi khi tôi quên một bước, nên có lời giải thích ngắn bên cạnh nút sẽ giúp ích."
+    ],
+    "test": [
+      "Tôi đã đổi cài đặt và bây giờ văn bản dễ đọc hơn.",
+      "Lần thử thứ hai đã hoàn tất thành công mà không có lỗi.",
+      "Chúng ta có thể làm các nút trong màn hình này lớn hơn một chút không?",
+      "Điều đó hữu ích, cảm ơn bạn đã dành thời gian giúp đỡ."
+    ]
+  },
+  "zh": {
+    "train": [
+      "这是为软件练习编写的虚构示例。",
+      "感谢清楚的解释和有用的建议。",
+      "这个小应用无需连接互联网就能工作。",
+      "你能解释这个选项如何改变结果吗？",
+      "现在的文字比以前清晰一些。如果可以调整字体大小，阅读起来会更加舒服。",
+      "我还没有做完所有步骤，正在先处理比较简单的部分。请稍等一下，不需要马上重复操作。",
+      "刚才关闭窗口以后，我又重新打开了一次。之前输入的内容还在，看来保存功能正常。",
+      "谢谢你耐心回答这些问题。开始觉得有点复杂，现在终于明白为什么要这样做了。",
+      "这种办法应该也可以，不过是否还有更简单的步骤？希望第一次使用的人也能看懂说明。",
+      "我分别试了明亮和深色的背景。两种情况下，按钮的位置和大小都没有改变。",
+      "发送图片的时候等了一会儿。完成之后，列表里面多出了一条新的内容。",
+      "一个虚构的小机器人完成了巨大的拼图。这段故事只是为了测试文字显示而编写的。",
+      "把两个结果放在一起比较以后，发现前面的结果多了一个空白行。其他部分看起来相同。",
+      "如果又遇到相同的问题，请说一下操作顺序。只看目前的描述，还不能确定原因。",
+      "我好像没有正确理解你的问题。重新看了一遍，才发现原来问的是另外一件事。",
+      "用了几次之后，慢慢熟悉起来了。开始觉得很难，其实没有想象中那么复杂。",
+      "现在不用急着决定。我们可以先比较优点和缺点，然后再选择合适的方案。",
+      "几个按钮靠得太近，有时候会按错。如果中间的距离大一点，应该更容易操作。",
+      "为了检查修改的地方，我写了一段新的测试文字。这次没有再出现之前的错误。",
+      "画面自动跳到下一步，导致我还没看完全部说明。有没有办法让它暂时停下来？",
+      "说明写得简短一点很好，但是不能省略必要的信息。加一个具体例子会更容易理解。",
+      "其他软件也有类似的功能，不过这里的处理方式有一些不同，所以需要仔细确认。",
+      "我降低音量以后重新播放了一遍。说话的内容能听清楚，但背景里面还有一点杂音。",
+      "滑到列表底部，就会显示后面的内容。重新打开的时候，希望能回到刚才的位置。",
+      "准备好以后就可以开始了。我会先阅读说明，再检查需要填写的几个项目。",
+      "重新尝试以后，程序恢复了正常。暂时还不知道为什么第一次没有成功。",
+      "应该选择哪一种方法，要看具体的情况。最好多检查几种条件，不要只看一个结果。",
+      "简单回复也没有问题，不过如果能够解释一下理由，会更有帮助。不好意思，问题有点长。",
+      "删掉空格以后，两个词就连在了一起。换行的时候，也应该保持清楚的排版。",
+      "我觉得使用默认设置已经足够了。只有需要的时候，再去修改高级选项。",
+      "屏幕提示操作完成了，但是显示的内容还是原来的样子。刷新列表以后能看到变化吗？",
+      "为了以后方便比较，我还保留了最初的测试例子。所有内容都是专门编造的。",
+      "图片看起来模糊，可能是因为预览尺寸太小。放大以后，细节就能看得更清楚。",
+      "写完一段比较长的文字以后，我尝试修改中间的部分。选择文字的操作还有一点不方便。",
+      "如果每次都按照相同的顺序显示，应该会更容易找到内容。增加新项目时，也请保留原来的排列。",
+      "任务看起来停住了，但是等一会儿又会继续。如果能显示进度，就不会让人以为程序出了问题。",
+      "現在這個畫面比原來清楚。希望能調整字體的大小，讓不同的使用者都能輕鬆閱讀。",
+      "還有幾個步驟沒有完成，我先處理容易的部分。請稍微等一下，不必重複按同一個按鈕。",
+      "關閉視窗後重新開啟，之前輸入的內容仍然保留著。看來儲存功能沒有問題。",
+      "感謝詳細的回答。起初不太懂這項設計的原因，現在已經比較熟悉了。",
+      "這個方法也不錯，但是步驟還能再簡單一些嗎？第一次使用的人可能需要更明確的說明。",
+      "我試過明亮和深色的背景，兩種情況下的按鈕都能正常顯示，也沒有遮住其他內容。",
+      "傳送圖片的過程需要一點時間。結束以後，清單中便出現了新的項目。",
+      "這是一段虛構的小故事，用來觀察標點與文字的顯示效果，並沒有任何實際對話內容。",
+      "把兩個結果放在旁邊比較，發現其中一個多了一行空白。其他地方看起來沒有差別。",
+      "假如再次發生同樣的錯誤，請記下操作的順序。單憑現在的描述還無法確定原因。",
+      "重新看過問題以後，才發現我把意思理解錯了。稍後會再想想比較合適的回答。",
+      "多用幾次以後就慢慢習慣了。原本以為很複雜，實際上操作起來還算順手。",
+      "目前不用急著做決定。先看清楚每個方案的優缺點，再選擇比較合適的做法。",
+      "按鈕之間的空間太窄，容易不小心按錯。增加一點間隔應該會更方便。",
+      "為了確認修改有效，我另外寫了一個測試範例。這回順利執行，沒有跳出錯誤提示。",
+      "還沒讀完全部說明，畫面就自動切換了。可以加入暫停或手動繼續的選項嗎？",
+      "文字說明可以精簡，但重要資訊不能漏掉。有具體範例的話，理解起來會容易很多。",
+      "其他程式也有相似功能，不過這裡的細節不完全一樣，仍然需要逐項檢查。",
+      "將音量調低後再聽一次，內容大致清楚，只是背景仍有輕微的雜音。",
+      "清單向下捲動時會載入後面的項目。希望重新開啟後，也能回到原來的位置。",
+      "開始之前，我會先閱讀說明，並確認每個需要輸入的欄位都已經填好。",
+      "再試了一遍以後，這次終於正常了。但是第一次失敗的原因還不清楚。",
+      "哪種方式最好，要根據實際條件判斷。我們應該多測幾種情況，避免只看單一結果。",
+      "回覆不用很長，但如果能說明理由，會讓討論更容易繼續下去。",
+      "移除空格以後，兩個詞連在一起了。換行與標點也需要保持一致，閱讀才不會困難。",
+      "目前的預設值應該夠用了。等到真的有需要時，再打開進階設定進行調整。",
+      "提示顯示工作已完成，但畫面的內容還沒有更新。重新整理清單能看到新結果嗎？",
+      "我保留了最初的測試資料，之後可以拿來比較。這些範例全都是特別編寫的虛構文字。",
+      "預覽圖片有些模糊，放大之後就清楚多了。這可能只是顯示尺寸造成的差異。",
+      "輸入較長的段落後，我試著修改中間幾個字。選取文字的方式似乎還能再改進。",
+      "固定的排列順序能讓項目更容易尋找。增加新內容時，也應該保留原來的相對位置。",
+      "工作進行到一半時，看起來像是停止了。等候片刻又會繼續，最好加上進度顯示。"
+    ],
+    "calibration": [
+      "请在尝试下一步之前检查这个例子。",
+      "讀完說明以後，答案變得更加清楚了。",
+      "我原来以为它坏了，可是再尝试一次以后，程序又开始正常工作了。",
+      "有時候我會忘記某個步驟，所以在按鈕旁邊放一段簡短說明應該很有幫助。"
+    ],
+    "test": [
+      "我修改了设置，现在文字更容易阅读了。",
+      "第二次尝试成功完成，没有出现任何错误。",
+      "我們可以把這個畫面上的按鈕放大一點嗎？",
+      "這很有幫助，謝謝你花時間回答問題。"
+    ]
+  }
+}

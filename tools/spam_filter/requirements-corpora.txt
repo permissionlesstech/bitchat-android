@@ -1,0 +1,2 @@
+# Offline corpus extraction only; never an Android dependency.
+pyarrow==26.0.0
