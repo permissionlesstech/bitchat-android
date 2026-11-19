@@ -23,12 +23,26 @@ if ! command -v gh >/dev/null 2>&1; then
   echo "error: gh is required" >&2
   exit 1
 fi
-if command -v sha256sum >/dev/null 2>&1; then
-  SHA256=(sha256sum)
-elif command -v shasum >/dev/null 2>&1; then
-  SHA256=(shasum -a 256)
-else
-  echo "error: sha256sum or shasum is required" >&2
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "error: python3 is required" >&2
+  exit 1
+fi
+
+# Use the same SDK and certificate pin as local release signing.
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/TOOLCHAIN.env"
+ANDROID_SDK_PATH="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+APKSIGNER="$ANDROID_SDK_PATH/build-tools/$ANDROID_BUILD_TOOLS_VERSION/apksigner"
+if [ -z "$ANDROID_SDK_PATH" ] || [ ! -x "$APKSIGNER" ]; then
+  echo "error: Android Build Tools $ANDROID_BUILD_TOOLS_VERSION are required" >&2
+  exit 1
+fi
+EXPECTED_CERT_SHA256="$(
+  sed -n 's/^BITCHAT_GITHUB_RELEASE_CERT_SHA256=//p' "$PROJECT_ROOT/gradle.properties" |
+    tr -d ':\r[:space:]' | tr '[:upper:]' '[:lower:]'
+)"
+if ! [[ "$EXPECTED_CERT_SHA256" =~ ^[a-f0-9]{64}$ ]]; then
+  echo "error: expected GitHub release certificate fingerprint is invalid" >&2
   exit 1
 fi
 
@@ -60,15 +74,41 @@ for artifact in "${attested_artifacts[@]}"; do
     echo "error: attested canonical artifact missing: $artifact" >&2
     exit 1
   fi
-  gh attestation verify "$DOWNLOAD_DIR/$artifact" --repo "$REPOSITORY" >/dev/null
+  gh attestation verify "$DOWNLOAD_DIR/$artifact" \
+    --repo "$REPOSITORY" \
+    --signer-workflow "$REPOSITORY/.github/workflows/release.yml" \
+    --source-ref "refs/tags/$TAG" \
+    --deny-self-hosted-runners >/dev/null
 done
 echo "GitHub provenance attestations for the canonical unsigned build verified."
 
-(
-  cd "$DOWNLOAD_DIR"
-  "${SHA256[@]}" -c BITCHAT_SHA256SUMS
-)
-echo "GitHub release checksums verified."
+python3 "$SCRIPT_DIR/verify_release_assets.py" "$DOWNLOAD_DIR"
+echo "Complete GitHub release checksum inventory verified."
+
+for flavor in arm64 universal wear x86_64; do
+  signed="$DOWNLOAD_DIR/bitchat-android-$flavor.apk"
+  unsigned="$DOWNLOAD_DIR/bitchat-android-$flavor-unsigned.apk"
+  certificate_output="$("$APKSIGNER" verify --print-certs "$signed")"
+  actual_cert_sha256="$(printf '%s\n' "$certificate_output" |
+    sed -n 's/^Signer #[0-9][0-9]* certificate SHA-256 digest: //p' |
+    tr -d ':\r[:space:]' | tr '[:upper:]' '[:lower:]')"
+  # Multiple signers also fail: their concatenated fingerprints cannot match
+  # the single release-certificate pin.
+  if [ "$actual_cert_sha256" != "$EXPECTED_CERT_SHA256" ]; then
+    echo "error: APK release signer mismatch: $flavor" >&2
+    exit 1
+  fi
+  "$SCRIPT_DIR/compare-archive-payloads.sh" "$unsigned" "$signed"
+done
+
+# AAB upload certificates are separate from the APK release key. Compare their
+# payloads to the attested builds without claiming to verify the Play signer.
+"$SCRIPT_DIR/compare-archive-payloads.sh" \
+  "$DOWNLOAD_DIR/bitchat-android-release-unsigned.aab" \
+  "$DOWNLOAD_DIR/bitchat-android-play-upload.aab"
+"$SCRIPT_DIR/compare-archive-payloads.sh" \
+  "$DOWNLOAD_DIR/bitchat-android-wear-release-unsigned.aab" \
+  "$DOWNLOAD_DIR/bitchat-android-wear-play-upload.aab"
 
 mv "$DOWNLOAD_DIR/BITCHAT_BUILDINFO.json" "$DOWNLOAD_DIR/BUILDINFO.json"
 mv "$DOWNLOAD_DIR/BITCHAT_SHA256SUMS" "$DOWNLOAD_DIR/SHA256SUMS"
