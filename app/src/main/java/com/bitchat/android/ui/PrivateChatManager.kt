@@ -577,7 +577,7 @@ class PrivateChatManager(
     // MARK: - Utility Functions
 
     private fun getPeerIDForNickname(nickname: String, meshService: MeshService): String? {
-        return meshService.getPeerNicknames().entries.find { it.value == nickname }?.key
+        return uniquePeerIDForNickname(nickname, meshService.getPeerNicknames())
     }
 
     private fun getPeerNickname(peerID: String, meshService: MeshService): String {
