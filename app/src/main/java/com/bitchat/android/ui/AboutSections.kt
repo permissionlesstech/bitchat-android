@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.ui.theme.BitchatFontFamily
@@ -46,6 +47,8 @@ import com.bitchat.android.R
 import com.bitchat.android.core.ui.icon.BitChatIcon
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
+import com.bitchat.android.util.sdp
+import com.bitchat.android.util.ssp
 
 /**
  * Building blocks for the redesigned About sheet.
@@ -497,14 +500,14 @@ internal fun BitchatBadge(
     Box(
         modifier = modifier
             .background(colorScheme.primary.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
-            .padding(horizontal = 5.dp, vertical = 2.dp)
+            .padding(horizontal = 5.sdp(), vertical = 2.sdp())
     ) {
         Text(
             text = text.uppercase(),
             fontFamily = BitchatFontFamily,
-            fontSize = 10.sp,
+            fontSize = 9.ssp(),
             fontWeight = FontWeight.Bold,
-            letterSpacing = 0.5.sp,
+            letterSpacing = 0.5.ssp(),
             color = colorScheme.primary
         )
     }
@@ -513,7 +516,8 @@ internal fun BitchatBadge(
 // MARK: - Shared bottom-sheet primitives
 
 /** Horizontal inset for sheet content. Cards inset from here; labels align to the same edge. */
-internal val SheetHorizontalPadding = 16.dp
+internal val SheetHorizontalPadding: Dp
+    @Composable get() = 16.sdp()
 
 /**
  * Section divider label used across the sheets, e.g. `BOOKMARKED`, `NEARBY`, `ON LOCATION`.
