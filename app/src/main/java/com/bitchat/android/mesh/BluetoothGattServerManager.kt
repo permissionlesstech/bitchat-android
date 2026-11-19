@@ -192,6 +192,10 @@ class BluetoothGattServerManager(
                             linkID = linkID
                         )
                         connectionTracker.addDeviceConnection(device.address, deviceConn)
+                        // A new server link starts unsubscribed. A stale entry
+                        // from a previous link would make the next ENABLE look
+                        // like a repeat and skip its one announce.
+                        connectionTracker.beginServerLink(device.address)
 
                         connectionScope.launch {
                             delay(1000)
@@ -282,15 +286,34 @@ class BluetoothGattServerManager(
                     return
                 }
 
-                if (BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE.contentEquals(value)) {
-                    connectionTracker.addSubscribedDevice(device)
-
-                    connectionScope.launch {
-                        delay(100)
-                        if (isActive) { // Check if still active
-                            delegate?.onDeviceConnected(device)
+                when (GattSubscriptionPolicy.classify(value)) {
+                    GattSubscriptionPolicy.Request.ENABLE -> {
+                        // A repeat descriptor write is not a new connection. Without
+                        // this gate a peer can re-enable notifications in a loop and
+                        // drive both the duplicate-notify fan-out and the announce
+                        // broadcast onDeviceConnected triggers, unauthenticated.
+                        val linkID = serverLinkIDs[device.address]
+                        val subscribed = connectionTracker.addSubscribedDevice(device)
+                        // Once per server link. DISABLE then ENABLE resubscribes
+                        // the address, but must not loop the announce.
+                        if (subscribed && linkID != null &&
+                            connectionTracker.claimCccdAnnounce(device.address, linkID)
+                        ) {
+                            connectionScope.launch {
+                                delay(100)
+                                if (isActive) { // Check if still active
+                                    delegate?.onDeviceConnected(device)
+                                }
+                            }
                         }
                     }
+
+                    GattSubscriptionPolicy.Request.DISABLE ->
+                        // The client asked to stop receiving the broadcast feed;
+                        // keeping it subscribed until disconnect ignores that.
+                        connectionTracker.removeSubscribedDevice(device)
+
+                    GattSubscriptionPolicy.Request.UNRECOGNIZED -> Unit
                 }
                 
                 if (responseNeeded) {
