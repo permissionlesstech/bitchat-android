@@ -210,6 +210,13 @@ object BinaryProtocol {
     private const val SENDER_ID_SIZE = 8
     private const val RECIPIENT_ID_SIZE = 8
     private const val SIGNATURE_SIZE = 64
+
+    // The payload cap excludes framing. Allow v2 header, both IDs, the
+    // one-byte route count and 255 hops, signature, and one-byte-length padding.
+    const val MAX_WIRE_FRAME_LENGTH =
+        com.bitchat.android.util.AppConstants.Protocol.MAX_PAYLOAD_LENGTH +
+            HEADER_SIZE_V2 + SENDER_ID_SIZE + RECIPIENT_ID_SIZE +
+            1 + 255 * SENDER_ID_SIZE + SIGNATURE_SIZE + 255
     object Flags {
         const val HAS_RECIPIENT: UByte = 0x01u
         const val HAS_SIGNATURE: UByte = 0x02u
