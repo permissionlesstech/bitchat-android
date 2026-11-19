@@ -6,6 +6,8 @@ import com.bitchat.android.model.RequestSyncPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
+import com.bitchat.android.util.AppConstants
+import kotlin.math.floor
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.sync.Mutex
@@ -18,7 +20,8 @@ import kotlinx.coroutines.sync.Mutex
 class GossipSyncManager(
     private val myPeerID: String,
     private val scope: CoroutineScope,
-    private val configProvider: ConfigProvider
+    private val configProvider: ConfigProvider,
+    private val nowMs: () -> Long = { System.currentTimeMillis() }
 ) {
     interface Delegate {
         fun sendPacket(packet: BitchatPacket)
@@ -50,6 +53,25 @@ class GossipSyncManager(
 
     private val responseMutex = Mutex()
     private var responseJob: Job? = null
+
+    /**
+     * Per-requester token buckets. `requestTokens` bounds how often we decode a peer's filter.
+     * `responseTokens` bounds how many packets that peer can pull. Both refill with elapsed time.
+     * Keyed by the transport's ingress link when we have one: REQUEST_SYNC is unauthenticated,
+     * so a sender id on the wire is free to rotate.
+     */
+    private class RequesterBudget(
+        var requestTokens: Double,
+        var responseTokens: Double,
+        var lastRefillMs: Long
+    )
+
+    private val requesterBudgets =
+        object : LinkedHashMap<String, RequesterBudget>(16, 0.75f, true) {
+            override fun removeEldestEntry(
+                eldest: MutableMap.MutableEntry<String, RequesterBudget>
+            ): Boolean = size > AppConstants.Sync.MAX_TRACKED_REQUESTERS
+        }
     private var periodicJob: Job? = null
     private var cleanupJob: Job? = null
     fun start() {
@@ -91,6 +113,9 @@ class GossipSyncManager(
             messages.clear()
         }
         latestAnnouncementByPeer.clear()
+        synchronized(requesterBudgets) {
+            requesterBudgets.clear()
+        }
         Log.d(TAG, "Cleared all gossip sync messages and announcements")
     }
 
@@ -180,9 +205,88 @@ class GossipSyncManager(
         delegate?.sendPacketToPeer(peerID, signed)
     }
 
+    /**
+     * Charges [budgetKey] for one request and returns how many packets may be sent, or 0 when the
+     * request must be dropped. Called before any decoding or hashing.
+     */
+    private fun admitRequest(budgetKey: String): Int {
+        val capacity = try {
+            configProvider.seenCapacity()
+        } catch (_: Exception) {
+            0
+        }.coerceAtLeast(1).toDouble()
+        val now = nowMs()
+
+        synchronized(requesterBudgets) {
+            val budget = requesterBudgets.getOrPut(budgetKey) {
+                RequesterBudget(
+                    requestTokens = AppConstants.Sync.REQUEST_BURST.toDouble(),
+                    responseTokens = capacity,
+                    lastRefillMs = now
+                )
+            }
+
+            val elapsedMs = (now - budget.lastRefillMs).coerceAtLeast(0L).toDouble()
+            budget.lastRefillMs = now
+            budget.requestTokens = (
+                budget.requestTokens + elapsedMs / AppConstants.Sync.REQUEST_INTERVAL_MS
+                ).coerceAtMost(AppConstants.Sync.REQUEST_BURST.toDouble())
+            budget.responseTokens = (
+                budget.responseTokens +
+                    capacity * elapsedMs / AppConstants.Sync.RESPONSE_REFILL_WINDOW_MS
+                ).coerceAtMost(capacity)
+
+            if (budget.requestTokens < 1.0) return 0
+            val allowance = floor(budget.responseTokens).toInt()
+            if (allowance <= 0) return 0
+
+            budget.requestTokens -= 1.0
+            return allowance
+        }
+    }
+
+    internal fun trackedRequesterCount(): Int = synchronized(requesterBudgets) {
+        requesterBudgets.size
+    }
+
+    private fun chargeResponses(budgetKey: String, sent: Int) {
+        if (sent <= 0) return
+        synchronized(requesterBudgets) {
+            val budget = requesterBudgets[budgetKey] ?: return
+            budget.responseTokens = (budget.responseTokens - sent).coerceAtLeast(0.0)
+        }
+    }
+
+    private fun refundRequest(budgetKey: String) {
+        synchronized(requesterBudgets) {
+            val budget = requesterBudgets[budgetKey] ?: return
+            budget.requestTokens = (budget.requestTokens + 1.0)
+                .coerceAtMost(AppConstants.Sync.REQUEST_BURST.toDouble())
+        }
+    }
+
+    /**
+     * @param ingressLinkID locally-assigned identity of the link the request arrived on. The
+     *   sender id is unauthenticated, so budgeting by it would let a peer mint a fresh allowance
+     *   per request.
+     */
     @Synchronized
-    fun handleRequestSync(fromPeerID: String, request: RequestSyncPacket) {
-        // Decode GCS into sorted set for membership checks
+    fun handleRequestSync(
+        fromPeerID: String,
+        request: RequestSyncPacket,
+        ingressLinkID: String? = null
+    ) {
+        val budgetKey = ingressLinkID ?: fromPeerID
+        val allowance = admitRequest(budgetKey)
+        if (allowance <= 0) {
+            Log.d(TAG, "Dropping REQUEST_SYNC from $fromPeerID: over budget")
+            return
+        }
+        if (!responseMutex.tryLock()) {
+            refundRequest(budgetKey)
+            return
+        }
+
         val sorted = GCSFilter.decodeToSortedSet(request.p, request.m, request.data)
         fun mightContain(id: ByteArray): Boolean {
             val v = GCSFilter.h64(id) % request.m
@@ -190,16 +294,15 @@ class GossipSyncManager(
             return GCSFilter.contains(sorted, nonZeroV)
         }
 
-        // The same bounded window is advertised and offered. Otherwise every request
-        // incorrectly treats older packets omitted from the filter as missing forever.
-        if (!responseMutex.tryLock()) return
         responseJob = scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            var sent = 0
             try {
                 val missing = buildSyncSnapshot().packets
                     .filter { (id, _) -> !mightContain(hexToBytes(id)) }
                     .sortedWith(compareBy<Pair<String, BitchatPacket>> {
                         if (it.second.type == MessageType.ANNOUNCE.value) 0 else 1
                     }.thenBy { it.second.timestamp }.thenBy { it.first })
+                    .take(allowance)
                 missing.forEachIndexed { index, (_, packet) ->
                     if (index > 0) delay(20L)
                     ensureActive()
@@ -207,8 +310,10 @@ class GossipSyncManager(
                         fromPeerID,
                         packet.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
                     )
+                    sent++
                 }
             } finally {
+                chargeResponses(budgetKey, sent)
                 responseMutex.unlock()
             }
         }

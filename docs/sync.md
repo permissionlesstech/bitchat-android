@@ -74,6 +74,8 @@ Sender behavior:
 
 Receiver behavior:
 - Decode the REQUEST_SYNC payload and reconstruct the sorted set of mapped values using the provided P, M, and bitstream.
+- Admit the request against the per-ingress budget described under “Validation and limits” before
+  decoding anything; drop it otherwise.
 - Select the same bounded recent window used for local filter construction: newest timestamp first, packet ID as a stable tie-breaker, bounded by the configured packet count and the actual number encoded within the filter byte budget.
 - Reserve each message's cached sender announcement before admitting the message;
   skip the message if the prerequisite and message do not both fit. Preserve
@@ -155,6 +157,22 @@ Validation and limits (recommended):
 
 - Reject malformed REQUEST_SYNC payloads (e.g., P < 1, M <= 0, or data length too large for local limits).
 - Practical bounds: data length in [0, 1024]; P in [1, 24]; M up to 2^32‑1.
+- Rate-limit how often a REQUEST_SYNC is serviced, and bound how many packets one requester can
+  pull. A filter that claims to hold nothing is a few bytes, and answering it costs a filter
+  decode, a packet-ID hash over every stored candidate, and up to “max packets per sync”
+  transmissions — so an unbounded responder amplifies a trivial request into the whole retention
+  set, repeatedly. The admission check MUST run before decoding or hashing, so a shed request
+  costs only the check.
+- Key that budget on a **locally-assigned ingress identity** (the link or connection the request
+  arrived on), never on the sender ID in the packet. REQUEST_SYNC carries no signature that
+  receivers verify, so the sender ID is free to rotate: budgeting by it lets one neighbor mint a
+  fresh allowance per request, and lets it spend another peer's. Bookkeeping keyed on anything
+  taken from the wire MUST itself be bounded, or the limiter becomes a memory-exhaustion vector.
+- Suggested shape (Android): one serviced request per 5s with a burst of 2, so the scheduled
+  first sync and a periodic one both land, plus a response allowance refilling to “max packets
+  per sync” over the 30s periodic interval — the most a peer can legitimately be missing in one
+  round. These are local policy; they need no cross-implementation agreement, but every
+  implementation needs some equivalent.
 
 Versioning:
 
