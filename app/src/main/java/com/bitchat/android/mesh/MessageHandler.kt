@@ -332,6 +332,13 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         if (!verified) {
             return AnnounceHandlingResult.Rejected
         }
+
+        // A delayed copy of an older announce is still signed and inside the clock
+        // window. Applying it would roll the nickname and keys back.
+        if (delegate?.acceptVerifiedAnnounceTimestamp(peerID, packet.timestamp) == false) {
+            Log.w(TAG, "Ignoring older ANNOUNCE from ${peerID.take(8)}")
+            return AnnounceHandlingResult.Rejected
+        }
         
         // Extract nickname and public keys from TLV data
         val nickname = announcement.nickname
@@ -716,6 +723,7 @@ interface MessageHandlerDelegate {
     ): com.bitchat.android.noise.NoiseDecryptionResult?
     fun verifyEd25519Signature(signature: ByteArray, data: ByteArray, publicKey: ByteArray): Boolean
     fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? = null
+    fun acceptVerifiedAnnounceTimestamp(peerID: String, timestamp: ULong): Boolean = true
     
     // Noise protocol operations
     fun hasNoiseSession(peerID: String): Boolean

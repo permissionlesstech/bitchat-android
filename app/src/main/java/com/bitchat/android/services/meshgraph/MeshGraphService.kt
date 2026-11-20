@@ -30,15 +30,14 @@ class MeshGraphService private constructor() {
      */
     fun updateFromAnnouncement(originPeerID: String, originNickname: String?, neighborsOrNull: List<String>?, timestamp: ULong) {
         synchronized(this) {
-            // Always update nickname if provided
-            if (originNickname != null) nicknames[originPeerID] = originNickname
-
-            // 1. Check timestamp first to ensure this is the latest word from the peer
+            // 1. Check timestamp first to ensure this is the latest word from the peer.
+            // Nickname is part of that word: a delayed older announce must not roll it back.
             val prevTs = lastUpdate[originPeerID]
             if (prevTs != null && prevTs >= timestamp) {
                 // Older or equal update: ignore
                 return
             }
+            if (originNickname != null) nicknames[originPeerID] = originNickname
             lastUpdate[originPeerID] = timestamp
 
             // 2. Latest announcement determines state.

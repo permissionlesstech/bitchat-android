@@ -34,6 +34,16 @@ class PeerManagerTest {
     val emptyDeviceAddresses = emptyMap<String, String>()
 
     @Test
+    fun older_announce_does_not_replace_a_newer_one() {
+        assertEquals(true, peerManager.acceptVerifiedAnnounceTimestamp("peer1", 200UL))
+        assertEquals(false, peerManager.acceptVerifiedAnnounceTimestamp("peer1", 100UL))
+        assertEquals(true, peerManager.acceptVerifiedAnnounceTimestamp("peer1", 200UL))
+        assertEquals(true, peerManager.acceptVerifiedAnnounceTimestamp("peer1", 201UL))
+        peerManager.removePeer("peer1")
+        assertEquals(true, peerManager.acceptVerifiedAnnounceTimestamp("peer1", 50UL))
+    }
+
+    @Test
     fun peer_capabilities_are_retained_with_verified_identity() {
         val capabilities = PeerCapabilities(
             PeerCapabilities.PRIVATE_MEDIA.rawValue or (1L shl 15)
