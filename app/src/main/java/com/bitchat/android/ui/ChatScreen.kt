@@ -411,6 +411,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
         onSendImageNote = { peer, onionOrChannel, path ->
             viewModel.sendImageNote(peer, onionOrChannel, path)
         },
+        onSendPickedImages = { peer, onionOrChannel, uris ->
+            viewModel.sendPickedImages(peer, onionOrChannel, uris)
+        },
         onSendFileNote = { peer, onionOrChannel, path ->
             viewModel.sendFileNote(peer, onionOrChannel, path)
         },
@@ -642,6 +645,7 @@ fun ChatInputSection(
     onSend: () -> Unit,
     onSendVoiceNote: (String?, String?, String) -> Unit,
     onSendImageNote: (String?, String?, String) -> Unit,
+    onSendPickedImages: (String?, String?, List<android.net.Uri>) -> Unit,
     onSendFileNote: (String?, String?, String) -> Unit,
     showCommandSuggestions: Boolean,
     commandSuggestions: List<CommandSuggestion>,
@@ -734,6 +738,7 @@ fun ChatInputSection(
             onSend = onSend,
             onSendVoiceNote = onSendVoiceNote,
             onSendImageNote = onSendImageNote,
+            onSendPickedImages = onSendPickedImages,
             onSendFileNote = onSendFileNote,
             selectedPrivatePeer = selectedPrivatePeer,
             currentChannel = currentChannel,
