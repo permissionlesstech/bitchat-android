@@ -77,6 +77,7 @@ class MessageHandlerTest {
     fun `handleAnnounce accepts announce within clock skew tolerance for identity binding`() {
         runBlocking {
             val packet = announcePacket(ageMs = AppConstants.Mesh.STALE_PEER_TIMEOUT_MS + 1_000)
+            whenever(delegate.acceptVerifiedAnnounceTimestamp(peerID, packet.timestamp)).thenReturn(true)
 
             val result = handler.handleAnnounce(RoutedPacket(packet, peerID, "direct-link"))
 
@@ -91,6 +92,7 @@ class MessageHandlerTest {
     fun `handleAnnounce accepts future announce within clock skew tolerance`() {
         runBlocking {
             val packet = announcePacket(ageMs = -(AppConstants.Mesh.STALE_PEER_TIMEOUT_MS + 1_000))
+            whenever(delegate.acceptVerifiedAnnounceTimestamp(peerID, packet.timestamp)).thenReturn(true)
 
             val result = handler.handleAnnounce(RoutedPacket(packet, peerID, "direct-link"))
 
@@ -108,6 +110,7 @@ class MessageHandlerTest {
                 PeerCapabilities.PRIVATE_MEDIA.rawValue or (1L shl 15)
             )
             val packet = announcePacket(ageMs = 0, capabilities = capabilities)
+            whenever(delegate.acceptVerifiedAnnounceTimestamp(peerID, packet.timestamp)).thenReturn(true)
 
             val result = handler.handleAnnounce(RoutedPacket(packet, peerID, "direct-link"))
 
