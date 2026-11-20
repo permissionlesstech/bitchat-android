@@ -806,31 +806,34 @@ class MainActivity : OrientationAwareActivity() {
                 pauseLocalMesh()
                 return
             }
-            unifiedMeshService.startServices()
-            startMeshForegroundServiceBestEffort()
 
-            // Check if Bluetooth was disabled while app was backgrounded
+            // Check radios before restarting BLE or the foreground service. A
+            // disabled adapter or location services used to leave them running
+            // because the failure branches only switched screens.
             val currentBluetoothStatus = bluetoothStatusManager.checkBluetoothStatus()
             val bleRequired = try { com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
             if (bleRequired && currentBluetoothStatus != BluetoothStatus.ENABLED && !mainViewModel.isBluetoothCheckSkipped.value) {
                 Log.w("MainActivity", "Bluetooth disabled while app was backgrounded")
+                pauseLocalMesh()
                 mainViewModel.updateBluetoothStatus(currentBluetoothStatus)
                 mainViewModel.updateOnboardingState(OnboardingState.BLUETOOTH_CHECK)
                 mainViewModel.updateBluetoothLoading(false)
                 return
             }
-            
-            // Check if location services were disabled while app was backgrounded
+
             val currentLocationStatus = locationStatusManager.checkLocationStatus()
             if (currentLocationStatus != LocationStatus.ENABLED) {
                 Log.w("MainActivity", "Location services disabled while app was backgrounded")
+                pauseLocalMesh()
                 mainViewModel.updateLocationStatus(currentLocationStatus)
                 mainViewModel.updateOnboardingState(OnboardingState.LOCATION_CHECK)
                 mainViewModel.updateLocationLoading(false)
-            } else {
-                // If location is enabled, ensure Wi-Fi Aware starts if it was blocked by location earlier
-                com.bitchat.android.wifiaware.WifiAwareController.startIfPossible()
+                return
             }
+
+            unifiedMeshService.startServices()
+            startMeshForegroundServiceBestEffort()
+            com.bitchat.android.wifiaware.WifiAwareController.startIfPossible()
         }
     }
     

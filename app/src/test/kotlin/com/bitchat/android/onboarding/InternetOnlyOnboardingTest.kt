@@ -7,8 +7,11 @@ import android.os.Looper
 import androidx.activity.ComponentActivity
 import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.ui.debug.DebugPreferenceManager
+import com.bitchat.android.service.MeshForegroundService
+import com.bitchat.android.service.MeshServicePreferences
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -87,6 +90,15 @@ class InternetOnlyOnboardingTest {
         assertFalse(permissions.areRequiredPermissionsGranted())
         assertFalse(DebugPreferenceManager.getBleEnabled())
         assertFalse(DebugPreferenceManager.getWifiAwareEnabled())
+    }
+
+    @Test
+    fun `disabled local transports block foreground service auto start`() {
+        shadowOf(application).grantPermissions(*permissions.getRequiredPermissions().toTypedArray())
+        MeshServicePreferences.init(application)
+        coordinator.skipLocalPermissions()
+        MeshForegroundService.start(application)
+        assertNull(shadowOf(application).nextStartedService)
     }
 
     @Test

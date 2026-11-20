@@ -66,11 +66,11 @@ class MeshForegroundService : Service() {
                     false
                 }
             } else {
-                if (MeshServicePreferences.isBackgroundEnabled(true)) {
+                if (localTransportsEnabled(context) && MeshServicePreferences.isBackgroundEnabled(true)) {
                     context.startService(intent)
                     true
                 } else {
-                    android.util.Log.i("MeshForegroundService", "Background disabled; not starting service (pre-O)")
+                    android.util.Log.i("MeshForegroundService", "Background or local transports disabled; not starting service (pre-O)")
                     false
                 }
             }
@@ -81,8 +81,19 @@ class MeshForegroundService : Service() {
             context.startService(intent)
         }
 
+        private fun localTransportsEnabled(context: Context): Boolean {
+            // Boot and process start can call start() before the activity. Read the
+            // same persisted toggles skip-local-permissions writes.
+            try {
+                com.bitchat.android.ui.debug.DebugPreferenceManager.init(context.applicationContext)
+            } catch (_: Exception) { }
+            return com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) ||
+                com.bitchat.android.ui.debug.DebugPreferenceManager.getWifiAwareEnabled(false)
+        }
+
         private fun shouldStartAsForeground(context: Context): Boolean {
-            return MeshServicePreferences.isBackgroundEnabled(true) &&
+            return localTransportsEnabled(context) &&
+                    MeshServicePreferences.isBackgroundEnabled(true) &&
                     hasBluetoothPermissionsStatic(context)
         }
 
