@@ -79,6 +79,77 @@ class BluetoothConnectionTrackerLinkObservationTest {
         assertTrue(tracker.addressPeerMap.containsValue(PEER_ID))
     }
 
+    @Test
+    fun `cccd before announce withholds the feed then grants it`() {
+        val address = "AA:BB:CC:DD:EE:FF"
+        val device = mock<BluetoothDevice>()
+        whenever(device.address).thenReturn(address)
+        tracker.addDeviceConnection(
+            address,
+            BluetoothConnectionTracker.DeviceConnection(device = device, linkID = "link-a")
+        )
+
+        assertFalse(tracker.requestBroadcastSubscription(device))
+        assertTrue(tracker.getSubscribedDevices().none { it.address == address })
+
+        tracker.noteDirectAnnounce(address, "link-a", PEER_ID)
+        assertTrue(tracker.getSubscribedDevices().none { it.address == address })
+        tracker.noteAuthenticatedSession(address, "link-a", PEER_ID)
+        assertTrue(tracker.getSubscribedDevices().any { it.address == address })
+    }
+
+    @Test
+    fun `a replayed announce does not grant the feed for a different session`() {
+        val address = "AA:BB:CC:DD:EE:11"
+        val device = mock<BluetoothDevice>()
+        whenever(device.address).thenReturn(address)
+        tracker.addDeviceConnection(
+            address,
+            BluetoothConnectionTracker.DeviceConnection(device = device, linkID = "link-replay")
+        )
+        tracker.requestBroadcastSubscription(device)
+        tracker.noteAuthenticatedSession(address, "link-replay", PEER_ID)
+        tracker.noteDirectAnnounce(address, "link-replay", "ffffffffffffffff")
+        assertTrue(tracker.getSubscribedDevices().none { it.address == address })
+    }
+
+    @Test
+    fun `announce before cccd grants the feed on the descriptor write`() {
+        val address = "AA:BB:CC:DD:EE:00"
+        val device = mock<BluetoothDevice>()
+        whenever(device.address).thenReturn(address)
+        tracker.addDeviceConnection(
+            address,
+            BluetoothConnectionTracker.DeviceConnection(device = device, linkID = "link-b")
+        )
+
+        tracker.noteDirectAnnounce(address, "link-b", PEER_ID)
+        tracker.noteAuthenticatedSession(address, "link-b", PEER_ID)
+        assertTrue(tracker.requestBroadcastSubscription(device))
+        assertTrue(tracker.getSubscribedDevices().any { it.address == address })
+    }
+
+    @Test
+    fun `disconnect drops a deferred broadcast subscription`() {
+        val address = "AA:BB:CC:DD:EE:01"
+        val device = mock<BluetoothDevice>()
+        whenever(device.address).thenReturn(address)
+        tracker.addDeviceConnection(
+            address,
+            BluetoothConnectionTracker.DeviceConnection(device = device, linkID = "link-c")
+        )
+        tracker.requestBroadcastSubscription(device)
+        tracker.cleanupDeviceConnection(address)
+
+        tracker.addDeviceConnection(
+            address,
+            BluetoothConnectionTracker.DeviceConnection(device = device, linkID = "link-d")
+        )
+        tracker.noteDirectAnnounce(address, "link-d", PEER_ID)
+        tracker.noteAuthenticatedSession(address, "link-d", PEER_ID)
+        assertTrue(tracker.getSubscribedDevices().none { it.address == address })
+    }
+
     private companion object {
         const val PEER_ID = "0011223344556677"
     }

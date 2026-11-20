@@ -291,6 +291,9 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                     authenticatedRemoteStaticKey,
                     authenticatedSessionToken
                 )
+                if (directRelayAddress != null && ingressLinkID != null) {
+                    connectionManager.noteAuthenticatedSession(directRelayAddress, ingressLinkID, peerID)
+                }
                 // Send announcement and cached messages after key exchange
                 serviceScope.launch {
                     delay(100)
@@ -580,6 +583,11 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 if (result !is AnnounceHandlingResult.Accepted) return false
 
                 DirectLinkAnnouncementPolicy.observationFor(routed, MAX_TTL)?.let { observation ->
+                    connectionManager.noteDirectAnnounce(
+                        observation.relayAddress,
+                        observation.ingressLinkID,
+                        observation.peerID
+                    )
                     if (connectionManager.observePeerIfCurrent(
                             observation.relayAddress,
                             observation.ingressLinkID,
