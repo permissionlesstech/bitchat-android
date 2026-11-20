@@ -379,10 +379,13 @@ class FragmentManagerTest {
         val overhead = com.bitchat.android.util.AppConstants.Fragmentation.FRAGMENT_MAP_ENTRY_OVERHEAD_BYTES
         val budget = com.bitchat.android.util.AppConstants.Fragmentation.MAX_GLOBAL_FRAGMENT_TOTAL_BYTES
         val maxEntries = (budget / (1L + overhead)).toInt()
+        ShadowLog.clear()
         var accepted = 0
         var rejected = false
-        for (set in 0 until 8) {
-            for (index in 0 until 10_000) {
+        // Leave each set incomplete. A finished set is dropped, which would
+        // reset the global charge and hide the cap.
+        for (set in 0 until 16) {
+            for (index in 0 until 5_000) {
                 val packet = BitchatPacket(
                     version = 1u,
                     type = MessageType.FRAGMENT.value,
@@ -398,9 +401,7 @@ class FragmentManagerTest {
                     ).encode(),
                     ttl = 7u
                 )
-                if (fragmentManager.handleFragment(packet) != null) {
-                    continue
-                }
+                assertNull(fragmentManager.handleFragment(packet))
                 if (ShadowLog.getLogs().any { it.msg.contains("global buffered bytes") }) {
                     rejected = true
                     break
@@ -416,7 +417,8 @@ class FragmentManagerTest {
 
     @Test
     fun `a payload above the old one mebibyte ceiling still reassembles`() {
-        val payload = ByteArray(1_050_000) { index -> (index and 0xff).toByte() }
+        val payload = ByteArray(1_050_000)
+        Random().nextBytes(payload)
         val packet = BitchatPacket(
             version = 1u,
             type = MessageType.FILE_TRANSFER.value,
