@@ -12,7 +12,8 @@ interface MeshService {
     fun startServices()
     fun stopServices()
 
-    fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null)
+    /** Returns false when the payload cannot be encoded, so the UI must not echo it as sent. */
+    fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null): Boolean
     fun sendPrivateMessage(content: String, recipientPeerID: String, recipientNickname: String, messageID: String? = null)
     fun sendReadReceipt(messageID: String, recipientPeerID: String, readerNickname: String)
     fun sendDeliveryAck(messageID: String, recipientPeerID: String) {}

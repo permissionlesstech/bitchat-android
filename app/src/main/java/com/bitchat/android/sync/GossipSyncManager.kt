@@ -111,7 +111,7 @@ class GossipSyncManager(
     fun onPublicPacketSeen(packet: BitchatPacket) {
         // Only ANNOUNCE or broadcast MESSAGE
         val mt = MessageType.fromValue(packet.type)
-        val isBroadcastMessage = (mt == MessageType.MESSAGE && (packet.recipientID == null || packet.recipientID.contentEquals(SpecialRecipients.BROADCAST)))
+        val isBroadcastMessage = ((mt == MessageType.MESSAGE || mt == MessageType.CHANNEL_MESSAGE) && (packet.recipientID == null || packet.recipientID.contentEquals(SpecialRecipients.BROADCAST)))
         val isAnnouncement = (mt == MessageType.ANNOUNCE)
         if (!isBroadcastMessage && !isAnnouncement) return
 

@@ -260,6 +260,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             if (MessageType.fromValue(packet.type) !in setOf(
                     MessageType.ANNOUNCE,
                     MessageType.MESSAGE,
+                    MessageType.CHANNEL_MESSAGE,
                     MessageType.FILE_TRANSFER,
                     MessageType.VOICE_FRAME,
                     MessageType.LEAVE

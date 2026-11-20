@@ -139,7 +139,7 @@ class PacketProcessor(
         // Handle public packet types (no address check needed)
         when (messageType) {
             MessageType.ANNOUNCE -> validPacket = handleAnnounce(routed)
-            MessageType.MESSAGE -> handleMessage(routed)
+            MessageType.MESSAGE, MessageType.CHANNEL_MESSAGE -> handleMessage(routed)
             MessageType.FILE_TRANSFER -> handleMessage(routed) // treat same routing path; parsing happens in handler
             MessageType.VOICE_FRAME -> validPacket = delegate?.handleVoiceFrame(routed) ?: false
             MessageType.LEAVE -> handleLeave(routed)

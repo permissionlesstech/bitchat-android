@@ -481,7 +481,7 @@ class MeshCore(
                 try {
                     val pkt = routed.packet
                     val isBroadcast = (pkt.recipientID == null || pkt.recipientID.contentEquals(SpecialRecipients.BROADCAST))
-                    if (isBroadcast && pkt.type == MessageType.MESSAGE.value) {
+                    if (isBroadcast && (pkt.type == MessageType.MESSAGE.value || pkt.type == MessageType.CHANNEL_MESSAGE.value)) {
                         gossipSyncManager.onPublicPacketSeen(pkt)
                     }
                 } catch (_: Exception) { }
@@ -530,16 +530,38 @@ class MeshCore(
         }
     }
 
-    fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null) {
-        if (content.isEmpty()) return
+
+    /**
+     * Mesh timeline stays UTF-8 for iOS interop. Channel messages use the shared
+     * [BitchatMessage] binary envelope so receivers can route by `channel` instead
+     * of dumping every #room into the public Mesh feed.
+     */
+    private fun encodePublicOrChannelPayload(
+        content: String,
+        mentions: List<String>,
+        channel: String?
+    ): ByteArray? {
+        if (channel == null) return content.toByteArray(Charsets.UTF_8)
+        val nickname = hooks.announcementNicknameProvider?.invoke() ?: myPeerID
+        return encodePublicOrChannelMessage(content, mentions, channel, nickname, myPeerID)
+    }
+
+    fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null): Boolean {
+        if (content.isEmpty()) return false
+        val payloadBytes = encodePublicOrChannelPayload(content, mentions, channel)
+            ?: run {
+                Log.w("MeshCore", "Channel message encoding failed; refusing public-text fallback")
+                return false
+            }
+        val packetType = messageTypeForPublicOrChannel(channel)
         scope.launch {
             val packet = BitchatPacket(
                 version = 1u,
-                type = MessageType.MESSAGE.value,
+                type = packetType.value,
                 senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
                 recipientID = SpecialRecipients.BROADCAST,
                 timestamp = System.currentTimeMillis().toULong(),
-                payload = content.toByteArray(Charsets.UTF_8),
+                payload = payloadBytes,
                 signature = null,
                 ttl = maxTtl
             )
@@ -547,6 +569,7 @@ class MeshCore(
             dispatchGlobal(RoutedPacket(signedPacket))
             try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
         }
+        return true
     }
 
     private fun sendAuthenticatedPeerState(
