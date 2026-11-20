@@ -59,7 +59,7 @@ internal object PacketPayloadLimits {
         when (MessageType.fromValue(type)) {
             MessageType.FILE_TRANSFER, MessageType.NOISE_ENCRYPTED ->
                 return com.bitchat.android.util.AppConstants.Protocol.MAX_PAYLOAD_LENGTH
-            MessageType.MESSAGE -> return TWICE_V1_FRAME_BYTES
+            MessageType.MESSAGE, MessageType.CHANNEL_MESSAGE -> return TWICE_V1_FRAME_BYTES
             MessageType.REQUEST_SYNC -> return REQUEST_SYNC_BYTES
             MessageType.FRAGMENT -> return FRAGMENT_BYTES
             MessageType.ANNOUNCE, MessageType.LEAVE, MessageType.NOISE_HANDSHAKE,

@@ -14,9 +14,9 @@ enum class MessageType(val value: UByte) {
     ANNOUNCE(0x01u),
     MESSAGE(0x02u),  // All user messages (private and broadcast)
     LEAVE(0x03u),
-    // Channel envelope. Older peers do not know this type, so they ignore it
-    // instead of rendering the binary header as a public mesh message.
-    CHANNEL_MESSAGE(0x23u),
+    // Channel envelope. 0x23 is iOS board-post. Older Android peers do not know
+    // 0x2A, so they ignore it instead of printing the envelope as mesh text.
+    CHANNEL_MESSAGE(0x2Au),
     NOISE_HANDSHAKE(0x10u),  // Noise handshake
     NOISE_ENCRYPTED(0x11u),  // Noise encrypted transport message
     FRAGMENT(0x20u), // Fragmentation for large packets
