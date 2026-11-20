@@ -62,7 +62,7 @@ class ArtiProxy private constructor(
             val dataDir = getDataDirectory()
             Log.i(TAG, "Initializing Arti with data directory: $dataDir")
 
-            val initResult = ArtiNative.initialize(dataDir.absolutePath)
+            val initResult = initializeAllowingGuardRecovery(dataDir)
             if (initResult != 0) {
                 throw ArtiException("Failed to initialize Arti: error code $initResult")
             }
@@ -114,6 +114,35 @@ class ArtiProxy private constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Error stopping Arti", e)
         }
+    }
+
+    /**
+     * Native init logs the anyhow chain (including `guards.json`) before it
+     * returns -3. On that specific failure, quarantine the guard file and try
+     * once more. Other init failures are left alone so a network error cannot
+     * wipe Tor state.
+     */
+    private fun initializeAllowingGuardRecovery(dataDir: File): Int {
+        val initLogs = mutableListOf<String>()
+        val appListener = logListener
+        ArtiNative.setLogCallback { line ->
+            if (!line.isNullOrEmpty()) initLogs.add(line)
+            appListener?.onLogLine(line)
+        }
+
+        val first = ArtiNative.initialize(dataDir.absolutePath)
+        if (first == 0 || !ArtiGuardStateRecovery.isCorruptPersistentGuardState(initLogs)) {
+            return first
+        }
+
+        val quarantined = ArtiGuardStateRecovery.quarantineGuardsFile(File(dataDir, "state"))
+        if (quarantined == null) {
+            Log.w(TAG, "Arti reported corrupt guard state but guards.json could not be moved")
+            return first
+        }
+
+        Log.w(TAG, "Quarantined corrupt Arti guard state as ${quarantined.name}; retrying init")
+        return ArtiNative.initialize(dataDir.absolutePath)
     }
 
     /**
