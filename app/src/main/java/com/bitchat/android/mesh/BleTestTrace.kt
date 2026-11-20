@@ -1,9 +1,9 @@
 package com.bitchat.android.mesh
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.os.SystemClock
 import android.util.Log
-import com.bitchat.android.BuildConfig
 import org.json.JSONObject
 import java.io.File
 import java.security.MessageDigest
@@ -48,7 +48,7 @@ internal object BleTestTrace {
     }
 
     fun configure(context: Context) {
-        if (!BuildConfig.DEBUG) return
+        if ((context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) == 0) return
         val file = File(context.applicationContext.filesDir, CONFIG_FILE)
         val stamp = if (file.isFile) file.lastModified() else -1L
         synchronized(lock) {
