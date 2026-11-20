@@ -204,6 +204,41 @@ class ConversationSummaryTest {
     }
 
     @Test
+    fun `geohash nickname replaces the name saved from an older message`() {
+        val pubkey = "ab".repeat(32)
+        assertEquals(
+            "renamed",
+            resolveConversationDisplayName(
+                fallbackName = "anon6765",
+                connectedPeerID = null,
+                peerNicknames = emptyMap(),
+                resolvedContactName = null,
+                persistedDisplayName = "anon6765",
+                geohashNicknames = mapOf(pubkey to "renamed"),
+                nostrPubkey = pubkey,
+                identityAliases = setOf("nostr_${pubkey.take(16)}")
+            )
+        )
+    }
+
+    @Test
+    fun `anon geohash placeholder does not hide a saved nickname`() {
+        val pubkey = "cd".repeat(32)
+        assertEquals(
+            "kept",
+            resolveConversationDisplayName(
+                fallbackName = "old",
+                connectedPeerID = null,
+                peerNicknames = emptyMap(),
+                resolvedContactName = null,
+                persistedDisplayName = "kept",
+                geohashNicknames = mapOf(pubkey to "anon"),
+                nostrPubkey = pubkey
+            )
+        )
+    }
+
+    @Test
     fun `persisted nickname is used when no live or contact name remains`() {
         assertEquals(
             "Alice Persisted",
