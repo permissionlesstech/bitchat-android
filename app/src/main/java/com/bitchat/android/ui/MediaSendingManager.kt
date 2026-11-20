@@ -450,22 +450,41 @@ class MediaSendingManager(
     }
 
     private suspend fun approveLegacyPrivateMediaAsync(requestId: String) {
-        val pending = consumePendingConsent(requestId) ?: return
-        val automatic = PendingAutomaticPrivateMedia(
-            requestId = UUID.randomUUID().toString(),
-            conversationID = pending.conversationID,
-            recipientMeshPeerID = pending.recipientMeshPeerID,
-            filePacket = pending.filePacket,
-            filePath = pending.filePath,
-            messageType = pending.messageType,
-            transferId = pending.transferId,
-            allowLegacyFallback = true
-        )
-        if (!reserveAutomaticPending(automatic)) {
-            addPrivateMediaSystemMessage(
-                pending.conversationID,
-                "Private media was not sent because another secure media send is still pending."
+        // Consume the consent and reserve the send slot under one lock hold, so a
+        // queued picked image cannot take the slot in between and reorder the batch.
+        var rejected: PendingPrivateMedia? = null
+        val automatic = synchronized(pendingConsentLock) {
+            val pending = pendingPrivateMedia
+            if (pending?.request?.requestId != requestId) return@synchronized null
+            if (pendingAutomaticPrivateMedia != null) {
+                pendingPrivateMedia = null
+                _legacyPrivateMediaConsent.value = null
+                rejected = pending
+                return@synchronized null
+            }
+            val next = PendingAutomaticPrivateMedia(
+                requestId = UUID.randomUUID().toString(),
+                conversationID = pending.conversationID,
+                recipientMeshPeerID = pending.recipientMeshPeerID,
+                filePacket = pending.filePacket,
+                filePath = pending.filePath,
+                messageType = pending.messageType,
+                transferId = pending.transferId,
+                allowLegacyFallback = true
             )
+            // Set the automatic slot first so the busy flag never reads free.
+            pendingAutomaticPrivateMedia = next
+            pendingPrivateMedia = null
+            _legacyPrivateMediaConsent.value = null
+            next
+        }
+        if (automatic == null) {
+            rejected?.let {
+                addPrivateMediaSystemMessage(
+                    it.conversationID,
+                    "Private media was not sent because another secure media send is still pending."
+                )
+            }
             return
         }
         evaluateAutomaticPending(automatic)
