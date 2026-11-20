@@ -19,7 +19,7 @@ object GeocoderFactory {
         return if (selectPlatformGeocoder(torOn = torOn, platformGeocoderPresent = Geocoder.isPresent())) {
             AndroidGeocoderProvider(context)
         } else {
-            OpenStreetMapGeocoderProvider()
+            OpenStreetMapGeocoderProvider(waitForTor = torOn)
         }
     }
 }

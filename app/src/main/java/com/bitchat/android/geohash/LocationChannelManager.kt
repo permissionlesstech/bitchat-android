@@ -52,7 +52,7 @@ class LocationChannelManager private constructor(private val context: Context) {
 
     private val locationManager: LocationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
     private val locationProvider: LocationProvider
-    private val geocoderProvider: GeocoderProvider = GeocoderFactory.get(context)
+    private fun geocoderProvider(): GeocoderProvider = GeocoderFactory.get(context)
     private var geocodingJob: Job? = null
     private val gson = Gson()
     private var dataManager: com.bitchat.android.ui.DataManager? = null
@@ -479,7 +479,7 @@ class LocationChannelManager private constructor(private val context: Context) {
             try {
                 if (!canUseLiveLocation(token)) return@launch
                 val query = geocodeQueryPoint(location.latitude, location.longitude)
-                val addresses = geocoderProvider.getFromLocation(
+                val addresses = geocoderProvider().getFromLocation(
                     query.first,
                     query.second,
                     1,
