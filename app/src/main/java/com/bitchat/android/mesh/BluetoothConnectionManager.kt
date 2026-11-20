@@ -93,7 +93,8 @@ class BluetoothConnectionManager(
     )
     
     // Service state
-    private var isActive = false
+    @Volatile private var isActive = false
+    val isActiveForMesh: Boolean get() = isActive
     
     // Delegate for callbacks
     var delegate: BluetoothConnectionManagerDelegate? = null
@@ -217,23 +218,40 @@ class BluetoothConnectionManager(
     /**
      * Start all Bluetooth services with power optimization
      */
-    fun startServices(): Boolean {
+    fun startServices(
+        onStarted: (() -> Unit)? = null,
+        onStartupFailed: ((String) -> Unit)? = null
+    ): Boolean {
+        BleTestTrace.configure(context.applicationContext)
+        BleTestTrace.record(context, "connection_manager", "start_requested", "pending")
         if (!isBleTransportEnabled()) {
             Log.i(TAG, "BLE transport disabled by debug settings; not starting Bluetooth services")
+            BleTestTrace.record(context, "connection_manager", "start_precondition", "transport_disabled")
             disableTransport()
             return false
         }
         
         if (!permissionManager.hasBluetoothPermissions()) {
             Log.e(TAG, "Missing Bluetooth permissions")
+            BleTestTrace.record(context, "connection_manager", "start_precondition", "permissions_missing")
             return false
         }
         
         if (bluetoothAdapter?.isEnabled != true) {
             Log.e(TAG, "Bluetooth is not enabled")
+            BleTestTrace.record(context, "connection_manager", "start_precondition", "radio_off")
             return false
         }
         
+        if (isActive) {
+            // The mesh-level coordinator may have been recreated or lost its local state while
+            // this manager stayed active. Re-report the accepted start so the upper layer can
+            // reconcile its state instead of leaving a registered-but-inactive mesh service.
+            onStarted?.invoke()
+            BleTestTrace.record(context, "connection_manager", "start_precondition", "already_active")
+            return true
+        }
+
         try {
             isActive = true
 
@@ -249,37 +267,45 @@ class BluetoothConnectionManager(
 
             // Start all component managers
             connectionScope.launch {
-                // Start connection tracker first
-                connectionTracker.start()
-                
-                // Start power manager
-                powerManager.start()
-                
-                // Start server/client based on debug settings
-                val startServer = isGattServerEnabled()
-                val startClient = isGattClientEnabled()
+                try {
+                    // Start connection tracker first
+                    connectionTracker.start()
 
-                if (startServer) {
-                    if (!serverManager.start()) {
-                        Log.e(TAG, "Failed to start server manager")
-                        this@BluetoothConnectionManager.isActive = false
-                        return@launch
-                    }
-                } else {
-                    Log.i(TAG, "GATT Server disabled by debug settings; not starting")
-                }
+                    // Start power manager
+                    powerManager.start()
 
-                if (startClient) {
-                    if (!clientManager.start()) {
-                        Log.e(TAG, "Failed to start client manager")
-                        this@BluetoothConnectionManager.isActive = false
-                        return@launch
+                    // Start server/client based on debug settings
+                    val startServer = isGattServerEnabled()
+                    val startClient = isGattClientEnabled()
+
+                    if (startServer) {
+                        BleTestTrace.record(context, "connection_manager", "server_start", "requested")
+                        if (!serverManager.start()) {
+                            failAsyncStartup("GATT server manager rejected startup", onStartupFailed)
+                            return@launch
+                        }
+                    } else {
+                        Log.i(TAG, "GATT Server disabled by debug settings; not starting")
                     }
-                } else {
-                    Log.i(TAG, "GATT Client disabled by debug settings; not starting")
+
+                    if (startClient) {
+                        BleTestTrace.record(context, "connection_manager", "client_start", "requested")
+                        if (!clientManager.start()) {
+                            failAsyncStartup("GATT client manager rejected startup", onStartupFailed)
+                            return@launch
+                        }
+                    } else {
+                        Log.i(TAG, "GATT Client disabled by debug settings; not starting")
+                    }
+
+                    Log.i(TAG, "Bluetooth GATT start requests accepted")
+                    BleTestTrace.record(context, "connection_manager", "component_requests", "accepted")
+                    onStarted?.invoke()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    failAsyncStartup("Bluetooth service startup threw: ${e.message}", onStartupFailed)
                 }
-                
-                Log.i(TAG, "Bluetooth services started successfully")
             }
             
             return true
@@ -289,6 +315,13 @@ class BluetoothConnectionManager(
             isActive = false
             return false
         }
+    }
+
+    private fun failAsyncStartup(reason: String, callback: ((String) -> Unit)?) {
+        Log.e(TAG, reason)
+        BleTestTrace.record(context, "connection_manager", "async_start", "failed")
+        disableTransport()
+        callback?.invoke(reason)
     }
 
     /**

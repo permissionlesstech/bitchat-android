@@ -3,6 +3,7 @@ package com.bitchat.android.service
 import android.app.Application
 import android.os.Process
 import androidx.core.app.NotificationManagerCompat
+import com.bitchat.android.BuildConfig
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.net.TorMode
@@ -51,7 +52,7 @@ object AppShutdownCoordinator {
             try {
                 val intent = android.content.Intent(com.bitchat.android.util.AppConstants.UI.ACTION_FORCE_FINISH)
                     .setPackage(app.packageName)
-                app.sendBroadcast(intent, com.bitchat.android.util.AppConstants.UI.PERMISSION_FORCE_FINISH)
+                app.sendBroadcast(intent, BuildConfig.FORCE_FINISH_PERMISSION)
             } catch (_: Exception) { }
 
             // Stop mesh (best-effort)

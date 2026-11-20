@@ -96,8 +96,14 @@ class UnifiedMeshService(
 
     override fun sendMessage(content: String, mentions: List<String>, channel: String?) {
         when {
-            isBleEnabled() -> bluetooth.sendMessage(content, mentions, channel)
-            else -> wifiService()?.sendMessage(content, mentions, channel)
+            isBleEnabled() -> {
+                BleTestTrace.record(context, "mesh_route", "public_message", "ble")
+                bluetooth.sendMessage(content, mentions, channel)
+            }
+            else -> {
+                BleTestTrace.record(context, "mesh_route", "public_message", "wifi")
+                wifiService()?.sendMessage(content, mentions, channel)
+            }
         }
     }
 
@@ -108,11 +114,23 @@ class UnifiedMeshService(
         messageID: String?
     ) {
         when {
-            isBleReady(recipientPeerID) -> bluetooth.sendPrivateMessage(content, recipientPeerID, recipientNickname, messageID)
-            isWifiReady(recipientPeerID) -> wifiService()?.sendPrivateMessage(content, recipientPeerID, recipientNickname, messageID)
-            isBleConnected(recipientPeerID) || (isBleEnabled() && !isWifiConnected(recipientPeerID)) ->
+            isBleReady(recipientPeerID) -> {
+                BleTestTrace.record(context, "dm_route", "select", "ble_ready", messageId = messageID)
                 bluetooth.sendPrivateMessage(content, recipientPeerID, recipientNickname, messageID)
-            else -> wifiService()?.sendPrivateMessage(content, recipientPeerID, recipientNickname, messageID)
+            }
+            isWifiReady(recipientPeerID) -> {
+                BleTestTrace.record(context, "dm_route", "select", "wifi_ready", messageId = messageID)
+                wifiService()?.sendPrivateMessage(content, recipientPeerID, recipientNickname, messageID)
+            }
+            isBleConnected(recipientPeerID) || (isBleEnabled() && !isWifiConnected(recipientPeerID)) ->
+                {
+                    BleTestTrace.record(context, "dm_route", "select", "ble_fallback", messageId = messageID)
+                    bluetooth.sendPrivateMessage(content, recipientPeerID, recipientNickname, messageID)
+                }
+            else -> {
+                BleTestTrace.record(context, "dm_route", "select", "wifi_fallback", messageId = messageID)
+                wifiService()?.sendPrivateMessage(content, recipientPeerID, recipientNickname, messageID)
+            }
         }
     }
 
@@ -387,7 +405,16 @@ class UnifiedMeshService(
     }
 
     override fun didReceiveMessage(message: BitchatMessage) {
-        delegate?.didReceiveMessage(message)
+        val receiver = delegate
+        BleTestTrace.record(
+            context,
+            "app_rx",
+            if (message.isPrivate) "dm_message_delegate" else "public_message_delegate",
+            if (receiver != null) "ok" else "absent",
+            messageId = message.id,
+            testMarker = if (message.isPrivate) null else message.content
+        )
+        receiver?.didReceiveMessage(message)
     }
 
     override fun didUpdatePeerList(peers: List<String>) {

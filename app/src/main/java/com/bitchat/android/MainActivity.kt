@@ -91,7 +91,7 @@ class MainActivity : OrientationAwareActivity() {
             registerReceiver(
                 forceFinishReceiver,
                 filter,
-                com.bitchat.android.util.AppConstants.UI.PERMISSION_FORCE_FINISH,
+                BuildConfig.FORCE_FINISH_PERMISSION,
                 null,
                 android.content.Context.RECEIVER_NOT_EXPORTED
             )
@@ -100,7 +100,7 @@ class MainActivity : OrientationAwareActivity() {
             registerReceiver(
                 forceFinishReceiver,
                 filter,
-                com.bitchat.android.util.AppConstants.UI.PERMISSION_FORCE_FINISH,
+                BuildConfig.FORCE_FINISH_PERMISSION,
                 null
             )
         }

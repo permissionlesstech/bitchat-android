@@ -83,28 +83,34 @@ class BluetoothGattServerManager(
         // Respect debug setting
         if (!isServerRoleEnabled()) {
             Log.i(TAG, "Server start skipped: BLE/GATT Server disabled in debug settings")
+            BleTestTrace.record(context, "gatt_server", "start", "disabled")
             return false
         }
 
         if (isActive) {
+            BleTestTrace.record(context, "gatt_server", "start", "already_active")
             return true
         }
         if (!permissionManager.hasBluetoothPermissions()) {
             Log.e(TAG, "Missing Bluetooth permissions")
+            BleTestTrace.record(context, "gatt_server", "start", "permissions_missing")
             return false
         }
         
         if (bluetoothAdapter?.isEnabled != true) {
             Log.e(TAG, "Bluetooth is not enabled")
+            BleTestTrace.record(context, "gatt_server", "start", "radio_off")
             return false
         }
         
         if (bleAdvertiser == null) {
             Log.e(TAG, "BLE advertiser not available")
+            BleTestTrace.record(context, "gatt_server", "start", "advertiser_unavailable")
             return false
         }
         
         isActive = true
+        BleTestTrace.record(context, "gatt_server", "start", "accepted")
         
         connectionScope.launch {
             setupGattServer()
@@ -171,6 +177,21 @@ class BluetoothGattServerManager(
         
         val serverCallback = object : BluetoothGattServerCallback() {
             override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
+                val stateName = when (newState) {
+                    BluetoothProfile.STATE_CONNECTED -> "connected"
+                    BluetoothProfile.STATE_CONNECTING -> "connecting"
+                    BluetoothProfile.STATE_DISCONNECTED -> "disconnected"
+                    BluetoothProfile.STATE_DISCONNECTING -> "disconnecting"
+                    else -> "other"
+                }
+                BleTestTrace.record(
+                    context,
+                    "gatt_server",
+                    "connection_state",
+                    stateName,
+                    code = status,
+                    count = newState
+                )
                 // Guard against callbacks after service shutdown
                 if (!isActive) {
                     return
@@ -223,6 +244,24 @@ class BluetoothGattServerManager(
                 if (status != BluetoothGatt.GATT_SUCCESS) {
                     Log.e(TAG, "Server: Failed to add service: ${service.uuid}, status: $status")
                 }
+                BleTestTrace.record(
+                    context,
+                    "gatt_server",
+                    "service_added",
+                    if (status == BluetoothGatt.GATT_SUCCESS) "ok" else "failed",
+                    code = status
+                )
+            }
+
+            override fun onNotificationSent(device: BluetoothDevice, status: Int) {
+                BleTestTrace.record(
+                    context,
+                    "gatt_server",
+                    "notification_send",
+                    if (status == BluetoothGatt.GATT_SUCCESS) "ok" else "failed",
+                    code = status
+                )
+                delegate?.onGattServerNotificationComplete(device.address, serverLinkIDs[device.address], status)
             }
             
             override fun onCharacteristicWriteRequest(
@@ -256,9 +295,18 @@ class BluetoothGattServerManager(
                     }
                     val packet = BitchatPacket.fromBinaryData(value)
                     if (packet != null) {
+                        BleTestTrace.record(
+                            context,
+                            "gatt_server",
+                            "write_frame",
+                            "parsed",
+                            count = packet.type.toInt(),
+                            bytes = value.size.toLong()
+                        )
                         val peerID = packet.senderID.take(8).toByteArray().joinToString("") { "%02x".format(it) }
                         delegate?.onPacketReceived(packet, peerID, device, linkID)
                     } else {
+                        BleTestTrace.record(context, "gatt_server", "write_frame", "parse_failed", bytes = value.size.toLong())
                         Log.d(TAG, "Server: Failed to parse packet from ${device.address}, size: ${value.size} bytes")
                     }
                     
@@ -298,13 +346,6 @@ class BluetoothGattServerManager(
                 }
             }
 
-            override fun onNotificationSent(device: BluetoothDevice, status: Int) {
-                delegate?.onGattServerNotificationComplete(
-                    device.address,
-                    serverLinkIDs[device.address],
-                    status
-                )
-            }
         }
         
         // Proper cleanup sequencing to prevent race conditions
@@ -409,6 +450,7 @@ class BluetoothGattServerManager(
         advertiseCallback = object : AdvertiseCallback() {
             override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
                 advertiseRetryCount = 0
+                BleTestTrace.record(context, "ble_advertise", "callback", "started")
                 val mode = try {
                     powerManager.getPowerInfo().split("Current Mode: ")[1].split("\n")[0]
                 } catch (_: Exception) { "unknown" }
@@ -417,6 +459,7 @@ class BluetoothGattServerManager(
 
             override fun onStartFailure(errorCode: Int) {
                 Log.e(TAG, "Advertising failed: $errorCode")
+                BleTestTrace.record(context, "ble_advertise", "callback", "failed", code = errorCode)
                 // Previously this only logged, so if advertising failed this device became
                 // undiscoverable until a manual BLE toggle. Retry transient failures with backoff.
                 when (errorCode) {
@@ -438,10 +481,13 @@ class BluetoothGattServerManager(
         
         try {
             bleAdvertiser.startAdvertising(settings, data, scanResponse, advertiseCallback)
+            BleTestTrace.record(context, "ble_advertise", "start_call", "returned")
         } catch (se: SecurityException) {
             Log.e(TAG, "SecurityException starting advertising (missing permission?): ${se.message}")
+            BleTestTrace.record(context, "ble_advertise", "start_call", "security_exception")
         } catch (e: Exception) {
             Log.e(TAG, "Exception starting advertising: ${e.message}")
+            BleTestTrace.record(context, "ble_advertise", "start_call", "exception")
         }
     }
     

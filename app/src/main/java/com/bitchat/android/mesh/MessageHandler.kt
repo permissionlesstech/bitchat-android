@@ -70,6 +70,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
             val decryption = delegate?.decryptFromPeer(packet.payload, peerID)
             if (decryption == null) {
                 Log.w(TAG, "Failed to decrypt Noise message from $peerID - may need handshake")
+                BleTestTrace.record(appContext, "dm_rx", "decrypt", "failed")
                 registerDecryptFailure(peerID)
                 return false
             }
@@ -92,6 +93,13 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     // Decode TLV private message exactly like iOS
                     val privateMessage = com.bitchat.android.model.PrivateMessagePacket.decode(noisePayload.data)
                     if (privateMessage != null) {
+                        BleTestTrace.record(
+                            appContext,
+                            "dm_rx",
+                            "decrypted",
+                            "ok",
+                            messageId = privateMessage.messageID
+                        )
                         // Handle favorite/unfavorite notifications embedded as PMs
                         val pmContent = privateMessage.content
                         if (FavoriteControlMessage.parse(pmContent) != null) {
@@ -127,6 +135,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     // Handle encrypted file transfer; generate unique message ID
                     val file = com.bitchat.android.model.BitchatFilePacket.decode(noisePayload.data)
                     if (file != null) {
+                        BleTestTrace.record(appContext, "media_rx", "noise_decrypt", "ok", bytes = file.fileSize)
                         Log.d(TAG, "Encrypted file from $peerID: ${file.fileSize} bytes")
                         val uniqueMsgId = java.util.UUID.randomUUID().toString().uppercase()
                         val savedPath = com.bitchat.android.features.file.FileUtils.saveIncomingFile(appContext, file)
@@ -479,6 +488,14 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 if (!LiveVoiceManager.getInstance(appContext).absorbFinalizedVoiceNote(message)) {
                     delegate?.onMessageReceived(message)
                 }
+                BleTestTrace.record(
+                    appContext,
+                    "mesh_rx",
+                    "public_file_saved",
+                    "ok",
+                    bytes = file.fileSize,
+                    messageId = message.id
+                )
                 return
             } else if (isFileTransfer) {
                 Log.w(TAG, "FILE_TRANSFER decode failed (broadcast) from ${peerID.take(8)}")
@@ -493,6 +510,14 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 timestamp = Date(packet.timestamp.toLong())
             )
             delegate?.onMessageReceived(message)
+            BleTestTrace.record(
+                appContext,
+                "mesh_rx",
+                "public_message_decoded",
+                "ok",
+                messageId = message.id,
+                testMarker = message.content
+            )
         } catch (e: Exception) {
             Log.e(TAG, "Failed to process broadcast message: ${e.message}")
         }
@@ -541,6 +566,14 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 if (!LiveVoiceManager.getInstance(appContext).absorbFinalizedVoiceNote(message)) {
                     delegate?.onMessageReceived(message)
                 }
+                BleTestTrace.record(
+                    appContext,
+                    "mesh_rx",
+                    "public_file_saved",
+                    "ok",
+                    bytes = file.fileSize,
+                    messageId = message.id
+                )
                 return
             } else if (isFileTransfer) {
                 Log.w(TAG, "⚠️ FILE_TRANSFER decode failed (private) from ${peerID.take(8)} payloadSize=${packet.payload.size}")
@@ -554,6 +587,13 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 timestamp = Date(packet.timestamp.toLong())
             )
             delegate?.onMessageReceived(message)
+            BleTestTrace.record(
+                appContext,
+                "mesh_rx",
+                "public_message_stored",
+                "ok",
+                messageId = message.id
+            )
 
         } catch (e: Exception) {
             Log.e(TAG, "Failed to process private message from $peerID: ${e.message}")
