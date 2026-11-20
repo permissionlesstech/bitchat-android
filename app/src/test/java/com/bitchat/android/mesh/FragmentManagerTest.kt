@@ -419,8 +419,10 @@ class FragmentManagerTest {
     fun `a payload above the old one mebibyte ceiling still reassembles`() {
         val payload = ByteArray(1_050_000)
         Random().nextBytes(payload)
+        // v1 payload length is 16 bits, so a frame past 64 KiB has to be v2
+        // or createFragments never gets a binary to split.
         val packet = BitchatPacket(
-            version = 1u,
+            version = 2u,
             type = MessageType.FILE_TRANSFER.value,
             senderID = hexStringToByteArray(senderID),
             recipientID = hexStringToByteArray(recipientID),
