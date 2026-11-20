@@ -52,24 +52,30 @@ class ArtiGuardStateRecoveryTest {
 
     @Test
     fun `quarantine renames only guards json`() {
-        val stateDir = temporaryFolder.newFolder("state")
-        val guards = stateDir.resolve("guards.json")
-        guards.writeText("")
-        val other = stateDir.resolve("keys")
-        other.writeText("keep-me")
+        val dataDir = temporaryFolder.newFolder("arti")
+        val configuredRoot = dataDir.resolve("state")
+        val stateDir = configuredRoot.resolve("state").apply { mkdirs() }
+        val guards = stateDir.resolve("guards.json").apply { writeText("") }
+        val other = stateDir.resolve("keys").apply { writeText("keep-me") }
+        val outerGuards = configuredRoot.resolve("guards.json").apply { writeText("outer-file") }
 
-        val quarantined = ArtiGuardStateRecovery.quarantineGuardsFile(stateDir, nowMillis = 42L)
+        val quarantined = ArtiGuardStateRecovery.quarantineGuardsFile(dataDir, nowMillis = 42L)
 
         assertEquals("guards.json.corrupt-42", quarantined?.name)
         assertTrue(quarantined!!.isFile)
         assertEquals("", quarantined.readText())
         assertFalse(guards.exists())
         assertEquals("keep-me", other.readText())
+        assertEquals("outer-file", outerGuards.readText())
     }
 
     @Test
     fun `missing guards json is left alone`() {
-        val stateDir = temporaryFolder.newFolder("empty-state")
-        assertNull(ArtiGuardStateRecovery.quarantineGuardsFile(stateDir))
+        val dataDir = temporaryFolder.newFolder("empty-lookup")
+        val outerGuards = dataDir.resolve("state").apply { mkdir() }
+            .resolve("guards.json").apply { writeText("outer-file") }
+
+        assertNull(ArtiGuardStateRecovery.quarantineGuardsFile(dataDir))
+        assertEquals("outer-file", outerGuards.readText())
     }
 }

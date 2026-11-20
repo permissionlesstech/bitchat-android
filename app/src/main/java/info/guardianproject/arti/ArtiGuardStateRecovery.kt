@@ -24,7 +24,10 @@ object ArtiGuardStateRecovery {
      * state directory stay put. Returns the quarantined file, or null when
      * there was nothing to move.
      */
-    fun quarantineGuardsFile(stateDir: File, nowMillis: Long = System.currentTimeMillis()): File? {
+    fun quarantineGuardsFile(dataDir: File, nowMillis: Long = System.currentTimeMillis()): File? {
+        // The JNI bridge configures dataDir/state as the root. Arti's persistent-state
+        // manager creates its own state directory within that root.
+        val stateDir = dataDir.resolve("state").resolve("state")
         val guards = File(stateDir, "guards.json")
         if (!guards.isFile) return null
         var dest = File(stateDir, "guards.json.corrupt-$nowMillis")

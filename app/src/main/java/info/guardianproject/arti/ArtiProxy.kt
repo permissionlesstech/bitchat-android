@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import org.torproject.arti.ArtiNative
 import java.io.File
+import java.util.Collections
 
 /**
  * Arti Tor proxy implementation compatible with Guardian Project API.
@@ -54,11 +55,6 @@ class ArtiProxy private constructor(
         }
 
         try {
-            logListener?.let { listener ->
-                Log.d(TAG, "Registering log callback")
-                ArtiNative.setLogCallback(listener)
-            }
-
             val dataDir = getDataDirectory()
             Log.i(TAG, "Initializing Arti with data directory: $dataDir")
 
@@ -123,26 +119,31 @@ class ArtiProxy private constructor(
      * wipe Tor state.
      */
     private fun initializeAllowingGuardRecovery(dataDir: File): Int {
-        val initLogs = mutableListOf<String>()
-        val appListener = logListener
+        val initLogs = Collections.synchronizedList(mutableListOf<String>())
         ArtiNative.setLogCallback { line ->
             if (!line.isNullOrEmpty()) initLogs.add(line)
-            appListener?.onLogLine(line)
+            logListener?.onLogLine(line)
         }
 
-        val first = ArtiNative.initialize(dataDir.absolutePath)
-        if (first == 0 || !ArtiGuardStateRecovery.isCorruptPersistentGuardState(initLogs)) {
-            return first
-        }
+        try {
+            val first = ArtiNative.initialize(dataDir.absolutePath)
+            if (first != -3) return first
+            val corruptGuards = synchronized(initLogs) {
+                ArtiGuardStateRecovery.isCorruptPersistentGuardState(initLogs)
+            }
+            if (!corruptGuards) return first
 
-        val quarantined = ArtiGuardStateRecovery.quarantineGuardsFile(File(dataDir, "state"))
-        if (quarantined == null) {
-            Log.w(TAG, "Arti reported corrupt guard state but guards.json could not be moved")
-            return first
-        }
+            val quarantined = ArtiGuardStateRecovery.quarantineGuardsFile(dataDir)
+            if (quarantined == null) {
+                Log.w(TAG, "Arti reported corrupt guard state but guards.json could not be moved")
+                return first
+            }
 
-        Log.w(TAG, "Quarantined corrupt Arti guard state as ${quarantined.name}; retrying init")
-        return ArtiNative.initialize(dataDir.absolutePath)
+            Log.w(TAG, "Quarantined corrupt Arti guard state as ${quarantined.name}; retrying init")
+            return ArtiNative.initialize(dataDir.absolutePath)
+        } finally {
+            ArtiNative.setLogCallback(logListener ?: ArtiLogListener {})
+        }
     }
 
     /**
