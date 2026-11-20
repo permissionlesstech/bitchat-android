@@ -166,6 +166,22 @@ internal fun resolveConversationDisplayName(
         ?: fallbackName
 }
 
+internal fun projectGeohashConversationNames(people: List<GeoPerson>): Map<String, String> {
+    val duplicateNames = duplicateGeohashBaseNames(people)
+    return buildMap {
+        for (person in people) {
+            val name = disambiguatedGeohashDisplayName(person, duplicateNames)
+            val baseName = splitSuffix(name).first
+            if (baseName.isNotBlank() &&
+                !baseName.equals("anon", ignoreCase = true) &&
+                !baseName.equals("Unknown", ignoreCase = true)
+            ) {
+                put(person.id.lowercase(), name)
+            }
+        }
+    }
+}
+
 /**
  * Location-channel nicknames live on the Nostr pubkey, not on the last private message.
  * The open chat already reads that cache. The conversation row has to use it too, or a

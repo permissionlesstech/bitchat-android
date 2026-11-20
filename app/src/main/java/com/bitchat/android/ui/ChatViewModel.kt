@@ -13,7 +13,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Job
@@ -263,25 +265,23 @@ class ChatViewModel(
         }
     }
 
+    private val geohashConversationNames = state.geohashPeople
+        .map(::projectGeohashConversationNames)
+        .distinctUntilChanged()
+
     private val conversationLiveIdentityState = combine(
         conversationPresencePeers,
         state.peerNicknames,
-        state.geohashPeople,
+        geohashConversationNames,
         conversationDirectoryRevision,
         com.bitchat.android.services.AppStateStore.privateConversationDisplayNames
-    ) { connectedPeerIDs, peerNicknames, geohashPeople, _, persistedDisplayNames ->
+    ) { connectedPeerIDs, peerNicknames, geohashNames, _, persistedDisplayNames ->
         ConversationLiveIdentityState(
             connectedPeerIDs = connectedPeerIDs,
             peerNicknames = peerNicknames,
             persistedDisplayNames = persistedDisplayNames
                 .mapKeys { (conversationID, _) -> conversationID.lowercase() },
-            geohashNicknames = geohashPeople
-                .mapNotNull { person ->
-                    person.displayName
-                        .takeUnless { it.isBlank() }
-                        ?.let { person.id.lowercase() to it }
-                }
-                .toMap()
+            geohashNicknames = geohashNames
         )
     }
     private val baseConversations = combine(
@@ -560,20 +560,17 @@ class ChatViewModel(
             combine(
                 state.peerNicknames,
                 state.connectedPeers,
-                state.geohashPeople
-            ) { peerNicknames, connectedPeers, geohashPeople ->
+                geohashConversationNames,
+                state.peerFingerprints,
+                state.privateChats.map { it.keys }.distinctUntilChanged()
+            ) { peerNicknames, connectedPeers, geohashNames, _, _ ->
                 val meshNames = connectedPeers.mapNotNull { peerID ->
                     peerNicknames[peerID]?.let { peerID to it }
                 }
-                val geohashNames = geohashPeople.mapNotNull { person ->
-                    val name = person.displayName.takeUnless {
-                        it.isBlank() ||
-                            it.equals("anon", ignoreCase = true) ||
-                            it.equals("Unknown", ignoreCase = true)
-                    } ?: return@mapNotNull null
-                    "nostr_${person.id.take(16)}" to name
+                val geohashAliases = geohashNames.entries.map { (pubkey, name) ->
+                    "nostr_${pubkey.take(16)}" to name
                 }
-                (meshNames + geohashNames).toMap()
+                (meshNames + geohashAliases).toMap()
             }.collect { connectedNames ->
                 conversationListPreferences.canonicalizeAliases()
                 com.bitchat.android.services.AppStateStore
