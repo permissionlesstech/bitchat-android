@@ -3,6 +3,7 @@ package com.bitchat.android.nostr
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.spam.SpamFilter
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.DataManager
 import com.bitchat.android.ui.sectionGeohashPeople
@@ -11,7 +12,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.job
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -45,8 +47,11 @@ class GeohashParticipantTrackingTest {
 
     @Before
     fun setUp() {
+        SpamFilter.shared.reset()
         AppStateStore.clear()
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        // Queue store observers instead of resuming them inline while the publisher holds
+        // the store monitor and a concurrent refresh can hold the repository monitor.
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         state = ChatState(scope)
         dataManager = DataManager(application)
         repo = GeohashRepository(application, state, dataManager, scope, store)
@@ -57,9 +62,11 @@ class GeohashParticipantTrackingTest {
 
     @After
     fun tearDown() {
-        scope.cancel()
+        // Finish headless processing and presence refreshes before clearing shared state.
+        runBlocking { scope.coroutineContext.job.cancelAndJoin() }
         dataManager.removeGeohashBlockedUser(identity.publicKeyHex)
         AppStateStore.clear()
+        SpamFilter.shared.reset()
     }
 
     private fun chatEvent() = NostrEvent(

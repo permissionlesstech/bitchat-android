@@ -1,0 +1,8 @@
+Relay URL,Latitude,Longitude
+Nearest.Example:443,10.1,20.2
+nearest.example,10.1,20.2
+nearest.example:8443,10.1,20.2
+second.example,10.2,20.2
+third.example,10.3,20.2
+fourth.example,10.4,20.2
+far.example,80,120
