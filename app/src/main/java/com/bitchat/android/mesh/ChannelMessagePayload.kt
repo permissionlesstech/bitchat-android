@@ -3,6 +3,11 @@ package com.bitchat.android.mesh
 import com.bitchat.android.model.BitchatMessage
 import java.util.Date
 
+/** Public mesh text stays on MESSAGE. Channel envelopes use a type legacy peers ignore. */
+internal fun messageTypeForPublicOrChannel(channel: String?): com.bitchat.android.protocol.MessageType =
+    if (channel == null) com.bitchat.android.protocol.MessageType.MESSAGE
+    else com.bitchat.android.protocol.MessageType.CHANNEL_MESSAGE
+
 /** Encode channel routing with content; an encoding failure must not publish public text. */
 internal fun encodePublicOrChannelMessage(
     content: String,

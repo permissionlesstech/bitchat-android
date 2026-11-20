@@ -940,6 +940,7 @@ class ChatViewModel(
         // Check for commands
         if (content.startsWith("/")) {
             val selectedLocationForCommand = state.selectedLocationChannel.value
+            var commandAccepted = true
             commandProcessor.processCommand(content, mesh, mesh.myPeerID, { messageContent, mentions, channel ->
                 if (selectedLocationForCommand is com.bitchat.android.geohash.ChannelID.Location) {
                     // Route command-generated public messages via Nostr in geohash channels
@@ -963,11 +964,12 @@ class ChatViewModel(
                             mesh.sendMessage(messageContent, mentions, channel)
                         }
                     )
-                } else {
-                    mesh.sendMessage(messageContent, mentions, channel)
+                } else if (!mesh.sendMessage(messageContent, mentions, channel)) {
+                    commandAccepted = false
+                    return@processCommand
                 }
             }, this)
-            onAccepted(true)
+            onAccepted(commandAccepted)
             return
         }
         
@@ -1043,6 +1045,10 @@ class ChatViewModel(
                 )
 
                 if (currentChannelValue != null) {
+                    if (!mesh.sendMessage(content, mentions, currentChannelValue)) {
+                        onAccepted(false)
+                        return
+                    }
                     channelManager.addChannelMessage(currentChannelValue, message, mesh.myPeerID)
 
                     // Check if encrypted channel
@@ -1060,12 +1066,13 @@ class ChatViewModel(
                                 mesh.sendMessage(content, mentions, currentChannelValue)
                             }
                         )
-                    } else {
-                        mesh.sendMessage(content, mentions, currentChannelValue)
                     }
                 } else {
+                    if (!mesh.sendMessage(content, mentions, null)) {
+                        onAccepted(false)
+                        return
+                    }
                     messageManager.addMessage(message)
-                    mesh.sendMessage(content, mentions, null)
                 }
             }
             onAccepted(true)

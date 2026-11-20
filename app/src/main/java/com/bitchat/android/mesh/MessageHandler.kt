@@ -488,7 +488,10 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
             // legacy UTF-8 mesh text for older peers and for iOS public broadcasts.
             val packetId = PacketIdUtil.computeIdHex(packet).uppercase()
             val peerNickname = delegate?.getPeerNickname(peerID) ?: "unknown"
+            val isChannelEnvelope = com.bitchat.android.protocol.MessageType.fromValue(packet.type) ==
+                com.bitchat.android.protocol.MessageType.CHANNEL_MESSAGE
             val decoded = BitchatMessage.fromBinaryPayload(packet.payload)
+            if (decoded == null && isChannelEnvelope) return
             // Encrypted broadcasts need channel context; never reinterpret them as public text.
             if (decoded?.isEncrypted == true && decoded.channel.isNullOrBlank()) return
             val message = decoded?.let {

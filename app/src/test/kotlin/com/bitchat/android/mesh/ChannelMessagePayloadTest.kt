@@ -1,6 +1,7 @@
 package com.bitchat.android.mesh
 
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.protocol.MessageType
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -8,6 +9,12 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ChannelMessagePayloadTest {
+    @Test
+    fun `channel envelopes use a type legacy peers ignore`() {
+        assertEquals(MessageType.MESSAGE, messageTypeForPublicOrChannel(null))
+        assertEquals(MessageType.CHANNEL_MESSAGE, messageTypeForPublicOrChannel("#test"))
+    }
+
     @Test
     fun `mesh text retains the existing UTF8 representation`() {
         assertArrayEquals("hello".toByteArray(), encodePublicOrChannelMessage(

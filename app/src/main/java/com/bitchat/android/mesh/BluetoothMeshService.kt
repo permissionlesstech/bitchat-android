@@ -608,7 +608,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 try {
                     val pkt = routed.packet
                     val isBroadcast = (pkt.recipientID == null || pkt.recipientID.contentEquals(SpecialRecipients.BROADCAST))
-                    if (isBroadcast && pkt.type == MessageType.MESSAGE.value) {
+                    if (isBroadcast && (pkt.type == MessageType.MESSAGE.value || pkt.type == MessageType.CHANNEL_MESSAGE.value)) {
                         gossipSyncManager.onPublicPacketSeen(pkt)
                     }
                 } catch (_: Exception) { }
@@ -874,18 +874,18 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     /**
      * Send public message
      */
-    fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null) {
-        if (content.isEmpty()) return
-        
+    fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null): Boolean {
+        if (content.isEmpty()) return false
+        val payloadBytes = encodePublicOrChannelPayload(content, mentions, channel)
+            ?: run {
+                Log.w(TAG, "Channel message encoding failed; refusing public-text fallback")
+                return false
+            }
+        val packetType = messageTypeForPublicOrChannel(channel)
         serviceScope.launch {
-            val payloadBytes = encodePublicOrChannelPayload(content, mentions, channel)
-                ?: run {
-                    Log.w(TAG, "Channel message encoding failed; refusing public-text fallback")
-                    return@launch
-                }
             val packet = BitchatPacket(
                 version = 1u,
-                type = MessageType.MESSAGE.value,
+                type = packetType.value,
                 senderID = hexStringToByteArray(myPeerID),
                 recipientID = SpecialRecipients.BROADCAST,
                 timestamp = System.currentTimeMillis().toULong(),
@@ -900,6 +900,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             // Track our own broadcast message for sync
             try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
         }
+        return true
     }
 
     /**

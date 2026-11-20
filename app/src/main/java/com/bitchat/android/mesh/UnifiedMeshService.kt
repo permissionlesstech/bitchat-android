@@ -94,10 +94,10 @@ class UnifiedMeshService(
             }
     }
 
-    override fun sendMessage(content: String, mentions: List<String>, channel: String?) {
-        when {
+    override fun sendMessage(content: String, mentions: List<String>, channel: String?): Boolean {
+        return when {
             isBleEnabled() -> bluetooth.sendMessage(content, mentions, channel)
-            else -> wifiService()?.sendMessage(content, mentions, channel)
+            else -> wifiService()?.sendMessage(content, mentions, channel) ?: false
         }
     }
 
