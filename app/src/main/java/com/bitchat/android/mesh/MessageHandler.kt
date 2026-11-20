@@ -484,14 +484,26 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 Log.w(TAG, "FILE_TRANSFER decode failed (broadcast) from ${peerID.take(8)}")
             }
 
-            // Fallback: plain text
-            val message = BitchatMessage(
-                id = PacketIdUtil.computeIdHex(packet).uppercase(),
-                sender = delegate?.getPeerNickname(peerID) ?: "unknown",
-                content = String(packet.payload, Charsets.UTF_8),
-                senderPeerID = peerID,
-                timestamp = Date(packet.timestamp.toLong())
-            )
+            val channelMessage = com.bitchat.android.model.ChannelMessageWire.decode(packet.payload)
+            val message = if (channelMessage != null) {
+                BitchatMessage(
+                    id = channelMessage.id,
+                    sender = delegate?.getPeerNickname(peerID) ?: channelMessage.sender,
+                    content = channelMessage.content,
+                    senderPeerID = peerID,
+                    timestamp = Date(packet.timestamp.toLong()),
+                    mentions = channelMessage.mentions,
+                    channel = channelMessage.channel
+                )
+            } else {
+                BitchatMessage(
+                    id = PacketIdUtil.computeIdHex(packet).uppercase(),
+                    sender = delegate?.getPeerNickname(peerID) ?: "unknown",
+                    content = String(packet.payload, Charsets.UTF_8),
+                    senderPeerID = peerID,
+                    timestamp = Date(packet.timestamp.toLong())
+                )
+            }
             delegate?.onMessageReceived(message)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to process broadcast message: ${e.message}")
