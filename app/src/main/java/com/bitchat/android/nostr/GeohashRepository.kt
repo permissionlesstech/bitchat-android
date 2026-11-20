@@ -71,17 +71,14 @@ class GeohashRepository(
 
     @Synchronized
     fun findPubkeyByShortId(shortId: String): String? {
-        // First check cached nicknames (fastest)
-        var found = geoNicknames.keys.firstOrNull { it.startsWith(shortId, ignoreCase = true) }
-        if (found != null) return found
-
-        // If not found in nicknames (e.g. anon user), check all known participants across all geohashes
-        for (participants in geohashParticipants.values) {
-            found = participants.keys.firstOrNull { it.startsWith(shortId, ignoreCase = true) }
-            if (found != null) return found
-        }
-        
-        return null
+        val needle = shortId.trim()
+        if (needle.isEmpty()) return null
+        // An 8-hex sender id is only a prefix. Two participants can share it, and the
+        // first map hit would open a DM with the wrong person. Require one match.
+        val keys = LinkedHashSet<String>()
+        keys.addAll(geoNicknames.keys)
+        geohashParticipants.values.forEach { keys.addAll(it.keys) }
+        return keys.filter { it.startsWith(needle, ignoreCase = true) }.singleOrNull()
     }
 
     // peerID alias -> nostr pubkey mapping for geohash DMs and temp aliases

@@ -102,7 +102,10 @@ fun ChatUserSheet(
                                 onClick = {
                                     val selectedLocationChannel = viewModel.selectedLocationChannel.value
                                     if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location) {
-                                        if (selectedMessage?.senderPeerID?.startsWith("nostr:") == true) {
+                                        val nostrPubkey = selectedMessage?.senderNostrPubkey
+                                        if (!nostrPubkey.isNullOrBlank()) {
+                                            viewModel.startGeohashDM(nostrPubkey)
+                                        } else if (selectedMessage?.senderPeerID?.startsWith("nostr:") == true) {
                                             val shortId = selectedMessage.senderPeerID!!.substring(6)
                                             viewModel.startGeohashDMByShortId(shortId)
                                         } else {

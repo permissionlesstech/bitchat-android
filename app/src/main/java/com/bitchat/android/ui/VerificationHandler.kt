@@ -220,10 +220,11 @@ class VerificationHandler(
                 }
                 peerID.startsWith("nostr:") -> {
                     val prefix = peerID.removePrefix("nostr:").lowercase()
-                    val pubHex = GeohashAliasRegistry
+                    val matches = GeohashAliasRegistry
                         .snapshot()
                         .values
-                        .firstOrNull { it.lowercase().startsWith(prefix) }
+                        .filter { it.lowercase().startsWith(prefix) }
+                    val pubHex = matches.singleOrNull()
                     val noiseKey = pubHex?.let {
                         FavoritesPersistenceService.shared.findNoiseKey(it)
                     }

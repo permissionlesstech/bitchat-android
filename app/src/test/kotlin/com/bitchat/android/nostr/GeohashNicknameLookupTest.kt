@@ -61,6 +61,16 @@ class GeohashNicknameLookupTest {
     }
 
     @Test
+    fun `shared pubkey prefix does not pick a dm target`() {
+        val one = "abcdef01" + "a".repeat(56)
+        val two = "abcdef01" + "b".repeat(56)
+        store.cacheNickname(one, "prefix-one")
+        store.cacheNickname(two, "prefix-two")
+        assertNull(repo.findPubkeyByShortId("abcdef01"))
+        assertEquals(one, repo.findPubkeyByShortId(one))
+    }
+
+    @Test
     fun `mismatched suffix or unknown nickname resolves to nothing`() {
         assertNull(repo.findPubkeyByNickname("fixture-alice#3333"))
         assertNull(repo.findPubkeyByNickname("anon"))
