@@ -2,6 +2,7 @@ package com.bitchat
 
 import com.bitchat.android.mesh.PeerManager
 import com.bitchat.android.mesh.PeerManagerDelegate
+import com.bitchat.android.model.AuthenticatedPeerState
 import com.bitchat.android.model.PeerCapabilities
 import junit.framework.TestCase.assertEquals
 import org.junit.Test
@@ -41,6 +42,30 @@ class PeerManagerTest {
         assertEquals(true, peerManager.acceptVerifiedAnnounceTimestamp("peer1", 201UL))
         peerManager.removePeer("peer1")
         assertEquals(true, peerManager.acceptVerifiedAnnounceTimestamp("peer1", 50UL))
+    }
+
+    @Test
+    fun authenticated_signing_key_change_starts_a_new_announce_watermark() {
+        val peerID = "peer1"
+        val noiseKey = ByteArray(32) { 1 }
+        val initialSigningKey = ByteArray(32) { 2 }
+        val capabilities = PeerCapabilities.PRIVATE_MEDIA
+
+        peerManager.applyAuthenticatedPeerState(
+            peerID, noiseKey, AuthenticatedPeerState(capabilities, initialSigningKey)
+        )
+        assertEquals(true, peerManager.acceptVerifiedAnnounceTimestamp(peerID, 200UL))
+
+        peerManager.applyAuthenticatedPeerState(
+            peerID, noiseKey, AuthenticatedPeerState(capabilities, initialSigningKey.copyOf())
+        )
+        assertEquals(false, peerManager.acceptVerifiedAnnounceTimestamp(peerID, 199UL))
+
+        val replacementSigningKey = ByteArray(32) { 3 }
+        peerManager.applyAuthenticatedPeerState(
+            peerID, noiseKey, AuthenticatedPeerState(capabilities, replacementSigningKey)
+        )
+        assertEquals(true, peerManager.acceptVerifiedAnnounceTimestamp(peerID, 199UL))
     }
 
     @Test

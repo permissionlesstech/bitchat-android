@@ -143,28 +143,24 @@ class PeerManager {
     }
 
     /**
+     * Returns false when [timestamp] is older than the newest announce already
+     * accepted for [peerID]. Equal timestamps still count as current.
+     */
+    @Synchronized
+    fun acceptVerifiedAnnounceTimestamp(peerID: String, timestamp: ULong): Boolean {
+        if (peerID == "unknown") return false
+        val previous = announceTimestamps[peerID]
+        if (previous != null && timestamp < previous) return false
+        announceTimestamps[peerID] = timestamp
+        return true
+    }
+
+    /**
      * Apply the exact capability state from a signature-verified announce.
      * A null value is meaningful: the peer signed an old-format announce that
      * omitted TLV 0x05. Normal peer refreshes use [updatePeerInfo] and retain
      * the last signed capability state instead of accidentally erasing it.
      */
-    /**
-     * Returns false when [timestamp] is older than the newest announce already
-     * accepted for [peerID]. Equal timestamps still count as current.
-     */
-    fun acceptVerifiedAnnounceTimestamp(peerID: String, timestamp: ULong): Boolean {
-        if (peerID == "unknown") return false
-        while (true) {
-            val previous = announceTimestamps[peerID]
-            if (previous != null && timestamp < previous) return false
-            if (previous == null) {
-                if (announceTimestamps.putIfAbsent(peerID, timestamp) == null) return true
-            } else if (announceTimestamps.replace(peerID, previous, timestamp)) {
-                return true
-            }
-        }
-    }
-
     fun updatePeerInfoFromVerifiedAnnouncement(
         peerID: String,
         nickname: String,
@@ -191,6 +187,9 @@ class PeerManager {
         state: AuthenticatedPeerState
     ) {
         val existing = peers[peerID]
+        if (existing?.signingPublicKey?.contentEquals(state.signingPublicKey) == false) {
+            announceTimestamps.remove(peerID)
+        }
         val announcementMatchesAuthenticatedState = existing?.hasVerifiedAnnouncement == true &&
             existing.verifiedAnnouncementNoisePublicKey?.contentEquals(authenticatedNoisePublicKey) == true &&
             existing.signingPublicKey?.contentEquals(state.signingPublicKey) == true
@@ -391,6 +390,7 @@ class PeerManager {
     /**
      * Remove peer
      */
+    @Synchronized
     fun removePeer(peerID: String, notifyPeerList: Boolean = true) {
         val removed = peers.remove(peerID)
         peerRSSI.remove(peerID)
@@ -485,6 +485,7 @@ class PeerManager {
     /**
      * Clear all peer data
      */
+    @Synchronized
     fun clearAllPeers() {
         peers.clear()
         peerRSSI.clear()
