@@ -60,5 +60,6 @@ interface MeshService {
     fun getDebugStatus(): String
 
     fun clearAllInternalData()
-    fun clearAllEncryptionData()
+    /** Returns true only when every transport's persistent identity was wiped from disk. */
+    fun clearAllEncryptionData(): Boolean
 }

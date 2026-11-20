@@ -205,19 +205,25 @@ object NostrIdentityBridge {
     /**
      * Clear all Nostr identity data
      */
-    fun clearAllAssociations(context: Context) {
+    /** Returns true only when the Nostr key and geohash seed were wiped from disk. */
+    fun clearAllAssociations(context: Context): Boolean {
         val stateManager = SecureIdentityStateManager(context)
         
         // Clear cache first
         geohashIdentityCache.clear()
         
         // Clear Nostr private key using public methods instead of reflection
-        try {
-            stateManager.clearSecureValues(NOSTR_PRIVATE_KEY, DEVICE_SEED_KEY)
-                
-            Log.i(TAG, "Cleared all Nostr identity data and cache")
+        return try {
+            val cleared = stateManager.clearSecureValuesSynchronously(NOSTR_PRIVATE_KEY, DEVICE_SEED_KEY)
+            if (cleared) {
+                Log.i(TAG, "Cleared all Nostr identity data and cache")
+            } else {
+                Log.e(TAG, "Nostr identity wipe could not be committed")
+            }
+            cleared
         } catch (e: Exception) {
             Log.e(TAG, "Failed to clear Nostr data: ${e.message}")
+            false
         }
     }
 

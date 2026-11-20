@@ -102,13 +102,19 @@ object GlobeMath {
      * screen's smallest dimension.
      */
     fun autoPrecision(globeRadiusPx: Float, screenMinPx: Float): Int {
-        val targetPx = screenMinPx * 0.22f
+        val targetPx = screenMinPx * AUTO_PRECISION_CELL_FRACTION
         var best = 1
         for (p in 1..MAX_PRECISION) {
             val spanPx = (cellSpanLat(p) * (Math.PI / 180.0) * globeRadiusPx).toFloat()
             if (spanPx >= targetPx) best = p else break
         }
         return best.coerceIn(1, MAX_PRECISION)
+    }
+
+    /** The zoom at which [autoPrecision] first reaches [precision]. */
+    fun thresholdZoomForPrecision(precision: Int, baseRadiusPx: Float, screenMinPx: Float): Float {
+        val spanRad = cellSpanLat(precision) * (Math.PI / 180.0)
+        return ((screenMinPx * AUTO_PRECISION_CELL_FRACTION) / (spanRad * baseRadiusPx)).toFloat()
     }
 
     /**
@@ -121,6 +127,8 @@ object GlobeMath {
         return (targetRadius / baseRadiusPx).toFloat().coerceIn(MIN_ZOOM, MAX_ZOOM)
     }
 
+    /** A cell is selectable once it spans this share of the screen's short side. */
+    const val AUTO_PRECISION_CELL_FRACTION = 0.22f
     const val MIN_ZOOM = 1f
     const val MAX_ZOOM = 120000f
     const val MAX_PRECISION = 12

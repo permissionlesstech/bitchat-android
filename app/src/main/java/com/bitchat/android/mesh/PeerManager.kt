@@ -458,7 +458,7 @@ class PeerManager {
      * Get active peer count
      */
     fun getActivePeerCount(): Int {
-        return getActivePeerIDs().size
+        return peers.values.count { it.isConnected }
     }
     
     /**

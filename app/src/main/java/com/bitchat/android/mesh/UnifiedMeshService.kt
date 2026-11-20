@@ -380,9 +380,10 @@ class UnifiedMeshService(
         try { wifiService()?.clearAllInternalData() } catch (_: Exception) { }
     }
 
-    override fun clearAllEncryptionData() {
-        try { bluetooth.clearAllEncryptionData() } catch (_: Exception) { }
-        try { wifiService()?.clearAllEncryptionData() } catch (_: Exception) { }
+    override fun clearAllEncryptionData(): Boolean {
+        val bluetoothCleared = try { bluetooth.clearAllEncryptionData() } catch (_: Exception) { false }
+        val wifiCleared = try { wifiService()?.clearAllEncryptionData() ?: true } catch (_: Exception) { false }
+        return bluetoothCleared && wifiCleared
     }
 
     override fun didReceiveMessage(message: BitchatMessage) {

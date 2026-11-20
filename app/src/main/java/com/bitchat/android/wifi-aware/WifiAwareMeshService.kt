@@ -1602,9 +1602,8 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         meshCore.clearAllInternalData()
     }
 
-    override fun clearAllEncryptionData() {
+    override fun clearAllEncryptionData(): Boolean =
         meshCore.clearAllEncryptionData()
-    }
 
     /** Utility extension to safely close server sockets. */
     private fun ServerSocket.closeQuietly() = try { close() } catch (_: Exception) {}

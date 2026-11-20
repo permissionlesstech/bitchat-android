@@ -20,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
@@ -42,6 +43,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.geohash.Geohash
+import com.bitchat.android.nostr.GeohashChannelActivity
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlin.math.ceil
@@ -66,14 +68,16 @@ data class GlobeColors(
 
 private class Star(val x: Float, val y: Float, val radius: Float, val alpha: Float)
 
+/**
+ * How much of the globe a moving frame draws. The geohash grid (selected cell and its neighbors)
+ * and the city dots are not part of this: both are cheap next to the land geometry, and making
+ * them vanish on touch and pop back on release read as flicker.
+ */
 internal data class GlobeFrameDetail(
     val graticuleStepDegrees: Double,
     val landPointStride: Int,
     val showBorders: Boolean,
-    val cityMaxRank: Int?,
-    val showCityLabels: Boolean,
-    val showGeohashGrid: Boolean,
-    val showNeighborCells: Boolean
+    val showCityLabels: Boolean
 )
 
 internal enum class GlobeMotionDetail {
@@ -88,34 +92,26 @@ internal fun globeFrameDetail(motionDetail: GlobeMotionDetail): GlobeFrameDetail
             graticuleStepDegrees = 4.0,
             landPointStride = 1,
             showBorders = true,
-            cityMaxRank = null,
-            showCityLabels = true,
-            showGeohashGrid = true,
-            showNeighborCells = true
+            showCityLabels = true
         )
         GlobeMotionDetail.BALANCED -> GlobeFrameDetail(
             graticuleStepDegrees = 8.0,
             landPointStride = 2,
             showBorders = true,
-            cityMaxRank = 1,
-            showCityLabels = false,
-            showGeohashGrid = true,
-            showNeighborCells = false
+            showCityLabels = false
         )
         GlobeMotionDetail.FAST -> GlobeFrameDetail(
             graticuleStepDegrees = 10.0,
             landPointStride = 2,
             showBorders = false,
-            cityMaxRank = -1,
-            showCityLabels = false,
-            showGeohashGrid = false,
-            showNeighborCells = false
+            showCityLabels = false
         )
     }
 
 /**
- * Adjusts moving-frame detail from measured frame cadence. Hysteresis keeps the renderer
- * from oscillating between levels when timings sit near a boundary.
+ * The level measured frame cadence calls for. Hysteresis alone cannot stop oscillation
+ * (shedding detail is what makes frames fast again), so [GlobeMotionGovernor] only ever
+ * applies downgrades while the globe is moving.
  */
 internal fun nextGlobeMotionDetail(
     current: GlobeMotionDetail,
@@ -143,6 +139,84 @@ internal fun nextGlobeMotionDetail(
     }
 }
 
+private val GlobeMotionDetail.rank: Int
+    get() = when (this) {
+        GlobeMotionDetail.FAST -> 0
+        GlobeMotionDetail.BALANCED -> 1
+        GlobeMotionDetail.FULL -> 2
+    }
+
+private val GlobeMotionDetail.moreDetailed: GlobeMotionDetail
+    get() = if (this == GlobeMotionDetail.FAST) GlobeMotionDetail.BALANCED else GlobeMotionDetail.FULL
+
+/**
+ * Picks the detail level for moving frames. A motion session spans everything from touch-down
+ * through any fling or animation until the globe is at rest.
+ *
+ * Within a session detail only ever steps down: letting measured cadence step back up made
+ * neighbor cells, labels and borders flash on and off while dragging, because shedding detail
+ * is exactly what makes frames fast again. Between sessions, a smooth one lets the next start a
+ * level higher, until any session has had to shed detail. Matches the iOS globe.
+ */
+internal class GlobeMotionGovernor {
+    var detail: GlobeMotionDetail = GlobeMotionDetail.FULL
+        private set
+    var isSessionActive: Boolean = false
+        private set
+
+    private var startDetail = GlobeMotionDetail.BALANCED
+    private var ceilingFound = false
+    private var sessionDegraded = false
+    private var windowMillis = 0f
+    private var windowCount = 0
+    private var sessionMillis = 0f
+    private var sessionCount = 0
+
+    fun beginSession() {
+        if (isSessionActive) return
+        isSessionActive = true
+        sessionDegraded = false
+        windowMillis = 0f
+        windowCount = 0
+        sessionMillis = 0f
+        sessionCount = 0
+        detail = startDetail
+    }
+
+    fun recordFrame(millis: Float) {
+        if (!isSessionActive) return
+        val frameMillis = millis.coerceIn(1f, MAX_SAMPLED_FRAME_MILLIS)
+        windowMillis += frameMillis
+        windowCount++
+        sessionMillis += frameMillis
+        sessionCount++
+        if (windowCount < FRAME_SAMPLE_COUNT) return
+        val wanted = nextGlobeMotionDetail(detail, windowMillis / windowCount)
+        if (wanted.rank < detail.rank) {
+            detail = wanted
+            sessionDegraded = true
+        }
+        windowMillis = 0f
+        windowCount = 0
+    }
+
+    /** Back to full detail at rest; remembers where the next session should start. */
+    fun endSession() {
+        if (!isSessionActive) return
+        isSessionActive = false
+        if (sessionDegraded) {
+            ceilingFound = true
+            startDetail = detail
+        } else if (!ceilingFound &&
+            sessionCount >= FRAME_SAMPLE_COUNT &&
+            sessionMillis / sessionCount < SMOOTH_FRAME_MILLIS
+        ) {
+            startDetail = detail.moreDetailed
+        }
+        detail = GlobeMotionDetail.FULL
+    }
+}
+
 @Composable
 fun GlobeView(
     state: GlobeState,
@@ -152,7 +226,11 @@ fun GlobeView(
     cities: List<LandData.City>,
     labelTypeface: Typeface?,
     labelTypefaceBold: Typeface?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    activity: List<GeohashChannelActivity> = emptyList(),
+    activityColors: GlobeActivityColors? = null,
+    onMarkerTap: ((GlobeMarker) -> Unit)? = null,
+    onBackgroundTap: (() -> Unit)? = null
 ) {
     val view = LocalView.current
     val density = LocalDensity.current
@@ -184,6 +262,25 @@ fun GlobeView(
         }
     }
 
+    val markerLayout = remember { GlobeMarkerLayout() }
+    val markerAnimator = remember {
+        val scale = android.provider.Settings.Global.getFloat(
+            view.context.contentResolver,
+            android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+            1f
+        )
+        GlobeMarkerAnimator(durationScale = scale)
+    }
+    val markerTextPaint = remember { Paint(Paint.ANTI_ALIAS_FLAG) }
+    val markerPulse by rememberInfiniteTransition(label = "markers").animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1800), RepeatMode.Restart),
+        label = "markerPulse"
+    )
+    val currentOnMarkerTap by rememberUpdatedState(onMarkerTap)
+    val currentOnBackgroundTap by rememberUpdatedState(onBackgroundTap)
+
     val pulse by rememberInfiniteTransition(label = "crosshair").animateFloat(
         initialValue = 0.45f,
         targetValue = 1f,
@@ -201,6 +298,8 @@ fun GlobeView(
         snapshotFlow { state.selectedGeohash }
             .drop(1)
             .collect {
+                // Tick for cells the user drags across, not for every cell a fly-in passes.
+                if (state.isAnimating) return@collect
                 @Suppress("DEPRECATION")
                 view.performHapticFeedback(
                     HapticFeedbackConstants.KEYBOARD_TAP,
@@ -209,34 +308,23 @@ fun GlobeView(
             }
     }
 
-    var motionDetail by remember(state) { mutableStateOf(GlobeMotionDetail.BALANCED) }
+    val motionGovernor = remember(state) { GlobeMotionGovernor() }
+    var motionDetail by remember(state) { mutableStateOf(GlobeMotionDetail.FULL) }
     LaunchedEffect(state, state.isInMotion) {
         if (!state.isInMotion) {
-            motionDetail = GlobeMotionDetail.FULL
+            motionGovernor.endSession()
+            motionDetail = motionGovernor.detail
             return@LaunchedEffect
         }
 
-        // Balanced is a safe first frame; measured cadence then moves detail up or down.
-        motionDetail = GlobeMotionDetail.BALANCED
+        motionGovernor.beginSession()
+        motionDetail = motionGovernor.detail
         var previousFrameNanos = withFrameNanos { it }
-        var sampledFrameMillis = 0f
-        var sampledFrameCount = 0
         while (state.isInMotion) {
             val frameNanos = withFrameNanos { it }
-            val frameMillis = ((frameNanos - previousFrameNanos) / 1_000_000f)
-                .coerceIn(1f, MAX_SAMPLED_FRAME_MILLIS)
+            motionGovernor.recordFrame((frameNanos - previousFrameNanos) / 1_000_000f)
             previousFrameNanos = frameNanos
-            sampledFrameMillis += frameMillis
-            sampledFrameCount++
-
-            if (sampledFrameCount >= FRAME_SAMPLE_COUNT) {
-                motionDetail = nextGlobeMotionDetail(
-                    current = motionDetail,
-                    averageFrameMillis = sampledFrameMillis / sampledFrameCount
-                )
-                sampledFrameMillis = 0f
-                sampledFrameCount = 0
-            }
+            motionDetail = motionGovernor.detail
         }
     }
 
@@ -313,7 +401,16 @@ fun GlobeView(
                         upTime - downTime < 400 &&
                         moved.getDistance() < viewConfiguration.touchSlop
 
-                    if (isTap) {
+                    val tappedMarker = if (isTap) {
+                        currentOnMarkerTap?.let {
+                            markerLayout.hitTest(downPos, MARKER_TAP_SLOP_DP * density.density)
+                        }
+                    } else null
+                    if (tappedMarker != null) {
+                        lastTapTime = 0L
+                        currentOnMarkerTap?.invoke(tappedMarker)
+                    } else if (isTap) {
+                        currentOnBackgroundTap?.invoke()
                         val cx = size.width / 2f
                         val cy = size.height / 2f
                         val r = state.globeRadiusPx
@@ -321,8 +418,8 @@ fun GlobeView(
                             val latLon = GlobeMath.unproject(
                                 ((downPos.x - cx) / r).toDouble(),
                                 ((downPos.y - cy) / r).toDouble(),
-                                state.centerLat.toDouble(),
-                                state.centerLon.toDouble()
+                                state.centerLat,
+                                state.centerLon
                             )
                             if (latLon != null) {
                                 val now = upTime
@@ -351,8 +448,8 @@ fun GlobeView(
         val baseR = state.baseRadiusPx
         if (baseR <= 0f) return@Canvas
         val r = state.globeRadiusPx
-        val cLat = state.centerLat.toDouble()
-        val cLon = state.centerLon.toDouble()
+        val cLat = state.centerLat
+        val cLon = state.centerLon
         val preparedProjector = GlobeMath.PreparedProjector(cLat, cLon)
 
         // Atmosphere glow
@@ -448,28 +545,24 @@ fun GlobeView(
             center = Offset(cx, cy)
         )
 
-        // Cities are detail-only; omitting them while moving keeps touch latency predictable.
-        val cityMaxRank = frameDetail.cityMaxRank
-        if (cityMaxRank == null || cityMaxRank >= 0) {
-            drawCities(
-                cities, state, preparedProjector, cx, cy, r, colors,
-                labelPaint, haloPaint, labelTypeface, labelTextSizeSmall, density.density,
-                maxRankOverride = cityMaxRank,
-                showLabels = frameDetail.showCityLabels
-            )
-        }
+        // City dots and the geohash grid draw at every detail level; only city labels are
+        // dropped while moving.
+        drawCities(
+            cities, state, preparedProjector, cx, cy, r, colors,
+            labelPaint, haloPaint, labelTypeface, labelTextSizeSmall, density.density,
+            showLabels = frameDetail.showCityLabels
+        )
 
-        // Detailed cells and labels settle into place after the gesture ends.
-        if (frameDetail.showGeohashGrid && state.selectedGeohash.isNotEmpty()) {
+        if (state.selectedGeohash.isNotEmpty()) {
             drawGeohashGrid(
                 state, cx, cy, r, cLat, cLon, colors, clip,
-                includeNeighbors = frameDetail.showNeighborCells
+                includeNeighbors = true
             )
             drawGeohashLabels(
                 state, cx, cy, r, cLat, cLon, colors,
                 labelPaint, haloPaint, labelTypeface, labelTypefaceBold,
                 labelTextSize, labelTextSizeSmall,
-                includeNeighbors = frameDetail.showNeighborCells
+                includeNeighbors = true
             )
         }
 
@@ -490,9 +583,52 @@ fun GlobeView(
             drawLine(crossColor, Offset(cx, cy + gap), Offset(cx, cy + gap + len), strokeW)
             drawCircle(crossColor, radius = 1.8f * density.density, center = Offset(cx, cy))
         }
+        // Activity markers get their own layer, above the crosshair so a centered marker's
+        // count stays readable; their pulse never redraws the globe geometry.
+        if (activityColors != null) {
+            Canvas(modifier = Modifier.matchParentSize()) {
+                val markers = if (state.baseRadiusPx <= 0f || activity.isEmpty()) {
+                    emptyList()
+                } else {
+                    layoutGlobeMarkers(
+                        channels = activity,
+                        projector = GlobeMath.PreparedProjector(
+                            state.centerLat,
+                            state.centerLon
+                        ),
+                        cx = size.width / 2f,
+                        cy = size.height / 2f,
+                        r = state.globeRadiusPx,
+                        width = size.width,
+                        height = size.height,
+                        density = density.density
+                    )
+                }
+                markerLayout.markers = markers
+                val frames = markerAnimator.frame(markers, System.nanoTime())
+                val nowSeconds = System.currentTimeMillis() / 1000
+                // Read the animation clock only while something moves: entering, leaving or
+                // pulsing markers. A settled, quiet globe then stops redrawing this layer.
+                val anyRecent = markers.any {
+                    it.messages > 0 && nowSeconds - it.lastActiveAt < MARKER_RECENT_SECONDS
+                }
+                val pulsePhase = if (anyRecent || markerAnimator.isAnimating) markerPulse else 0f
+                drawGlobeMarkers(
+                    frames = frames,
+                    colors = activityColors,
+                    selectedGeohash = state.selectedGeohash,
+                    pulsePhase = if (anyRecent) pulsePhase else 0f,
+                    nowSeconds = nowSeconds,
+                    textPaint = markerTextPaint,
+                    typeface = labelTypefaceBold ?: labelTypeface,
+                    density = density.density
+                )
+            }
+        }
     }
 }
 
+private const val MARKER_TAP_SLOP_DP = 12f
 private const val FRAME_SAMPLE_COUNT = 8
 private const val MAX_SAMPLED_FRAME_MILLIS = 50f
 private const val SMOOTH_FRAME_MILLIS = 18.5f
@@ -834,29 +970,33 @@ internal fun polygonContains(
     return inside
 }
 
+/**
+ * Point-in-ring test in geographic space: counts the ring edges that cross the probe's meridian
+ * north of it. Each edge is followed the short way around, so neither the ±180° seam nor the
+ * probe's antimeridian creates a false crossing. Casting the ray along a parallel instead wrapped
+ * edges near the probe's antimeridian from +180° to -180°, so a Pacific probe saw Europe's coast
+ * as crossings and Eurasia "contained" the Pacific, inverting its fill. Matches the iOS globe.
+ */
 internal fun ringContainsLocation(
     ring: LandData.Ring,
     latitude: Double,
     longitude: Double
 ): Boolean {
     if (ring.size < 3) return false
-
-    fun relativeLongitude(value: Float): Double =
-        GlobeMath.normalizeLon(value.toDouble() - longitude)
-
     var inside = false
     var previousIndex = ring.size - 1
     for (index in 0 until ring.size) {
-        val currentLat = ring.coords[index * 2].toDouble()
-        val currentLon = relativeLongitude(ring.coords[index * 2 + 1])
-        val previousLat = ring.coords[previousIndex * 2].toDouble()
-        val previousLon = relativeLongitude(ring.coords[previousIndex * 2 + 1])
-        val crossesRay = (currentLat > latitude) != (previousLat > latitude)
-        if (crossesRay) {
-            val intersectionLon = (previousLon - currentLon) *
-                (latitude - currentLat) / (previousLat - currentLat) +
-                currentLon
-            if (0.0 < intersectionLon) inside = !inside
+        val startLat = ring.coords[previousIndex * 2].toDouble()
+        val endLat = ring.coords[index * 2].toDouble()
+        val startLon = ring.coords[previousIndex * 2 + 1].toDouble()
+        val endLon = ring.coords[index * 2 + 1].toDouble()
+        val start = GlobeMath.normalizeLon(startLon - longitude)
+        // Unbounded on purpose: the end changes sign relative to the start only when the
+        // edge crosses the probe meridian, never when it crosses ±180°.
+        val end = start + GlobeMath.normalizeLon(endLon - startLon)
+        if ((start > 0.0) != (end > 0.0)) {
+            val t = start / (start - end)
+            if (startLat + (endLat - startLat) * t > latitude) inside = !inside
         }
         previousIndex = index
     }
@@ -927,13 +1067,12 @@ private fun DrawScope.drawCities(
     typeface: Typeface?,
     textSize: Float,
     density: Float,
-    maxRankOverride: Int?,
     showLabels: Boolean
 ) {
     if (cities.isEmpty()) return
     val projection = FloatArray(3)
     val zoom = state.zoom
-    val maxRank = maxRankOverride ?: when {
+    val maxRank = when {
         zoom < 2f -> 1
         zoom < 8f -> 3
         zoom < 40f -> 4

@@ -88,3 +88,9 @@ bridges, and vendored Noise code are excluded from first-party coverage metrics.
 - A temporary quarantine must include an issue and removal condition.
 - Unexpected skips fail review. Existing skips must be restored or replaced by
   equivalent coverage.
+
+## Composer UI regression
+
+The [composer panic regression](composer-panic-test.md) runs locally in a
+disposable emulator with a separate installation and blocked external egress.
+This destructive UI suite is opt-in; default JVM and CI commands do not execute it.

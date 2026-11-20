@@ -39,7 +39,10 @@ Implementation: `com.bitchat.android.sync.GCSFilter`.
   - Combine the following and sort by packet timestamp (descending):
     - Broadcast messages (MessageType 1)
     - The most recent ANNOUNCE per peer
-  - Take at most `min(N_max, maxPacketsPerSync)` items from this ordered list.
+  - Select at most `min(N_max, maxPacketsPerSync)` items. Before admitting a message,
+    insert its sender's cached ANNOUNCE if available and not already selected;
+    admit the message only if both fit. Keep the prerequisite before its message
+    so every prefix remains closed under encoder trimming.
   - Compute the 16-byte Packet ID (see below), then for hashing use the first 8 bytes of SHA‑256 over the 16‑byte ID.
   - Map each hash to [0, M) with M = N * 2^P; sort ascending and encode deltas with Golomb‑Rice parameter P.
 
@@ -71,10 +74,19 @@ Sender behavior:
 
 Receiver behavior:
 - Decode the REQUEST_SYNC payload and reconstruct the sorted set of mapped values using the provided P, M, and bitstream.
-- For each locally stored public packet ID:
+- Select the same bounded recent window used for local filter construction: newest timestamp first, packet ID as a stable tie-breaker, bounded by the configured packet count and the actual number encoded within the filter byte budget.
+- Reserve each message's cached sender announcement before admitting the message;
+  skip the message if the prerequisite and message do not both fit. Preserve
+  this dependency order through any encoder trimming.
+- For each public packet ID in that window:
   - Compute h64(ID) % M and check if it is in the reconstructed set; if NOT present, send the original packet back with `ttl=0` to the requester only.
   - For announcements, send only the latest announcement per (sender peerID).
-  - For broadcast messages, send all missing ones.
+  - For broadcast messages, send missing ones within the recent window.
+- Send missing announcements before missing messages, and send messages in
+  ascending timestamp order (packet ID breaks ties), so a joining peer sees
+  chronological history and can authenticate senders first.
+- Pace response packets at least 20 ms apart. Serve one response batch at a time; requests received during an active batch are left to the requester's next periodic retry. Cancel response work on stop or reset.
+- This is a local recovery-window policy, not a wire-format change. Packets older than the recent window are not automatically recovered. Peers with different window settings may still produce bounded redundant responses.
 
 Announcement retention and pruning (consensus):
 - Store only the most recent announcement per peerID for sync purposes.

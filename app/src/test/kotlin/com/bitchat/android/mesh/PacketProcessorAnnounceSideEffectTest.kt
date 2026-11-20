@@ -121,8 +121,8 @@ class PacketProcessorAnnounceSideEffectTest {
             handled.complete(Unit)
             return acceptAnnounce
         }
-        override fun handleMessage(routed: RoutedPacket) = Unit
-        override fun handleLeave(routed: RoutedPacket) = Unit
+        override suspend fun handleMessage(routed: RoutedPacket) = Unit
+        override suspend fun handleLeave(routed: RoutedPacket) = Unit
         override fun handleFragment(packet: BitchatPacket): BitchatPacket? = null
         override fun handleRequestSync(routed: RoutedPacket) = Unit
         override fun sendAnnouncementToPeer(peerID: String) = Unit

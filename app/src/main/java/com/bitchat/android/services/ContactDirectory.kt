@@ -74,8 +74,11 @@ object ContactDirectory {
                 ContactIdentityResolver.bytesFromHex(peerOrConversationID)
             else -> null
         }
-        val liveMeshPeerID = contactFingerprint?.let { findLiveMeshPeerForFingerprint(it) }
-            ?: peerOrConversationID.takeIf { ContactIdentityResolver.isMeshPeerId(it) && isMeshPeerConnected(it) }
+        // Membership callbacks already supply the connected peer. Avoid searching the entire
+        // mesh once per member; retain fingerprint search for offline/contact aliases.
+        val liveMeshPeerID = peerOrConversationID.takeIf {
+            ContactIdentityResolver.isMeshPeerId(it) && isMeshPeerConnected(it)
+        } ?: contactFingerprint?.let { findLiveMeshPeerForFingerprint(it) }
 
         return ContactResolution(
             conversationID = conversationID,

@@ -21,7 +21,9 @@ import java.math.BigInteger
  * Includes secp256k1 operations, ECDH, and NIP-44 encryption
  */
 object NostrCrypto {
-    
+
+    internal const val NIP17_DEFAULT_MAX_PAST_SECONDS = 79_200
+
     private val secureRandom = SecureRandom()
     // NIP-44 v2 only
     
@@ -317,9 +319,9 @@ object NostrCrypto {
     }
     
     /**
-     * Random timestamp up to maxPastSeconds in the past (default 2 days)
+     * Random timestamp in the past, defaulting to 22 hours to leave 2 hours of slack inside iOS's 24-hour lookback.
      */
-    fun randomizeTimestampUpToPast(maxPastSeconds: Int = 172800): Int {
+    fun randomizeTimestampUpToPast(maxPastSeconds: Int = NIP17_DEFAULT_MAX_PAST_SECONDS): Int {
         val now = (System.currentTimeMillis() / 1000).toInt()
         val offset = if (maxPastSeconds > 0) secureRandom.nextInt(maxPastSeconds + 1) else 0
         return now - offset
