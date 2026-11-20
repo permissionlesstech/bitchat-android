@@ -28,8 +28,10 @@ class BluetoothConnectionTracker(
     private val connectedDevices = ConcurrentHashMap<String, DeviceConnection>()
     private val subscribedDevices = CopyOnWriteArrayList<BluetoothDevice>()
     val addressPeerMap = ConcurrentHashMap<String, String>()
-    // Track whether we have seen the first ANNOUNCE on a given device connection
-    private val firstAnnounceSeen = ConcurrentHashMap<String, Boolean>()
+    // Direct ANNOUNCE sender and Noise session peer for the current link.
+    // Both must name the same peer before the broadcast feed is granted.
+    private val directAnnouncePeer = ConcurrentHashMap<String, String>()
+    private val authenticatedSessionPeer = ConcurrentHashMap<String, String>()
     // CCCD writes that arrived before a verified ANNOUNCE. Grant the feed later
     // rather than rejecting the descriptor — Android clients do not retry it.
     private val pendingBroadcastSubscriptions = ConcurrentHashMap<String, BluetoothDevice>()
@@ -86,8 +88,8 @@ class BluetoothConnectionTracker(
             addressPeerMap.remove(deviceAddress)
         }
         removePendingConnection(deviceAddress)
-        // Mark as awaiting first ANNOUNCE on this connection
-        firstAnnounceSeen[deviceAddress] = false
+        directAnnouncePeer.remove(deviceAddress)
+        authenticatedSessionPeer.remove(deviceAddress)
         pendingBroadcastSubscriptions.remove(deviceAddress)
     }
     
@@ -279,7 +281,8 @@ class BluetoothConnectionTracker(
             connectedDevices.remove(deviceAddress)
             subscribedDevices.removeAll { it.address == deviceAddress }
             addressPeerMap.remove(deviceAddress)
-            firstAnnounceSeen.remove(deviceAddress)
+            directAnnouncePeer.remove(deviceAddress)
+            authenticatedSessionPeer.remove(deviceAddress)
             pendingBroadcastSubscriptions.remove(deviceAddress)
         }
         Log.d(TAG, "Cleaned up device connection for $deviceAddress")
@@ -296,7 +299,8 @@ class BluetoothConnectionTracker(
         if (connectedDevices.remove(deviceAddress, current)) {
             subscribedDevices.removeAll { it.address == deviceAddress }
             addressPeerMap.remove(deviceAddress)
-            firstAnnounceSeen.remove(deviceAddress)
+            directAnnouncePeer.remove(deviceAddress)
+            authenticatedSessionPeer.remove(deviceAddress)
             pendingBroadcastSubscriptions.remove(deviceAddress)
             Log.d(TAG, "Cleaned up device connection for $deviceAddress")
             true
@@ -335,41 +339,65 @@ class BluetoothConnectionTracker(
         addressPeerMap.clear()
         pendingConnections.clear()
         scanRSSI.clear()
-        firstAnnounceSeen.clear()
+        directAnnouncePeer.clear()
+        authenticatedSessionPeer.clear()
         pendingBroadcastSubscriptions.clear()
     }
 
     /**
-     * Record a CCCD enable. Grants the broadcast feed immediately when a verified
-     * ANNOUNCE already arrived on this connection; otherwise defers until it does.
+     * Record a CCCD enable. Grants the feed only when this link already has a
+     * direct ANNOUNCE and an authenticated session for the same peer.
      *
      * @return true if the feed was granted now
      */
     fun requestBroadcastSubscription(device: BluetoothDevice): Boolean {
         synchronized(connectionStateLock) {
+            val address = device.address
             val action = GattNotificationEligibility.action(
-                firstAnnounceSeen[device.address] == true
+                directAnnouncePeer[address],
+                authenticatedSessionPeer[address]
             )
             if (action == GattSubscriptionAction.GRANT) {
-                pendingBroadcastSubscriptions.remove(device.address)
+                pendingBroadcastSubscriptions.remove(address)
                 addSubscribedDeviceIfAbsent(device)
                 return true
             }
-            pendingBroadcastSubscriptions[device.address] = device
+            pendingBroadcastSubscriptions[address] = device
             return false
         }
     }
 
     /**
-     * Mark that we have received the first ANNOUNCE over this device connection
-     * and grant any CCCD write that was waiting on it.
+     * Record a direct ANNOUNCE whose sender is the peer on this link generation.
+     * Does not grant the feed until that same peer has an authenticated session here.
      */
-    fun noteAnnounceReceived(deviceAddress: String) {
+    fun noteDirectAnnounce(deviceAddress: String, linkID: String, peerID: String) {
         synchronized(connectionStateLock) {
-            firstAnnounceSeen[deviceAddress] = true
-            pendingBroadcastSubscriptions.remove(deviceAddress)?.let { device ->
-                addSubscribedDeviceIfAbsent(device)
-            }
+            if (connectedDevices[deviceAddress]?.linkID != linkID) return
+            directAnnouncePeer[deviceAddress] = peerID
+            grantPendingIfBound(deviceAddress)
+        }
+    }
+
+    /**
+     * Record that Noise authenticated [peerID] on this link generation.
+     */
+    fun noteAuthenticatedSession(deviceAddress: String, linkID: String, peerID: String) {
+        synchronized(connectionStateLock) {
+            if (connectedDevices[deviceAddress]?.linkID != linkID) return
+            authenticatedSessionPeer[deviceAddress] = peerID
+            grantPendingIfBound(deviceAddress)
+        }
+    }
+
+    private fun grantPendingIfBound(deviceAddress: String) {
+        val action = GattNotificationEligibility.action(
+            directAnnouncePeer[deviceAddress],
+            authenticatedSessionPeer[deviceAddress]
+        )
+        if (action != GattSubscriptionAction.GRANT) return
+        pendingBroadcastSubscriptions.remove(deviceAddress)?.let { device ->
+            addSubscribedDeviceIfAbsent(device)
         }
     }
 
@@ -383,7 +411,7 @@ class BluetoothConnectionTracker(
      * Check whether the first ANNOUNCE has been seen for a device connection.
      */
     fun hasSeenFirstAnnounce(deviceAddress: String): Boolean {
-        return firstAnnounceSeen[deviceAddress] == true
+        return directAnnouncePeer[deviceAddress] != null
     }
     
     /**

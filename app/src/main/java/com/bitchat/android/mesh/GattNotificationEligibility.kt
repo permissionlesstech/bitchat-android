@@ -8,7 +8,9 @@ package com.bitchat.android.mesh
  * write the CCCD during service discovery, before they send that ANNOUNCE, and
  * they do not retry the descriptor write — so a GATT reject here would leave a
  * legitimate peer unsubscribed even after they announce. Defer instead: accept
- * the CCCD write, withhold packets, then grant once the ANNOUNCE verifies.
+ * the CCCD write, withhold packets, then grant once the same peer is bound to
+ * this connection by both a direct ANNOUNCE and an authenticated Noise session.
+ * A replayed ANNOUNCE proves the signer, not the central that delivered it.
  */
 internal enum class GattSubscriptionAction {
     GRANT,
@@ -16,6 +18,10 @@ internal enum class GattSubscriptionAction {
 }
 
 internal object GattNotificationEligibility {
-    fun action(hasVerifiedAnnounce: Boolean): GattSubscriptionAction =
-        if (hasVerifiedAnnounce) GattSubscriptionAction.GRANT else GattSubscriptionAction.DEFER
+    fun action(announcePeerId: String?, authenticatedPeerId: String?): GattSubscriptionAction =
+        if (announcePeerId != null && announcePeerId == authenticatedPeerId) {
+            GattSubscriptionAction.GRANT
+        } else {
+            GattSubscriptionAction.DEFER
+        }
 }

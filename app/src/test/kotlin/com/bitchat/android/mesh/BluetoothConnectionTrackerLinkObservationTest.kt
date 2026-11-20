@@ -92,8 +92,25 @@ class BluetoothConnectionTrackerLinkObservationTest {
         assertFalse(tracker.requestBroadcastSubscription(device))
         assertTrue(tracker.getSubscribedDevices().none { it.address == address })
 
-        tracker.noteAnnounceReceived(address)
+        tracker.noteDirectAnnounce(address, "link-a", PEER_ID)
+        assertTrue(tracker.getSubscribedDevices().none { it.address == address })
+        tracker.noteAuthenticatedSession(address, "link-a", PEER_ID)
         assertTrue(tracker.getSubscribedDevices().any { it.address == address })
+    }
+
+    @Test
+    fun `a replayed announce does not grant the feed for a different session`() {
+        val address = "AA:BB:CC:DD:EE:11"
+        val device = mock<BluetoothDevice>()
+        whenever(device.address).thenReturn(address)
+        tracker.addDeviceConnection(
+            address,
+            BluetoothConnectionTracker.DeviceConnection(device = device, linkID = "link-replay")
+        )
+        tracker.requestBroadcastSubscription(device)
+        tracker.noteAuthenticatedSession(address, "link-replay", PEER_ID)
+        tracker.noteDirectAnnounce(address, "link-replay", "ffffffffffffffff")
+        assertTrue(tracker.getSubscribedDevices().none { it.address == address })
     }
 
     @Test
@@ -106,7 +123,8 @@ class BluetoothConnectionTrackerLinkObservationTest {
             BluetoothConnectionTracker.DeviceConnection(device = device, linkID = "link-b")
         )
 
-        tracker.noteAnnounceReceived(address)
+        tracker.noteDirectAnnounce(address, "link-b", PEER_ID)
+        tracker.noteAuthenticatedSession(address, "link-b", PEER_ID)
         assertTrue(tracker.requestBroadcastSubscription(device))
         assertTrue(tracker.getSubscribedDevices().any { it.address == address })
     }
@@ -127,7 +145,8 @@ class BluetoothConnectionTrackerLinkObservationTest {
             address,
             BluetoothConnectionTracker.DeviceConnection(device = device, linkID = "link-d")
         )
-        tracker.noteAnnounceReceived(address)
+        tracker.noteDirectAnnounce(address, "link-d", PEER_ID)
+        tracker.noteAuthenticatedSession(address, "link-d", PEER_ID)
         assertTrue(tracker.getSubscribedDevices().none { it.address == address })
     }
 
