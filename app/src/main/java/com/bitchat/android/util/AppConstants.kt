@@ -49,6 +49,9 @@ object AppConstants {
         const val MAX_FRAGMENT_TOTAL_BYTES: Int = 1_179_760
         const val MAX_ACTIVE_FRAGMENT_SETS: Int = 64
         const val MAX_GLOBAL_FRAGMENT_TOTAL_BYTES: Long = 4L * 1_048_576L
+        // Map node plus boxed index. One-byte fragments would otherwise fill
+        // hundreds of thousands of entries while barely touching the byte cap.
+        const val FRAGMENT_MAP_ENTRY_OVERHEAD_BYTES: Int = 64
     }
 
     object Security {

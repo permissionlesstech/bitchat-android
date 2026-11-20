@@ -375,6 +375,68 @@ class FragmentManagerTest {
     }
 
     @Test
+    fun `one-byte fragments cannot fill the map under the global byte cap`() {
+        val overhead = com.bitchat.android.util.AppConstants.Fragmentation.FRAGMENT_MAP_ENTRY_OVERHEAD_BYTES
+        val budget = com.bitchat.android.util.AppConstants.Fragmentation.MAX_GLOBAL_FRAGMENT_TOTAL_BYTES
+        val maxEntries = (budget / (1L + overhead)).toInt()
+        var accepted = 0
+        var rejected = false
+        for (set in 0 until 8) {
+            for (index in 0 until 10_000) {
+                val packet = BitchatPacket(
+                    version = 1u,
+                    type = MessageType.FRAGMENT.value,
+                    senderID = hexStringToByteArray(senderID),
+                    recipientID = hexStringToByteArray(recipientID),
+                    timestamp = 1u,
+                    payload = FragmentPayload(
+                        fragmentID = byteArrayOf(set.toByte(), 9, 9, 9, 9, 9, 9, 9),
+                        index = index,
+                        total = 10_000,
+                        originalType = MessageType.FILE_TRANSFER.value,
+                        data = byteArrayOf(1)
+                    ).encode(),
+                    ttl = 7u
+                )
+                if (fragmentManager.handleFragment(packet) != null) {
+                    continue
+                }
+                if (ShadowLog.getLogs().any { it.msg.contains("global buffered bytes") }) {
+                    rejected = true
+                    break
+                }
+                accepted += 1
+            }
+            if (rejected) break
+        }
+        assertTrue(rejected)
+        assertTrue("accepted $accepted entries, cap allows about $maxEntries", accepted <= maxEntries)
+        assertTrue(accepted < 639_936)
+    }
+
+    @Test
+    fun `a payload above the old one mebibyte ceiling still reassembles`() {
+        val payload = ByteArray(1_050_000) { index -> (index and 0xff).toByte() }
+        val packet = BitchatPacket(
+            version = 1u,
+            type = MessageType.FILE_TRANSFER.value,
+            senderID = hexStringToByteArray(senderID),
+            recipientID = hexStringToByteArray(recipientID),
+            timestamp = 1u,
+            payload = payload,
+            ttl = 7u
+        )
+        val fragments = fragmentManager.createFragments(packet)
+        assertTrue("expected more than 256 fragments, got ${fragments.size}", fragments.size > 256)
+        var reassembled: BitchatPacket? = null
+        for (fragment in fragments) {
+            reassembled = fragmentManager.handleFragment(fragment) ?: reassembled
+        }
+        assertNotNull(reassembled)
+        assertTrue(payload.contentEquals(reassembled!!.payload))
+    }
+
+    @Test
     fun `a file above the private-media fragment cap still reassembles`() {
         fun fragment(total: Int): BitchatPacket {
             return BitchatPacket(
