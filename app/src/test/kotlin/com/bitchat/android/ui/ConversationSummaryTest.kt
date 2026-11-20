@@ -204,6 +204,77 @@ class ConversationSummaryTest {
     }
 
     @Test
+    fun `geohash nickname replaces the name saved from an older message`() {
+        val pubkey = "ab".repeat(32)
+        assertEquals(
+            "renamed",
+            resolveConversationDisplayName(
+                fallbackName = "anon6765",
+                connectedPeerID = null,
+                peerNicknames = emptyMap(),
+                resolvedContactName = null,
+                persistedDisplayName = "anon6765",
+                geohashNicknames = mapOf(pubkey to "renamed"),
+                nostrPubkey = pubkey,
+                identityAliases = setOf("nostr_${pubkey.take(16)}")
+            )
+        )
+    }
+
+    @Test
+    fun `geohash conversation names distinguish colliding nicknames`() {
+        val alice = GeoPerson("ab".repeat(32), "Alice", Date(1))
+        val otherAlice = GeoPerson("cd".repeat(32), "alice#9876", Date(1))
+        val placeholder = GeoPerson("ef".repeat(32), "anon", Date(1))
+
+        val names = projectGeohashConversationNames(listOf(alice, otherAlice, placeholder))
+
+        assertEquals(mapOf(alice.id to "Alice#abab", otherAlice.id to "alice#9876"), names)
+        assertEquals(
+            "alice#9876",
+            resolveConversationDisplayName(
+                fallbackName = "alice",
+                connectedPeerID = null,
+                peerNicknames = emptyMap(),
+                resolvedContactName = null,
+                persistedDisplayName = "alice#9876",
+                geohashNicknames = names,
+                nostrPubkey = otherAlice.id
+            )
+        )
+    }
+
+    @Test
+    fun `presence heartbeats leave the name projection unchanged`() {
+        val alice = GeoPerson("ab".repeat(32), "Alice", Date(1))
+        val initialNames = projectGeohashConversationNames(listOf(alice))
+        val heartbeat = alice.copy(lastSeen = Date(2))
+
+        assertEquals(initialNames, projectGeohashConversationNames(listOf(heartbeat)))
+        assertEquals(
+            mapOf(alice.id to "Renamed"),
+            projectGeohashConversationNames(listOf(heartbeat.copy(displayName = "Renamed")))
+        )
+    }
+
+    @Test
+    fun `anon geohash placeholder does not hide a saved nickname`() {
+        val pubkey = "cd".repeat(32)
+        assertEquals(
+            "kept",
+            resolveConversationDisplayName(
+                fallbackName = "old",
+                connectedPeerID = null,
+                peerNicknames = emptyMap(),
+                resolvedContactName = null,
+                persistedDisplayName = "kept",
+                geohashNicknames = mapOf(pubkey to "anon"),
+                nostrPubkey = pubkey
+            )
+        )
+    }
+
+    @Test
     fun `persisted nickname is used when no live or contact name remains`() {
         assertEquals(
             "Alice Persisted",
