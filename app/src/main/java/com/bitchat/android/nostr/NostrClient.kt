@@ -143,7 +143,7 @@ class NostrClient private constructor(private val context: Context) {
         
         val filter = NostrFilter.giftWrapsFor(
             pubkey = identity.publicKeyHex,
-            since = System.currentTimeMillis() - 172800000L // Last 48 hours (align with NIP-17 randomization)
+            since = NostrTimestampPolicy.giftWrapSinceMillis()
         )
         
         relayManager.subscribe(filter, "private-messages", { giftWrap ->
@@ -241,10 +241,8 @@ class NostrClient private constructor(private val context: Context) {
         giftWrap: NostrEvent,
         handler: (content: String, senderNpub: String, timestamp: Int) -> Unit
     ) {
-        // Age filtering (24h + 15min buffer for randomized timestamps)
-        val messageAge = System.currentTimeMillis() / 1000 - giftWrap.createdAt
-        if (messageAge > 173700) { // 48 hours + 15 minutes
-            Log.v(TAG, "Ignoring old private message")
+        if (!NostrTimestampPolicy.isAcceptableGiftWrapTimestamp(giftWrap.createdAt)) {
+            Log.v(TAG, "Ignoring private message with implausible gift-wrap created_at")
             return
         }
         
@@ -254,6 +252,10 @@ class NostrClient private constructor(private val context: Context) {
             val decryptResult = NostrProtocol.decryptPrivateMessage(giftWrap, identity)
             if (decryptResult != null) {
                 val (content, senderPubkey, timestamp) = decryptResult
+                if (!NostrTimestampPolicy.isPlausibleRumorTimestamp(timestamp)) {
+                    Log.w(TAG, "Dropping private message with implausible rumor timestamp")
+                    return
+                }
                 
                 // Convert sender pubkey to npub
                 val senderNpub = try {
