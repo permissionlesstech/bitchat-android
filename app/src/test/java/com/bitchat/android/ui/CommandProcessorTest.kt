@@ -77,8 +77,6 @@ class CommandProcessorTest {
     chatState.setSelectedLocationChannel(
       ChannelID.Location(GeohashChannel(GeohashChannelLevel.PROVINCE, selected))
     )
-    // A stale classic channel must not override the currently visible geohash.
-    chatState.setCurrentChannel("#previous")
 
     execute("/clear")
 
@@ -88,6 +86,56 @@ class CommandProcessorTest {
     assertEquals(1, AppStateStore.publicMessages.value.size)
     assertEquals(1, chatState.getChannelMessagesValue()["geo:$other"]?.size)
     assertEquals(1, AppStateStore.channelMessages.value["geo:$other"]?.size)
+  }
+
+  @Test
+  fun `clear targets visible classic channel when a geohash selection remains`() {
+    val message = BitchatMessage(sender = "synthetic", content = "history", timestamp = Date(1))
+    messageManager.addChannelMessage("#synthetic", message.copy(id = "classic"))
+    messageManager.addChannelMessage("geo:000000", message.copy(id = "geohash"))
+    chatState.setCurrentChannel("#synthetic")
+    chatState.setSelectedLocationChannel(
+      ChannelID.Location(GeohashChannel(GeohashChannelLevel.PROVINCE, "000000"))
+    )
+
+    execute("/clear")
+
+    assertTrue(chatState.getChannelMessagesValue()["#synthetic"].orEmpty().isEmpty())
+    assertTrue(AppStateStore.channelMessages.value["#synthetic"].orEmpty().isEmpty())
+    assertEquals(1, chatState.getChannelMessagesValue()["geo:000000"]?.size)
+    assertEquals(1, AppStateStore.channelMessages.value["geo:000000"]?.size)
+    assertEquals("#synthetic", chatState.getCurrentChannelValue())
+  }
+
+  @Test
+  fun `command replies target visible classic channel when a geohash selection remains`() {
+    chatState.setCurrentChannel("#synthetic")
+    chatState.setSelectedLocationChannel(
+      ChannelID.Location(GeohashChannel(GeohashChannelLevel.PROVINCE, "000000"))
+    )
+
+    execute("/unknown")
+
+    assertEquals("unknown command: /unknown. type / to see available commands.", chatState.getChannelMessagesValue()["#synthetic"]?.single()?.content)
+    assertTrue(chatState.getChannelMessagesValue()["geo:000000"].orEmpty().isEmpty())
+    assertTrue(chatState.getMessagesValue().isEmpty())
+  }
+
+  @Test
+  fun `private command replies keep precedence over both channel selections`() {
+    val peer = "0102030405060708"
+    chatState.setCurrentChannel("#synthetic")
+    chatState.setSelectedLocationChannel(
+      ChannelID.Location(GeohashChannel(GeohashChannelLevel.PROVINCE, "000000"))
+    )
+    chatState.setSelectedPrivateChatPeer(peer)
+
+    execute("/unknown")
+
+    assertEquals(1, chatState.getPrivateChatsValue()[peer]?.size)
+    assertTrue(chatState.getUnreadPrivateMessagesValue().isEmpty())
+    assertTrue(chatState.getChannelMessagesValue()["#synthetic"].orEmpty().isEmpty())
+    assertTrue(chatState.getChannelMessagesValue()["geo:000000"].orEmpty().isEmpty())
   }
 
   @Test

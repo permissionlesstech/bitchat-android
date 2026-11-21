@@ -198,9 +198,10 @@ class CommandProcessor(
                 // Clearing history keeps the conversation open for subsequent messages.
                 state.setSelectedPrivateChatPeer(peer)
             }
+            // Match ChatScreen: a named mesh channel is visible before a geohash selection.
+            channel != null -> messageManager.clearChannelMessages(channel)
             location is com.bitchat.android.geohash.ChannelID.Location ->
                 messageManager.clearChannelMessages("geo:${location.channel.geohash}")
-            channel != null -> messageManager.clearChannelMessages(channel)
             else -> messageManager.clearMeshTimeline()
         }
     }

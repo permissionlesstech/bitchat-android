@@ -54,9 +54,10 @@ class MessageManager(private val state: ChatState) {
         val channel = state.getCurrentChannelValue()
         when {
             peer != null -> addPrivateMessageNoUnread(peer, message.copy(isPrivate = true))
+            // Match ChatScreen: a named mesh channel is visible before a geohash selection.
+            channel != null -> addChannelMessage(channel, message.copy(channel = channel))
             location is com.bitchat.android.geohash.ChannelID.Location ->
                 addChannelMessage("geo:${location.channel.geohash}", message)
-            channel != null -> addChannelMessage(channel, message.copy(channel = channel))
             else -> addMessage(message)
         }
     }
