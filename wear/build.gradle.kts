@@ -170,6 +170,8 @@ android {
         getByName("test") {
             java.srcDir("build/sharedTestSrc")
             kotlin.srcDir("build/sharedTestSrc")
+            // Shared protocol/mesh tests load the same literal wire contracts as the phone.
+            resources.srcDir("../app/src/test/resources")
         }
     }
 }

@@ -181,8 +181,15 @@ File transfers reuse the mesh broadcaster’s fragmentation logic:
 - `BluetoothPacketBroadcaster` checks if the serialized envelope exceeds the configured MTU and splits it into fragments via `FragmentManager`.
 - Fragments are sent with a short inter-fragment delay (currently 20 ms).
 - When only one fragment is needed, send as a single packet.
-- Android receivers reject fragment sets declaring more than 256 fragments.
-  Private senders use that same 256-fragment limit and calculate it from the
+- Android receivers reject fragment sets declaring more than 10,000 fragments.
+  That matches iOS reassembly. Each retained fragment also charges 64 bytes of
+  map overhead against the 4 MiB global buffer, so a burst of one-byte
+  fragments cannot fill hundreds of thousands of map entries under the byte cap.
+  A set may retain at most 1,179,760 data bytes (the complete serialized
+  original envelope, not just its payload), and at most 64 sets may be active.
+  Duplicate indices with identical bytes do not add another entry charge;
+  completion and clearing release both data and entry charges.
+  Private senders still use a 256-fragment limit and calculate it from the
   exact final routed, signed, and encrypted packet before creating a local
   echo. Generic/public outbound planning retains its prior UInt16 count range,
   so this private-media migration does not silently change public sending.

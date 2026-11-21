@@ -33,6 +33,7 @@ class FragmentManager {
     // iOS equivalent: fragmentMetadata: [String: (type: UInt8, total: Int, timestamp: Date)]
     private val fragmentMetadata = ConcurrentHashMap<String, Triple<UByte, Int, Long>>() // originalType, totalFragments, timestamp
     private val fragmentCumulativeSize = ConcurrentHashMap<String, Int>()
+    private val fragmentEntryCount = ConcurrentHashMap<String, Int>()
 
     private val fragmentStateLock = Any()
     private var globalBufferedBytes: Long = 0L
@@ -188,7 +189,9 @@ class FragmentManager {
             // iOS: let fragmentID = packet.payload[0..<8].map { String(format: "%02x", $0) }.joined()
             val fragmentIDString = fragmentPayload.getFragmentIDString()
 
-            val maxFragments = com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENTS_PER_ID
+            // 256 is the private-media send cap. iOS public files use more
+            // fragments than that and still fit the byte ceiling below.
+            val maxFragments = com.bitchat.android.util.AppConstants.Fragmentation.MAX_REASSEMBLY_FRAGMENTS
             if (fragmentPayload.total > maxFragments) {
                 Log.w(TAG, "Rejecting fragment with excessive total count: ${fragmentPayload.total} > $maxFragments")
                 return null
@@ -255,6 +258,8 @@ class FragmentManager {
                 }
                 val oldEntrySize = heldEntry?.size ?: 0
                 val newSize = currentSize - oldEntrySize + fragmentPayload.data.size
+                val entryOverhead = com.bitchat.android.util.AppConstants.Fragmentation.FRAGMENT_MAP_ENTRY_OVERHEAD_BYTES
+                val overheadDelta = if (heldEntry == null) entryOverhead else 0
                 val maxTotalBytes = com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENT_TOTAL_BYTES
                 if (newSize > maxTotalBytes) {
                     Log.w(TAG, "Rejecting fragment for $fragmentIDString: cumulative size $newSize exceeds cap $maxTotalBytes")
@@ -268,7 +273,7 @@ class FragmentManager {
                     return null
                 }
 
-                val delta = (fragmentPayload.data.size - oldEntrySize).toLong()
+                val delta = (fragmentPayload.data.size - oldEntrySize + overheadDelta).toLong()
                 val maxGlobalBytes = com.bitchat.android.util.AppConstants.Fragmentation.MAX_GLOBAL_FRAGMENT_TOTAL_BYTES
                 if (globalBufferedBytes + delta > maxGlobalBytes) {
                     Log.w(TAG, "Rejecting fragment for $fragmentIDString: global buffered bytes exceed cap $maxGlobalBytes")
@@ -280,6 +285,9 @@ class FragmentManager {
 
                 fragmentMap[fragmentPayload.index] = fragmentPayload.data
                 fragmentCumulativeSize[fragmentIDString] = newSize
+                if (heldEntry == null) {
+                    fragmentEntryCount[fragmentIDString] = (fragmentEntryCount[fragmentIDString] ?: 0) + 1
+                }
                 globalBufferedBytes += delta
 
                 val expectedTotal = fragmentMetadata[fragmentIDString]?.second ?: fragmentPayload.total
@@ -316,8 +324,11 @@ class FragmentManager {
         incomingFragments.remove(fragmentIDString)
         fragmentMetadata.remove(fragmentIDString)
         val bytes = fragmentCumulativeSize.remove(fragmentIDString)?.toLong() ?: 0L
-        if (bytes != 0L) {
-            globalBufferedBytes = (globalBufferedBytes - bytes).coerceAtLeast(0L)
+        val entries = fragmentEntryCount.remove(fragmentIDString)?.toLong() ?: 0L
+        val overhead = entries * com.bitchat.android.util.AppConstants.Fragmentation.FRAGMENT_MAP_ENTRY_OVERHEAD_BYTES
+        val charged = bytes + overhead
+        if (charged != 0L) {
+            globalBufferedBytes = (globalBufferedBytes - charged).coerceAtLeast(0L)
         }
     }
     
@@ -396,6 +407,7 @@ class FragmentManager {
             incomingFragments.clear()
             fragmentMetadata.clear()
             fragmentCumulativeSize.clear()
+            fragmentEntryCount.clear()
             globalBufferedBytes = 0L
         }
     }

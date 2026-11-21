@@ -12,6 +12,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.shadows.ShadowLog
 import java.util.Random
 
 @RunWith(RobolectricTestRunner::class)
@@ -371,6 +372,105 @@ class FragmentManagerTest {
         assertNull(fragmentManager.handleFragment(fragments[0]))
 
         assertCompletes(original, fragments.last())
+    }
+
+    @Test
+    fun `one-byte fragments cannot fill the map under the global byte cap`() {
+        val overhead = com.bitchat.android.util.AppConstants.Fragmentation.FRAGMENT_MAP_ENTRY_OVERHEAD_BYTES
+        val budget = com.bitchat.android.util.AppConstants.Fragmentation.MAX_GLOBAL_FRAGMENT_TOTAL_BYTES
+        val maxEntries = (budget / (1L + overhead)).toInt()
+        ShadowLog.clear()
+        var accepted = 0
+        var rejected = false
+        // Leave each set incomplete. A finished set is dropped, which would
+        // reset the global charge and hide the cap.
+        for (set in 0 until 16) {
+            for (index in 0 until 5_000) {
+                val packet = BitchatPacket(
+                    version = 1u,
+                    type = MessageType.FRAGMENT.value,
+                    senderID = hexStringToByteArray(senderID),
+                    recipientID = hexStringToByteArray(recipientID),
+                    timestamp = 1u,
+                    payload = FragmentPayload(
+                        fragmentID = byteArrayOf(set.toByte(), 9, 9, 9, 9, 9, 9, 9),
+                        index = index,
+                        total = 10_000,
+                        originalType = MessageType.FILE_TRANSFER.value,
+                        data = byteArrayOf(1)
+                    ).encode(),
+                    ttl = 7u
+                )
+                assertNull(fragmentManager.handleFragment(packet))
+                if (ShadowLog.getLogs().any { it.msg.contains("global buffered bytes") }) {
+                    rejected = true
+                    break
+                }
+                accepted += 1
+            }
+            if (rejected) break
+        }
+        assertTrue(rejected)
+        assertTrue("accepted $accepted entries, cap allows about $maxEntries", accepted <= maxEntries)
+        assertTrue(accepted < 639_936)
+    }
+
+    @Test
+    fun `a payload above the old one mebibyte ceiling still reassembles`() {
+        val payload = ByteArray(1_050_000)
+        Random().nextBytes(payload)
+        // v1 payload length is 16 bits, so a frame past 64 KiB has to be v2
+        // or createFragments never gets a binary to split.
+        val packet = BitchatPacket(
+            version = 2u,
+            type = MessageType.FILE_TRANSFER.value,
+            senderID = hexStringToByteArray(senderID),
+            recipientID = hexStringToByteArray(recipientID),
+            timestamp = 1u,
+            payload = payload,
+            ttl = 7u
+        )
+        val fragments = fragmentManager.createFragments(packet)
+        assertTrue("expected more than 256 fragments, got ${fragments.size}", fragments.size > 256)
+        var reassembled: BitchatPacket? = null
+        for (fragment in fragments) {
+            reassembled = fragmentManager.handleFragment(fragment) ?: reassembled
+        }
+        assertNotNull(reassembled)
+        assertTrue(payload.contentEquals(reassembled!!.payload))
+    }
+
+    @Test
+    fun `a file above the private-media fragment cap still reassembles`() {
+        fun fragment(total: Int): BitchatPacket {
+            return BitchatPacket(
+                version = 1u,
+                type = MessageType.FRAGMENT.value,
+                senderID = hexStringToByteArray(senderID),
+                recipientID = hexStringToByteArray(recipientID),
+                timestamp = 1u,
+                payload = FragmentPayload(
+                    fragmentID = ByteArray(8) { total.toByte() },
+                    index = 0,
+                    total = total,
+                    originalType = MessageType.FILE_TRANSFER.value,
+                    data = byteArrayOf(1)
+                ).encode(),
+                ttl = 7u
+            )
+        }
+
+        ShadowLog.clear()
+        assertNull(fragmentManager.handleFragment(fragment(257)))
+        assertTrue(
+            ShadowLog.getLogs().none { it.msg.contains("excessive total count") }
+        )
+
+        ShadowLog.clear()
+        assertNull(fragmentManager.handleFragment(fragment(10_001)))
+        assertTrue(
+            ShadowLog.getLogs().any { it.msg.contains("excessive total count") }
+        )
     }
 
     @Test
