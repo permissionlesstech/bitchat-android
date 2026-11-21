@@ -82,6 +82,14 @@ This matches the on‑wire 8‑byte `senderID`/`recipientID` encoding used in th
 - Private-media receipts and retry (bit 9) require the current Noise
   generation's authenticated `0x21` peer state to prove both bits 8 and 9. An
   announcement alone never authorizes that behavior.
+- Android identity freshness uses the packet's unsigned sender timestamp after
+  validating the clock window, signature, and peer identity. An otherwise valid
+  announcement older than the latest accepted identity announcement for that
+  peer is ignored for identity updates and relay. Equal timestamps remain
+  eligible for identity handling. Android clears this watermark when the peer
+  is removed, peer state is cleared, or Noise-authenticated state replaces the
+  signing key. Topology's separate timestamp comparison still requires a
+  strictly newer update.
 - If a `0x04` TLV is present:
   - Interpret the value as `N = length / 8` peer IDs (ignore trailing non‑aligned bytes).
   - Each 8‑byte chunk is decoded back to a 16‑hex‑char peer ID string (lowercase).

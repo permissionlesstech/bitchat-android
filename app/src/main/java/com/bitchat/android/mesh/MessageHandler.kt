@@ -24,7 +24,11 @@ sealed class AnnounceHandlingResult {
  * Handles processing of different message types
  * Extracted from BluetoothMeshService for better separation of concerns
  */
-class MessageHandler(private val myPeerID: String, private val appContext: android.content.Context) {
+class MessageHandler(
+    private val myPeerID: String,
+    private val appContext: android.content.Context,
+    private val nowMs: () -> Long = System::currentTimeMillis
+) {
     
     companion object {
         private const val TAG = "MessageHandler"
@@ -283,14 +287,14 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
 
         // Peers use wall-clock packet timestamps; tolerate moderate device clock skew
         // during identity learning, or later signed messages cannot be verified.
-        val now = System.currentTimeMillis()
+        val now = nowMs()
         val clockSkewMs = kotlin.math.abs(now - packet.timestamp.toLong())
         if (clockSkewMs > ANNOUNCE_CLOCK_SKEW_TOLERANCE_MS) {
             Log.w(TAG, "Ignoring ANNOUNCE from ${peerID.take(8)} with excessive clock skew (${clockSkewMs}ms > ${ANNOUNCE_CLOCK_SKEW_TOLERANCE_MS}ms)")
             return AnnounceHandlingResult.Rejected
         }
         
-        val announcement = AnnouncementIdentityValidator.verify(packet, peerID) { signature, data, key ->
+        val announcement = AnnouncementIdentityValidator.verify(packet, peerID, now) { signature, data, key ->
             delegate?.verifyEd25519Signature(signature, data, key) ?: false
         }
         if (announcement == null) {
@@ -330,6 +334,13 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
 
         // Require verified announce; ignore otherwise (no backward compatibility)
         if (!verified) {
+            return AnnounceHandlingResult.Rejected
+        }
+
+        // A delayed copy of an older announce is still signed and inside the clock
+        // window. Applying it would roll the nickname and keys back.
+        if (delegate?.acceptVerifiedAnnounceTimestamp(peerID, packet.timestamp) == false) {
+            Log.w(TAG, "Ignoring older ANNOUNCE from ${peerID.take(8)}")
             return AnnounceHandlingResult.Rejected
         }
         
@@ -716,6 +727,7 @@ interface MessageHandlerDelegate {
     ): com.bitchat.android.noise.NoiseDecryptionResult?
     fun verifyEd25519Signature(signature: ByteArray, data: ByteArray, publicKey: ByteArray): Boolean
     fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? = null
+    fun acceptVerifiedAnnounceTimestamp(peerID: String, timestamp: ULong): Boolean = true
     
     // Noise protocol operations
     fun hasNoiseSession(peerID: String): Boolean

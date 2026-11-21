@@ -170,6 +170,7 @@ android {
         getByName("test") {
             java.srcDir("build/sharedTestSrc")
             kotlin.srcDir("build/sharedTestSrc")
+            resources.srcDir("../app/src/test/resources")
         }
     }
 }

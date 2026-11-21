@@ -72,12 +72,13 @@ class MeshGraphServiceTest {
         // Initial state: A -> {B, C} at ts=200
         service.updateFromAnnouncement(origin, "Alice", listOf("PeerB", "PeerC"), 200UL)
         
-        // Old Update: A -> {D} at ts=100
-        service.updateFromAnnouncement(origin, "Alice", listOf("PeerD"), 100UL)
+        // Old Update: A -> {D} at ts=100, with a stale nickname
+        service.updateFromAnnouncement(origin, "Mallory", listOf("PeerD"), 100UL)
 
         val snapshot = service.graphState.value
         
-        // Should still be {B, C}
+        // Should still be {B, C}, and the older nickname must not stick
+        assertEquals("Alice", snapshot.nodes.find { it.peerID == "PeerA" }?.nickname)
         assertNotNull(snapshot.edges.find { (it.a == "PeerA" && it.b == "PeerB") || (it.a == "PeerB" && it.b == "PeerA") })
         assertNotNull(snapshot.edges.find { (it.a == "PeerA" && it.b == "PeerC") || (it.a == "PeerC" && it.b == "PeerA") })
         assertNull(snapshot.edges.find { (it.a == "PeerA" && it.b == "PeerD") || (it.a == "PeerD" && it.b == "PeerA") })
