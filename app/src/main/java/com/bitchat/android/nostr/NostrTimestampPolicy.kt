@@ -5,10 +5,11 @@ import com.bitchat.android.util.AppConstants
 /**
  * Client-side timestamp windows for inbound Nostr DMs.
  *
- * Mirrors iOS `NostrInboundPipeline.isPlausibleRumorTimestamp`: a relay that
- * ignores the subscription `since` filter — or replays archived events — must
- * not inject stale or future-dated DMs. The inner rumor timestamp is the
- * sender's true send time; only the outer gift wrap is NIP-17-randomized.
+ * A relay that ignores the subscription `since` filter — or replays archived
+ * events — must not inject stale or future-dated DMs. Preserve Android's
+ * two-day offline delivery window rather than shortening it to iOS's one day.
+ * The inner rumor timestamp is the sender's true send time; only the outer
+ * gift wrap is NIP-17-randomized.
  */
 object NostrTimestampPolicy {
 
@@ -33,7 +34,7 @@ object NostrTimestampPolicy {
     /**
      * Accept an outer gift-wrap `created_at` that is not in the far future and
      * not older than the NIP-17 randomization ceiling plus delivery lookback
-     * and clock skew. A day-old rumor may have a three-day-old wrapper.
+     * and clock skew. A two-day-old rumor may have a four-day-old wrapper.
      */
     fun isAcceptableGiftWrapTimestamp(
         createdAtSeconds: Int,

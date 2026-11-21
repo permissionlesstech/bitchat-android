@@ -70,7 +70,7 @@ class NostrDirectMessageHandlerTest {
     }
 
     @Test
-    fun `private messages use authenticated rumor time instead of randomized gift wrap time`() {
+    fun `thirty-hour offline messages retain authenticated rumor time instead of gift wrap time`() {
         val application = RuntimeEnvironment.getApplication()
         val state = ChatState(scope).apply { setNickname("recipient") }
         val dataManager = DataManager(application)
@@ -97,7 +97,7 @@ class NostrDirectMessageHandlerTest {
         val sender = NostrIdentity.generate()
         val recipient = NostrIdentity.generate()
         val now = (System.currentTimeMillis() / 1000).toInt()
-        val firstRumorTime = now - 120
+        val firstRumorTime = now - 30 * 60 * 60
         val secondRumorTime = now - 60
         val firstId = "first-real-time"
         val secondId = "second-real-time"
@@ -113,7 +113,7 @@ class NostrDirectMessageHandlerTest {
             sender = sender,
             recipient = recipient,
             rumorCreatedAt = firstRumorTime,
-            giftWrapCreatedAt = now - 5
+            giftWrapCreatedAt = firstRumorTime - 22 * 60 * 60
         )
         val second = privateMessageGiftWrap(
             content = requireNotNull(

@@ -23,8 +23,13 @@ class NostrTimestampPolicyTest {
     }
 
     @Test
-    fun `subscription cutoff includes randomized day-old messages`() {
-        assertEquals(1_699_739_900_000L, NostrTimestampPolicy.giftWrapSinceMillis(1_700_000_000_000L))
+    fun `subscription cutoff includes randomized two-day-old messages`() {
+        assertEquals(1_699_653_500_000L, NostrTimestampPolicy.giftWrapSinceMillis(1_700_000_000_000L))
+    }
+
+    @Test
+    fun `thirty-hour offline delivery remains accepted`() {
+        assertTrue(NostrTimestampPolicy.isPlausibleRumorTimestamp(1_699_892_000, 1_700_000_000))
     }
 
     private val now = 1_700_000_000L
