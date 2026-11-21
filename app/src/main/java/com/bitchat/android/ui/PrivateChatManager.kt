@@ -67,7 +67,7 @@ class PrivateChatManager(
                 timestamp = Date(),
                 isRelay = false
             )
-            messageManager.addMessage(systemMessage)
+            messageManager.addCommandReply(systemMessage)
             return false
         }
 
@@ -113,7 +113,7 @@ class PrivateChatManager(
                 timestamp = Date(),
                 isRelay = false
             )
-            messageManager.addMessage(systemMessage)
+            messageManager.addCommandReply(systemMessage)
             return false
         }
 
@@ -156,7 +156,7 @@ class PrivateChatManager(
                 timestamp = Date(),
                 isRelay = false
             )
-            messageManager.addMessage(systemMessage)
+            messageManager.addCommandReply(systemMessage)
             return false
         }
 
@@ -276,7 +276,7 @@ class PrivateChatManager(
                 timestamp = Date(),
                 isRelay = false
             )
-            messageManager.addMessage(systemMessage)
+            messageManager.addCommandReply(systemMessage)
 
             // End private chat if currently in one with this peer
             if (state.getSelectedPrivateChatPeerValue() == peerID) {
@@ -300,7 +300,7 @@ class PrivateChatManager(
                 timestamp = Date(),
                 isRelay = false
             )
-            messageManager.addMessage(systemMessage)
+            messageManager.addCommandReply(systemMessage)
             return true
         }
         return false
@@ -318,7 +318,7 @@ class PrivateChatManager(
                 timestamp = Date(),
                 isRelay = false
             )
-            messageManager.addMessage(systemMessage)
+            messageManager.addCommandReply(systemMessage)
             return false
         }
     }
@@ -337,7 +337,7 @@ class PrivateChatManager(
                     timestamp = Date(),
                     isRelay = false
                 )
-                messageManager.addMessage(systemMessage)
+                messageManager.addCommandReply(systemMessage)
                 return false
             }
         } else {
@@ -347,7 +347,7 @@ class PrivateChatManager(
                 timestamp = Date(),
                 isRelay = false
             )
-            messageManager.addMessage(systemMessage)
+            messageManager.addCommandReply(systemMessage)
             return false
         }
     }

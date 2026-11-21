@@ -893,6 +893,13 @@ object AppStateStore {
         }
     }
 
+    /** Clear the mesh timeline only. Joined channels stay, and replay dedup records stay. */
+    fun clearPublicMessages() {
+        synchronized(this) {
+            _publicMessages.value = emptyList()
+        }
+    }
+
     /** Clear visible ephemeral history while retaining the bounded recent replay window. */
     fun clearPublicTimelines() {
         synchronized(this) {
