@@ -53,6 +53,23 @@ class NoiseSessionReplayVectorTest {
     }
 
     @Test
+    fun `unseen old transport frames obey the window boundary`() = withReceiver { session ->
+        assertArrayEquals(plaintext, session.decrypt(frame(1024)))
+        assertRejected(session, frame(0))
+        assertArrayEquals(plaintext, session.decrypt(frame(1)))
+        assertRejected(session, frame(1))
+    }
+
+    @Test
+    fun `an unauthenticated high nonce cannot expire unseen transport frames`() = withReceiver { session ->
+        val tampered = frame(1024).apply { this[lastIndex] = (last().toInt() xor 1).toByte() }
+        assertRejected(session, tampered)
+        assertArrayEquals(plaintext, session.decrypt(frame(0)))
+        assertArrayEquals(plaintext, session.decrypt(frame(1024)))
+        assertRejected(session, frame(1024))
+    }
+
+    @Test
     fun `authentication failure does not consume a transport nonce`() = withReceiver { session ->
         val tampered = frame(100).apply { this[lastIndex] = (last().toInt() xor 1).toByte() }
         assertRejected(session, tampered)
