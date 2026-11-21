@@ -203,9 +203,10 @@ object ContactDirectory {
         if (prefix.isBlank()) return null
         return try {
             FavoritesPersistenceService.shared.getAllRelationships()
-                .asSequence()
                 .mapNotNull { it.peerNostrPublicKey?.let { npub -> ContactIdentityResolver.nostrPubkeyHex(npub) } }
-                .firstOrNull { it.startsWith(prefix, ignoreCase = true) }
+                .filter { it.startsWith(prefix, ignoreCase = true) }
+                .distinct()
+                .singleOrNull()
         } catch (_: Exception) {
             null
         }
