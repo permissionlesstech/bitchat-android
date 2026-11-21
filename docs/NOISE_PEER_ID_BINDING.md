@@ -48,6 +48,32 @@ share the Noise manager lock. A same-static replacement therefore cannot reuse
 the previous generation's proof or destroy a session while a bound mutation is
 in progress.
 
+## Transport replay protection
+
+Each established Noise direction sends a four-byte unsigned big-endian nonce
+followed by ChaCha20-Poly1305 ciphertext and its 16-byte tag. The cipher nonce
+is four zero bytes followed by that nonce encoded as an eight-byte
+little-endian integer. Associated data is empty.
+
+The receiver retains a 1024-nonce sliding window per session generation. Bit
+zero is the highest successfully authenticated nonce; increasing it by `d`
+moves every retained bit from offset `o` to `o + d`, dropping offsets at or
+above 1024. A jump of at least 1024 clears the bitmap. A nonce at most
+`highest - 1024` is too old. Within the window, an unseen reordered nonce is
+eligible once; a seen nonce is rejected. Nonce zero is eligible in a fresh
+session. Authentication must succeed before the watermark or bitmap changes.
+A new authenticated session resets both; replay state is not inherited.
+
+`NoiseSessionReplayVectorTest` supplies independent literal transport frames
+using synthetic key bytes `00..1f`, UTF-8 plaintext `synthetic`, and no
+associated data, generated with JDK ChaCha20-Poly1305. It drives
+`NoiseSession.decrypt`, not just the bitmap helper: first delivery, bit/byte
+shifts, reordered delivery, duplicate rejection, offsets 1023/1024, and a bad
+tag followed by the valid frame. For example nonce zero's complete frame is
+`000000006bc12c45c583d2b8708b09291e7287cde40d0d3f5f16eb8ca5`.
+These synthetic transport fixtures do not claim a physical interoperability
+run or replace the separate Noise handshake vectors.
+
 ## Remaining TOFU boundary
 
 The first public announcement is still self-signed trust-on-first-use. An
