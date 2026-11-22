@@ -124,6 +124,50 @@ class VoiceNotePushToTalkTest {
     }
 
     @Test
+    fun `short tap on mic does not open the recorder or send`() {
+        shadowOf(RuntimeEnvironment.getApplication()).grantPermissions(Manifest.permission.RECORD_AUDIO)
+        val host = launchHost()
+        val voice = controllerOn(host)
+        host.render { ChatActionBar(onKeyboard = {}, voice = voice) }
+        pump(LAYOUT_SETTLE_MS)
+
+        host.touch(MotionEvent.ACTION_DOWN, MIC_X, MIC_Y)
+        pump(HOLD_TO_START_MS / 2)
+        host.touch(MotionEvent.ACTION_UP, MIC_X, MIC_Y)
+        pump(HOLD_TO_START_MS + POLL_SLACK_MS)
+
+        assertEquals("short tap must not open the mic", 0, recorderStarts)
+        assertFalse(voice.recording)
+        assertTrue(sent.isEmpty())
+    }
+
+    @Test
+    fun `deliberate hold on mic records and sends on release`() {
+        shadowOf(RuntimeEnvironment.getApplication()).grantPermissions(Manifest.permission.RECORD_AUDIO)
+        val host = launchHost()
+        val voice = controllerOn(host)
+        host.render { ChatActionBar(onKeyboard = {}, voice = voice) }
+        pump(LAYOUT_SETTLE_MS)
+
+        host.touch(MotionEvent.ACTION_DOWN, MIC_X, MIC_Y)
+        pump(HOLD_TO_START_MS / 2)
+        assertEquals("mic should stay closed before the hold threshold", 0, recorderStarts)
+        assertFalse(voice.recording)
+
+        pump(HOLD_TO_START_MS)
+        assertEquals("deliberate hold should start recording", 1, recorderStarts)
+        assertTrue(voice.recording)
+
+        pump(MIN_RECORDING_FOR_TEST_MS)
+        host.touch(MotionEvent.ACTION_UP, MIC_X, MIC_Y)
+        pump()
+
+        assertFalse(voice.recording)
+        verify(recorder).stop(false)
+        assertEquals(listOf(audioFile.absolutePath), sent)
+    }
+
+    @Test
     fun `ten second cap sends when the finger is away from the cancel target`() = runTest {
         val voice = virtualTimeController(this)
 

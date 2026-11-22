@@ -41,7 +41,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -86,6 +89,7 @@ fun ChatActionBar(
 ) {
     val context = LocalContext.current
     val palette = LocalBitchatPalette.current
+    val scope = rememberCoroutineScope()
 
     // A grant never starts recording: answering the system dialog means no finger is holding
     // the mic, and capture must only ever run under a deliberate press. The user presses again.
@@ -141,16 +145,24 @@ fun ChatActionBar(
                             val granted = ContextCompat.checkSelfPermission(
                                 context, Manifest.permission.RECORD_AUDIO
                             ) == PackageManager.PERMISSION_GRANTED
-                            if (granted) {
-                                voice.start()
+                            val pendingStart = if (granted) {
+                                // Hold off opening the mic until the press is clearly a hold, so
+                                // accidental short taps never start capture or stream live audio.
+                                scope.launch {
+                                    delay(HOLD_TO_START_MS)
+                                    voice.start()
+                                }
                             } else {
                                 permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                null
                             }
                             // Only a clean release stops here. If the scroll parent steals
-                            // the pointer mid-drag (cancel), keep recording — the
-                            // screen-level release watcher in ChatScaffold stops when the
-                            // finger actually lifts, anywhere on the screen.
+                            // the pointer mid-drag (cancel), cancel an unstarted hold so
+                            // scrolling does not open the mic, but keep an active recording
+                            // alive — the screen-level release watcher in ChatScaffold stops
+                            // when the finger actually lifts, anywhere on the screen.
                             val released = tryAwaitRelease()
+                            pendingStart?.cancel()
                             micPressed = false
                             if (released) {
                                 voice.stop(send = true)
@@ -170,6 +182,7 @@ fun ChatActionBar(
     }
 }
 
+internal const val HOLD_TO_START_MS = 200L
 private const val AMPLITUDE_POLL_EASE_MS = 100
 internal val ActionButtonSize = 48.dp
 internal val ActionIconSize = 22.dp
