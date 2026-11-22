@@ -36,6 +36,7 @@ import com.bitchat.android.onboarding.LocationCheckScreen
 import com.bitchat.android.onboarding.LocationStatus
 import com.bitchat.android.onboarding.LocationStatusManager
 import com.bitchat.android.onboarding.OnboardingCoordinator
+import com.bitchat.android.onboarding.OnboardingInitializer
 import com.bitchat.android.onboarding.OnboardingState
 import com.bitchat.android.onboarding.OnboardingSystemEventPolicy
 import com.bitchat.android.onboarding.PermissionExplanationScreen
@@ -47,7 +48,7 @@ import com.bitchat.android.ui.theme.BitchatTheme
 import com.bitchat.android.wifiaware.WifiAwareController
 import com.bitchat.android.nostr.PoWPreferenceManager
 import com.bitchat.android.services.VerificationService
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -64,7 +65,7 @@ class MainActivity : OrientationAwareActivity() {
     private lateinit var unifiedMeshService: MeshService
     private val mainViewModel: MainViewModel by viewModels()
     private var pendingMeshForegroundServiceStart = false
-    private var initializationJob: Job? = null
+    private val onboardingInitializer by lazy { OnboardingInitializer(lifecycleScope) }
     private val chatViewModel: ChatViewModel by viewModels { 
         object : ViewModelProvider.Factory {
             override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
@@ -521,11 +522,13 @@ class MainActivity : OrientationAwareActivity() {
         when {
             mainViewModel.locationStatus.value == LocationStatus.NOT_AVAILABLE -> {
                 // Show permanent error for devices without location services
+                onboardingInitializer.cancel()
                 mainViewModel.updateErrorMessage(message)
                 mainViewModel.updateOnboardingState(OnboardingState.ERROR)
             }
             OnboardingSystemEventPolicy.returnsToLocationCheck(mainViewModel.onboardingState.value) -> {
                 // Stay on location check screen for retry
+                onboardingInitializer.cancel()
                 mainViewModel.updateOnboardingState(OnboardingState.LOCATION_CHECK)
             }
         }
@@ -543,6 +546,7 @@ class MainActivity : OrientationAwareActivity() {
             mainViewModel.isBluetoothCheckSkipped.value -> Unit
             mainViewModel.bluetoothStatus.value == BluetoothStatus.NOT_SUPPORTED -> {
                 // Show permanent error for unsupported devices
+                onboardingInitializer.cancel()
                 mainViewModel.updateErrorMessage(message)
                 mainViewModel.updateOnboardingState(OnboardingState.ERROR)
             }
@@ -553,11 +557,13 @@ class MainActivity : OrientationAwareActivity() {
             }
             message.contains("Permission") -> {
                 // For existing users, redirect to permission explanation to grant missing permissions
+                onboardingInitializer.cancel()
                 mainViewModel.updateOnboardingState(OnboardingState.PERMISSION_EXPLANATION)
             }
             isBleTransportRequired() &&
                 OnboardingSystemEventPolicy.returnsToBluetoothCheck(mainViewModel.onboardingState.value) -> {
                 // Stay on Bluetooth check screen for retry
+                onboardingInitializer.cancel()
                 mainViewModel.updateOnboardingState(OnboardingState.BLUETOOTH_CHECK)
             }
         }
@@ -694,12 +700,16 @@ class MainActivity : OrientationAwareActivity() {
     
     private fun initializeApp() {
         // Parallel onboarding chains can all arrive here; the running attempt serves them all.
-        if (initializationJob?.isActive == true) return
-        initializationJob = lifecycleScope.launch {
+        // Leaving INITIALIZING cancels the active attempt so a subsequent recovery starts fresh.
+        onboardingInitializer.start {
             try {
                 // Initialize the app with a proper delay to ensure Bluetooth stack is ready
                 // This solves the issue where app needs restart to work on first install
                 delay(1000) // Give the system time to process permission grants
+
+                if (mainViewModel.onboardingState.value != OnboardingState.INITIALIZING) {
+                    return@start
+                }
 
                 // Initialize PoW preferences early in the initialization process
                 PoWPreferenceManager.init(this@MainActivity)
@@ -712,7 +722,7 @@ class MainActivity : OrientationAwareActivity() {
                     val missing = permissionManager.getMissingPermissions()
                     Log.w("MainActivity", "Permissions revoked during initialization: $missing")
                     handleOnboardingFailed("Some permissions were revoked. Please grant all permissions to continue.")
-                    return@launch
+                    return@start
                 }
 
                 // Set up unified mesh delegate and start enabled transports
@@ -733,6 +743,8 @@ class MainActivity : OrientationAwareActivity() {
                 if (mainViewModel.onboardingState.value == OnboardingState.INITIALIZING) {
                     mainViewModel.updateOnboardingState(OnboardingState.COMPLETE)
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("MainActivity", "Failed to initialize app", e)
                 handleOnboardingFailed("Failed to initialize the app: ${e.message}")
