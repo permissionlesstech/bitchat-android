@@ -236,6 +236,20 @@ For stream ID `01 02 03 04 05 06 07 08`:
 
 The executable vectors are `VideoBurstPacketTest.goldenVectorsMatchSpecification`.
 
+### Reed-Solomon parity vector
+
+For `k = 3`, `r = 2`, field polynomial `0x11D`, `coefficient(i, j) = inv(i XOR (k + j))`:
+
+```text
+source 0  00 01 02 03 04 05 06 07
+source 1  80 40 20 10 08 04 02 01
+source 2  ff de ad be ef 00 1d c3
+parity 0  bf 0a 48 b7 1c 01 1e bb   # coefficients 244, 142, 1
+parity 1  dd d0 9f 5e 07 e0 57 c1   # coefficients 71, 167, 122
+```
+
+The executable vector is `ReedSolomonErasureTest.pinnedParityVectorMatchesSpecification`.
+
 ## Implementation references
 
 - `app/src/main/java/com/bitchat/android/features/video/VideoBurstPacket.kt`: wire format (also compiled into Wear OS for relay validation)

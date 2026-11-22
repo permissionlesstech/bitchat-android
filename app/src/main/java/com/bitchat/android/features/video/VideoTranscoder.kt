@@ -1,11 +1,13 @@
 package com.bitchat.android.features.video
 
 import android.content.Context
+import android.graphics.ImageFormat
 import android.media.AudioFormat
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
+import android.os.Build
 import android.util.Log
 import java.io.File
 import java.nio.ByteOrder
@@ -122,6 +124,11 @@ object VideoTranscoder {
         return Plan(targetWidth, targetHeight, fps, videoBps, withAudio)
     }
 
+    private fun isHdrFormat(format: MediaFormat): Boolean {
+        val transfer = format.intOrNull(MediaFormat.KEY_COLOR_TRANSFER) ?: return false
+        return transfer == MediaFormat.COLOR_TRANSFER_ST2084 || transfer == MediaFormat.COLOR_TRANSFER_HLG
+    }
+
     private fun roundTo16(value: Double): Int = ((value / 16.0).roundToInt() * 16).coerceAtLeast(64)
 
     private fun encodeVideo(
@@ -141,6 +148,10 @@ object VideoTranscoder {
                 MediaFormat.KEY_COLOR_FORMAT,
                 android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible
             )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && isHdrFormat(this)) {
+                // Ask the platform decoder to tone-map 10-bit HDR sources down to 8-bit SDR.
+                setInteger(MediaFormat.KEY_COLOR_TRANSFER_REQUEST, MediaFormat.COLOR_TRANSFER_SDR_VIDEO)
+            }
         }
         val decoder = MediaCodec.createDecoderByType(inputFormat.getString(MediaFormat.KEY_MIME)!!)
         decoder.configure(inputFormat, null, null, 0)
@@ -176,6 +187,11 @@ object VideoTranscoder {
                     val pts = info.presentationTimeUs
                     if (info.size > 0 && pts <= endUs && pts >= nextFrameUs) {
                         decoder.getOutputImage(out)?.use { image ->
+                            if (image.format != ImageFormat.YUV_420_888) {
+                                throw UnsupportedOperationException(
+                                    "Unsupported pixel format ${image.format}; 10-bit HDR could not be converted to 8-bit SDR"
+                                )
+                            }
                             val picture = YuvSource.fromImage(image, rotation)
                             while (!encoder.encode(picture, pts, timeoutUs = TIMEOUT_US)) {
                                 encoder.drain(0L, collect)

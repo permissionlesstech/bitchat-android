@@ -162,6 +162,42 @@ class VideoStreamLossTest {
     }
 
     @Test
+    fun delayedInitialKeyframeFragmentIsPreservedWhenLaterDeltaCompletesFirst() {
+        val packetizer = VideoStreamPacketizer(ByteArray(8) { 7 }, config, LiveVideoFecPolicy(0.25, 0.5))
+        val assembler = VideoStreamAssembler()
+        val keyframeData = ByteArray(1_200) { (it and 0xFF).toByte() }
+        val deltaData = ByteArray(120) { ((it + 17) and 0xFF).toByte() }
+
+        val startPackets = packetizer.start()
+        val keyPackets = packetizer.add(LiveMediaUnit(LiveVideoTrack.VIDEO, 0, true, keyframeData), 0)
+        val deltaPackets = packetizer.add(LiveMediaUnit(LiveVideoTrack.VIDEO, 125, false, deltaData), 125) +
+            packetizer.tick(500)
+
+        // Separate the source shards carrying keyframe fragments from the packet carrying the delta.
+        val decodedKey = keyPackets.map { it to VideoBurstPacket.decode(it)!! }
+        val keyDataPackets = decodedKey.filter { it.second.kind is VideoBurstPacket.Kind.Data }
+        assertTrue("expected fragmented initial keyframe", keyDataPackets.size >= 2)
+
+        val outputs = mutableListOf<LiveVideoOutput>()
+        startPackets.forEach { outputs += assembler.onPacket(VideoBurstPacket.decode(it)!!, it.size, 0) }
+        // Deliver all but the last shard of the initial keyframe, leaving unit 0 pending.
+        keyDataPackets.dropLast(1).forEach { (bytes, pkt) -> outputs += assembler.onPacket(pkt, bytes.size, 10) }
+        // Deliver the later delta frame completely before the last keyframe shard arrives.
+        deltaPackets.forEach { bytes -> outputs += assembler.onPacket(VideoBurstPacket.decode(bytes)!!, bytes.size, 20) }
+        // Now deliver the final shard of the initial keyframe within the reorder window.
+        val (lastBytes, lastPkt) = keyDataPackets.last()
+        outputs += assembler.onPacket(lastPkt, lastBytes.size, 40)
+
+        val video = outputs.filterIsInstance<LiveVideoOutput.Video>()
+        assertEquals(2, video.size)
+        assertTrue(video[0].keyframe)
+        assertArrayEquals(keyframeData, video[0].data)
+        assertEquals(false, video[1].keyframe)
+        assertArrayEquals(deltaData, video[1].data)
+        assertEquals(0, assembler.stats().skippedVideoUnits)
+    }
+
+    @Test
     fun duplicatedPacketsAreIgnored() {
         val packetizer = VideoStreamPacketizer(ByteArray(8), config, LiveVideoFecPolicy(0.25, 0.5))
         val assembler = VideoStreamAssembler()

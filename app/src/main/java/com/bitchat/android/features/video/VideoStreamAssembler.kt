@@ -228,6 +228,9 @@ class VideoStreamAssembler(
             if (track.pending.size >= MAX_PENDING_UNITS) {
                 track.pending.remove(track.pending.keys.first())
             }
+            if (track.lastReference == null) {
+                track.lastReference = sequence
+            }
             pending = PendingUnit(entry.keyframe, entry.ptsMs, entry.fragmentCount)
             track.pending[sequence] = pending
         }
@@ -249,7 +252,9 @@ class VideoStreamAssembler(
             offset += fragment.size
         }
         if (track.next == null) {
-            track.next = sequence
+            // Preserve any earlier fragmented unit still awaiting shards or FEC recovery
+            // (such as an initial keyframe) instead of advancing past it on a later small delta.
+            track.next = track.pending.keys.minOrNull()?.let { minOf(it, sequence) } ?: sequence
         }
         track.lastReference = sequence
         track.ready[sequence] = ReadyUnit(pending.ptsMs, pending.keyframe, data)

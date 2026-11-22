@@ -50,6 +50,7 @@ internal class LiveVideoDecoder(
         if (!queue.offer(QueuedUnit(unit.ptsMs, unit.keyframe, unit.data))) {
             // Falling behind: drop the backlog and resume from the next keyframe.
             queue.clear()
+            resync.set(true)
             if (unit.keyframe) queue.offer(QueuedUnit(unit.ptsMs, true, unit.data))
         }
     }

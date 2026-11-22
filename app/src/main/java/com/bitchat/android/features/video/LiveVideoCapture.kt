@@ -76,7 +76,7 @@ class LiveVideoCapture(
 ) {
     companion object {
         private const val TAG = "LiveVideoCapture"
-        private const val MIN_VALID_DURATION_MS = 1_000L
+        internal const val MIN_VALID_DURATION_MS = 1_000L
         private const val UNIT_QUEUE_CAPACITY = 512
         private const val PACING_HEADROOM = 1.8
         private const val PACING_BURST_PACKETS = 6
@@ -225,9 +225,12 @@ class LiveVideoCapture(
         videoDrainThread = null
         val durationMs = elapsedMs()
         val writerOk = writer?.finish() == true
-        val valid = !canceled && writerOk && durationMs >= MIN_VALID_DURATION_MS
+        // Keep the live stream's END/CANCELED wire outcome independent of local MP4 muxer health,
+        // so a sender storage or muxer failure never makes viewers delete their own valid recording.
+        val streamValid = !canceled && durationMs >= MIN_VALID_DURATION_MS
+        val fileValid = streamValid && writerOk
         if (target != null) {
-            if (valid) endPacketDuration = durationMs else canceledStream = true
+            if (streamValid) endPacketDuration = durationMs else canceledStream = true
             senderRunning.set(false)
             runCatching { senderThread?.join(SENDER_DRAIN_TIMEOUT_MS) }
             if (senderThread?.isAlive == true) senderThread?.interrupt()
@@ -240,7 +243,7 @@ class LiveVideoCapture(
         }
         val file = outputFile
         outputFile = null
-        if (!valid) {
+        if (!fileValid) {
             file?.delete()
             return null
         }

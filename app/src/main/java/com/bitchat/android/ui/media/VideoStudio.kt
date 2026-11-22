@@ -102,10 +102,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
 private enum class StudioMode { LIVE, CLIP }
-private enum class StudioPhase { IDLE, RUNNING, FINISHING, PROCESSING }
+private enum class StudioPhase { IDLE, STARTING, RUNNING, FINISHING, PROCESSING }
 
 /**
  * Full-screen camera for video: go live to the current conversation, record a short clip, or
@@ -134,6 +135,7 @@ fun VideoStudio(
     var startedAt by remember { mutableLongStateOf(0L) }
     var uplinkKbps by remember { mutableDoubleStateOf(0.0) }
     val captureRef = remember { AtomicReference<LiveVideoCapture?>(null) }
+    val disposed = remember { AtomicBoolean(false) }
     val surfaceRequests = remember { MutableStateFlow<SurfaceRequest?>(null) }
     val surfaceRequest by surfaceRequests.collectAsState()
     val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
@@ -153,11 +155,18 @@ fun VideoStudio(
     fun finish(canceled: Boolean) {
         val capture = captureRef.getAndSet(null) ?: return
         val wasLive = mode == StudioMode.LIVE
+        val tooShort = capture.elapsedMs() < LiveVideoCapture.MIN_VALID_DURATION_MS
         phase = StudioPhase.FINISHING
         scope.launch {
             val file = withContext(Dispatchers.IO) { capture.stop(canceled) }
             if (file == null) {
-                if (!canceled) Toast.makeText(context, R.string.video_too_short, Toast.LENGTH_SHORT).show()
+                if (!canceled) {
+                    if (tooShort) {
+                        Toast.makeText(context, R.string.video_too_short, Toast.LENGTH_SHORT).show()
+                    } else if (!wasLive) {
+                        Toast.makeText(context, R.string.video_prepare_failed, Toast.LENGTH_SHORT).show()
+                    }
+                }
                 phase = StudioPhase.IDLE
                 if (wasLive) latestOnClose()
                 return@launch
@@ -185,6 +194,7 @@ fun VideoStudio(
     }
 
     fun start() {
+        if (phase != StudioPhase.IDLE) return
         val target = if (mode == StudioMode.LIVE) liveTarget ?: return else null
         val preset = if (mode == StudioMode.LIVE) quality else LiveVideoQuality.CLIP
         val capture = LiveVideoCapture(
@@ -193,13 +203,34 @@ fun VideoStudio(
             quality = preset,
             audioEnabled = micOn && hasPermission(context, Manifest.permission.RECORD_AUDIO)
         )
-        if (capture.start() == null) {
-            Toast.makeText(context, R.string.video_camera_failed, Toast.LENGTH_SHORT).show()
-            return
+        phase = StudioPhase.STARTING
+        scope.launch {
+            // Codec enumeration, MediaCodec configuration, and AudioRecord setup can block on
+            // vendor media services, so keep initialization off the main thread.
+            val started = withContext(Dispatchers.IO) {
+                val id = capture.start()
+                if (id != null && disposed.get()) {
+                    capture.stop(canceled = true)
+                    null
+                } else {
+                    id
+                }
+            }
+            if (started == null) {
+                if (!disposed.get()) {
+                    Toast.makeText(context, R.string.video_camera_failed, Toast.LENGTH_SHORT).show()
+                    if (phase == StudioPhase.STARTING) phase = StudioPhase.IDLE
+                }
+                return@launch
+            }
+            if (disposed.get()) {
+                Thread { capture.stop(canceled = true) }.start()
+                return@launch
+            }
+            captureRef.set(capture)
+            startedAt = System.currentTimeMillis()
+            phase = StudioPhase.RUNNING
         }
-        captureRef.set(capture)
-        startedAt = System.currentTimeMillis()
-        phase = StudioPhase.RUNNING
     }
 
     val galleryPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
@@ -277,6 +308,7 @@ fun VideoStudio(
 
     DisposableEffect(Unit) {
         onDispose {
+            disposed.set(true)
             // Leaving the screen ends whatever is running and still delivers it.
             captureRef.getAndSet(null)?.let { capture ->
                 val wasLive = mode == StudioMode.LIVE
