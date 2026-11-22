@@ -92,6 +92,9 @@ class CommandProcessor(
                 val success = privateChatManager.startPrivateChat(peerID, meshService)
                 
                 if (success) {
+                    // The selected peer routes composer sends, and private chats are only
+                    // visible in the sheet, so a selection must never exist without it.
+                    state.setPrivateChatSheetPeer(state.getSelectedPrivateChatPeerValue())
                     if (parts.size > 2) {
                         val messageContent = parts.drop(2).joinToString(" ")
                         val recipientNickname = getPeerNickname(peerID, meshService)
