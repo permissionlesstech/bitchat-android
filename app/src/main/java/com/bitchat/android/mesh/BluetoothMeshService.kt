@@ -33,7 +33,6 @@ import kotlin.random.Random
  * - PeerManager: Peer lifecycle management
  * - FragmentManager: Message fragmentation and reassembly  
  * - SecurityManager: Security, duplicate detection, encryption
- * - StoreForwardManager: Offline message caching
  * - MessageHandler: Message type processing and relay logic
  * - BluetoothConnectionManager: BLE connections and GATT operations
  * - PacketProcessor: Incoming packet routing
@@ -108,7 +107,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         )
     }
     private val securityManager = SecurityManager(encryptionService, myPeerID)
-    private val storeForwardManager = StoreForwardManager()
     private val messageHandler = MessageHandler(myPeerID, context.applicationContext)
     internal val connectionManager = BluetoothConnectionManager(context, myPeerID, fragmentManager) // Made internal for access
     private val packetProcessor = PacketProcessor(myPeerID)
@@ -291,13 +289,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                     authenticatedRemoteStaticKey,
                     authenticatedSessionToken
                 )
-                // Send announcement and cached messages after key exchange
+                // Send announcement after key exchange
                 serviceScope.launch {
                     delay(100)
                     sendAnnouncementToPeer(peerID)
-                    
-                    delay(1000)
-                    storeForwardManager.sendCachedMessages(peerID)
                 }
             }
             
@@ -323,21 +318,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
 
             override fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? =
                 authenticatedPeerState.persistedSigningKeyFor(noisePublicKey)
-        }
-        
-        // StoreForwardManager delegates
-        storeForwardManager.delegate = object : StoreForwardManagerDelegate {
-            override fun isFavorite(peerID: String): Boolean {
-                return delegate?.isFavorite(peerID) ?: false
-            }
-            
-            override fun isPeerOnline(peerID: String): Boolean {
-                return peerManager.isPeerActive(peerID)
-            }
-            
-            override fun sendPacket(packet: BitchatPacket) {
-                broadcastRoutedPacket(RoutedPacket(packet))
-            }
         }
         
         // MessageHandler delegates
@@ -636,10 +616,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 this@BluetoothMeshService.sendAnnouncementToPeer(peerID)
             }
             
-            override fun sendCachedMessages(peerID: String) {
-                storeForwardManager.sendCachedMessages(peerID)
-            }
-            
             override fun relayPacket(routed: RoutedPacket) {
                 broadcastRoutedPacket(routed)
             }
@@ -832,7 +808,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             peerManager.shutdown()
             fragmentManager.shutdown()
             securityManager.shutdown()
-            storeForwardManager.shutdown()
             messageHandler.shutdown()
             packetProcessor.shutdown()
             
@@ -1521,8 +1496,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             appendLine()
             appendLine(securityManager.getDebugInfo())
             appendLine()
-            appendLine(storeForwardManager.getDebugInfo())
-            appendLine()
             appendLine(messageHandler.getDebugInfo())
             appendLine()
             appendLine(packetProcessor.getDebugInfo())
@@ -1626,7 +1599,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
 
             // Clear all managers
             fragmentManager.clearAllFragments()
-            storeForwardManager.clearAllCache()
             securityManager.clearAllData()
             peerManager.clearAllPeers()
             peerManager.clearAllFingerprints()

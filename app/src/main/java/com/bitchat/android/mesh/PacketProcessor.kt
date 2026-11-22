@@ -296,7 +296,6 @@ interface PacketProcessorDelegate {
     
     // Communication
     fun sendAnnouncementToPeer(peerID: String)
-    fun sendCachedMessages(peerID: String)
     fun relayPacket(routed: RoutedPacket)
     fun sendToPeer(peerID: String, routed: RoutedPacket): Boolean
 }
