@@ -27,7 +27,7 @@ class NostrClient private constructor(private val context: Context) {
     }
     
     // Core components
-    private val relayManager = NostrRelayManager.shared
+    private val relayManager = NostrRelayManager.getInstance(context)
     private var currentIdentity: NostrIdentity? = null
     
     // Client state
@@ -118,7 +118,7 @@ class NostrClient private constructor(private val context: Context) {
                 // Track and send all gift wraps
                 giftWraps.forEach { wrap ->
                     NostrRelayManager.registerPendingGiftWrap(wrap.id)
-                    relayManager.sendEvent(wrap)
+                    relayManager.sendEvent(wrap, authenticationIdentity = { identity })
                 }
                 
                 Log.i(TAG, "📤 Sent private message to ${recipientNpub.take(16)}...")
@@ -146,11 +146,12 @@ class NostrClient private constructor(private val context: Context) {
             since = System.currentTimeMillis() - 172800000L // Last 48 hours (align with NIP-17 randomization)
         )
         
-        relayManager.subscribe(filter, "private-messages", { giftWrap ->
-            scope.launch {
-                handlePrivateMessage(giftWrap, handler)
-            }
-        })
+        relayManager.subscribe(
+            filter,
+            "private-messages",
+            { giftWrap -> scope.launch { handlePrivateMessage(giftWrap, handler) } },
+            authenticationIdentity = { identity }
+        )
         
         Log.i(TAG, "🔑 Subscribed to private messages for: ${identity.getShortNpub()}")
     }
@@ -178,7 +179,7 @@ class NostrClient private constructor(private val context: Context) {
                     nickname = nickname
                 )
                 
-                relayManager.sendEvent(event)
+                relayManager.sendEvent(event, authenticationIdentity = { geohashIdentity })
                 
                 Log.i(TAG, "📤 Sent geohash message")
                 onSuccess?.invoke()
@@ -203,11 +204,12 @@ class NostrClient private constructor(private val context: Context) {
             limit = 200
         )
         
-        relayManager.subscribe(filter, "geohash-$geohash", { event ->
-            scope.launch {
-                handleGeohashMessage(event, handler)
-            }
-        })
+        relayManager.subscribe(
+            filter,
+            "geohash-$geohash",
+            { event -> scope.launch { handleGeohashMessage(event, handler) } },
+            authenticationIdentity = { NostrIdentityBridge.deriveIdentity(geohash, context) }
+        )
         
         Log.i(TAG, "🌍 Subscribed to geohash channel")
     }
