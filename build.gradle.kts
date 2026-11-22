@@ -19,6 +19,20 @@ subprojects {
     }
 
     pluginManager.withPlugin("com.android.application") {
+        extensions.configure<com.android.build.api.variant.ApplicationAndroidComponentsExtension> {
+            finalizeDsl { android ->
+                // Enforce the effective module target, including overrides of the shared catalog.
+                // API 36 meets the 2026 phone requirement and also covers Wear OS.
+                check((android.defaultConfig.targetSdk ?: 0) >= 36) {
+                    "$path must target API 36 or higher for Google Play updates. " +
+                        "Update targetSdk in gradle/libs.versions.toml and remove lower module overrides."
+                }
+                check(android.productFlavors.toList().all { (it.targetSdk ?: android.defaultConfig.targetSdk ?: 0) >= 36 }) {
+                    "$path product flavors must target API 36 or higher for Google Play updates."
+                }
+            }
+        }
+
         val resolveIdeRuntimeClasspathCopyLock = tasks.register("resolveIdeRuntimeClasspathCopyLock") {
             group = "build setup"
             description = "Resolves this module's Android Studio runtime classpath copies."

@@ -109,7 +109,6 @@ class MeshCore(
         )
     }
     private val securityManager = SecurityManager(encryptionService, myPeerID)
-    private val storeForwardManager = StoreForwardManager()
     private val messageHandler = MessageHandler(myPeerID, context.applicationContext)
     private val packetProcessor = PacketProcessor(myPeerID)
     private data class VoiceFrameRequest(val recipientPeerID: String?, val payload: ByteArray)
@@ -172,7 +171,6 @@ class MeshCore(
         peerManager.shutdown()
         fragmentManager.shutdown()
         securityManager.shutdown()
-        storeForwardManager.shutdown()
         messageHandler.shutdown()
         packetProcessor.shutdown()
     }
@@ -245,8 +243,6 @@ class MeshCore(
                 scope.launch {
                     delay(100)
                     sendAnnouncementToPeer(peerID)
-                    delay(1000)
-                    storeForwardManager.sendCachedMessages(peerID)
                 }
             }
 
@@ -267,20 +263,6 @@ class MeshCore(
 
             override fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? =
                 authenticatedPeerState.persistedSigningKeyFor(noisePublicKey)
-        }
-
-        storeForwardManager.delegate = object : StoreForwardManagerDelegate {
-            override fun isFavorite(peerID: String): Boolean {
-                return delegate?.isFavorite(peerID) ?: false
-            }
-
-            override fun isPeerOnline(peerID: String): Boolean {
-                return peerManager.isPeerActive(peerID)
-            }
-
-            override fun sendPacket(packet: BitchatPacket) {
-                dispatchGlobal(RoutedPacket(packet))
-            }
         }
 
         messageHandler.delegate = object : MessageHandlerDelegate {
@@ -506,10 +488,6 @@ class MeshCore(
 
             override fun sendAnnouncementToPeer(peerID: String) {
                 this@MeshCore.sendAnnouncementToPeer(peerID)
-            }
-
-            override fun sendCachedMessages(peerID: String) {
-                storeForwardManager.sendCachedMessages(peerID)
             }
 
             override fun relayPacket(routed: RoutedPacket) {
@@ -1021,7 +999,6 @@ class MeshCore(
             appendLine(peerManager.getDebugInfo(deviceMap))
             appendLine(fragmentManager.getDebugInfo())
             appendLine(securityManager.getDebugInfo())
-            appendLine(storeForwardManager.getDebugInfo())
             appendLine(messageHandler.getDebugInfo())
             appendLine(packetProcessor.getDebugInfo())
         }
@@ -1030,7 +1007,6 @@ class MeshCore(
     fun clearAllInternalData() {
         directPeers.clear()
         fragmentManager.clearAllFragments()
-        storeForwardManager.clearAllCache()
         securityManager.clearAllData()
         peerManager.clearAllPeers()
         peerManager.clearAllFingerprints()
