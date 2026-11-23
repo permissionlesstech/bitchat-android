@@ -3,6 +3,7 @@ package com.bitchat.android.services
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.getAndUpdate
 
 /**
  * Stages incoming shared content (text or media URIs from Android share sheets)
@@ -35,9 +36,7 @@ object ShareImportReviewGate {
      * for delivery/import, or null if nothing is pending.
      */
     fun confirmAndConsume(): PendingSharedContent? {
-        val current = _pending.value ?: return null
-        _pending.value = null
-        return current
+        return _pending.getAndUpdate { null }
     }
 
     /**
