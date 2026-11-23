@@ -511,6 +511,7 @@ fun AboutSheet(
                         val powEnabled by PoWPreferenceManager.powEnabled.collectAsState()
                         val powDifficulty by PoWPreferenceManager.powDifficulty.collectAsState()
                         val spamFilterEnabled by SpamFilterPreferences.enabled.collectAsState()
+                        val screenshotBlockEnabled by com.bitchat.android.services.PrivacyPreferenceManager.screenshotBlockPrivateChats.collectAsState()
                         var backgroundEnabled by remember { mutableStateOf(com.bitchat.android.service.MeshServicePreferences.isBackgroundEnabled(true)) }
                         var liveVoiceEnabled by remember {
                             mutableStateOf(com.bitchat.android.features.voice.LiveVoicePreferences.isEnabled(context))
@@ -530,6 +531,20 @@ fun AboutSheet(
                                 shape = AboutCardShape
                             ) {
                                 Column {
+                                    // Screenshot Blocking in Private Chats Toggle
+                                    SettingsToggleRow(
+                                        icon = Icons.Filled.Lock,
+                                        title = "Block screenshots in private chats",
+                                        subtitle = "Prevent screenshots and screen recordings while viewing private messages",
+                                        checked = screenshotBlockEnabled,
+                                        onCheckedChange = { enabled ->
+                                            com.bitchat.android.services.PrivacyPreferenceManager.setScreenshotBlockPrivateChats(enabled)
+                                        }
+                                    )
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(horizontal = 16.dp),
+                                        color = colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                    )
                                     // Background Mode Toggle
                                     SettingsToggleRow(
                                         icon = Icons.Filled.Bluetooth,
