@@ -58,10 +58,10 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         val currentTime = System.currentTimeMillis()
         val messageType = MessageType.fromValue(packet.type)
 
-        // LEAVE mutates presence immediately and cannot be safely replayed after the in-memory
-        // duplicate cache expires (or after an app restart). Bound it to the same five-minute
-        // security window used for duplicate retention while tolerating symmetric clock skew.
-        if (messageType == MessageType.LEAVE) {
+        // LEAVE and ANNOUNCE mutate presence immediately and cannot be safely replayed after the
+        // in-memory duplicate cache expires (or after an app restart). Bound both to the same
+        // five-minute security window used for duplicate retention while tolerating symmetric clock skew.
+        if (messageType == MessageType.LEAVE || messageType == MessageType.ANNOUNCE) {
             val now = currentTime.coerceAtLeast(0).toULong()
             val clockSkew = if (packet.timestamp >= now) {
                 packet.timestamp - now
@@ -69,7 +69,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
                 now - packet.timestamp
             }
             if (clockSkew > MESSAGE_TIMEOUT.toULong()) {
-                Log.w(TAG, "Dropping stale or future-dated LEAVE from $peerID")
+                Log.w(TAG, "Dropping stale or future-dated $messageType from $peerID")
                 return false
             }
         }
