@@ -71,6 +71,7 @@ class BitchatApplication : Application() {
 
         // Own relay connectivity, selected-channel subscriptions, and presence scheduling at the
         // process level so closing the Activity does not disconnect Nostr.
+        try { com.bitchat.android.nostr.PoWPreferenceManager.init(this) } catch (_: Exception) { }
         try { com.bitchat.android.nostr.NostrBackgroundRuntime.initialize(this) } catch (_: Exception) { }
 
         // Initialize mesh service preferences

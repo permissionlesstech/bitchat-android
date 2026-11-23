@@ -39,6 +39,7 @@ class GeohashMessageHandlerSignatureTest {
 
     @Before
     fun setup() {
+        PoWPreferenceManager.setPowEnabled(false)
         com.bitchat.android.services.AppStateStore.clear()
         chatState = ChatState(scope = testScope)
         dataManager = DataManager(context = application)
@@ -56,6 +57,7 @@ class GeohashMessageHandlerSignatureTest {
 
     @After
     fun tearDown() {
+        PoWPreferenceManager.resetToDefaults()
         com.bitchat.android.services.AppStateStore.clear()
     }
 
