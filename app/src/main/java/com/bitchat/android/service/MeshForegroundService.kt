@@ -113,6 +113,8 @@ class MeshForegroundService : Service() {
     private var isInForeground: Boolean = false
     private var isShuttingDown: Boolean = false
     private var lastNotifiedPeerCount: Int? = null
+    private var lastNotificationUpdateAtMs: Long = 0L
+    private val minNotificationUpdateIntervalMs = 5_000L
 
     override fun onCreate() {
         super.onCreate()
@@ -252,9 +254,14 @@ class MeshForegroundService : Service() {
         }
         val count = getUnifiedActivePeerCount()
         if (MeshServicePreferences.isBackgroundEnabled(true) && hasAllRequiredPermissions()) {
-            if (lastNotifiedPeerCount != count) {
+            val nowMs = android.os.SystemClock.elapsedRealtime()
+            val withinThrottleWindow = !force &&
+                lastNotifiedPeerCount != null &&
+                (nowMs - lastNotificationUpdateAtMs) < minNotificationUpdateIntervalMs
+            if (lastNotifiedPeerCount != count && !withinThrottleWindow) {
                 startForegroundCompat(buildNotification(count))
                 lastNotifiedPeerCount = count
+                lastNotificationUpdateAtMs = nowMs
             }
         } else if (force) {
             // If disabled and forced, make sure to remove any prior foreground state
@@ -262,6 +269,7 @@ class MeshForegroundService : Service() {
             clearMeshNotifications()
             isInForeground = false
             lastNotifiedPeerCount = null
+            lastNotificationUpdateAtMs = 0L
         }
     }
 
