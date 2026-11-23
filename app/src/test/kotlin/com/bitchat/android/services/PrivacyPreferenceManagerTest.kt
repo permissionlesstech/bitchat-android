@@ -17,4 +17,12 @@ class PrivacyPreferenceManagerTest {
         assertFalse(PrivacyPreferenceManager.shouldApplyFlagSecure(true, null))
         assertFalse(PrivacyPreferenceManager.shouldApplyFlagSecure(true, "   "))
     }
+
+    @Test
+    fun `reset restores default disabled state`() {
+        PrivacyPreferenceManager.setScreenshotBlockPrivateChats(true)
+        assertTrue(PrivacyPreferenceManager.screenshotBlockPrivateChats.value)
+        PrivacyPreferenceManager.reset()
+        assertFalse(PrivacyPreferenceManager.screenshotBlockPrivateChats.value)
+    }
 }

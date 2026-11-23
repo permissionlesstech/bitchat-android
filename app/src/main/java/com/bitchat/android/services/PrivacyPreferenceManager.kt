@@ -31,6 +31,11 @@ object PrivacyPreferenceManager {
         prefs?.edit()?.putBoolean(KEY_SCREENSHOT_BLOCK_PRIVATE_CHATS, enabled)?.apply()
     }
 
+    fun reset() {
+        _screenshotBlockPrivateChats.value = false
+        prefs?.edit()?.remove(KEY_SCREENSHOT_BLOCK_PRIVATE_CHATS)?.apply()
+    }
+
     /**
      * Returns true when `FLAG_SECURE` should be applied to the activity window.
      */
