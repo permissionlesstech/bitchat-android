@@ -149,7 +149,7 @@ class MeshForegroundService : Service() {
                             .currentState
                             .isAtLeast(Lifecycle.State.STARTED)
                     )
-                    if (isInForeground) updateNotification(force = false)
+                    if (isInForeground && peerCount != lastNotifiedPeerCount) updateNotification(force = false)
                 }
         }
     }
