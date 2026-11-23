@@ -129,6 +129,13 @@ class MeshForegroundService : Service() {
         )
         createChannel()
 
+        // Promote immediately during onCreate on slow/cold starts so Android's
+        // ForegroundServiceDidNotStartInTimeException deadline is never missed.
+        if (canRunInBackground() && startForegroundCompat(buildNotification(0))) {
+            isInForeground = true
+            lastNotifiedPeerCount = 0
+        }
+
         // Notification content is driven by peer-state changes, not a permanent timer.
         updateJob = scope.launch {
             com.bitchat.android.services.AppStateStore.peers
