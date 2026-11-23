@@ -255,10 +255,7 @@ class MeshForegroundService : Service() {
         val count = getUnifiedActivePeerCount()
         if (MeshServicePreferences.isBackgroundEnabled(true) && hasAllRequiredPermissions()) {
             val nowMs = android.os.SystemClock.elapsedRealtime()
-            val withinThrottleWindow = !force &&
-                lastNotifiedPeerCount != null &&
-                (nowMs - lastNotificationUpdateAtMs) < minNotificationUpdateIntervalMs
-            if (lastNotifiedPeerCount != count && !withinThrottleWindow) {
+            if (shouldUpdateNotification(lastNotifiedPeerCount, count, nowMs, lastNotificationUpdateAtMs, minNotificationUpdateIntervalMs, force)) {
                 startForegroundCompat(buildNotification(count))
                 lastNotifiedPeerCount = count
                 lastNotificationUpdateAtMs = nowMs
@@ -407,4 +404,17 @@ class MeshForegroundService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+}
+
+internal fun shouldUpdateNotification(
+    lastNotifiedCount: Int?,
+    currentCount: Int,
+    nowMs: Long,
+    lastUpdatedAtMs: Long,
+    minIntervalMs: Long,
+    force: Boolean
+): Boolean {
+    if (lastNotifiedCount == currentCount) return false
+    if (force || lastNotifiedCount == null) return true
+    return (nowMs - lastUpdatedAtMs) >= minIntervalMs
 }
