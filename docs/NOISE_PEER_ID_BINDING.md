@@ -25,12 +25,13 @@ replacement.
 Promotion also refuses to displace a different live socket already authenticated
 under the canonical peer ID.
 
-Leave packets use the existing signed wire format and are accepted only when
-the signature matches the key learned from a verified announcement and the
-timestamp is within the five-minute security window. Invalid, stale, future,
-or unsigned leaves therefore cannot evict the claimed peer or be relayed. A
-valid leave removes the peer through the normal peer-manager path, which also
-clears its active Noise session.
+Leave and announce packets use the existing signed wire format and are accepted
+only when the signature matches the key learned from (or carried by) a verified
+announcement and the timestamp is within the symmetric, inclusive five-minute
+security window (`MESSAGE_TIMEOUT_MS`). Invalid, stale, future, or unsigned
+leaves and announces therefore cannot mutate presence or be relayed. A valid
+leave removes the peer through the normal peer-manager path, which also clears
+its active Noise session.
 
 Announcements no longer write fingerprint mappings. Those mappings are created
 only by the authenticated Noise-session callback. A known peer's signing key
