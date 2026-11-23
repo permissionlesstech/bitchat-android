@@ -114,6 +114,7 @@ class MeshForegroundService : Service() {
     private var isShuttingDown: Boolean = false
     private var lastNotifiedPeerCount: Int? = null
     private var lastNotificationUpdateAtMs: Long = 0L
+    private var pendingNotificationJob: Job? = null
     private val minNotificationUpdateIntervalMs = 5_000L
 
     override fun onCreate() {
@@ -256,11 +257,24 @@ class MeshForegroundService : Service() {
         if (MeshServicePreferences.isBackgroundEnabled(true) && hasAllRequiredPermissions()) {
             val nowMs = android.os.SystemClock.elapsedRealtime()
             if (shouldUpdateNotification(lastNotifiedPeerCount, count, nowMs, lastNotificationUpdateAtMs, minNotificationUpdateIntervalMs, force)) {
+                pendingNotificationJob?.cancel()
+                pendingNotificationJob = null
                 startForegroundCompat(buildNotification(count))
                 lastNotifiedPeerCount = count
                 lastNotificationUpdateAtMs = nowMs
+            } else if (lastNotifiedPeerCount != count) {
+                val remainingMs = (minNotificationUpdateIntervalMs - (nowMs - lastNotificationUpdateAtMs)).coerceAtLeast(1L)
+                pendingNotificationJob?.cancel()
+                pendingNotificationJob = scope.launch {
+                    kotlinx.coroutines.delay(remainingMs)
+                    if (isInForeground && !isShuttingDown) {
+                        updateNotification(force = true)
+                    }
+                }
             }
         } else if (force) {
+            pendingNotificationJob?.cancel()
+            pendingNotificationJob = null
             // If disabled and forced, make sure to remove any prior foreground state
             try { stopForeground(false) } catch (_: Exception) { }
             clearMeshNotifications()
@@ -391,6 +405,8 @@ class MeshForegroundService : Service() {
     }
 
     override fun onDestroy() {
+        pendingNotificationJob?.cancel()
+        pendingNotificationJob = null
         updateJob?.cancel()
         updateJob = null
         // Cancel the service coroutine scope to prevent leaks
