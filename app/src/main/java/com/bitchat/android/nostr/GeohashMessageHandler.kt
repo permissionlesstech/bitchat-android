@@ -36,6 +36,11 @@ class GeohashMessageHandler(
             maxChars: Int = MAX_GEOHASH_MESSAGE_CHARS
         ): String {
             if (content.length <= maxChars) return content
+            if (content.length <= com.bitchat.android.ui.CashuTokenDecoder.MAX_TOKEN_LENGTH &&
+                com.bitchat.android.ui.CashuTokenDecoder.decode(content) != null
+            ) {
+                return content
+            }
             return content.take(maxChars) + "…"
         }
     }
