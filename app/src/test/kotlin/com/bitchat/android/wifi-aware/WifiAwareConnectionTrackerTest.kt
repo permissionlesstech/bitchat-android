@@ -121,10 +121,15 @@ class WifiAwareConnectionTrackerTest {
         assertTrue(tracker.getVerifiedConnectedPeerIDs() == setOf("provisional-peer"))
         assertTrue(tracker.verifiedCanonicalPeerIdIfSocketCurrent("provisional-peer", sock) == "provisional-peer")
 
-        // Replacing the socket resets it back to unidentified until re-verified
+        // Replacing a verified socket with a provisional one resets it back to unidentified AND
+        // synchronously notifies onVerifiedPeerDisconnected so stale graph edges are pruned immediately.
+        val displacedPeers = mutableListOf<String>()
+        tracker.onVerifiedPeerDisconnected = { displacedPeers += it }
+
         val replacement = syncedSocket()
         tracker.onClientConnected("provisional-peer", replacement)
         assertTrue(tracker.hasUnidentifiedConnection())
+        assertTrue("Displacing a verified socket must notify verified-disconnect cleanup immediately", displacedPeers == listOf("provisional-peer"))
         assertNull(tracker.verifiedCanonicalPeerIdIfSocketCurrent("provisional-peer", sock))
         assertNull(tracker.verifiedCanonicalPeerIdIfSocketCurrent("provisional-peer", replacement))
     }

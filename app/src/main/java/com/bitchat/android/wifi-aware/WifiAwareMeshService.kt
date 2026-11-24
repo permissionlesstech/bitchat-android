@@ -221,6 +221,16 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                 hasUnidentifiedDirectLink = connectionTracker.hasUnidentifiedConnection()
             )
         }
+        connectionTracker.onVerifiedPeerDisconnected = { displacedPeerId ->
+            try { meshCore.setDirectConnection(displacedPeerId, false) } catch (_: Exception) { }
+            MeshGraphTransportCleanup.scheduleTopologyChangeAnnounce(
+                scope = serviceScope,
+                removedPeerID = displacedPeerId,
+                remainingLocalDirectPeers = connectionTracker.getVerifiedConnectedPeerIDs(),
+                isServiceActive = { this@WifiAwareMeshService.isActive },
+                sendAnnounce = { meshCore.sendBroadcastAnnounce() }
+            )
+        }
     }
 
     private fun handleMessageReceived(message: BitchatMessage): Boolean {
@@ -280,7 +290,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         }
 
         return fragmentingSender.send(routed, "Wi-Fi Aware broadcast") { single ->
-            broadcastSinglePacket(single)
+            packetBroadcaster.broadcastSinglePacket(single)
         }
     }
 
@@ -303,10 +313,6 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         return fragmentingSender.send(routed, "Wi-Fi Aware peer ${peerID.take(8)}") { single ->
             sendSinglePacketToPeer(peerID, single.packet)
         }
-    }
-
-    private fun broadcastSinglePacket(routed: RoutedPacket): Boolean {
-        return packetBroadcaster.broadcastSinglePacket(routed)
     }
 
     private fun sendSinglePacketToPeer(peerID: String, packet: BitchatPacket): Boolean {
@@ -1451,9 +1457,14 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                 }
             }
             // Else: socket replaced or inactive; do not remove peer/session, as a new socket has likely taken over
-            if (disconnected && isActive && wifiTransport.getDirectConnectedPeerIDs().isNotEmpty()) {
-                delay(500)
-                if (isActive) meshCore.sendBroadcastAnnounce()
+            if (disconnected) {
+                MeshGraphTransportCleanup.scheduleTopologyChangeAnnounce(
+                    scope = serviceScope,
+                    removedPeerID = canonicalPeerId,
+                    remainingLocalDirectPeers = connectionTracker.getVerifiedConnectedPeerIDs(),
+                    isServiceActive = { this@WifiAwareMeshService.isActive },
+                    sendAnnounce = { meshCore.sendBroadcastAnnounce() }
+                )
             }
             publishControllerDebugSnapshot()
         }

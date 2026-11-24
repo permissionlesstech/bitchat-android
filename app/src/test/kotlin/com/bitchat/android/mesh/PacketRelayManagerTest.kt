@@ -146,7 +146,7 @@ class PacketRelayManagerTest {
             me to farPeer
         )
 
-        val nonMprRelay = PacketRelayManager(me).apply { delegate = this@PacketRelayManagerTest.delegate }
+        val nonMprRelay = PacketRelayManager(me, voiceJitterDelayMs = { 0L }).apply { delegate = this@PacketRelayManagerTest.delegate }
         whenever(delegate.getDirectConnectedPeers()).thenReturn(setOf(prevHop, farPeer))
 
         val msg = broadcastPacket(MessageType.MESSAGE, prevHop)

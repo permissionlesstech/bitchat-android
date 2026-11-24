@@ -165,8 +165,11 @@ class WifiAwarePacketBroadcasterTest {
     }
 
     @Test
-    fun `unverified provisional socket is never neighbor-pruned and replaced ingress socket cannot suppress replacement peer`() {
-        seedConfirmedEdges(prevHopPeerID to prevHopNeighborPeerID)
+    fun `unverified provisional socket is never neighbor-pruned and replaced ingress socket disables pruning even with cached hop`() {
+        seedConfirmedEdges(
+            prevHopPeerID to prevHopNeighborPeerID,
+            originPeerID to originNeighborPeerID
+        )
 
         // 1. Provisional (unverified) socket with discovery ID matching prevHopNeighborPeerID
         // must NOT be pruned until verified by a direct ANNOUNCE.
@@ -181,6 +184,9 @@ class WifiAwarePacketBroadcasterTest {
         tracker.onClientConnected("reused-alias", replacementSocket)
         assertTrue(tracker.rebindPeerIdIfCurrent("reused-alias", replacementPeer, replacementSocket))
 
+        // 3. Verified fresh origin-neighbor target that would be pruned unless fallback disables pruning
+        val originNeighborOut = connectPeer(originNeighborPeerID)
+
         val genAwareBroadcaster = WifiAwarePacketBroadcaster(
             myPeerID = myPeerID,
             connectionTracker = tracker,
@@ -190,17 +196,20 @@ class WifiAwarePacketBroadcasterTest {
             ingressSocketResolver = { _, _ -> null }
         )
 
+        // Cached previousHopPeerID is still populated from before socket replacement, with pruning enabled
         val lateRouted = RoutedPacket(
             packet = broadcastPacket(MessageType.MESSAGE, originPeerID),
             peerID = originPeerID,
             relayAddress = "reused-alias",
             ingressLinkID = "stale-link-gen",
-            previousHopPeerID = null
+            previousHopPeerID = prevHopPeerID,
+            skipNeighborPruning = false
         )
 
         assertTrue(genAwareBroadcaster.broadcastSinglePacket(lateRouted))
         assertTrue("Unverified provisional socket must not be pruned", provisionalOut.size() > 0)
         assertTrue("Replacement peer on reused alias must not be suppressed by stale ingress generation", replacementOut.size() > 0)
+        assertTrue("Verified origin neighbor must receive relay when replaced ingress falls back", originNeighborOut.size() > 0)
     }
 
     private fun connectPeer(peerID: String): ByteArrayOutputStream {

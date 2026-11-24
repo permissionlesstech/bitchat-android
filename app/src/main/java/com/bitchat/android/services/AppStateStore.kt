@@ -963,6 +963,7 @@ object AppStateStore {
             privateWritesSinceGlobalPrune = 0
             peerIdsByTransport.clear()
             directPeerIdsByTransport.clear()
+            unidentifiedDirectLinksByTransport.clear()
             _peers.value = emptyList()
             _directPeers.value = emptySet()
             _publicMessages.value = emptyList()

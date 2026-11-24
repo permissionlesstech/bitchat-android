@@ -382,6 +382,16 @@ class MprSelectorTest {
             previousHopPeerID = null
         )
         assertFalse(BroadcastPruningPolicy.shouldSkipTarget(localMsg, me, prevHop, "AA:BB:CC:DD:EE:02", null, graph))
+
+        // When previousHop expires while origin and originNeighbor remain fresh, neighbor pruning
+        // is disabled completely so originNeighbor still receives the fallback relay.
+        nowMs += MeshGraphService.DEFAULT_EDGE_MAX_AGE_MS + 1_000L
+        graph.updateFromAnnouncement(origin, origin, listOf(originNeighbor), 2_000UL)
+        graph.updateFromAnnouncement(originNeighbor, originNeighbor, listOf(origin), 2_000UL)
+        assertFalse(
+            "Expired previousHop must disable origin-neighbor pruning too",
+            BroadcastPruningPolicy.shouldSkipTarget(broadcastMsg, me, originNeighbor, "AA:BB:CC:DD:EE:04", prevHop, graph)
+        )
     }
 
     @Test

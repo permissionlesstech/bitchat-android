@@ -2,12 +2,18 @@ package com.bitchat.android.mesh
 
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.meshgraph.MeshGraphService
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class MeshGraphTransportCleanupTest {
 
     private var nowMs: Long = 100_000L
@@ -48,6 +54,12 @@ class MeshGraphTransportCleanupTest {
             previousActivePeers = setOf(bleOnlyPeer)
         )
         assertFalse(AppStateStore.hasAnyUnidentifiedDirectLink())
+
+        // AppStateStore.clear() must also wipe unidentified direct-link flags
+        MeshGraphTransportCleanup.publishDirectState("WIFI", setOf(wifiOnlyPeer), hasUnidentifiedDirectLink = true)
+        assertTrue(AppStateStore.hasAnyUnidentifiedDirectLink())
+        AppStateStore.clear()
+        assertFalse("AppStateStore.clear() must clear unidentified-link flags", AppStateStore.hasAnyUnidentifiedDirectLink())
     }
 
     @Test
@@ -104,5 +116,58 @@ class MeshGraphTransportCleanupTest {
             graphService = graph
         )
         assertFalse("Edge must be pruned when last direct link drops", graph.isFreshConfirmedNeighbor(me, bleOnlyPeer))
+    }
+
+    @Test
+    fun `scheduleTopologyChangeAnnounce fires across mixed transports and cancels on deactivation`() = runTest {
+        // 1. BLE loses its last local peer while Wi-Fi still has a direct peer -> fires after 500ms
+        AppStateStore.setTransportDirectPeers("WIFI", setOf(wifiOnlyPeer))
+        AppStateStore.setTransportDirectPeers("BLE", emptySet())
+        var bleAnnounces = 0
+        MeshGraphTransportCleanup.scheduleTopologyChangeAnnounce(
+            scope = this,
+            removedPeerID = bleOnlyPeer,
+            remainingLocalDirectPeers = emptySet(),
+            isServiceActive = { true },
+            sendAnnounce = { bleAnnounces += 1 }
+        )
+        advanceTimeBy(499L)
+        runCurrent()
+        assertEquals(0, bleAnnounces)
+        advanceTimeBy(1L)
+        runCurrent()
+        assertEquals("BLE disconnect must announce to remaining Wi-Fi peer", 1, bleAnnounces)
+
+        // 2. Wi-Fi loses its last local peer while BLE still has a direct peer -> fires after 500ms
+        AppStateStore.setTransportDirectPeers("BLE", setOf(bleOnlyPeer))
+        AppStateStore.setTransportDirectPeers("WIFI", emptySet())
+        var wifiAnnounces = 0
+        MeshGraphTransportCleanup.scheduleTopologyChangeAnnounce(
+            scope = this,
+            removedPeerID = wifiOnlyPeer,
+            remainingLocalDirectPeers = emptySet(),
+            isServiceActive = { true },
+            sendAnnounce = { wifiAnnounces += 1 }
+        )
+        advanceTimeBy(500L)
+        runCurrent()
+        assertEquals("Wi-Fi disconnect must announce to remaining BLE peer", 1, wifiAnnounces)
+
+        // 3. Deactivating service before the 500ms timer fires suppresses the pending announce
+        var serviceActive = true
+        var deactivatedAnnounces = 0
+        MeshGraphTransportCleanup.scheduleTopologyChangeAnnounce(
+            scope = this,
+            removedPeerID = wifiOnlyPeer,
+            remainingLocalDirectPeers = emptySet(),
+            isServiceActive = { serviceActive },
+            sendAnnounce = { deactivatedAnnounces += 1 }
+        )
+        advanceTimeBy(499L)
+        runCurrent()
+        serviceActive = false
+        advanceTimeBy(100L)
+        runCurrent()
+        assertEquals("Deactivated service must not emit delayed topology announce", 0, deactivatedAnnounces)
     }
 }

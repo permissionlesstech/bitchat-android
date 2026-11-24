@@ -272,12 +272,13 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 remainingLocalDirectPeers = remainingDirect,
                 hasUnidentifiedDirectLink = connectionManager.hasUnidentifiedConnection()
             )
-            if (removedPeerID !in remainingDirect && remainingDirect.isNotEmpty() && isActive) {
-                serviceScope.launch {
-                    delay(500)
-                    if (isActive) sendBroadcastAnnounce()
-                }
-            }
+            MeshGraphTransportCleanup.scheduleTopologyChangeAnnounce(
+                scope = serviceScope,
+                removedPeerID = removedPeerID,
+                remainingLocalDirectPeers = remainingDirect,
+                isServiceActive = { this@BluetoothMeshService.isActive },
+                sendAnnounce = { sendBroadcastAnnounce() }
+            )
         }
         // PeerManager delegates to main mesh service delegate
         peerManager.delegate = object : PeerManagerDelegate {

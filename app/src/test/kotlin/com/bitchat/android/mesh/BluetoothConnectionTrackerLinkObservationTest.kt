@@ -161,6 +161,7 @@ class BluetoothConnectionTrackerLinkObservationTest {
         graph.updateFromAnnouncement(peerA, "A", listOf(myPeer), 1_000UL)
         graph.updateFromAnnouncement(peerB, "B", listOf(myPeer), 1_000UL)
 
+        val testScope = kotlinx.coroutines.test.TestScope()
         var topologyAnnouncesScheduled = 0
         tracker.onObservedPeerDisconnected = { removedPeer ->
             val remainingDirect = tracker.addressPeerMap.values.toSet()
@@ -172,9 +173,13 @@ class BluetoothConnectionTrackerLinkObservationTest {
                 hasUnidentifiedDirectLink = tracker.hasUnidentifiedConnection(),
                 graphService = graph
             )
-            if (removedPeer !in remainingDirect && remainingDirect.isNotEmpty()) {
-                topologyAnnouncesScheduled += 1
-            }
+            MeshGraphTransportCleanup.scheduleTopologyChangeAnnounce(
+                scope = testScope,
+                removedPeerID = removedPeer,
+                remainingLocalDirectPeers = remainingDirect,
+                isServiceActive = { true },
+                sendAnnounce = { topologyAnnouncesScheduled += 1 }
+            )
         }
 
         // Case 1: peerA has TWO links (addr1 and addr2); replacing addr1 preserves peerA's edge
@@ -184,6 +189,8 @@ class BluetoothConnectionTrackerLinkObservationTest {
         tracker.observePeerIfCurrent(addr2, "a-2", peerA)
 
         tracker.addDeviceConnection(addr1, BluetoothConnectionTracker.DeviceConnection(device = dev1, linkID = "b-1"))
+        testScope.testScheduler.advanceTimeBy(1_000L)
+        testScope.testScheduler.runCurrent()
         assertTrue("Edge for peerA must remain while addr2 still maps to peerA", graph.isFreshConfirmedNeighbor(myPeer, peerA))
         assertEquals(0, topologyAnnouncesScheduled)
 
@@ -192,6 +199,8 @@ class BluetoothConnectionTrackerLinkObservationTest {
 
         // Case 2: replacing peerA's LAST link (addr2) immediately prunes peerA's edge and triggers topology announce
         tracker.addDeviceConnection(addr2, BluetoothConnectionTracker.DeviceConnection(device = dev2, linkID = "c-1"))
+        testScope.testScheduler.advanceTimeBy(500L)
+        testScope.testScheduler.runCurrent()
         assertFalse("Edge for peerA must be pruned immediately when last link is replaced", graph.isFreshConfirmedNeighbor(myPeer, peerA))
         assertEquals("Prompt topology announce must fire when peerA loses last link while peerB remains", 1, topologyAnnouncesScheduled)
         assertTrue("Edge for remaining peerB must stay intact", graph.isFreshConfirmedNeighbor(myPeer, peerB))

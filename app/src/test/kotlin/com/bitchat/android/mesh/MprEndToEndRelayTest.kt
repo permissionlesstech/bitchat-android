@@ -115,7 +115,7 @@ class MprEndToEndRelayTest {
                                 isConnected = true,
                                 isDirectConnection = false,
                                 noisePublicKey = null,
-                                signingPublicKey = originSigningKey,
+                                signingPublicKey = originSigningKey.copyOf(),
                                 isVerifiedNickname = true,
                                 lastSeen = wallMs
                             )
@@ -136,7 +136,7 @@ class MprEndToEndRelayTest {
                     override fun updatePeerLastSeen(peerID: String) = Unit
                     override fun getPeerNickname(peerID: String): String? = peerID
                     override fun getNetworkSize(): Int = nodeIds.size
-                    override fun getBroadcastRecipient(): ByteArray = SpecialRecipients.BROADCAST
+                    override fun getBroadcastRecipient(): ByteArray = SpecialRecipients.BROADCAST.copyOf()
                     override fun getDirectConnectedPeers(): Set<String> = adjacency[this@SimulatedNode.peerID].orEmpty()
                     override fun hasUnidentifiedDirectLink(): Boolean = false
                     override fun handleNoiseHandshake(routed: RoutedPacket): Boolean = false
@@ -318,7 +318,7 @@ class MprEndToEndRelayTest {
                     isConnected = true,
                     isDirectConnection = false,
                     noisePublicKey = null,
-                    signingPublicKey = signingKey,
+                    signingPublicKey = signingKey.copyOf(),
                     isVerifiedNickname = true,
                     lastSeen = wallMs
                 )
@@ -389,7 +389,7 @@ class MprEndToEndRelayTest {
         }
 
         val graph = MeshGraphService.getInstance()
-        val initialTs = System.currentTimeMillis().toULong()
+        val initialTs = relayClock.toULong()
         graph.updateFromAnnouncement(prevHop, "P", listOf(peerB, me), initialTs)
         graph.updateFromAnnouncement(peerB, "B", listOf(prevHop, me), initialTs)
         graph.updateFromAnnouncement(me, "M", listOf(prevHop, peerB), initialTs)
@@ -399,7 +399,7 @@ class MprEndToEndRelayTest {
         graph.updateFromAnnouncement(peerB, "B", listOf(prevHop, me), initialTs + 1UL)
         graph.updateFromAnnouncement(me, "M", listOf(prevHop, peerB), initialTs + 1UL)
 
-        val messageHandler = MessageHandler(me, mock())
+        val messageHandler = MessageHandler(me, mock(), clockMs = { relayClock })
         messageHandler.delegate = object : MessageHandlerDelegate {
             override fun addOrUpdatePeer(peerID: String, nickname: String) = false
             override fun removePeer(peerID: String) = Unit
@@ -412,8 +412,8 @@ class MprEndToEndRelayTest {
                 nickname = "P",
                 isConnected = true,
                 isDirectConnection = true,
-                noisePublicKey = prevHopNoiseKey,
-                signingPublicKey = prevHopSigningKey,
+                noisePublicKey = prevHopNoiseKey.copyOf(),
+                signingPublicKey = prevHopSigningKey.copyOf(),
                 isVerifiedNickname = true,
                 lastSeen = relayClock
             )
@@ -427,7 +427,7 @@ class MprEndToEndRelayTest {
             ) = false // Existing peer (isFirst = false)
             override fun sendPacket(packet: BitchatPacket) = Unit
             override fun relayPacket(routed: RoutedPacket) = Unit
-            override fun getBroadcastRecipient(): ByteArray = SpecialRecipients.BROADCAST
+            override fun getBroadcastRecipient(): ByteArray = SpecialRecipients.BROADCAST.copyOf()
             override fun verifySignature(packet: BitchatPacket, peerID: String) = true
             override fun encryptForPeer(data: ByteArray, recipientPeerID: String): ByteArray? = null
             override fun decryptFromPeer(encryptedData: ByteArray, senderPeerID: String): com.bitchat.android.noise.NoiseDecryptionResult? = null
@@ -453,7 +453,7 @@ class MprEndToEndRelayTest {
             override fun updatePeerLastSeen(peerID: String) = Unit
             override fun getPeerNickname(peerID: String): String? = peerID
             override fun getNetworkSize() = 10
-            override fun getBroadcastRecipient(): ByteArray = SpecialRecipients.BROADCAST
+            override fun getBroadcastRecipient(): ByteArray = SpecialRecipients.BROADCAST.copyOf()
             override fun getDirectConnectedPeers(): Set<String> = setOf(prevHop, peerB)
             override fun handleNoiseHandshake(routed: RoutedPacket) = false
             override fun handleNoiseEncrypted(routed: RoutedPacket) = false
@@ -578,7 +578,7 @@ class MprEndToEndRelayTest {
                     override fun getPeerInfo(peerID: String): PeerInfo? =
                         if (peerID == originId) PeerInfo(
                             id = originId, nickname = "origin", isConnected = true, isDirectConnection = false,
-                            noisePublicKey = null, signingPublicKey = originSigningKey,
+                            noisePublicKey = null, signingPublicKey = originSigningKey.copyOf(),
                             isVerifiedNickname = true, lastSeen = wallMs
                         ) else null
                 }
@@ -594,7 +594,7 @@ class MprEndToEndRelayTest {
                     override fun updatePeerLastSeen(peerID: String) = Unit
                     override fun getPeerNickname(peerID: String): String? = peerID
                     override fun getNetworkSize() = nodeIds.size
-                    override fun getBroadcastRecipient(): ByteArray = SpecialRecipients.BROADCAST
+                    override fun getBroadcastRecipient(): ByteArray = SpecialRecipients.BROADCAST.copyOf()
                     override fun getDirectConnectedPeers(): Set<String> = adjacency[this@FragNode.peerID].orEmpty()
                     override fun handleNoiseHandshake(routed: RoutedPacket) = false
                     override fun handleNoiseEncrypted(routed: RoutedPacket) = false

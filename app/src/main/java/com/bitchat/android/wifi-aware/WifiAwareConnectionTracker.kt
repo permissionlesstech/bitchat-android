@@ -32,8 +32,16 @@ class WifiAwareConnectionTracker(
     @Volatile
     var onConnectionStateChanged: (() -> Unit)? = null
 
+    /** Invoked synchronously when a verified socket is displaced or removed. */
+    @Volatile
+    var onVerifiedPeerDisconnected: ((String) -> Unit)? = null
+
     private fun notifyConnectionStateChanged() {
         try { onConnectionStateChanged?.invoke() } catch (_: Exception) { }
+    }
+
+    private fun notifyVerifiedPeerDisconnected(peerID: String) {
+        try { onVerifiedPeerDisconnected?.invoke(peerID) } catch (_: Exception) { }
     }
 
     override fun isConnected(id: String): Boolean {
@@ -85,19 +93,23 @@ class WifiAwareConnectionTracker(
      * Successfully established a client connection
      */
     fun onClientConnected(peerId: String, socket: SyncedSocket) {
-        synchronized(socketBindingLock) {
+        val displacedVerifiedPeerId = synchronized(socketBindingLock) {
             val canonicalPeerId = resolveCanonicalPeerId(peerId)
             // Close previous socket if one exists to prevent zombie readers
             peerSockets[canonicalPeerId]?.let {
                 try { it.close() } catch (_: Exception) {}
             }
             // A newly connected socket is provisional until a validated direct ANNOUNCE binds it.
-            verifiedSockets.remove(canonicalPeerId)
+            val wasVerified = verifiedSockets.remove(canonicalPeerId) != null
             peerSockets[canonicalPeerId] = socket
             removePendingConnection(peerId) // Clear retry state on success
             if (canonicalPeerId != peerId) removePendingConnection(canonicalPeerId)
+            if (wasVerified) canonicalPeerId else null
         }
         notifyConnectionStateChanged()
+        if (displacedVerifiedPeerId != null) {
+            notifyVerifiedPeerDisconnected(displacedVerifiedPeerId)
+        }
     }
 
     fun getSocketForPeer(peerId: String): SyncedSocket? {

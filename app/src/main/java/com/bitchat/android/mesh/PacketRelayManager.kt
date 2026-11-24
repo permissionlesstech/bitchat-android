@@ -31,7 +31,8 @@ class PacketRelayManager(
     private val myPeerID: String,
     private val meshGraphProvider: () -> MeshGraphService = MeshGraphService::getInstance,
     private val edgeMaxAgeMs: Long = MeshGraphService.DEFAULT_EDGE_MAX_AGE_MS,
-    private val clockMs: () -> Long = { System.currentTimeMillis() }
+    private val clockMs: () -> Long = { System.currentTimeMillis() },
+    private val voiceJitterDelayMs: () -> Long = { Random.nextLong(8L, 26L) }
 ) {
     private val debugManager by lazy { try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (e: Exception) { null } }
 
@@ -151,7 +152,8 @@ class PacketRelayManager(
         val relayPacket = packet.copy(ttl = voiceTtl)
         Log.d(TAG, "Decremented TTL from ${packet.ttl} to ${relayPacket.ttl}")
         if (messageType == MessageType.VOICE_FRAME) {
-            delay(Random.nextLong(8L, 26L))
+            val jitter = voiceJitterDelayMs()
+            if (jitter > 0L) delay(jitter)
         }
 
         // When an ingress link generation is present, always re-verify the previous hop against

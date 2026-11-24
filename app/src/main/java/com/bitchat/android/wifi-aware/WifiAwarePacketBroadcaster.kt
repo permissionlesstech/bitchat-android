@@ -38,8 +38,18 @@ internal class WifiAwarePacketBroadcaster(
         } else {
             null
         }
-        val resolvedPreviousHopPeerID = routed.previousHopPeerID?.takeIf { it.isNotBlank() }
-            ?: legacyRelayCanonicalPeerID
+        val resolvedPreviousHopPeerID = when {
+            hasLinkGeneration -> {
+                val relayAddr = routed.relayAddress?.takeIf { it.isNotBlank() }
+                if (relayAddr != null && ingressSocket != null) {
+                    connectionTracker.verifiedCanonicalPeerIdIfSocketCurrent(relayAddr, ingressSocket)
+                        ?.takeIf { it.isNotBlank() }
+                } else {
+                    null
+                }
+            }
+            else -> routed.previousHopPeerID?.takeIf { it.isNotBlank() } ?: legacyRelayCanonicalPeerID
+        }
         val graphService = meshGraphProvider()
 
         var accepted = false

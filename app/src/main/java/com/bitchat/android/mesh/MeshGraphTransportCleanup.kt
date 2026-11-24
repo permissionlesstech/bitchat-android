@@ -2,13 +2,19 @@ package com.bitchat.android.mesh
 
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.meshgraph.MeshGraphService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Shared transport-to-mesh-graph synchronization helper used by phone BLE, Wear OS BLE, and
- * Wi-Fi Aware so direct-peer publication, unidentified-link tracking, and stale-edge pruning
- * follow identical multi-transport rules.
+ * Wi-Fi Aware so direct-peer publication, unidentified-link tracking, stale-edge pruning, and
+ * prompt topology-change announcements follow identical multi-transport rules.
  */
 internal object MeshGraphTransportCleanup {
+
+    const val TOPOLOGY_CHANGE_ANNOUNCE_DELAY_MS: Long = 500L
 
     fun publishDirectState(
         transportId: String,
@@ -36,14 +42,7 @@ internal object MeshGraphTransportCleanup {
     ) {
         publishDirectState(transportId, remainingLocalDirectPeers, hasUnidentifiedDirectLink)
         if (peerID in remainingLocalDirectPeers) return
-        val stillDirectElsewhere = try {
-            AppStateStore.hasDirectPeerOnOtherTransport(transportId, peerID)
-        } catch (_: Exception) {
-            false
-        }
-        if (!stillDirectElsewhere) {
-            try { graphService.removeDirectEdge(myPeerID, peerID) } catch (_: Exception) { }
-        }
+        removeDirectEdgeIfAbsentElsewhere(myPeerID, transportId, peerID, graphService)
     }
 
     /**
@@ -66,14 +65,7 @@ internal object MeshGraphTransportCleanup {
             hasUnidentifiedDirectLink = hasUnidentifiedDirectLink,
             graphService = graphService
         )
-        val stillActiveElsewhere = try {
-            AppStateStore.hasPeerOnOtherTransport(transportId, peerID)
-        } catch (_: Exception) {
-            false
-        }
-        if (!stillActiveElsewhere) {
-            try { graphService.removePeer(peerID) } catch (_: Exception) { }
-        }
+        removePeerIfAbsentElsewhere(transportId, peerID, graphService)
     }
 
     /**
@@ -91,25 +83,71 @@ internal object MeshGraphTransportCleanup {
         try { AppStateStore.clearTransportDirectPeers(transportId) } catch (_: Exception) { }
 
         for (peerID in previousDirectPeers) {
-            val stillDirectElsewhere = try {
-                AppStateStore.hasDirectPeerOnOtherTransport(transportId, peerID)
-            } catch (_: Exception) {
-                false
-            }
-            if (!stillDirectElsewhere) {
-                try { graphService.removeDirectEdge(myPeerID, peerID) } catch (_: Exception) { }
-            }
+            removeDirectEdgeIfAbsentElsewhere(myPeerID, transportId, peerID, graphService)
         }
 
         for (peerID in (previousActivePeers + previousDirectPeers)) {
-            val stillActiveElsewhere = try {
-                AppStateStore.hasPeerOnOtherTransport(transportId, peerID)
-            } catch (_: Exception) {
-                false
+            removePeerIfAbsentElsewhere(transportId, peerID, graphService)
+        }
+    }
+
+    /**
+     * Schedules a prompt (~500 ms) topology-change ANNOUNCE when [removedPeerID] lost its last
+     * direct link on this transport while at least one other direct peer remains reachable on
+     * this transport OR another active transport. Checks [isServiceActive] both before scheduling
+     * and right before sending so deactivation cancels any pending announcement.
+     */
+    fun scheduleTopologyChangeAnnounce(
+        scope: CoroutineScope,
+        removedPeerID: String,
+        remainingLocalDirectPeers: Set<String>,
+        isServiceActive: () -> Boolean,
+        sendAnnounce: () -> Unit,
+        delayMs: Long = TOPOLOGY_CHANGE_ANNOUNCE_DELAY_MS
+    ): Job? {
+        if (removedPeerID in remainingLocalDirectPeers) return null
+        val anyDirectPeersRemaining = remainingLocalDirectPeers.isNotEmpty() || try {
+            AppStateStore.getDirectPeers().isNotEmpty()
+        } catch (_: Exception) {
+            false
+        }
+        if (!anyDirectPeersRemaining || !isServiceActive()) return null
+        return scope.launch {
+            delay(delayMs)
+            if (isServiceActive()) {
+                sendAnnounce()
             }
-            if (!stillActiveElsewhere) {
-                try { graphService.removePeer(peerID) } catch (_: Exception) { }
-            }
+        }
+    }
+
+    private fun removeDirectEdgeIfAbsentElsewhere(
+        myPeerID: String,
+        transportId: String,
+        peerID: String,
+        graphService: MeshGraphService
+    ) {
+        val stillDirectElsewhere = try {
+            AppStateStore.hasDirectPeerOnOtherTransport(transportId, peerID)
+        } catch (_: Exception) {
+            false
+        }
+        if (!stillDirectElsewhere) {
+            try { graphService.removeDirectEdge(myPeerID, peerID) } catch (_: Exception) { }
+        }
+    }
+
+    private fun removePeerIfAbsentElsewhere(
+        transportId: String,
+        peerID: String,
+        graphService: MeshGraphService
+    ) {
+        val stillActiveElsewhere = try {
+            AppStateStore.hasPeerOnOtherTransport(transportId, peerID)
+        } catch (_: Exception) {
+            false
+        }
+        if (!stillActiveElsewhere) {
+            try { graphService.removePeer(peerID) } catch (_: Exception) { }
         }
     }
 }

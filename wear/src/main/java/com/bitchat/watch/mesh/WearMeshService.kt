@@ -163,12 +163,13 @@ class WearMeshService private constructor(private val context: Context) {
             val remainingDirect = connectionManager.addressPeerMap.values.toSet()
             if (removedPeerID !in remainingDirect) {
                 meshCore.setDirectConnection(removedPeerID, false)
-                if (remainingDirect.isNotEmpty() && isActive) {
-                    serviceScope.launch {
-                        delay(500)
-                        if (isActive) meshCore.sendBroadcastAnnounce()
-                    }
-                }
+                MeshGraphTransportCleanup.scheduleTopologyChangeAnnounce(
+                    scope = serviceScope,
+                    removedPeerID = removedPeerID,
+                    remainingLocalDirectPeers = remainingDirect,
+                    isServiceActive = { this@WearMeshService.isActive },
+                    sendAnnounce = { meshCore.sendBroadcastAnnounce() }
+                )
             }
         }
         connectionManager.delegate = object : BluetoothConnectionManagerDelegate {
