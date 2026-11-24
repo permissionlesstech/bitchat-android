@@ -1053,12 +1053,17 @@ class NostrRelayManager internal constructor(
                 }
 
                 is NostrResponse.Closed -> {
-                    subscriptions.computeIfPresent(relayUrl) { _, set -> set - response.subscriptionId }
-                    Log.w(TAG, "Subscription ${response.subscriptionId} closed by $relayUrl: ${response.message}")
+                    val isTerminalRejection =
+                        response.message.startsWith("auth-required:", ignoreCase = true) ||
+                            response.message.startsWith("restricted:", ignoreCase = true)
+                    if (!isTerminalRejection) {
+                        subscriptions.computeIfPresent(relayUrl) { _, set -> set - response.subscriptionId }
+                    }
+                    Log.w(TAG, "Relay closed subscription: ${response.message.ifBlank { "no reason" }}")
                 }
 
                 is NostrResponse.Auth -> {
-                    Log.w(TAG, "Relay $relayUrl requested NIP-42 AUTH (unsupported)")
+                    Log.w(TAG, "Relay requested NIP-42 AUTH (unsupported)")
                 }
 
                 is NostrResponse.Unknown -> {
