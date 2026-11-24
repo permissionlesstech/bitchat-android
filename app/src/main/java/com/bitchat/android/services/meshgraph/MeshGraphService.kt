@@ -37,6 +37,9 @@ class MeshGraphService internal constructor(
     private val announcements = ConcurrentHashMap<String, Set<String>>()
     // Latest announcement timestamp per peer (ULong from packet)
     private val lastUpdate = ConcurrentHashMap<String, ULong>()
+    // Latest wire-reported neighbor set per peer, untouched by local disconnect pruning so a
+    // subsequent ANNOUNCE reflecting a lost neighbor is still classified as topologyChanged = true.
+    private val reportedAnnouncements = ConcurrentHashMap<String, Set<String>>()
     // Local monotonic receipt time (ms) when each peer's latest accepted announcement arrived
     private val lastReceivedAtMs = ConcurrentHashMap<String, Long>()
 
@@ -76,8 +79,9 @@ class MeshGraphService internal constructor(
 
             // Filter out self-loops just in case
             val newSet = neighbors.distinct().take(10).filter { it != originPeerID }.toSet()
-            val prevSet = announcements[originPeerID]
-            val topologyChanged = prevSet == null || prevSet != newSet
+            val prevReported = reportedAnnouncements[originPeerID]
+            val topologyChanged = prevReported == null || prevReported != newSet
+            reportedAnnouncements[originPeerID] = newSet
             announcements[originPeerID] = newSet
 
             publishSnapshot()
@@ -206,6 +210,7 @@ class MeshGraphService internal constructor(
         synchronized(this) {
             nicknames.remove(peerID)
             announcements.remove(peerID)
+            reportedAnnouncements.remove(peerID)
             lastUpdate.remove(peerID)
             lastReceivedAtMs.remove(peerID)
             announcements.keys.toList().forEach { originPeerID ->

@@ -14,6 +14,7 @@ import org.junit.Test
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class BluetoothConnectionTrackerLinkObservationTest {
     private val scope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
     private val tracker = BluetoothConnectionTracker(scope, mock())

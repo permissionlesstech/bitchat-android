@@ -38,7 +38,11 @@ internal class WifiAwarePacketBroadcaster(
         } else {
             null
         }
+        val bridgedOrigin = routed.bridgedIngressOrigin
+        val bridgedIngressStale = bridgedOrigin != null &&
+            !com.bitchat.android.service.TransportBridgeService.isBridgedIngressCurrent(bridgedOrigin)
         val resolvedPreviousHopPeerID = when {
+            bridgedIngressStale -> null
             hasLinkGeneration -> {
                 val relayAddr = routed.relayAddress?.takeIf { it.isNotBlank() }
                 if (relayAddr != null && ingressSocket != null) {

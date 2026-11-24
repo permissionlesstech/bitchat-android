@@ -198,6 +198,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         connectionManager.sendPacketToPeer(peerID, packet)
     }
 
+    override fun isIngressLinkCurrent(relayAddress: String, ingressLinkID: String): Boolean {
+        return connectionManager.getPeerForLinkIfCurrent(relayAddress, ingressLinkID) != null
+    }
+
     private fun broadcastRoutedPacket(routed: RoutedPacket): Boolean {
         if (!isBleTransportEnabled()) return false
         val queued = connectionManager.broadcastPacket(routed)

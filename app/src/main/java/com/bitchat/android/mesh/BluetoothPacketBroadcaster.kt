@@ -230,6 +230,22 @@ class BluetoothPacketBroadcaster(
         notifyDevice(serverTarget, data, gattServer, characteristic)
     }
 
+    private fun resolveIncomingPeer(routed: RoutedPacket): String? {
+        val bridgedOrigin = routed.bridgedIngressOrigin
+        if (bridgedOrigin != null &&
+            !com.bitchat.android.service.TransportBridgeService.isBridgedIngressCurrent(bridgedOrigin)
+        ) {
+            return null
+        }
+        val incomingAddr = routed.relayAddress
+        return when {
+            incomingAddr != null && routed.ingressLinkID != null ->
+                connectionTracker.getPeerForLinkIfCurrent(incomingAddr, routed.ingressLinkID)
+            else -> routed.previousHopPeerID
+                ?: incomingAddr?.let { connectionTracker.addressPeerMap[it] }
+        }
+    }
+
     private fun sendSinglePacketToPeer(
         routed: RoutedPacket,
         targetPeerID: String,
@@ -243,12 +259,7 @@ class BluetoothPacketBroadcaster(
         val typeName = MessageType.fromValue(packet.type)?.name ?: packet.type.toString()
         val senderPeerID = routed.peerID ?: packet.senderID.toHexString()
         val incomingAddr = routed.relayAddress
-        val incomingPeer = when {
-            incomingAddr != null && routed.ingressLinkID != null ->
-                connectionTracker.getPeerForLinkIfCurrent(incomingAddr, routed.ingressLinkID)
-            else -> routed.previousHopPeerID
-                ?: incomingAddr?.let { connectionTracker.addressPeerMap[it] }
-        }
+        val incomingPeer = resolveIncomingPeer(routed)
         val senderNick = senderPeerID.let { pid -> nicknameResolver?.invoke(pid) }
         val route = packet.route
         val routeInfo = if (!route.isNullOrEmpty()) "routed: ${route.size} hops" else null
@@ -360,12 +371,7 @@ class BluetoothPacketBroadcaster(
         val typeName = MessageType.fromValue(packet.type)?.name ?: packet.type.toString()
         val senderPeerID = routed.peerID ?: packet.senderID.toHexString()
         val incomingAddr = routed.relayAddress
-        val incomingPeer = when {
-            incomingAddr != null && routed.ingressLinkID != null ->
-                connectionTracker.getPeerForLinkIfCurrent(incomingAddr, routed.ingressLinkID)
-            else -> routed.previousHopPeerID
-                ?: incomingAddr?.let { connectionTracker.addressPeerMap[it] }
-        }
+        val incomingPeer = resolveIncomingPeer(routed)
         val senderNick = senderPeerID.let { pid -> nicknameResolver?.invoke(pid) }
         val route = packet.route
         val routeInfo = if (!route.isNullOrEmpty()) "routed: ${route.size} hops" else null

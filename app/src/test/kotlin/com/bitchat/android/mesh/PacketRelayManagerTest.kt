@@ -41,7 +41,7 @@ class PacketRelayManagerTest {
         packetRelayManager = PacketRelayManager(myPeerID)
         packetRelayManager.delegate = delegate
         whenever(delegate.getNetworkSize()).thenReturn(10)
-        whenever(delegate.getBroadcastRecipient()).thenReturn(byteArrayOf(0, 0, 0, 0, 0, 0, 0, 0))
+        whenever(delegate.getBroadcastRecipient()).thenAnswer { SpecialRecipients.BROADCAST.copyOf() }
         whenever(delegate.getDirectConnectedPeers()).thenReturn(emptySet())
         whenever(delegate.hasUnidentifiedDirectLink()).thenReturn(false)
     }
@@ -205,7 +205,7 @@ class PacketRelayManagerTest {
         )
         val thirdDelegate: PacketRelayManagerDelegate = mock()
         whenever(thirdDelegate.getNetworkSize()).thenReturn(10)
-        whenever(thirdDelegate.getBroadcastRecipient()).thenReturn(SpecialRecipients.BROADCAST)
+        whenever(thirdDelegate.getBroadcastRecipient()).thenAnswer { SpecialRecipients.BROADCAST.copyOf() }
         whenever(thirdDelegate.getDirectConnectedPeers()).thenReturn(setOf(prevHop, farPeer))
         val thirdBridgeRelay = PacketRelayManager(me).apply { delegate = thirdDelegate }
 
@@ -280,11 +280,11 @@ class PacketRelayManagerTest {
         // 5. Unchanged periodic ANNOUNCE for already-fresh peer is MPR-suppressed in the clique
         val quietDelegate: PacketRelayManagerDelegate = mock()
         whenever(quietDelegate.getNetworkSize()).thenReturn(10)
-        whenever(quietDelegate.getBroadcastRecipient()).thenReturn(SpecialRecipients.BROADCAST)
+        whenever(quietDelegate.getBroadcastRecipient()).thenAnswer { SpecialRecipients.BROADCAST.copyOf() }
         whenever(quietDelegate.getDirectConnectedPeers()).thenReturn(setOf(prevHop, peerB, peerC))
         relay.delegate = quietDelegate
         relay.handlePacketRelay(
-            RoutedPacket(announce, prevHop, "link-p", previousHopPeerID = prevHop),
+            RoutedPacket(announce.copy(timestamp = 2_000UL), prevHop, "link-p", previousHopPeerID = prevHop),
             forceConservativeRelay = false
         )
         verify(quietDelegate, never()).broadcastPacket(any())

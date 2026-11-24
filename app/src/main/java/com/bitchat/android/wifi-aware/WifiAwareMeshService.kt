@@ -270,6 +270,10 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         sendPacketToPeer(peerID, packet)
     }
 
+    override fun isIngressLinkCurrent(relayAddress: String, ingressLinkID: String): Boolean {
+        return wifiTransport.resolvePeerIDForLink(relayAddress, ingressLinkID) != null
+    }
+
     /**
      * Broadcasts routed packet to currently connected peers.
      */

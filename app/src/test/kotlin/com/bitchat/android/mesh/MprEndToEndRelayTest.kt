@@ -343,6 +343,27 @@ class MprEndToEndRelayTest {
                 security.validateAuthenticatedDuplicate(unsignedFragment, originId)
             )
 
+            // 1b. Non-null forged signature on FRAGMENT must be rejected fail-closed on first ingress,
+            // while a validly signed FRAGMENT is accepted on both first ingress and duplicate validation.
+            val baseSignedFragment = unsignedFragment.copy(timestamp = (wallMs + 1L).toULong())
+            val forgedFragment = baseSignedFragment.copy(signature = ByteArray(64) { 0xFF.toByte() })
+            org.junit.Assert.assertFalse(
+                "Forged non-null signature on FRAGMENT must fail closed on first ingress",
+                security.validatePacket(forgedFragment, originId)
+            )
+            val validSignedFragment = baseSignedFragment.copy(
+                timestamp = (wallMs + 2L).toULong(),
+                signature = sign(
+                    baseSignedFragment.copy(timestamp = (wallMs + 2L).toULong()).toBinaryDataForSigning()!!,
+                    signingKey
+                )
+            )
+            assertTrue("Validly signed FRAGMENT must pass first ingress", security.validatePacket(validSignedFragment, originId))
+            assertTrue(
+                "Validly signed FRAGMENT must pass duplicate relay validation",
+                security.validateAuthenticatedDuplicate(validSignedFragment, originId)
+            )
+
             // 2. Signed MESSAGE duplicate passes up to MESSAGE_TIMEOUT and fails deterministically at +1 ms
             val unsignedMsg = BitchatPacket(
                 version = 1u,
@@ -446,10 +467,41 @@ class MprEndToEndRelayTest {
             override fun onVerifyResponseReceived(peerID: String, payload: ByteArray, timestampMs: Long) = Unit
         }
 
+        val encryption: EncryptionService = mock<EncryptionService>().apply {
+            whenever(verifyEd25519Signature(any(), any(), any())).thenAnswer { inv ->
+                inv.getArgument<ByteArray>(0).contentEquals(
+                    sign(inv.getArgument(1), inv.getArgument(2))
+                )
+            }
+        }
+        val securityManager = SecurityManager(encryption, me, clockMs = { relayClock }).apply {
+            delegate = object : SecurityManagerDelegate {
+                override fun onKeyExchangeCompleted(
+                    peerID: String,
+                    authenticatedRemoteStaticKey: ByteArray,
+                    authenticatedSessionToken: ByteArray,
+                    directRelayAddress: String?,
+                    ingressLinkID: String?
+                ) = Unit
+                override fun sendHandshakeResponse(peerID: String, response: ByteArray) = Unit
+                override fun getPeerInfo(peerID: String): PeerInfo? = PeerInfo(
+                    id = prevHop,
+                    nickname = "P",
+                    isConnected = true,
+                    isDirectConnection = true,
+                    noisePublicKey = prevHopNoiseKey.copyOf(),
+                    signingPublicKey = prevHopSigningKey.copyOf(),
+                    isVerifiedNickname = true,
+                    lastSeen = relayClock
+                )
+            }
+        }
+
         val relayed = mutableListOf<RoutedPacket>()
         val processor = PacketProcessor(me, dispatcher = dispatcher, relayClockMs = { relayClock })
         processor.delegate = object : PacketProcessorDelegate {
-            override fun validatePacketSecurity(packet: BitchatPacket, peerID: String) = true
+            override fun validatePacketSecurity(packet: BitchatPacket, peerID: String) =
+                securityManager.validatePacket(packet, peerID)
             override fun updatePeerLastSeen(peerID: String) = Unit
             override fun getPeerNickname(peerID: String): String? = peerID
             override fun getNetworkSize() = 10
@@ -494,6 +546,7 @@ class MprEndToEndRelayTest {
             assertTrue("Stale recovery ANNOUNCE must disable neighbor pruning", relayed.single().skipNeighborPruning)
         } finally {
             processor.shutdown()
+            securityManager.shutdown()
             messageHandler.shutdown()
         }
     }

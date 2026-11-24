@@ -221,4 +221,25 @@ class MeshGraphServiceTest {
         assertTrue(service.isFreshConfirmedNeighbor("PeerA", "PeerC", 60_000L))
         assertTrue(service.isFreshConfirmedNeighbor("PeerB", "PeerC", 60_000L))
     }
+
+    @Test
+    fun removeDirectEdge_DoesNotMaskSubsequentAnnounceTopologyChange() {
+        assertTrue(service.updateFromAnnouncement("PeerP", "PeerP", listOf("PeerM", "PeerR"), 100UL))
+        assertTrue(service.updateFromAnnouncement("PeerM", "PeerM", listOf("PeerP", "PeerR"), 100UL))
+
+        // Local disconnect pruning removes PeerP <-> PeerM from the active edge view
+        service.removeDirectEdge("PeerM", "PeerP")
+        assertFalse(service.isConfirmedNeighbor("PeerM", "PeerP"))
+
+        // When PeerP later announces [PeerR] (dropping PeerM), topologyChanged MUST still be true
+        // so the relay floods PeerP's disconnect notification to downstream peers.
+        assertTrue(
+            "Announce dropping a locally pruned neighbor must still report topologyChanged=true",
+            service.updateFromAnnouncement("PeerP", "PeerP", listOf("PeerR"), 200UL)
+        )
+        assertFalse(
+            "Subsequent unchanged announce after the drop must report topologyChanged=false",
+            service.updateFromAnnouncement("PeerP", "PeerP", listOf("PeerR"), 300UL)
+        )
+    }
 }

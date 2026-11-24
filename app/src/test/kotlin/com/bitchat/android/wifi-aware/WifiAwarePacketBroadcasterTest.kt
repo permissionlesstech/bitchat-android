@@ -212,6 +212,61 @@ class WifiAwarePacketBroadcasterTest {
         assertTrue("Verified origin neighbor must receive relay when replaced ingress falls back", originNeighborOut.size() > 0)
     }
 
+    @Test
+    fun `bridged BLE ingress disables neighbor pruning on Wi-Fi Aware egress when source BLE link was replaced`() {
+        seedConfirmedEdges(
+            originPeerID to originNeighborPeerID,
+            prevHopPeerID to prevHopNeighborPeerID,
+            myPeerID to prevHopPeerID
+        )
+        val prevHopOut = connectPeer(prevHopPeerID)
+        val prevHopNeighborOut = connectPeer(prevHopNeighborPeerID)
+        val originNeighborOut = connectPeer(originNeighborPeerID)
+
+        val bleRouted = RoutedPacket(
+            packet = broadcastPacket(MessageType.MESSAGE, originPeerID).copy(timestamp = 11_001UL),
+            peerID = originPeerID,
+            relayAddress = "AA:BB:CC:DD:EE:41",
+            ingressLinkID = "ble-link-gen-1",
+            previousHopPeerID = prevHopPeerID,
+            skipNeighborPruning = false
+        )
+
+        var sourceLinkCurrent = true
+        var bridgedToWifi: RoutedPacket? = null
+        val sourceTransportId = "BLE-TEST-WIFI-BRIDGE"
+        val targetTransportId = "WIFI-TEST-WIFI-BRIDGE"
+        com.bitchat.android.service.TransportBridgeService.register(
+            sourceTransportId,
+            object : com.bitchat.android.service.TransportBridgeService.TransportLayer {
+                override fun send(packet: RoutedPacket) = Unit
+                override fun isIngressLinkCurrent(relayAddress: String, ingressLinkID: String): Boolean =
+                    sourceLinkCurrent && relayAddress == "AA:BB:CC:DD:EE:41" && ingressLinkID == "ble-link-gen-1"
+            }
+        )
+        com.bitchat.android.service.TransportBridgeService.register(
+            targetTransportId,
+            object : com.bitchat.android.service.TransportBridgeService.TransportLayer {
+                override fun send(packet: RoutedPacket) {
+                    bridgedToWifi = packet
+                }
+            }
+        )
+        try {
+            com.bitchat.android.service.TransportBridgeService.broadcast(sourceTransportId, bleRouted)
+            // Source BLE link is replaced before Wi-Fi Aware egress executes
+            sourceLinkCurrent = false
+            assertTrue(broadcaster.broadcastSinglePacket(bridgedToWifi!!))
+        } finally {
+            com.bitchat.android.service.TransportBridgeService.unregister(targetTransportId)
+            com.bitchat.android.service.TransportBridgeService.unregister(sourceTransportId)
+        }
+
+        assertTrue("Stale bridged BLE ingress must not skip prevHop over Wi-Fi Aware", prevHopOut.size() > 0)
+        assertTrue("Stale bridged BLE ingress must not prune prevHop neighbor", prevHopNeighborOut.size() > 0)
+        assertTrue("Stale bridged BLE ingress must not prune origin neighbor", originNeighborOut.size() > 0)
+    }
+
     private fun connectPeer(peerID: String): ByteArrayOutputStream {
         val out = ByteArrayOutputStream()
         val sock = syncedSocket(out)

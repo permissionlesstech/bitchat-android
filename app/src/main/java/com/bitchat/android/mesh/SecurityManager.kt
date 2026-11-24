@@ -303,6 +303,16 @@ class SecurityManager(
             // signing key learned from a verified announcement. LEAVE is included so an attacker
             // cannot evict a claimed peer or amplify a forged departure through relay.
             val messageType = MessageType.fromValue(packet.type)
+            if (messageType == MessageType.FRAGMENT) {
+                // Legacy/current fragments are unsigned (signature == null) and remain accepted
+                // on first ingress; any non-null signature must verify fail-closed so forged
+                // signatures can never enter the signed-fragment MPR policy.
+                return if (packet.signature == null) {
+                    true
+                } else {
+                    verifyCryptographicSignatureStrict(packet, peerID, messageType)
+                }
+            }
             if (messageType !in SIGNED_PACKET_TYPES) {
                 return true
             }
@@ -325,7 +335,11 @@ class SecurityManager(
     ): Boolean {
         try {
             if (messageType == MessageType.ANNOUNCE) {
-                val announcement = AnnouncementIdentityValidator.verify(packet, peerID) { signature, data, key ->
+                val announcement = AnnouncementIdentityValidator.verify(
+                    packet = packet,
+                    claimedPeerID = peerID,
+                    nowMs = clockMs()
+                ) { signature, data, key ->
                     encryptionService.verifyEd25519Signature(signature, data, key)
                 } ?: run {
                     Log.w(TAG, "Rejecting malformed, unbound, or invalidly signed ANNOUNCE from $peerID")
