@@ -432,6 +432,9 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         TransportBridgeService.register("WIFI", this)
 
         meshCore.startCore()
+        com.bitchat.android.service.MeshServiceHolder.registerLivenessProbe("WIFI") { peerID ->
+            meshCore.getPeerInfo(peerID) != null
+        }
         com.bitchat.android.service.MeshServiceHolder.startSharedGossip("WIFI")
         startPeriodicConnectionMaintenance(generation)
         connectionTracker.start()
@@ -581,6 +584,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         // Unregister from bridge
         TransportBridgeService.unregister("WIFI")
         com.bitchat.android.service.MeshServiceHolder.stopSharedGossip("WIFI")
+        com.bitchat.android.service.MeshServiceHolder.unregisterLivenessProbe("WIFI")
         try { com.bitchat.android.services.AppStateStore.clearTransportPeers("WIFI") } catch (_: Exception) { }
         try { com.bitchat.android.services.AppStateStore.clearTransportDirectPeers("WIFI") } catch (_: Exception) { }
 
@@ -643,6 +647,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         com.bitchat.android.wifiaware.WifiAwareController.onServiceInterrupted(this)
         TransportBridgeService.unregister("WIFI")
         com.bitchat.android.service.MeshServiceHolder.stopSharedGossip("WIFI")
+        com.bitchat.android.service.MeshServiceHolder.unregisterLivenessProbe("WIFI")
         try { com.bitchat.android.services.AppStateStore.clearTransportPeers("WIFI") } catch (_: Exception) { }
         try { com.bitchat.android.services.AppStateStore.clearTransportDirectPeers("WIFI") } catch (_: Exception) { }
         val oldPublishSession = publishSession
