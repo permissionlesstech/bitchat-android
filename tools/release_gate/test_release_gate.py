@@ -1,3 +1,4 @@
+import argparse
 import json
 import subprocess
 import tempfile
@@ -6,7 +7,7 @@ import zipfile
 from pathlib import Path
 from unittest import mock
 
-from tools.release_gate import android_lab
+from tools.release_gate import android_lab, ble_trace, mesh_lab
 from tools.release_gate.release_gate import (
     GateError,
     append_trace_event,
@@ -202,6 +203,31 @@ class ReleaseGateTest(unittest.TestCase):
                     for item in recorded["scenario_results"]["A2A-001"]["history"]
                 ],
             )
+
+    def test_mesh_lab_defaults_every_phone_command_to_the_debug_package(self):
+        parser = mesh_lab.build_parser()
+        setup = parser.parse_args(["setup", "--serial-a", "phone-a", "--serial-b", "phone-b"])
+        scenario = parser.parse_args(["scenario", "dm", "--serial-a", "phone-a", "--serial-b", "phone-b"])
+        command = parser.parse_args(["cmd", "--serial", "phone-a", "scan"])
+
+        self.assertEqual(mesh_lab.DEBUG_APPLICATION_ID, setup.package)
+        self.assertEqual(mesh_lab.DEBUG_APPLICATION_ID, scenario.package)
+        self.assertEqual(mesh_lab.DEBUG_APPLICATION_ID, command.package)
+        devices = mesh_lab._resolve_devices(scenario)
+        self.assertEqual(mesh_lab.DEBUG_APPLICATION_ID, devices[0].package)
+        self.assertEqual(mesh_lab.DEBUG_APPLICATION_ID, devices[1].package)
+
+    def test_ble_trace_disarm_targets_absolute_app_private_files_path(self):
+        package = "com.bitchat.droid.r40blefix"
+        args = argparse.Namespace(command="disarm", serial="phone-a", package=package)
+
+        with mock.patch.object(ble_trace, "adb", return_value="") as adb_mock:
+            self.assertEqual({"status": "disarmed"}, ble_trace.disarm(args))
+
+        adb_mock.assert_called_once_with(
+            "phone-a", "shell", "run-as", package, "rm", "-f",
+            f"/data/data/{package}/files/{ble_trace.CONFIG_NAME}",
+        )
 
     def test_complete_run_requires_all_evidence_traces_and_endurance_bounds(self):
         with tempfile.TemporaryDirectory() as temporary:

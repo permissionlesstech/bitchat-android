@@ -94,6 +94,36 @@ class BluetoothGattClientManager(
     private var scanRetryCount = 0
     private var scanWatchdogJob: Job? = null
     private var scanDutyCycleJob: Job? = null
+    private var traceScanWindowStartMs = 0L
+    private var traceScanWindowCount = 0
+
+    private fun traceMatchingAdvertisement() {
+        val now = android.os.SystemClock.elapsedRealtime()
+        traceScanWindowCount += 1
+        if (traceScanWindowStartMs == 0L) {
+            traceScanWindowStartMs = now
+            BleTestTrace.record(
+                context,
+                "ble_scan",
+                "first_matching_advertisement",
+                "observed",
+                count = traceScanWindowCount
+            )
+            traceScanWindowCount = 0
+        }
+        if (now - traceScanWindowStartMs >= 5_000L) {
+            BleTestTrace.record(
+                context,
+                "ble_scan",
+                "matching_advertisements",
+                "observed",
+                count = traceScanWindowCount,
+                durationMs = now - traceScanWindowStartMs
+            )
+            traceScanWindowStartMs = now
+            traceScanWindowCount = 0
+        }
+    }
     
     // State management
     private var isActive = false
@@ -218,16 +248,19 @@ class BluetoothGattClientManager(
         // could never stop or recognize a scan registered under the previous one.
         scanCallback = scanCallback ?: object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
+                traceMatchingAdvertisement()
                 handleScanResult(result)
             }
 
             override fun onBatchScanResults(results: MutableList<ScanResult>) {
                 results.forEach { result ->
+                    traceMatchingAdvertisement()
                     handleScanResult(result)
                 }
             }
 
             override fun onScanFailed(errorCode: Int) {
+                BleTestTrace.record(context, "ble_scan", "callback", "failed", code = errorCode)
                 isCurrentlyScanning = false
                 lastScanStopTime = System.currentTimeMillis()
                 // The stack keeps a registration that fails after startScan; release it regardless
@@ -271,8 +304,10 @@ class BluetoothGattClientManager(
             
             bleScanner.startScan(scanFilters, powerManager.getScanSettings(), scanCallback)
             Log.i(TAG, "BLE scan started")
+            BleTestTrace.record(context, "ble_scan", "start_call", "returned")
         } catch (e: Exception) {
             Log.e(TAG, "Exception starting scan: ${e.message}")
+            BleTestTrace.record(context, "ble_scan", "start_call", "exception")
             isCurrentlyScanning = false
         }
     }
@@ -289,6 +324,7 @@ class BluetoothGattClientManager(
                 scanCallback?.let {
                     bleScanner.stopScan(it)
                     Log.i(TAG, "BLE scan stopped")
+                    BleTestTrace.record(context, "ble_scan", "stop_call", "returned")
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Error stopping scan: ${e.message}")
@@ -307,6 +343,14 @@ class BluetoothGattClientManager(
     private fun scheduleScanRestart(reason: String, baseDelayMs: Long) {
         scanRetryCount++
         val delayMs = (baseDelayMs * scanRetryCount).coerceAtMost(SCAN_MAX_RETRY_DELAY_MS)
+        BleTestTrace.record(
+            context,
+            "ble_scan",
+            "restart_scheduled",
+            "pending",
+            count = scanRetryCount,
+            durationMs = delayMs
+        )
         Log.w(TAG, "Scheduling scan restart in ${delayMs}ms (attempt $scanRetryCount, reason=$reason)")
         connectionScope.launch {
             delay(delayMs)
@@ -472,6 +516,21 @@ class BluetoothGattClientManager(
 
         val gattCallback = object : BluetoothGattCallback() {
             override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+                val stateName = when (newState) {
+                    BluetoothProfile.STATE_CONNECTED -> "connected"
+                    BluetoothProfile.STATE_CONNECTING -> "connecting"
+                    BluetoothProfile.STATE_DISCONNECTED -> "disconnected"
+                    BluetoothProfile.STATE_DISCONNECTING -> "disconnecting"
+                    else -> "other"
+                }
+                BleTestTrace.record(
+                    context,
+                    "gatt_client",
+                    "connection_state",
+                    stateName,
+                    code = status,
+                    count = newState
+                )
                 if (newState == BluetoothProfile.STATE_CONNECTED && status == BluetoothGatt.GATT_SUCCESS) {
                     // Request a larger MTU. Must be done before any data transfer.
                     connectionScope.launch {
@@ -504,6 +563,14 @@ class BluetoothGattClientManager(
             
             override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
                 val deviceAddress = gatt.device.address
+                BleTestTrace.record(
+                    context,
+                    "gatt_client",
+                    "mtu",
+                    if (status == BluetoothGatt.GATT_SUCCESS) "ok" else "failed",
+                    code = status,
+                    count = mtu
+                )
 
                 if (status == BluetoothGatt.GATT_SUCCESS) {
                     // Now that MTU is set, connection is fully ready.
@@ -527,6 +594,13 @@ class BluetoothGattClientManager(
             }
 
             override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {                
+                BleTestTrace.record(
+                    context,
+                    "gatt_client",
+                    "service_discovery",
+                    if (status == BluetoothGatt.GATT_SUCCESS) "ok" else "failed",
+                    code = status
+                )
                 if (status == BluetoothGatt.GATT_SUCCESS) {
                     val service = gatt.getService(AppConstants.Mesh.Gatt.SERVICE_UUID)
                     if (service != null) {
@@ -543,6 +617,7 @@ class BluetoothGattClientManager(
                             gatt.setCharacteristicNotification(characteristic, true)
                             val descriptor = characteristic.getDescriptor(AppConstants.Mesh.Gatt.DESCRIPTOR_UUID)
                             if (descriptor != null) {
+                                BleTestTrace.record(context, "gatt_client", "notifications", "subscribe_requested")
                                 descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
                                 gatt.writeDescriptor(descriptor)
                                 
@@ -553,14 +628,17 @@ class BluetoothGattClientManager(
                                 }
                             } else {
                                 Log.e(TAG, "Client: CCCD descriptor not found for $deviceAddress")
+                                BleTestTrace.record(context, "gatt_client", "notifications", "descriptor_missing")
                                 gatt.disconnect()
                             }
                         } else {
                             Log.e(TAG, "Client: Required characteristic not found for $deviceAddress")
+                            BleTestTrace.record(context, "gatt_client", "service_discovery", "characteristic_missing")
                             gatt.disconnect()
                         }
                     } else {
                         Log.e(TAG, "Client: Required service not found for $deviceAddress")
+                        BleTestTrace.record(context, "gatt_client", "service_discovery", "service_missing")
                         gatt.disconnect()
                     }
                 } else {
@@ -573,10 +651,35 @@ class BluetoothGattClientManager(
                 val value = characteristic.value
                 val packet = BitchatPacket.fromBinaryData(value)
                 if (packet != null) {
+                    BleTestTrace.record(
+                        context,
+                        "gatt_client",
+                        "notification_frame",
+                        "parsed",
+                        count = packet.type.toInt(),
+                        bytes = value.size.toLong()
+                    )
                     val peerID = packet.senderID.take(8).toByteArray().joinToString("") { "%02x".format(it) }
                     delegate?.onPacketReceived(packet, peerID, gatt.device, linkID)
                 } else {
+                    BleTestTrace.record(context, "gatt_client", "notification_frame", "parse_failed", bytes = value.size.toLong())
                     Log.d(TAG, "Failed to parse packet from ${gatt.device.address}, size: ${value.size} bytes")
+                }
+            }
+
+            override fun onDescriptorWrite(
+                gatt: BluetoothGatt,
+                descriptor: BluetoothGattDescriptor,
+                status: Int
+            ) {
+                if (descriptor.uuid == AppConstants.Mesh.Gatt.DESCRIPTOR_UUID) {
+                    BleTestTrace.record(
+                        context,
+                        "gatt_client",
+                        "notifications",
+                        if (status == BluetoothGatt.GATT_SUCCESS) "enabled" else "enable_failed",
+                        code = status
+                    )
                 }
             }
 
@@ -586,6 +689,14 @@ class BluetoothGattClientManager(
                 status: Int
             ) {
                 if (characteristic.uuid == AppConstants.Mesh.Gatt.CHARACTERISTIC_UUID) {
+                    BleTestTrace.record(
+                        context,
+                        "gatt_client",
+                        "characteristic_write",
+                        if (status == BluetoothGatt.GATT_SUCCESS) "ok" else "failed",
+                        code = status,
+                        bytes = characteristic.value?.size?.toLong()
+                    )
                     delegate?.onGattClientWriteComplete(gatt.device.address, linkID, status)
                 }
             }

@@ -43,6 +43,12 @@ android {
             "GITHUB_RELEASE_CERT_SHA256",
             "\"$normalizedGithubReleaseCertSha256\""
         )
+        buildConfigField(
+            "String",
+            "FORCE_FINISH_PERMISSION",
+            "\"com.bitchat.android.permission.FORCE_FINISH\""
+        )
+        manifestPlaceholders["forceFinishPermission"] = "com.bitchat.android.permission.FORCE_FINISH"
 
         testInstrumentationRunner = if (composerUiTests) {
             "com.bitchat.android.ui.ComposerPanicTestRunner"
@@ -69,7 +75,16 @@ android {
 
     buildTypes {
         debug {
-            if (composerUiTests) applicationIdSuffix = ".composerTest"
+            // Keep diagnostic and UI-test APKs isolated from the official app and each other.
+            val debugPackageSuffix = if (composerUiTests) ".composerTest" else ".r40blefix"
+            val debugForceFinishPermission = "com.bitchat.droid$debugPackageSuffix.permission.FORCE_FINISH"
+            applicationIdSuffix = debugPackageSuffix
+            buildConfigField(
+                "String",
+                "FORCE_FINISH_PERMISSION",
+                "\"$debugForceFinishPermission\""
+            )
+            manifestPlaceholders["forceFinishPermission"] = debugForceFinishPermission
             ndk {
                 // Include x86_64 for emulator support during development
                 abiFilters += listOf("arm64-v8a", "x86_64", "armeabi-v7a", "x86")
