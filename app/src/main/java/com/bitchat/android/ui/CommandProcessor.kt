@@ -46,7 +46,7 @@ class CommandProcessor(
             "/w" -> handleWhoCommand(meshService, viewModel)
             "/clear" -> handleClearCommand()
             "/pass" -> handlePassCommand(parts, myPeerID)
-            "/block" -> handleBlockCommand(parts, meshService)
+            "/block", "/ban" -> handleBlockCommand(parts, meshService, viewModel)
             "/unblock" -> handleUnblockCommand(parts, meshService)
             "/hug" -> handleActionCommand(parts, "gives", "a warm hug 🫂", meshService, myPeerID, onSendMessage, viewModel)
             "/slap" -> handleActionCommand(parts, "slaps", "around a bit with a large trout 🐟", meshService, myPeerID, onSendMessage, viewModel)
@@ -259,10 +259,14 @@ class CommandProcessor(
         }
     }
     
-    private fun handleBlockCommand(parts: List<String>, meshService: MeshService) {
+    private fun handleBlockCommand(parts: List<String>, meshService: MeshService, viewModel: ChatViewModel? = null) {
         if (parts.size > 1) {
             val targetName = parts[1].removePrefix("@")
-            privateChatManager.blockPeerByNickname(targetName, meshService)
+            if (state.selectedLocationChannel.value is com.bitchat.android.geohash.ChannelID.Location && viewModel != null) {
+                viewModel.blockUserInGeohash(targetName)
+            } else {
+                privateChatManager.blockPeerByNickname(targetName, meshService)
+            }
         } else {
             // List blocked users
             val blockedInfo = privateChatManager.listBlockedUsers()
