@@ -1052,6 +1052,15 @@ class NostrRelayManager internal constructor(
                     // No action needed
                 }
 
+                is NostrResponse.Closed -> {
+                    subscriptions.computeIfPresent(relayUrl) { _, set -> set - response.subscriptionId }
+                    Log.w(TAG, "Subscription ${response.subscriptionId} closed by $relayUrl: ${response.message}")
+                }
+
+                is NostrResponse.Auth -> {
+                    Log.w(TAG, "Relay $relayUrl requested NIP-42 AUTH (unsupported)")
+                }
+
                 is NostrResponse.Unknown -> {
                     // No action needed
                 }
