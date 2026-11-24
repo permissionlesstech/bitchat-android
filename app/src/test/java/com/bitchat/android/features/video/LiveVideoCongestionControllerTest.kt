@@ -52,4 +52,25 @@ class LiveVideoCongestionControllerTest {
         }
         assertEquals(6_000, controller.bitrate)
     }
+
+    @Test
+    fun congestionShedsParityAndFpsThenRestoresOnRecovery() {
+        val controller = LiveVideoCongestionController(maxBitrate = 60_000)
+        val first = controller.onBacklog(20, 0)
+        assertEquals(0.5, first.parityScale, 0.001)
+        assertEquals(0.75, first.fpsScale, 0.001)
+
+        val second = controller.onBacklog(20, 1_000)
+        assertEquals(0.0, second.parityScale, 0.001)
+        assertEquals(0.5, second.fpsScale, 0.001)
+
+        var now = 2_000L
+        controller.onBacklog(0, now)
+        repeat(6) {
+            now += 1_000L
+            controller.onBacklog(0, now)
+        }
+        assertEquals(1.0, controller.parityScale, 0.001)
+        assertEquals(1.0, controller.fpsScale, 0.001)
+    }
 }

@@ -16,14 +16,27 @@ data class LiveVideoFecPolicy(
     val keyframeParityRatio: Double,
     val maxSourceShards: Int = 12,
     val shardFlushMs: Long = 150L,
-    val blockWindowMs: Long = 400L
+    val blockWindowMs: Long = 400L,
+    /**
+     * Number of concurrent FEC blocks striped round-robin across consecutive shards.
+     * Depth 3 spreads a 6-packet consecutive burst loss into at most 2 erasures per block,
+     * with zero wire-format changes and zero added latency on lossless links.
+     */
+    val interleaveDepth: Int = 1
 ) {
-    fun parityCount(sourceCount: Int, containsKeyframe: Boolean): Int {
-        val ratio = if (containsKeyframe) keyframeParityRatio else parityRatio
+    fun parityCount(sourceCount: Int, containsKeyframe: Boolean, scale: Double = 1.0): Int {
+        val baseRatio = if (containsKeyframe) keyframeParityRatio else parityRatio
+        if (baseRatio <= 0.0) return 0
+        val clampedScale = scale.coerceIn(0.0, 1.0)
+        // Under congestion, shed delta parity completely when scale reaches 0 while preserving
+        // at least minimal keyframe protection unless parity is disabled altogether.
+        if (!containsKeyframe && clampedScale <= 0.0) return 0
+        val ratio = if (containsKeyframe) baseRatio * maxOf(0.5, clampedScale) else baseRatio * clampedScale
         if (ratio <= 0.0) return 0
-        // Two parity shards from four sources up: one lost delta frame freezes the picture
-        // until the next keyframe, so double losses are worth absorbing.
-        val floor = if (sourceCount >= 4) 2 else 1
+        // Two parity shards from three sources up when interleaved (or four otherwise) so short
+        // wireless burst losses are fully absorbed without freezing until the next keyframe.
+        val floorThreshold = if (interleaveDepth > 1) 3 else 4
+        val floor = if (sourceCount >= floorThreshold && (containsKeyframe || clampedScale >= 0.75)) 2 else 1
         return maxOf(ceil(sourceCount * ratio).toInt(), floor)
             .coerceIn(1, VideoBurstPacket.MAX_BLOCK_PARITY_SHARDS)
     }
@@ -68,16 +81,27 @@ class VideoStreamPacketizer(
         private const val MIN_FRAGMENT_BYTES = 24
     }
 
+    private class BlockSlot {
+        var blockId = 0
+        val symbols = mutableListOf<ByteArray>()
+        var sinceMs = 0L
+        var hasKeyframe = false
+    }
+
+    private val depth = fec.interleaveDepth.coerceIn(1, 4)
     private var sequence = 0
-    private var block = 0
+    private var nextBlock = 0
+    private var nextSlot = 0
     private val openEntries = mutableListOf<LiveVideoEntry>()
     private var openSize = 0
     private var openSinceMs = 0L
-    private val blockSymbols = mutableListOf<ByteArray>()
-    private var blockSinceMs = 0L
-    private var blockHasKeyframe = false
+    private var openHasKeyframe = false
+    private val slots = Array(depth) { BlockSlot() }
     private val unitSequence = IntArray(LiveVideoTrack.entries.size)
     private val unitCount = IntArray(LiveVideoTrack.entries.size)
+
+    /** Dynamically adjusted by congestion control (1.0 = full policy, 0.0 = shed delta parity). */
+    var parityScale: Double = 1.0
 
     var packetCount: Int = 0
         private set
@@ -95,10 +119,10 @@ class VideoStreamPacketizer(
         if (unit.data.isEmpty()) return output
         val bodyBudget = maxEntriesRegion - LiveVideoEntry.HEADER_SIZE
         if (unit.keyframe && unit.track == LiveVideoTrack.VIDEO) {
-            // Give each keyframe its own, more strongly protected block, announced by a
-            // repeated START so a viewer joining mid-stream can configure its decoder.
+            // Close prior delta blocks before a keyframe so keyframes start cleanly and carry
+            // a repeated START for mid-stream joiners.
             output += flushShard(nowMs)
-            output += closeBlock()
+            output += closeAllBlocks()
             output += start()
         }
         val firstCapacity = maxEntriesRegion - openSize - LiveVideoEntry.HEADER_SIZE
@@ -132,7 +156,7 @@ class VideoStreamPacketizer(
             if (openEntries.isEmpty()) openSinceMs = nowMs
             openEntries += entry
             openSize += entry.encodedSize
-            if (unit.keyframe) blockHasKeyframe = true
+            if (unit.keyframe) openHasKeyframe = true
             if (maxEntriesRegion - openSize < LiveVideoEntry.HEADER_SIZE + MIN_FRAGMENT_BYTES) {
                 output += flushShard(nowMs)
             }
@@ -144,7 +168,8 @@ class VideoStreamPacketizer(
     fun tick(nowMs: Long): List<ByteArray> {
         val output = mutableListOf<ByteArray>()
         if (openEntries.isNotEmpty() && nowMs - openSinceMs >= fec.shardFlushMs) output += flushShard(nowMs)
-        if (blockSymbols.isNotEmpty() && nowMs - blockSinceMs >= fec.blockWindowMs) output += closeBlock()
+        val expired = slots.any { it.symbols.isNotEmpty() && nowMs - it.sinceMs >= fec.blockWindowMs }
+        if (expired) output += closeAllBlocks()
         return output
     }
 
@@ -155,7 +180,7 @@ class VideoStreamPacketizer(
     fun finish(durationMs: Long, nowMs: Long, endCopies: Int = 3): List<ByteArray> {
         val output = mutableListOf<ByteArray>()
         output += flushShard(nowMs)
-        output += closeBlock()
+        output += closeAllBlocks()
         val end = VideoBurstPacket.Kind.End(
             durationMs = durationMs.coerceIn(0L, 0xFFFF_FFFFL),
             videoUnits = unitCount[LiveVideoTrack.VIDEO.value],
@@ -171,37 +196,70 @@ class VideoStreamPacketizer(
     private fun flushShard(nowMs: Long): List<ByteArray> {
         if (openEntries.isEmpty()) return emptyList()
         val region = VideoBurstPacket.encodeEntries(openEntries)
+        val shardKeyframe = openHasKeyframe
         openEntries.clear()
         openSize = 0
-        if (blockSymbols.isEmpty()) blockSinceMs = nowMs
-        val index = blockSymbols.size
-        blockSymbols += region
+        openHasKeyframe = false
+
+        val slot = slots[nextSlot]
+        nextSlot = (nextSlot + 1) % depth
+        if (slot.symbols.isEmpty()) {
+            slot.blockId = nextBlock
+            nextBlock = (nextBlock + 1) and 0xFFFF
+            slot.sinceMs = nowMs
+            slot.hasKeyframe = false
+        }
+        val index = slot.symbols.size
+        slot.symbols += region
+        if (shardKeyframe) slot.hasKeyframe = true
         val output = mutableListOf<ByteArray>()
-        packet(VideoBurstPacket.Kind.Data(block, index, region))?.let(output::add)
-        if (blockSymbols.size >= fec.maxSourceShards.coerceAtMost(VideoBurstPacket.MAX_BLOCK_SOURCE_SHARDS)) {
-            output += closeBlock()
+        packet(VideoBurstPacket.Kind.Data(slot.blockId, index, region))?.let(output::add)
+        val limit = fec.maxSourceShards.coerceAtMost(VideoBurstPacket.MAX_BLOCK_SOURCE_SHARDS)
+        if (slots.all { it.symbols.size >= limit } || (depth == 1 && slot.symbols.size >= limit)) {
+            output += closeAllBlocks()
+        } else if (slot.symbols.size >= limit) {
+            output += closeSlot(slot)
         }
         return output
     }
 
-    private fun closeBlock(): List<ByteArray> {
-        if (blockSymbols.isEmpty()) return emptyList()
-        val k = blockSymbols.size
-        val r = fec.parityCount(k, blockHasKeyframe)
+    /** Closes all non-empty interleaved slots and emits their parity packets round-robin. */
+    private fun closeAllBlocks(): List<ByteArray> {
+        val perSlot = slots.mapNotNull { slot ->
+            if (slot.symbols.isEmpty()) null else computeSlotParity(slot)
+        }
+        nextSlot = 0
+        if (perSlot.isEmpty()) return emptyList()
+        if (perSlot.size == 1) return perSlot[0]
+        val output = mutableListOf<ByteArray>()
+        val maxRows = perSlot.maxOf { it.size }
+        for (row in 0 until maxRows) {
+            for (list in perSlot) {
+                if (row < list.size) output += list[row]
+            }
+        }
+        return output
+    }
+
+    private fun closeSlot(slot: BlockSlot): List<ByteArray> =
+        if (slot.symbols.isEmpty()) emptyList() else computeSlotParity(slot)
+
+    private fun computeSlotParity(slot: BlockSlot): List<ByteArray> {
+        val k = slot.symbols.size
+        val r = fec.parityCount(k, slot.hasKeyframe, parityScale)
         val output = mutableListOf<ByteArray>()
         if (r > 0) {
-            val length = 2 + blockSymbols.maxOf { it.size }
-            val symbols = blockSymbols.map { LiveVideoSymbols.symbol(it, length) }
+            val length = 2 + slot.symbols.maxOf { it.size }
+            val symbols = slot.symbols.map { LiveVideoSymbols.symbol(it, length) }
             ReedSolomonErasure.encode(symbols, r).forEachIndexed { row, parity ->
-                packet(VideoBurstPacket.Kind.Parity(block, row, k, r, parity))?.let {
+                packet(VideoBurstPacket.Kind.Parity(slot.blockId, row, k, r, parity))?.let {
                     output += it
                     parityPackets++
                 }
             }
         }
-        blockSymbols.clear()
-        blockHasKeyframe = false
-        block = (block + 1) and 0xFFFF
+        slot.symbols.clear()
+        slot.hasKeyframe = false
         return output
     }
 

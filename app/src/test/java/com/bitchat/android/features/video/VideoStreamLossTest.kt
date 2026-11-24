@@ -134,6 +134,24 @@ class VideoStreamLossTest {
     }
 
     @Test
+    fun interleavedFecRecoversSixPacketConsecutiveBurstWithoutFreezing() {
+        val interleaved = LiveVideoFecPolicy(
+            parityRatio = 0.25,
+            keyframeParityRatio = 0.4,
+            blockWindowMs = 650L,
+            interleaveDepth = 3
+        )
+        // Drop 6 consecutive packets mid-stream; interleaved depth-3 spreads erasures to <=2/block.
+        val result = run(seed = 11, fec = interleaved) { index, _ -> index in 50..55 }
+        val stats = result.assembler.stats()
+        assertTrue("expected FEC recovery, got ${stats.recoveredShards}", stats.recoveredShards >= 4)
+        assertEquals("expected zero skipped video units across 6-packet burst", 0, stats.skippedVideoUnits)
+        assertEquals(result.sentVideo.size, result.video.size)
+        assertEquals(result.sentAudio.size, result.audio.size)
+        assertTrue(result.ended)
+    }
+
+    @Test
     fun heavyBurstLossFreezesUntilNextKeyframeAndNeverEmitsBrokenDeltas() {
         // Drop 40 consecutive packets (an entire GOP's worth of shards plus its parity).
         val result = run(seed = 4) { index, _ -> index in 60..99 }

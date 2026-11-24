@@ -14,9 +14,9 @@ enum class LiveVideoQuality(
     val keyframeIntervalSeconds: Int,
     val fec: LiveVideoFecPolicy
 ) {
-    LOW(144, 192, 8, 18_000, 12_000, 2, LiveVideoFecPolicy(parityRatio = 0.2, keyframeParityRatio = 0.4, blockWindowMs = 600L)),
-    MEDIUM(240, 320, 12, 56_000, 16_000, 2, LiveVideoFecPolicy(parityRatio = 0.2, keyframeParityRatio = 0.35, maxSourceShards = 16)),
-    HIGH(480, 640, 24, 360_000, 24_000, 2, LiveVideoFecPolicy(parityRatio = 0.15, keyframeParityRatio = 0.3, maxSourceShards = 32)),
+    LOW(144, 192, 8, 18_000, 12_000, 2, LiveVideoFecPolicy(parityRatio = 0.2, keyframeParityRatio = 0.4, blockWindowMs = 650L, interleaveDepth = 3)),
+    MEDIUM(240, 320, 12, 56_000, 16_000, 2, LiveVideoFecPolicy(parityRatio = 0.2, keyframeParityRatio = 0.35, maxSourceShards = 16, blockWindowMs = 550L, interleaveDepth = 3)),
+    HIGH(480, 640, 24, 360_000, 24_000, 2, LiveVideoFecPolicy(parityRatio = 0.15, keyframeParityRatio = 0.3, maxSourceShards = 32, blockWindowMs = 450L, interleaveDepth = 3)),
 
     /** Recorded clips: sized so [LiveVideoLimits.MAX_CLIP_DURATION_MS] fits one file transfer. */
     CLIP(240, 320, 12, 26_000, 12_000, 2, LiveVideoFecPolicy(parityRatio = 0.0, keyframeParityRatio = 0.0));

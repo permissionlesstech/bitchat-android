@@ -159,8 +159,54 @@ class LiveVideoManager private constructor(private val context: Context) : LiveV
         var frameIndex = 0
         var waitingForKeyframe = true
         var decoderStale = false
-        val seenSequences = java.util.ArrayDeque<Int>()
-        val seenSequenceSet = HashSet<Int>()
+        /** Monotonic 512-packet sliding bitmap to drop cross-transport duplicates and ancient echoes. */
+        var highestWireSeq: Long = -1L
+        val seenSeqBits = LongArray(8)
+    }
+
+    private fun markWireSequenceIfNew(stream: Stream, seq16: Int): Boolean {
+        val highest = stream.highestWireSeq
+        val expanded = if (highest < 0L) {
+            seq16.toLong()
+        } else {
+            val base = highest - (highest and 0xFFFFL)
+            var candidate = base + seq16
+            if (candidate - highest > 0x8000L) candidate -= 0x10000L
+            if (highest - candidate > 0x8000L) candidate += 0x10000L
+            candidate
+        }
+        if (highest < 0L) {
+            stream.highestWireSeq = expanded
+            stream.seenSeqBits[0] = 1L
+            return true
+        }
+        if (expanded > highest) {
+            val shift = (expanded - highest).toInt()
+            if (shift >= 512) {
+                stream.seenSeqBits.fill(0L)
+            } else {
+                val wordShift = shift ushr 6
+                val bitShift = shift and 63
+                for (i in 7 downTo 0) {
+                    val src = i - wordShift
+                    var v = if (src >= 0) stream.seenSeqBits[src] shl bitShift else 0L
+                    if (bitShift != 0 && src - 1 >= 0) {
+                        v = v or (stream.seenSeqBits[src - 1] ushr (64 - bitShift))
+                    }
+                    stream.seenSeqBits[i] = v
+                }
+            }
+            stream.highestWireSeq = expanded
+            stream.seenSeqBits[0] = stream.seenSeqBits[0] or 1L
+            return true
+        }
+        val age = (highest - expanded).toInt()
+        if (age >= 512) return false
+        val word = age ushr 6
+        val mask = 1L shl (age and 63)
+        if ((stream.seenSeqBits[word] and mask) != 0L) return false
+        stream.seenSeqBits[word] = stream.seenSeqBits[word] or mask
+        return true
     }
 
     private data class FinishedStream(
@@ -271,13 +317,9 @@ class LiveVideoManager private constructor(private val context: Context) : LiveV
             _events.tryEmit(LiveVideoEvent.Started(peerID, streamHex, isPrivate))
             ensureTicking()
         }
-        // Deduplicate cross-transport copies (e.g. Wi-Fi Aware + BLE both delivering the same public packet).
-        if (!stream.seenSequenceSet.add(packet.sequence)) {
+        // Deduplicate cross-transport copies and reject stale multi-second relay echoes.
+        if (!markWireSequenceIfNew(stream, packet.sequence)) {
             return true
-        }
-        stream.seenSequences.addLast(packet.sequence)
-        if (stream.seenSequences.size > 512) {
-            stream.seenSequenceSet.remove(stream.seenSequences.removeFirst())
         }
         val now = System.currentTimeMillis()
         if (stream.reconnecting) {

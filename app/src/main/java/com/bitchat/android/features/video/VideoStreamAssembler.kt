@@ -39,8 +39,8 @@ data class LiveVideoReceiveStats(
  * player freezes on the last good picture instead of showing corruption).
  */
 class VideoStreamAssembler(
-    /** Longer than the widest FEC block window plus relay jitter, so parity can still land. */
-    private val gapMs: Long = 900L,
+    /** Longer than the widest interleaved FEC block window plus multi-hop relay jitter. */
+    private val gapMs: Long = 1_100L,
     private val maxUnitBytes: Int = 256 * 1024
 ) {
     companion object {

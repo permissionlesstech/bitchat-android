@@ -102,6 +102,7 @@ class LiveVideoCapture(
     private val maxBacklog = AtomicInteger()
     private val staleDropped = AtomicInteger()
     @Volatile private var congestion = LiveVideoCongestionController(quality.videoBitrate)
+    @Volatile private var effectiveFpsScale = 1.0
     private val units = LinkedBlockingQueue<LiveMediaUnit>(UNIT_QUEUE_CAPACITY)
     private val config = LiveVideoConfig(
         LiveVideoCodec.H264_ANNEX_B,
@@ -192,11 +193,12 @@ class LiveVideoCapture(
         }
     }
 
-    /** Called from the camera analyzer thread; drops pictures beyond the preset frame rate. */
+    /** Called from the camera analyzer thread; drops pictures beyond the adapted frame rate. */
     fun offerFrame(image: Image, rotationDegrees: Int) {
         if (!running.get() || synthetic) return
         val now = System.nanoTime()
-        val interval = 1_000_000_000L / quality.fps
+        val effectiveFps = (quality.fps * effectiveFpsScale).coerceAtLeast(2.0)
+        val interval = (1_000_000_000.0 / effectiveFps).toLong()
         // Allow 15 % early so a 30 fps camera reliably yields the target rate.
         if (lastFrameNs != 0L && now - lastFrameNs < interval * 85 / 100) return
         lastFrameNs = now
@@ -354,16 +356,27 @@ class LiveVideoCapture(
 
     private fun syntheticLoop() {
         val pattern = SyntheticVideoPattern(quality.width, quality.height)
-        val intervalNs = 1_000_000_000L / quality.fps
+        val baseIntervalNs = 1_000_000_000L / quality.fps
         var next = System.nanoTime()
+        var lastEncodedNs = 0L
         var index = 0
         try {
             while (running.get()) {
                 val wait = next - System.nanoTime()
                 if (wait > 0) Thread.sleep(wait / 1_000_000L, (wait % 1_000_000L).toInt())
-                next += intervalNs
+                next += baseIntervalNs
                 framesOffered.incrementAndGet()
-                encodeFrame(pattern.frame(index++), (System.nanoTime() - startNs) / 1_000L)
+                val now = System.nanoTime()
+                val scale = effectiveFpsScale
+                if (scale < 0.99 && lastEncodedNs != 0L) {
+                    val adaptedInterval = (baseIntervalNs / scale).toLong()
+                    if (now - lastEncodedNs < adaptedInterval * 90 / 100) {
+                        index++
+                        continue
+                    }
+                }
+                lastEncodedNs = now
+                encodeFrame(pattern.frame(index++), (now - startNs) / 1_000L)
             }
         } catch (error: InterruptedException) {
             Thread.currentThread().interrupt()
@@ -384,9 +397,9 @@ class LiveVideoCapture(
         var byteTokens = byteBurst
         var packetTokens = PACING_BURST_PACKETS.toDouble()
         var lastRefill = System.nanoTime()
-        data class QueuedPacket(val queuedAtMs: Long, val data: ByteArray, val isControl: Boolean)
+        data class QueuedPacket(val queuedAtMs: Long, val data: ByteArray, val isControl: Boolean, val isParity: Boolean)
         val outbound = ArrayDeque<QueuedPacket>()
-        fun makeController(budget: Int, initialBitrate: Int = quality.videoBitrate) = LiveVideoCongestionController(
+        fun makeController(budget: Int) = LiveVideoCongestionController(
             maxBitrate = quality.videoBitrate,
             highWater = (budget * 6 / 10).coerceAtLeast(6),
             skipWater = (budget * 3 / 2).coerceAtLeast(18)
@@ -396,7 +409,21 @@ class LiveVideoCapture(
         fun nowMs() = (System.nanoTime() - startNs) / 1_000_000L
         fun enqueue(packets: List<ByteArray>, isControl: Boolean = false) {
             val now = nowMs()
-            packets.forEach { outbound.addLast(QueuedPacket(now, it, isControl)) }
+            packets.forEach { bytes ->
+                val isParity = !isControl && bytes.size > 10 && (bytes[10].toInt() and 0xFF) == 0x03
+                outbound.addLast(QueuedPacket(now, bytes, isControl, isParity))
+            }
+        }
+        /** Under queue pressure, shed queued parity first so source shards never expire. */
+        fun shedParityIfCongested(highWater: Int) {
+            if (outbound.size < highWater) return
+            val iter = outbound.iterator()
+            while (iter.hasNext() && outbound.size >= highWater) {
+                if (iter.next().isParity) {
+                    iter.remove()
+                    staleDropped.incrementAndGet()
+                }
+            }
         }
         /** Sends what the token buckets allow; returns ms until the next send is possible. */
         fun drainPaced(finalDrain: Boolean): Long {
@@ -464,6 +491,11 @@ class LiveVideoCapture(
                     maxBacklog.accumulateAndGet(backlog, ::maxOf)
                     val decision = controller.onBacklog(backlog, now)
                     encoder?.setBitrate(decision.bitrate)
+                    effectiveFpsScale = decision.fpsScale
+                    packetizer.parityScale = decision.parityScale
+                    if (decision.parityScale <= 0.0) {
+                        shedParityIfCongested((packetBudget * 6 / 10).coerceAtLeast(6))
+                    }
                     if (decision.skipVideo) awaitingKeyframe = true
                     if (decision.requestKeyframe) encoder?.requestKeyframe()
                 }
