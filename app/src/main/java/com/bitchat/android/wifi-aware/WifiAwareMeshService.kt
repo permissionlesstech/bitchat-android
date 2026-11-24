@@ -135,6 +135,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
 
     // Transport state
     private val connectionTracker = WifiAwareConnectionTracker(serviceScope, cm)
+    private val packetBroadcaster = WifiAwarePacketBroadcaster(myPeerID, connectionTracker)
     private val ingressLinks = ConcurrentHashMap<
         String,
         IngressLinkPolicy.Link<SyncedSocket>
@@ -225,22 +226,6 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         return true
     }
 
-    /**
-     * Broadcasts raw bytes to currently connected peer.
-     */
-    private fun broadcastRaw(bytes: ByteArray): Boolean {
-        var accepted = false
-        connectionTracker.peerSockets.forEach { (pid, sock) ->
-            try {
-                sock.write(bytes)
-                accepted = true
-            } catch (e: IOException) {
-                Log.e(TAG, "TX: write failed to ${pid.take(8)}: ${e.message}")
-            }
-        }
-        return accepted
-    }
-
     // TransportLayer implementation
     override fun send(packet: RoutedPacket) {
         // Received from bridge (e.g. BLE) -> Send via Wi-Fi
@@ -302,8 +287,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     }
 
     private fun broadcastSinglePacket(routed: RoutedPacket): Boolean {
-        val data = routed.packet.toBinaryData() ?: return false
-        return broadcastRaw(data)
+        return packetBroadcaster.broadcastSinglePacket(routed)
     }
 
     private fun sendSinglePacketToPeer(peerID: String, packet: BitchatPacket): Boolean {
@@ -1383,8 +1367,16 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
 
             // Route the packet:
             // - peerID = Originator (who signed it)
-            // - relayAddress = Neighbor (who sent it to us over this socket)
-            meshCore.processIncoming(pkt, senderPeerHex, logicalPeerId, ingressLinkID)
+            // - relayAddress = Provisional link key (for IngressLinkPolicy / DirectLinkAnnouncementPolicy)
+            // - previousHopPeerID = Immediate 1-hop neighbor peerID resolved from this incoming socket
+            val previousHopPeerID = connectionTracker.canonicalPeerId(logicalPeerId).takeIf { it.isNotBlank() }
+            meshCore.processIncoming(
+                packet = pkt,
+                peerID = senderPeerHex,
+                relayAddress = logicalPeerId,
+                ingressLinkID = ingressLinkID,
+                previousHopPeerID = previousHopPeerID
+            )
         }
 
         ingressLinks.remove(ingressLinkID, ingressLink)
@@ -1400,8 +1392,10 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             if (!connectionTracker.isConnected(peerId)) {
                 val canonicalPeerId = connectionTracker.canonicalPeerId(peerId)
                 connectionTracker.disconnect(peerId)
+                meshCore.setDirectConnection(canonicalPeerId, false)
                 meshCore.removePeer(canonicalPeerId)
                 if (canonicalPeerId != peerId) {
+                    meshCore.setDirectConnection(peerId, false)
                     meshCore.removePeer(peerId)
                 }
             }
@@ -1415,15 +1409,19 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             val canonicalPeerId = connectionTracker.canonicalPeerId(initialId)
             if (currentSocket === socket) {
                 connectionTracker.disconnect(initialId)
+                meshCore.setDirectConnection(canonicalPeerId, false)
                 meshCore.removePeer(canonicalPeerId)
                 if (canonicalPeerId != initialId) {
+                    meshCore.setDirectConnection(initialId, false)
                     meshCore.removePeer(initialId)
                 }
             } else if (socket == null && currentSocket == null) {
                 // Fallback: If we don't have a specific socket context but we are already disconnected, ensure cleanup
                 connectionTracker.disconnect(initialId)
+                meshCore.setDirectConnection(canonicalPeerId, false)
                 meshCore.removePeer(canonicalPeerId)
                 if (canonicalPeerId != initialId) {
+                    meshCore.setDirectConnection(initialId, false)
                     meshCore.removePeer(initialId)
                 }
             }
@@ -1726,6 +1724,15 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                 map[pid] = resolveScopedAddress(sock.rawSocket) ?: "unknown"
             }
             return map
+        }
+        override fun getDirectConnectedPeerIDs(): Set<String> {
+            return connectionTracker.peerSockets.keys
+                .map { connectionTracker.canonicalPeerId(it) }
+                .filter { it.isNotBlank() }
+                .toSet()
+        }
+        override fun resolvePeerIDForRelayAddress(relayAddress: String): String? {
+            return connectionTracker.canonicalPeerId(relayAddress).takeIf { it.isNotBlank() }
         }
         override fun getTransportDebugInfo(): String {
             return connectionTracker.getDebugInfo()

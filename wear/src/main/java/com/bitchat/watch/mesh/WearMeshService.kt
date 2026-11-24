@@ -138,6 +138,15 @@ class WearMeshService private constructor(private val context: Context) {
         override fun getDeviceAddressToPeerMapping(): Map<String, String> =
             connectionManager.addressPeerMap.toMap()
 
+        override fun getDirectConnectedPeerIDs(): Set<String> =
+            connectionManager.addressPeerMap.values.toSet()
+
+        override fun hasUnidentifiedDirectLink(): Boolean =
+            connectionManager.hasUnidentifiedConnection()
+
+        override fun resolvePeerIDForRelayAddress(relayAddress: String): String? =
+            connectionManager.addressPeerMap[relayAddress]
+
         override fun getTransportDebugInfo(): String = connectionManager.getDebugInfo()
     }
 
@@ -149,16 +158,18 @@ class WearMeshService private constructor(private val context: Context) {
                 device: BluetoothDevice?,
                 ingressLinkID: String
             ) {
+                val relayAddress = device?.address
+                val previousHopPeerID = relayAddress?.let { connectionManager.addressPeerMap[it] }
                 try {
                     com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logIncoming(
                         packet = packet,
                         fromPeerID = peerID,
                         fromNickname = null,
-                        fromDeviceAddress = device?.address,
+                        fromDeviceAddress = relayAddress,
                         myPeerID = myPeerID
                     )
                 } catch (_: Exception) { }
-                meshCore.processIncoming(packet, peerID, device?.address, ingressLinkID)
+                meshCore.processIncoming(packet, peerID, relayAddress, ingressLinkID, previousHopPeerID)
             }
 
             override fun onDeviceConnected(device: BluetoothDevice) {

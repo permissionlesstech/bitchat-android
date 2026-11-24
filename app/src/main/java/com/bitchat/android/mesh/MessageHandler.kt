@@ -16,7 +16,10 @@ import kotlinx.coroutines.*
 import java.util.*
 
 sealed class AnnounceHandlingResult {
-    data class Accepted(val isFirst: Boolean) : AnnounceHandlingResult()
+    data class Accepted(
+        val isFirst: Boolean,
+        val topologyChanged: Boolean = false
+    ) : AnnounceHandlingResult()
     object Rejected : AnnounceHandlingResult()
 }
 
@@ -349,14 +352,17 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         ) ?: false
 
         // Update mesh graph from gossip neighbors (only if TLV present)
-        try {
+        val topologyChanged = try {
             val neighborsOrNull = com.bitchat.android.services.meshgraph.GossipTLV.decodeNeighborsFromAnnouncementPayload(packet.payload)
             com.bitchat.android.services.meshgraph.MeshGraphService.getInstance()
                 .updateFromAnnouncement(peerID, nickname, neighborsOrNull, packet.timestamp)
-        } catch (_: Exception) { }
+        } catch (_: Exception) {
+            // Fail closed to conservative flooding if graph update fails.
+            true
+        }
 
         Log.d(TAG, "Verified announce from $peerID (${announcement.nickname})")
-        return AnnounceHandlingResult.Accepted(isFirstAnnounce)
+        return AnnounceHandlingResult.Accepted(isFirstAnnounce, topologyChanged)
     }
     
     /**

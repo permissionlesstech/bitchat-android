@@ -4,12 +4,19 @@ package com.bitchat.android.mesh
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
+import com.bitchat.android.protocol.SpecialRecipients
+import com.bitchat.android.services.meshgraph.MeshGraphService
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -20,6 +27,7 @@ class PacketRelayManagerTest {
 
     private lateinit var packetRelayManager: PacketRelayManager
     private val delegate: PacketRelayManagerDelegate = mock()
+    private var nowMs: Long = 50_000L
 
     private val myPeerID = "1111111111111111"
     private val otherPeerID = "2222222222222222"
@@ -28,10 +36,20 @@ class PacketRelayManagerTest {
 
     @Before
     fun setUp() {
+        nowMs = 50_000L
+        MeshGraphService.resetForTesting { nowMs }
         packetRelayManager = PacketRelayManager(myPeerID)
         packetRelayManager.delegate = delegate
         whenever(delegate.getNetworkSize()).thenReturn(10)
-        whenever(delegate.getBroadcastRecipient()).thenReturn(byteArrayOf(0,0,0,0,0,0,0,0))
+        whenever(delegate.getBroadcastRecipient()).thenReturn(byteArrayOf(0, 0, 0, 0, 0, 0, 0, 0))
+        whenever(delegate.getDirectConnectedPeers()).thenReturn(emptySet())
+        whenever(delegate.hasUnidentifiedDirectLink()).thenReturn(false)
+    }
+
+    @After
+    fun tearDown() {
+        packetRelayManager.shutdown()
+        MeshGraphService.resetForTesting()
     }
 
     private fun createPacket(route: List<ByteArray>?, recipient: String? = null): BitchatPacket {
@@ -112,6 +130,216 @@ class PacketRelayManagerTest {
         verify(delegate, never()).sendToPeer(any(), any())
         verify(delegate).broadcastPacket(any())
     }
+
+    @Test
+    fun `1-covered MPR suppresses non-MPR for broadcast MESSAGE and VOICE_FRAME`() = runTest {
+        // Dual-bridge topology: prevHop -- {hubLow, me} -- farPeer
+        // hubLow < me lexicographically, so 1-covered MPR elects only hubLow.
+        val prevHop = "0101010101010101"
+        val hubLow = "0202020202020202"
+        val me = "0909090909090909"
+        val farPeer = "0a0a0a0a0a0a0a0a"
+        seedConfirmedEdges(
+            prevHop to hubLow,
+            prevHop to me,
+            hubLow to farPeer,
+            me to farPeer
+        )
+
+        val nonMprRelay = PacketRelayManager(me).apply { delegate = this@PacketRelayManagerTest.delegate }
+        whenever(delegate.getDirectConnectedPeers()).thenReturn(setOf(prevHop, farPeer))
+
+        val msg = broadcastPacket(MessageType.MESSAGE, prevHop)
+        nonMprRelay.handlePacketRelay(RoutedPacket(msg, prevHop, "link-p", previousHopPeerID = prevHop))
+
+        val voice = broadcastPacket(MessageType.VOICE_FRAME, prevHop)
+        nonMprRelay.handlePacketRelay(RoutedPacket(voice, prevHop, "link-p", previousHopPeerID = prevHop))
+
+        verify(delegate, never()).broadcastPacket(any())
+        nonMprRelay.shutdown()
+    }
+
+    @Test
+    fun `2-covered MPR elects both bridges for FRAGMENT and FILE_TRANSFER and suppresses third`() = runTest {
+        // Dual-bridge: prevHop -- {hubLow, me} -- farPeer -> both are elected under k=2
+        val prevHop = "0101010101010101"
+        val hubLow = "0202020202020202"
+        val me = "0909090909090909"
+        val farPeer = "0a0a0a0a0a0a0a0a"
+        seedConfirmedEdges(
+            prevHop to hubLow,
+            prevHop to me,
+            hubLow to farPeer,
+            me to farPeer
+        )
+
+        val secondBridgeRelay = PacketRelayManager(me).apply { delegate = this@PacketRelayManagerTest.delegate }
+        whenever(delegate.getDirectConnectedPeers()).thenReturn(setOf(prevHop, farPeer))
+
+        val fragment = broadcastPacket(MessageType.FRAGMENT, prevHop)
+        secondBridgeRelay.handlePacketRelay(RoutedPacket(fragment, prevHop, "link-p", previousHopPeerID = prevHop))
+
+        val file = broadcastPacket(MessageType.FILE_TRANSFER, prevHop)
+        secondBridgeRelay.handlePacketRelay(RoutedPacket(file, prevHop, "link-p", previousHopPeerID = prevHop))
+
+        val captor = argumentCaptor<RoutedPacket>()
+        verify(delegate, org.mockito.kotlin.times(2)).broadcastPacket(captor.capture())
+        assertEquals(prevHop, captor.firstValue.previousHopPeerID)
+        assertFalse(captor.firstValue.skipNeighborPruning)
+        assertEquals(prevHop, captor.secondValue.previousHopPeerID)
+        assertFalse(captor.secondValue.skipNeighborPruning)
+        secondBridgeRelay.shutdown()
+
+        // Triple-bridge: adding hubMid ("05...") between hubLow and me means me ("09...") is 3rd -> suppressed
+        val hubMid = "0505050505050505"
+        MeshGraphService.resetForTesting { nowMs }
+        seedConfirmedEdges(
+            prevHop to hubLow,
+            prevHop to hubMid,
+            prevHop to me,
+            hubLow to farPeer,
+            hubMid to farPeer,
+            me to farPeer
+        )
+        val thirdDelegate: PacketRelayManagerDelegate = mock()
+        whenever(thirdDelegate.getNetworkSize()).thenReturn(10)
+        whenever(thirdDelegate.getBroadcastRecipient()).thenReturn(SpecialRecipients.BROADCAST)
+        whenever(thirdDelegate.getDirectConnectedPeers()).thenReturn(setOf(prevHop, farPeer))
+        val thirdBridgeRelay = PacketRelayManager(me).apply { delegate = thirdDelegate }
+
+        thirdBridgeRelay.handlePacketRelay(RoutedPacket(fragment, prevHop, "link-p", previousHopPeerID = prevHop))
+        verify(thirdDelegate, never()).broadcastPacket(any())
+        thirdBridgeRelay.shutdown()
+    }
+
+    @Test
+    fun `conservative traffic classes and topology-changing ANNOUNCE always flood even on non-MPR`() = runTest {
+        // Full clique: me is never an MPR for prevHop
+        val prevHop = "0101010101010101"
+        val peerB = "0202020202020202"
+        val peerC = "0303030303030303"
+        val me = "0909090909090909"
+        seedConfirmedEdges(
+            prevHop to peerB, prevHop to peerC, prevHop to me,
+            peerB to peerC, peerB to me, peerC to me
+        )
+
+        val relay = PacketRelayManager(me).apply { delegate = this@PacketRelayManagerTest.delegate }
+        whenever(delegate.getDirectConnectedPeers()).thenReturn(setOf(prevHop, peerB, peerC))
+
+        // 1. Topology-changing ANNOUNCE floods conservatively
+        val announce = broadcastPacket(MessageType.ANNOUNCE, prevHop)
+        relay.handlePacketRelay(
+            RoutedPacket(announce, prevHop, "link-p", previousHopPeerID = prevHop),
+            forceConservativeRelay = true
+        )
+
+        // 2. LEAVE floods conservatively
+        val leave = broadcastPacket(MessageType.LEAVE, prevHop)
+        relay.handlePacketRelay(RoutedPacket(leave, prevHop, "link-p", previousHopPeerID = prevHop))
+
+        // 3. NOISE_HANDSHAKE floods conservatively
+        val handshake = BitchatPacket(
+            type = MessageType.NOISE_HANDSHAKE.value,
+            senderID = hexStringToPeerBytes(prevHop),
+            recipientID = hexStringToPeerBytes(finalRecipientID),
+            timestamp = 1_000UL,
+            payload = byteArrayOf(1, 2, 3),
+            ttl = 5u
+        )
+        relay.handlePacketRelay(RoutedPacket(handshake, prevHop, "link-p", previousHopPeerID = prevHop))
+
+        // 4. Broken source route NOISE_ENCRYPTED falls back to conservative flood
+        whenever(delegate.sendToPeer(any(), any())).thenReturn(false)
+        val brokenRouteNoise = BitchatPacket(
+            version = 2u,
+            type = MessageType.NOISE_ENCRYPTED.value,
+            senderID = hexStringToPeerBytes(prevHop),
+            recipientID = hexStringToPeerBytes(finalRecipientID),
+            timestamp = 1_000UL,
+            payload = byteArrayOf(4, 5, 6),
+            ttl = 5u,
+            route = listOf(hexStringToPeerBytes(me), hexStringToPeerBytes(nextHopPeerID))
+        )
+        relay.handlePacketRelay(RoutedPacket(brokenRouteNoise, prevHop, "link-p", previousHopPeerID = prevHop))
+
+        val captor = argumentCaptor<RoutedPacket>()
+        verify(delegate, org.mockito.kotlin.times(4)).broadcastPacket(captor.capture())
+        assertTrue(captor.allValues.all { it.skipNeighborPruning })
+        assertTrue(captor.allValues.all { it.previousHopPeerID == prevHop })
+
+        // 5. Unchanged periodic ANNOUNCE for already-fresh peer is MPR-suppressed in the clique
+        val quietDelegate: PacketRelayManagerDelegate = mock()
+        whenever(quietDelegate.getNetworkSize()).thenReturn(10)
+        whenever(quietDelegate.getBroadcastRecipient()).thenReturn(SpecialRecipients.BROADCAST)
+        whenever(quietDelegate.getDirectConnectedPeers()).thenReturn(setOf(prevHop, peerB, peerC))
+        relay.delegate = quietDelegate
+        relay.handlePacketRelay(
+            RoutedPacket(announce, prevHop, "link-p", previousHopPeerID = prevHop),
+            forceConservativeRelay = false
+        )
+        verify(quietDelegate, never()).broadcastPacket(any())
+        relay.shutdown()
+    }
+
+    @Test
+    fun `1-hop REQUEST_SYNC is never relayed`() = runTest {
+        val syncTtl1 = broadcastPacket(MessageType.REQUEST_SYNC, otherPeerID).copy(ttl = 1u)
+        val syncTtl0 = broadcastPacket(MessageType.REQUEST_SYNC, otherPeerID).copy(ttl = 0u)
+
+        packetRelayManager.handlePacketRelay(RoutedPacket(syncTtl1, otherPeerID, previousHopPeerID = otherPeerID))
+        packetRelayManager.handlePacketRelay(RoutedPacket(syncTtl0, otherPeerID, previousHopPeerID = otherPeerID))
+
+        verify(delegate, never()).broadcastPacket(any())
+    }
+
+    @Test
+    fun `small network and legacy direct neighbor fall back safely to relaying`() = runTest {
+        // Clique where me would be suppressed in a large network
+        val prevHop = "0101010101010101"
+        val peerB = "0202020202020202"
+        val me = "0909090909090909"
+        seedConfirmedEdges(prevHop to peerB, prevHop to me, peerB to me)
+
+        val relay = PacketRelayManager(me).apply { delegate = this@PacketRelayManagerTest.delegate }
+        val msg = broadcastPacket(MessageType.MESSAGE, prevHop)
+
+        // Small network (<= 3 peers): always relay
+        whenever(delegate.getNetworkSize()).thenReturn(3)
+        whenever(delegate.getDirectConnectedPeers()).thenReturn(setOf(prevHop, peerB))
+        relay.handlePacketRelay(RoutedPacket(msg, prevHop, "link-p", previousHopPeerID = prevHop))
+
+        // Large network (> 3) with a legacy direct neighbor not in N1(prevHop): fail-safe relay
+        whenever(delegate.getNetworkSize()).thenReturn(12)
+        whenever(delegate.getDirectConnectedPeers()).thenReturn(setOf(prevHop, peerB, "deadbeef00000001"))
+        relay.handlePacketRelay(RoutedPacket(msg, prevHop, "link-p", previousHopPeerID = prevHop))
+
+        verify(delegate, org.mockito.kotlin.times(2)).broadcastPacket(any())
+        relay.shutdown()
+    }
+
+    private fun seedConfirmedEdges(vararg edges: Pair<String, String>) {
+        val graph = MeshGraphService.getInstance()
+        val adj = mutableMapOf<String, MutableList<String>>()
+        for ((a, b) in edges) {
+            adj.getOrPut(a) { mutableListOf() }.add(b)
+            adj.getOrPut(b) { mutableListOf() }.add(a)
+        }
+        adj.forEach { (peer, neighbors) ->
+            graph.updateFromAnnouncement(peer, peer, neighbors, 1_000UL)
+        }
+    }
+
+    private fun broadcastPacket(type: MessageType, senderHex: String): BitchatPacket =
+        BitchatPacket(
+            version = 1u,
+            type = type.value,
+            senderID = hexStringToPeerBytes(senderHex),
+            recipientID = SpecialRecipients.BROADCAST,
+            timestamp = 1_000UL,
+            payload = "payload".toByteArray(),
+            ttl = 5u
+        )
 
     private fun hexStringToPeerBytes(hex: String): ByteArray {
         val result = ByteArray(8)

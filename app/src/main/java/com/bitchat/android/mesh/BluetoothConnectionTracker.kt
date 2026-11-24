@@ -206,6 +206,15 @@ class BluetoothConnectionTracker(
      * Get connected device count
      */
     fun getConnectedDeviceCount(): Int = getConnectionCount()
+
+    /**
+     * Returns true if any active BLE connection or GATT server subscription has not yet been
+     * mapped to a verified peerID in [addressPeerMap].
+     */
+    fun hasUnidentifiedConnection(): Boolean = synchronized(connectionStateLock) {
+        connectedDevices.keys.any { !addressPeerMap.containsKey(it) } ||
+            subscribedDevices.any { !addressPeerMap.containsKey(it.address) }
+    }
     
     /**
      * Check if connection limit is reached

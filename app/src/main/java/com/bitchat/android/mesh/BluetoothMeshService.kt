@@ -263,8 +263,23 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             override fun onPeerRemoved(peerID: String) {
                 authenticatedPeerState.clear(peerID)
                 try { gossipSyncManager.removeAnnouncementForPeer(peerID) } catch (_: Exception) { }
-                // Remove from mesh graph topology to prevent routing through stale peers
-                try { com.bitchat.android.services.meshgraph.MeshGraphService.getInstance().removePeer(peerID) } catch (_: Exception) { }
+                try {
+                    com.bitchat.android.services.AppStateStore.setTransportDirectPeers(
+                        "BLE",
+                        connectionManager.addressPeerMap.values.toSet()
+                    )
+                } catch (_: Exception) { }
+                // Remove stale direct edge and (when absent from other transports) peer node from
+                // the mesh graph so moved/offline peers are not falsely assumed reachable.
+                try {
+                    val graph = com.bitchat.android.services.meshgraph.MeshGraphService.getInstance()
+                    if (!com.bitchat.android.services.AppStateStore.hasDirectPeerOnOtherTransport("BLE", peerID)) {
+                        graph.removeDirectEdge(myPeerID, peerID)
+                    }
+                    if (!com.bitchat.android.services.AppStateStore.hasPeerOnOtherTransport("BLE", peerID)) {
+                        graph.removePeer(peerID)
+                    }
+                } catch (_: Exception) { }
 
                 // Also drop any Noise session state for this peer when they go offline
                 try {
@@ -546,6 +561,24 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             override fun getBroadcastRecipient(): ByteArray {
                 return SpecialRecipients.BROADCAST
             }
+
+            override fun getDirectConnectedPeers(): Set<String> {
+                val bleDirect = connectionManager.addressPeerMap.values.toSet()
+                val crossTransportDirect = try {
+                    com.bitchat.android.services.AppStateStore.getDirectPeers()
+                } catch (_: Exception) {
+                    emptySet()
+                }
+                return (bleDirect + crossTransportDirect).toSet()
+            }
+
+            override fun hasUnidentifiedDirectLink(): Boolean {
+                return connectionManager.hasUnidentifiedConnection()
+            }
+
+            override fun resolvePeerIDForRelayAddress(relayAddress: String): String? {
+                return connectionManager.addressPeerMap[relayAddress]
+            }
             
             override fun handleNoiseHandshake(routed: RoutedPacket): Boolean {
                 return runBlocking { securityManager.handleNoiseHandshake(routed) }
@@ -556,8 +589,12 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             }
             
             override suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
+                return handleAnnounceWithOutcome(routed) is AnnounceHandlingResult.Accepted
+            }
+
+            override suspend fun handleAnnounceWithOutcome(routed: RoutedPacket): AnnounceHandlingResult {
                 val result = messageHandler.handleAnnounceWithResult(routed)
-                if (result !is AnnounceHandlingResult.Accepted) return false
+                if (result !is AnnounceHandlingResult.Accepted) return result
 
                 DirectLinkAnnouncementPolicy.observationFor(routed, MAX_TTL)?.let { observation ->
                     if (connectionManager.observePeerIfCurrent(
@@ -570,6 +607,12 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                             TAG,
                             "Observed direct BLE route ${observation.relayAddress} to ${observation.peerID}"
                         )
+                        try {
+                            com.bitchat.android.services.AppStateStore.setTransportDirectPeers(
+                                "BLE",
+                                connectionManager.addressPeerMap.values.toSet()
+                            )
+                        } catch (_: Exception) { }
                         try { peerManager.refreshPeerList() } catch (_: Exception) { }
                         try {
                             gossipSyncManager.scheduleInitialSyncToPeer(observation.peerID, 1_000)
@@ -579,7 +622,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                     }
                 }
                 try { gossipSyncManager.onPublicPacketSeen(routed.packet) } catch (_: Exception) { }
-                return true
+                return result
             }
             
             override suspend fun handleMessage(routed: RoutedPacket) {
@@ -642,18 +685,26 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             device: android.bluetooth.BluetoothDevice?,
             ingressLinkID: String
         ) {
+            val relayAddress = device?.address
+            val previousHopPeerID = relayAddress?.let { connectionManager.addressPeerMap[it] }
             // Log incoming for debug graphs (do not double-count anywhere else)
             try {
                 com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logIncoming(
                     packet = packet,
                     fromPeerID = peerID,
                     fromNickname = null,
-                    fromDeviceAddress = device?.address,
+                    fromDeviceAddress = relayAddress,
                     myPeerID = myPeerID
                 )
             } catch (_: Exception) { }
             packetProcessor.processPacket(
-                RoutedPacket(packet, peerID, device?.address, ingressLinkID = ingressLinkID)
+                RoutedPacket(
+                    packet = packet,
+                    peerID = peerID,
+                    relayAddress = relayAddress,
+                    ingressLinkID = ingressLinkID,
+                    previousHopPeerID = previousHopPeerID
+                )
             )
         }
             
@@ -683,6 +734,22 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
 
                 // refresh peer list on disconnect.
                 try { peerManager.refreshPeerList() } catch (_: Exception) { }
+
+                // Promptly prune the stale direct edge in the mesh graph when no BLE or other
+                // transport link to this peer remains, so MPR selection and neighbor pruning do
+                // not assume a moved peer is still directly reachable during the grace window.
+                if (peerID != null && !connectionManager.addressPeerMap.containsValue(peerID)) {
+                    try {
+                        com.bitchat.android.services.AppStateStore.setTransportDirectPeers(
+                            "BLE",
+                            connectionManager.addressPeerMap.values.toSet()
+                        )
+                        if (!com.bitchat.android.services.AppStateStore.hasDirectPeerOnOtherTransport("BLE", peerID)) {
+                            com.bitchat.android.services.meshgraph.MeshGraphService.getInstance()
+                                .removeDirectEdge(myPeerID, peerID)
+                        }
+                    } catch (_: Exception) { }
+                }
 
                 // ConnectionTracker already removes an observed mapping only when this exact
                 // link is still current. Do not remove by reusable address here: this may be a late

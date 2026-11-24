@@ -185,6 +185,16 @@ object AppStateStore {
     /** Union of direct peers across all transports. */
     fun getDirectPeers(): Set<String> = _directPeers.value
 
+    /** Returns true if [peerID] is currently tracked as active on any transport other than [transportId]. */
+    fun hasPeerOnOtherTransport(transportId: String, peerID: String): Boolean = synchronized(this) {
+        peerIdsByTransport.any { (id, peers) -> id != transportId && peerID in peers }
+    }
+
+    /** Returns true if [peerID] is currently directly connected on any transport other than [transportId]. */
+    fun hasDirectPeerOnOtherTransport(transportId: String, peerID: String): Boolean = synchronized(this) {
+        directPeerIdsByTransport.any { (id, peers) -> id != transportId && peerID in peers }
+    }
+
     private fun publishDirectPeersLocked() {
         _directPeers.value = directPeerIdsByTransport.values
             .asSequence()

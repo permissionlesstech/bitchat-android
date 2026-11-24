@@ -460,6 +460,11 @@ class BluetoothConnectionManager(
      * Get connected device count
      */
     fun getConnectedDeviceCount(): Int = connectionTracker.getConnectedDeviceCount()
+
+    /**
+     * Returns true if any currently connected BLE link has not yet mapped to a peerID.
+     */
+    fun hasUnidentifiedConnection(): Boolean = connectionTracker.hasUnidentifiedConnection()
     
     /**
      * Get debug information including power management

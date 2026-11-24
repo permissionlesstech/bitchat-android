@@ -179,14 +179,16 @@ class MeshCore(
         packet: BitchatPacket,
         peerID: String?,
         relayAddress: String?,
-        ingressLinkID: String? = null
+        ingressLinkID: String? = null,
+        previousHopPeerID: String? = null
     ) {
         packetProcessor.processPacket(
             RoutedPacket(
                 packet = packet,
                 peerID = peerID,
                 relayAddress = relayAddress,
-                ingressLinkID = ingressLinkID
+                ingressLinkID = ingressLinkID,
+                previousHopPeerID = previousHopPeerID
             )
         )
     }
@@ -221,6 +223,21 @@ class MeshCore(
             override fun onPeerRemoved(peerID: String) {
                 directPeers.remove(peerID)
                 authenticatedPeerState.clear(peerID)
+                try {
+                    com.bitchat.android.services.AppStateStore.setTransportDirectPeers(
+                        transport.id,
+                        currentLocalDirectPeers()
+                    )
+                } catch (_: Exception) { }
+                try {
+                    val graph = com.bitchat.android.services.meshgraph.MeshGraphService.getInstance()
+                    if (!com.bitchat.android.services.AppStateStore.hasDirectPeerOnOtherTransport(transport.id, peerID)) {
+                        graph.removeDirectEdge(myPeerID, peerID)
+                    }
+                    if (!com.bitchat.android.services.AppStateStore.hasPeerOnOtherTransport(transport.id, peerID)) {
+                        graph.removePeer(peerID)
+                    }
+                } catch (_: Exception) { }
                 try { gossipSyncManager.removeAnnouncementForPeer(peerID) } catch (_: Exception) { }
                 try { encryptionService.removePeer(peerID) } catch (_: Exception) { }
                 try { peerManager.refreshPeerList() } catch (_: Exception) { }
@@ -442,6 +459,24 @@ class MeshCore(
                 return SpecialRecipients.BROADCAST
             }
 
+            override fun getDirectConnectedPeers(): Set<String> {
+                val localDirect = currentLocalDirectPeers()
+                val crossTransportDirect = try {
+                    com.bitchat.android.services.AppStateStore.getDirectPeers()
+                } catch (_: Exception) {
+                    emptySet()
+                }
+                return (localDirect + crossTransportDirect).toSet()
+            }
+
+            override fun hasUnidentifiedDirectLink(): Boolean {
+                return transport.hasUnidentifiedDirectLink()
+            }
+
+            override fun resolvePeerIDForRelayAddress(relayAddress: String): String? {
+                return transport.resolvePeerIDForRelayAddress(relayAddress)
+            }
+
             override fun handleNoiseHandshake(routed: RoutedPacket): Boolean {
                 return runBlocking { securityManager.handleNoiseHandshake(routed) }
             }
@@ -451,11 +486,15 @@ class MeshCore(
             }
 
             override suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
+                return handleAnnounceWithOutcome(routed) is AnnounceHandlingResult.Accepted
+            }
+
+            override suspend fun handleAnnounceWithOutcome(routed: RoutedPacket): AnnounceHandlingResult {
                 val result = messageHandler.handleAnnounceWithResult(routed)
-                if (result !is AnnounceHandlingResult.Accepted) return false
+                if (result !is AnnounceHandlingResult.Accepted) return result
                 hooks.onAnnounceProcessed?.invoke(routed, result.isFirst)
                 try { gossipSyncManager.onPublicPacketSeen(routed.packet) } catch (_: Exception) { }
-                return true
+                return result
             }
 
             override suspend fun handleMessage(routed: RoutedPacket) {
@@ -903,11 +942,41 @@ class MeshCore(
         peerManager.removePeer(peerID)
     }
 
+    private fun currentLocalDirectPeers(): Set<String> {
+        val verifiedDirect = try {
+            peerManager.getVerifiedPeers()
+                .filter { it.value.isDirectConnection }
+                .keys
+        } catch (_: Exception) {
+            emptySet()
+        }
+        val transportDirect = try {
+            transport.getDirectConnectedPeerIDs()
+        } catch (_: Exception) {
+            emptySet()
+        }
+        return (verifiedDirect + directPeers + transportDirect).toSet()
+    }
+
     fun setDirectConnection(peerID: String, isDirect: Boolean) {
         if (isDirect) {
             directPeers.add(peerID)
         } else {
             directPeers.remove(peerID)
+        }
+        try {
+            com.bitchat.android.services.AppStateStore.setTransportDirectPeers(
+                transport.id,
+                currentLocalDirectPeers()
+            )
+        } catch (_: Exception) { }
+        if (!isDirect) {
+            try {
+                if (!com.bitchat.android.services.AppStateStore.hasDirectPeerOnOtherTransport(transport.id, peerID)) {
+                    com.bitchat.android.services.meshgraph.MeshGraphService.getInstance()
+                        .removeDirectEdge(myPeerID, peerID)
+                }
+            } catch (_: Exception) { }
         }
         peerManager.refreshPeerList()
     }
