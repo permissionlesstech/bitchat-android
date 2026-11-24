@@ -67,7 +67,8 @@ fun AnimatedCount(
             fontSize = fontSize,
             fontWeight = fontWeight,
             fontFamily = fontFamily,
-            maxLines = 1
+            maxLines = 1,
+            softWrap = false
         )
     }
 }
