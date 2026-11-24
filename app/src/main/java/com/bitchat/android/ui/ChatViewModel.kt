@@ -1739,6 +1739,9 @@ class ChatViewModel(
     }
 
     fun selectLocationChannel(channel: com.bitchat.android.geohash.ChannelID) {
+        if (state.getCurrentChannelValue() != null) {
+            state.setCurrentChannel(null)
+        }
         geohashViewModel.selectLocationChannel(channel)
     }
 
