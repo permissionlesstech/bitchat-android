@@ -53,6 +53,8 @@ class BluetoothPacketBroadcaster(
         private const val TAG = "BluetoothPacketBroadcaster"
         private const val MAX_PENDING_SENDS_PER_LINK = 256
         private const val MAX_PENDING_BYTES_PER_LINK = 1_048_576
+        /** Live voice/video older than this in a link queue is dropped rather than sent late. */
+        private const val LIVE_SEND_DEADLINE_NS = 1_500_000_000L
         private const val SEND_RETRY_DELAY_MS = 15L
         private const val MAX_CALLBACK_RETRIES = 3
     }
@@ -140,7 +142,9 @@ class BluetoothPacketBroadcaster(
         val gatt: BluetoothGatt? = null,
         val gattServer: BluetoothGattServer? = null,
         val characteristic: BluetoothGattCharacteristic,
-        var callbackFailures: Int = 0
+        var callbackFailures: Int = 0,
+        /** Live media only: a send still queued past this instant is stale and dropped (0 = none). */
+        val deadlineNs: Long = 0L
     )
 
     private class LinkSendState {
@@ -151,6 +155,9 @@ class BluetoothPacketBroadcaster(
     }
 
     private val sendLock = Any()
+    @Volatile var expiredLiveSends: Int = 0
+        private set
+    private val pendingActorRequests = java.util.concurrent.atomic.AtomicInteger(0)
     private val sendStates = mutableMapOf<SendKey, LinkSendState>()
     
     // SERIALIZATION: Actor to serialize all broadcast operations
@@ -159,6 +166,7 @@ class BluetoothPacketBroadcaster(
         capacity = 256
     ) {
         for (request in channel) {
+            pendingActorRequests.decrementAndGet()
             val accepted = try {
                 broadcastSinglePacketInternal(
                     request.routed,
@@ -233,8 +241,8 @@ class BluetoothPacketBroadcaster(
         characteristic: BluetoothGattCharacteristic?
     ): Boolean {
         val packet = routed.packet
-        // iOS-compatible: Use selective padding policy for BLE
-        val padForBLE = BLEPacketPaddingPolicy.shouldPadForBLE(packet.type)
+        // Live media skips 512-byte BLE padding to avoid wasting radio airtime on constant-rate streams.
+        val padForBLE = !routed.liveMedia && BLEPacketPaddingPolicy.shouldPadForBLE(packet.type)
         val data = packet.toBinaryData(padding = padForBLE) ?: return false
         val typeName = MessageType.fromValue(packet.type)?.name ?: packet.type.toString()
         val senderPeerID = routed.peerID ?: packet.senderID.toHexString()
@@ -277,10 +285,12 @@ class BluetoothPacketBroadcaster(
         characteristic: BluetoothGattCharacteristic?
     ) {
         // Submit broadcast request to actor for serialized processing
+        pendingActorRequests.incrementAndGet()
         broadcasterScope.launch {
             try {
                 broadcasterActor.send(BroadcastRequest(routed, gattServer, characteristic))
             } catch (e: Exception) {
+                pendingActorRequests.decrementAndGet()
                 Log.w(TAG, "Failed to send broadcast request to actor: ${e.message}")
                 // Fallback to direct processing if actor fails
                 broadcastSinglePacketInternal(routed, gattServer, characteristic)
@@ -298,14 +308,17 @@ class BluetoothPacketBroadcaster(
         characteristic: BluetoothGattCharacteristic?
     ): Boolean {
         val accepted = CompletableDeferred<Boolean>()
+        pendingActorRequests.incrementAndGet()
         return try {
             broadcasterActor.send(
                 BroadcastRequest(routed, gattServer, characteristic, accepted)
             )
             accepted.await()
         } catch (e: CancellationException) {
+            pendingActorRequests.decrementAndGet()
             throw e
         } catch (e: Exception) {
+            pendingActorRequests.decrementAndGet()
             Log.w(TAG, "Failed to queue control packet: ${e.message}")
             broadcastSinglePacketInternal(routed, gattServer, characteristic)
         }
@@ -345,8 +358,8 @@ class BluetoothPacketBroadcaster(
         characteristic: BluetoothGattCharacteristic?
     ): Boolean {
         val packet = routed.packet
-        // iOS-compatible: Use selective padding policy for BLE
-        val padForBLE = BLEPacketPaddingPolicy.shouldPadForBLE(packet.type)
+        // Live media skips 512-byte BLE padding to avoid wasting radio airtime on constant-rate streams.
+        val padForBLE = !routed.liveMedia && BLEPacketPaddingPolicy.shouldPadForBLE(packet.type)
         val data = packet.toBinaryData(padding = padForBLE) ?: return false
         val typeName = MessageType.fromValue(packet.type)?.name ?: packet.type.toString()
         val senderPeerID = routed.peerID ?: packet.senderID.toHexString()
@@ -395,7 +408,19 @@ class BluetoothPacketBroadcaster(
         }
         
         if (packet.recipientID != SpecialRecipients.BROADCAST) {
+            val directedDeadline = if (routed.liveMedia) System.nanoTime() + LIVE_SEND_DEADLINE_NS else 0L
             val recipientID = packet.recipientID?.toHexString() ?: ""
+
+            // For live media, prefer client links where this side controls CONNECTION_PRIORITY_HIGH.
+            if (routed.liveMedia) {
+                val targetDeviceConn = connectionTracker.getConnectedDevices().values
+                    .firstOrNull { it.isClient && connectionTracker.addressPeerMap[it.device.address] == recipientID }
+                if (targetDeviceConn != null && writeToDeviceConn(targetDeviceConn, data, directedDeadline)) {
+                    val toPeer = connectionTracker.addressPeerMap[targetDeviceConn.device.address]
+                    logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, toPeer, targetDeviceConn.device.address, packet.ttl, packet.version, routeInfo)
+                    return true
+                }
+            }
 
             // Try to find the recipient in server connections (subscribedDevices)
             val targetDevice = connectionTracker.getSubscribedDevices()
@@ -403,7 +428,7 @@ class BluetoothPacketBroadcaster(
             
             // If found, send directly
             if (targetDevice != null) {
-                if (notifyDevice(targetDevice, data, gattServer, characteristic)) {
+                if (notifyDevice(targetDevice, data, gattServer, characteristic, directedDeadline)) {
                     val toPeer = connectionTracker.addressPeerMap[targetDevice.address]
                     logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, toPeer, targetDevice.address, packet.ttl, packet.version, routeInfo)
                     return true
@@ -416,7 +441,7 @@ class BluetoothPacketBroadcaster(
             
             // If found, send directly
             if (targetDeviceConn != null) {
-                if (writeToDeviceConn(targetDeviceConn, data)) {
+                if (writeToDeviceConn(targetDeviceConn, data, directedDeadline)) {
                     val toPeer = connectionTracker.addressPeerMap[targetDeviceConn.device.address]
                     logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, toPeer, targetDeviceConn.device.address, packet.ttl, packet.version, routeInfo)
                     return true
@@ -431,6 +456,33 @@ class BluetoothPacketBroadcaster(
         val senderID = packet.senderID.toHexString()
         var accepted = false
 
+        // Live voice/video saturate the radio: two phones usually share a client and a server
+        // link, so send each live packet once per peer, over the client link where this side
+        // controls the connection interval. Other traffic keeps the redundant fan-out.
+        val liveMedia = routed.liveMedia || MessageType.fromValue(packet.type).let {
+            it == MessageType.VOICE_FRAME || it == MessageType.VIDEO_FRAME
+        }
+        val deadline = if (liveMedia) System.nanoTime() + LIVE_SEND_DEADLINE_NS else 0L
+        val servedPeers = mutableSetOf<String>()
+        // Relaying live video to a neighbor that hears the origin directly only spends airtime
+        // on a duplicate, so those neighbors are pruned (mesh graph from verified announcements).
+        val pruneOriginNeighbors = MessageType.fromValue(packet.type) == MessageType.VIDEO_FRAME &&
+            senderID != myPeerID
+        fun prunable(peer: String?): Boolean = pruneOriginNeighbors && peer != null &&
+            com.bitchat.android.services.meshgraph.MeshGraphService.getInstance().isConfirmedNeighbor(senderID, peer)
+        if (liveMedia) {
+            connectedDevices.values.forEach { deviceConn ->
+                if (!deviceConn.isClient || deviceConn.gatt == null || deviceConn.characteristic == null) return@forEach
+                if (deviceConn.device.address == routed.relayAddress) return@forEach
+                val peer = connectionTracker.addressPeerMap[deviceConn.device.address]
+                if (peer == senderID || (peer != null && peer in servedPeers) || prunable(peer)) return@forEach
+                if (writeToDeviceConn(deviceConn, data, deadline)) {
+                    accepted = true
+                    peer?.let(servedPeers::add)
+                }
+            }
+        }
+
         // Send to server connections (devices connected to our GATT server)
         subscribedDevices.forEach { device ->
             if (device.address == routed.relayAddress) {
@@ -439,7 +491,11 @@ class BluetoothPacketBroadcaster(
             if (connectionTracker.addressPeerMap[device.address] == senderID) {
                 return@forEach
             }
-            val sent = notifyDevice(device, data, gattServer, characteristic)
+            if (liveMedia) {
+                val peer = connectionTracker.addressPeerMap[device.address]
+                if (prunable(peer) || (peer != null && !servedPeers.add(peer))) return@forEach
+            }
+            val sent = notifyDevice(device, data, gattServer, characteristic, deadline)
             if (sent) {
                 accepted = true
                 val toPeer = connectionTracker.addressPeerMap[device.address]
@@ -448,7 +504,7 @@ class BluetoothPacketBroadcaster(
         }
         
         // Send to client connections (GATT servers we are connected to)
-        connectedDevices.values.forEach { deviceConn ->
+        if (!liveMedia) connectedDevices.values.forEach { deviceConn ->
             if (deviceConn.isClient && deviceConn.gatt != null && deviceConn.characteristic != null) {
                 if (deviceConn.device.address == routed.relayAddress) {
                     return@forEach
@@ -474,7 +530,8 @@ class BluetoothPacketBroadcaster(
         device: BluetoothDevice, 
         data: ByteArray,
         gattServer: BluetoothGattServer?,
-        characteristic: BluetoothGattCharacteristic?
+        characteristic: BluetoothGattCharacteristic?,
+        deadlineNs: Long = 0L
     ): Boolean {
         val server = gattServer ?: return false
         val char = characteristic ?: return false
@@ -484,7 +541,7 @@ class BluetoothPacketBroadcaster(
             ?: return false
         return enqueueSend(
             SendKey(device.address, linkID, SendDirection.SERVER_NOTIFICATION),
-            PendingSend(data.copyOf(), device, gattServer = server, characteristic = char)
+            PendingSend(data.copyOf(), device, gattServer = server, characteristic = char, deadlineNs = deadlineNs)
         )
     }
 
@@ -493,14 +550,20 @@ class BluetoothPacketBroadcaster(
      */
     private fun writeToDeviceConn(
         deviceConn: BluetoothConnectionTracker.DeviceConnection, 
-        data: ByteArray
+        data: ByteArray,
+        deadlineNs: Long = 0L
     ): Boolean {
         val gatt = deviceConn.gatt ?: return false
         val char = deviceConn.characteristic ?: return false
         return enqueueSend(
             SendKey(deviceConn.device.address, deviceConn.linkID, SendDirection.CLIENT_WRITE),
-            PendingSend(data.copyOf(), deviceConn.device, gatt = gatt, characteristic = char)
+            PendingSend(data.copyOf(), deviceConn.device, gatt = gatt, characteristic = char, deadlineNs = deadlineNs)
         )
+    }
+
+    /** Deepest per-link GATT queue plus queued actor requests: drives live media congestion control. */
+    fun deepestLinkBacklog(): Int = synchronized(sendLock) {
+        (sendStates.values.maxOfOrNull { it.pending.size } ?: 0) + pendingActorRequests.get().coerceAtLeast(0)
     }
 
     /**
@@ -534,7 +597,25 @@ class BluetoothPacketBroadcaster(
     @Suppress("DEPRECATION")
     @SuppressLint("MissingPermission", "ObsoleteSdkInt")
     private fun startHead(key: SendKey) {
-        val request = synchronized(sendLock) { sendStates[key]?.pending?.peekFirst() } ?: return
+        val request = synchronized(sendLock) {
+            val state = sendStates[key] ?: return
+            // Live frames that waited past their deadline would only arrive stale: drop them so
+            // the queue (and the stream's latency) drains instead of growing.
+            val now = System.nanoTime()
+            while (true) {
+                val head = state.pending.peekFirst() ?: break
+                if (head.deadlineNs == 0L || now <= head.deadlineNs) break
+                state.pending.removeFirst()
+                state.pendingBytes -= head.data.size
+                expiredLiveSends++
+            }
+            if (state.pending.isEmpty()) {
+                state.inFlight = false
+                sendStates.remove(key)
+                return
+            }
+            state.pending.peekFirst()
+        } ?: return
         val accepted = try {
             when (key.direction) {
                 SendDirection.CLIENT_WRITE -> {

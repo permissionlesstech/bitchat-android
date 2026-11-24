@@ -285,10 +285,12 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">تصویر</string>
     <string name="media_type_file">فائل</string>
+    <string name="media_type_video">ویڈیو</string>
 
     <!-- نوٹیفکیشن متن مددگار -->
     <string name="notification_sent_image">📷 تصویر بھیجی</string>
     <string name="notification_sent_voice">🎤 وائس پیغام بھیجیا</string>
+    <string name="notification_sent_video">🎥 ویڈیو بھیجی</string>
     <string name="notification_sent_file">📎 فائل بھیجی</string>
 
     <!-- وائس پلیئر رسائی پذیری -->
@@ -389,4 +391,45 @@
     <string name="cd_show_whole_globe">پورا گلوب وکھاؤ</string>
     <string name="cd_globe_activity">%1$d فعال چیٹاں، %2$d لوک آن لائن</string>
     <string name="cd_channel_activity">%1$d لوک، پچھلے گھنٹے وچ %2$d سنیہے</string>
+
+    <!-- Live video and video messages -->
+    <string name="video_live_badge">لائیو</string>
+    <string name="video_joining_live">لائیو وچ شامل ہو رہے آں…</string>
+    <string name="video_weak_signal">کمزور سگنل</string>
+    <string name="video_weak_signal_reconnecting">کمزور سگنل · برابر ہو رہیا اے</string>
+    <string name="video_reconnecting">دوبارہ جڑ رہیا اے…</string>
+    <string name="video_live_ended">لائیو ویڈیو مک گئی</string>
+    <string name="video_live_ended_by">%1$s نے سٹریم مکا دتی</string>
+    <string name="video_watch_replay">ریکارڈنگ ویکھو</string>
+    <string name="video_live_rate">mesh راہیں %1$.1f kbps</string>
+    <string name="video_unavailable">ویڈیو دستیاب نہیں</string>
+    <string name="video_too_short">ویڈیو بہت چھوٹی اے</string>
+    <string name="video_prepare_failed">ایس ویڈیو نوں mesh لئی تیار نہیں کیتا جا سکیا</string>
+    <string name="video_camera_failed">کیمرا یا ویڈیو انکوڈر دستیاب نہیں</string>
+    <string name="video_trimmed">لمی ویڈیو نوں اوہدے پہلے منٹ تک کٹ دتا گیا</string>
+    <string name="video_camera_permission">ریکارڈ کرن یا لائیو جان لئی کیمرے تک رسائی چاہیدی اے</string>
+    <string name="video_grant_camera">کیمرے دی اجازت دیو</string>
+    <string name="video_compressing">mesh لئی کمپریس ہو رہی اے…</string>
+    <string name="video_finishing">مکمل ہو رہیا اے…</string>
+    <string name="video_end_live_title">لائیو ویڈیو مکاؤ؟</string>
+    <string name="video_end_live_message">ویکھن والیاں کول اوہ رہندا اے جو اوہناں نوں ملیا۔ ریکارڈنگ چیٹ وچ شیئر کیتی جاندی اے۔</string>
+    <string name="video_end_live_confirm">مکاؤ</string>
+    <string name="video_uplink">↑ %1$.1f kbps · %2$s</string>
+    <string name="video_mode_live">لائیو</string>
+    <string name="video_mode_clip">ویڈیو</string>
+    <string name="video_live_unavailable">لائیو لئی نیڑے دا mesh پیئر (یا نجی سنیہے وچ خفیہ سیشن) چاہیدا اے</string>
+    <string name="video_quality_low">گھٹ</string>
+    <string name="video_quality_medium">درمیانہ</string>
+    <string name="video_quality_high">ودھ</string>
+    <string name="video_quality_low_hint">Bluetooth تے کئی ہاپس لئی سب توں ودھیا</string>
+    <string name="video_quality_medium_hint">اک یا دو Bluetooth ہاپس</string>
+    <string name="video_quality_high_hint">صرف Wi-Fi Aware پیئرز</string>
+    <string name="cd_live_video">لائیو ویڈیو</string>
+    <string name="cd_video">ویڈیو</string>
+    <string name="cd_play_video">ویڈیو چلاؤ</string>
+    <string name="cd_pause_video">ویڈیو روکو</string>
+    <string name="cd_mute">آواز بند کرو</string>
+    <string name="cd_unmute">آواز کھولو</string>
+    <string name="cd_switch_camera">کیمرا بدلو</string>
+    <string name="cd_pick_video">ویڈیو چنو</string>
 </resources>

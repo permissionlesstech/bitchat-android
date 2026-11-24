@@ -111,8 +111,10 @@ class MeshCore(
     private val securityManager = SecurityManager(encryptionService, myPeerID)
     private val messageHandler = MessageHandler(myPeerID, context.applicationContext)
     private val packetProcessor = PacketProcessor(myPeerID)
-    private data class VoiceFrameRequest(val recipientPeerID: String?, val payload: ByteArray)
-    private val voiceFrameQueue = Channel<VoiceFrameRequest>(capacity = 128)
+    /** Live voice and live video share one best-effort, drop-when-full send queue. */
+    private data class LiveFrameRequest(val recipientPeerID: String?, val payload: ByteArray, val isVideo: Boolean)
+    private val liveFrameQueue = Channel<LiveFrameRequest>(capacity = 512)
+    private val liveFrameQueueDepth = java.util.concurrent.atomic.AtomicInteger(0)
     private val directPeers = ConcurrentHashMap.newKeySet<String>()
 
     val gossipSyncManager: GossipSyncManager =
@@ -125,7 +127,10 @@ class MeshCore(
 
     init {
         scope.launch {
-            for (request in voiceFrameQueue) dispatchVoiceFrame(request)
+            for (request in liveFrameQueue) {
+                liveFrameQueueDepth.decrementAndGet()
+                dispatchLiveFrame(request)
+            }
         }
         messageHandler.packetProcessor = packetProcessor
         peerManager.isPeerDirectlyConnected = { peerID -> directPeers.contains(peerID) }
@@ -256,7 +261,12 @@ class MeshCore(
                     payload = response,
                     ttl = maxTtl
                 )
-                dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(responsePacket)))
+                val signedPacket = signPacketBeforeBroadcast(responsePacket)
+                if (directPeers.contains(peerID)) {
+                    transport.broadcastPacket(RoutedPacket(signedPacket))
+                } else {
+                    dispatchGlobal(RoutedPacket(signedPacket))
+                }
             }
 
             override fun getPeerInfo(peerID: String): PeerInfo? = peerManager.getPeerInfo(peerID)
@@ -472,6 +482,9 @@ class MeshCore(
             override fun handleVoiceFrame(routed: RoutedPacket): Boolean =
                 messageHandler.handlePublicVoiceFrame(routed)
 
+            override fun handleVideoFrame(routed: RoutedPacket): Boolean =
+                messageHandler.handlePublicVideoFrame(routed)
+
             override suspend fun handleLeave(routed: RoutedPacket) {
                 messageHandler.handleLeave(routed)
             }
@@ -600,27 +613,41 @@ class MeshCore(
 
     fun sendVoiceFrame(recipientPeerID: String?, payload: ByteArray) {
         if (payload.isEmpty()) return
-        voiceFrameQueue.trySend(VoiceFrameRequest(recipientPeerID, payload.copyOf()))
+        if (liveFrameQueue.trySend(LiveFrameRequest(recipientPeerID, payload.copyOf(), isVideo = false)).isSuccess) {
+            liveFrameQueueDepth.incrementAndGet()
+        }
     }
 
-    private fun dispatchVoiceFrame(request: VoiceFrameRequest) {
+    fun sendVideoFrame(recipientPeerID: String?, payload: ByteArray) {
+        if (payload.isEmpty()) return
+        if (liveFrameQueue.trySend(LiveFrameRequest(recipientPeerID, payload.copyOf(), isVideo = true)).isSuccess) {
+            liveFrameQueueDepth.incrementAndGet()
+        }
+    }
+
+    fun liveSendBacklog(): Int = liveFrameQueueDepth.get().coerceAtLeast(0)
+
+    private fun dispatchLiveFrame(request: LiveFrameRequest) {
         try {
             val recipientPeerID = request.recipientPeerID
-            val packet = if (recipientPeerID == null) {
-                BitchatPacket(
+            if (recipientPeerID == null) {
+                val packet = BitchatPacket(
                     version = 1u,
-                    type = MessageType.VOICE_FRAME.value,
+                    type = if (request.isVideo) MessageType.VIDEO_FRAME.value else MessageType.VOICE_FRAME.value,
                     senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
                     recipientID = SpecialRecipients.BROADCAST,
                     timestamp = System.currentTimeMillis().toULong(),
                     payload = request.payload,
                     ttl = maxTtl
                 )
+                dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(packet), liveMedia = true))
             } else {
                 if (!encryptionService.hasEstablishedSession(recipientPeerID)) return
-                val plaintext = NoisePayload(NoisePayloadType.VOICE_FRAME, request.payload).encode()
+                val innerType = if (request.isVideo) NoisePayloadType.VIDEO_FRAME else NoisePayloadType.VOICE_FRAME
+                val plaintext = NoisePayload(innerType, request.payload).encode()
                 val ciphertext = encryptionService.encrypt(plaintext, recipientPeerID)
-                BitchatPacket(
+                // Noise AEAD already authenticates DM live media; skip redundant outer Ed25519 signature.
+                val packet = BitchatPacket(
                     version = 1u,
                     type = MessageType.NOISE_ENCRYPTED.value,
                     senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
@@ -629,10 +656,17 @@ class MeshCore(
                     payload = ciphertext,
                     ttl = maxTtl
                 )
+                val routed = RoutedPacket(packet, liveMedia = true)
+                // Never bridge locally-originated direct DM Noise ciphertexts to other transports:
+                // each transport holds its own NoiseSessionManager, so bridging floods BLE and fails decrypt.
+                if (directPeers.contains(recipientPeerID)) {
+                    transport.broadcastPacket(routed)
+                } else {
+                    dispatchGlobal(routed)
+                }
             }
-            dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(packet)))
         } catch (e: Exception) {
-            Log.w("MeshCore", "Live voice frame send failed: ${e.message}")
+            Log.w("MeshCore", "Live frame send failed: ${e.message}")
         }
     }
 
@@ -946,7 +980,11 @@ class MeshCore(
                     ttl = maxTtl
                 )
                 val signedPacket = signPacketBeforeBroadcast(packet)
-                dispatchGlobal(RoutedPacket(signedPacket))
+                if (directPeers.contains(peerID)) {
+                    transport.broadcastPacket(RoutedPacket(signedPacket))
+                } else {
+                    dispatchGlobal(RoutedPacket(signedPacket))
+                }
             } catch (e: Exception) {
                 Log.e("MeshCore", "Failed to initiate Noise handshake with $peerID: ${e.message}")
             }

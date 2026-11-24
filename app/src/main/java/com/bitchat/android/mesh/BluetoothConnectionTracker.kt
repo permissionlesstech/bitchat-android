@@ -190,11 +190,11 @@ class BluetoothConnectionTracker(
     fun isDeviceConnected(deviceAddress: String): Boolean = isConnected(deviceAddress)
 
     /**
-     * Check if a peer is already connected (by PeerID)
+     * Check if a peer is already connected (by PeerID), across both client and server links.
      */
     fun isPeerConnected(peerID: String): Boolean {
-        // Only consider actual connected devices that have identified themselves
-        return connectedDevices.values.any { it.peerID == peerID }
+        return connectedDevices.values.any { it.peerID == peerID } ||
+            addressPeerMap.values.any { it == peerID }
     }
     
     /**

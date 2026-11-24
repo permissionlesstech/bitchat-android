@@ -22,6 +22,7 @@ enum class NoisePayloadType(val value: UByte) {
     READ_RECEIPT(0x02u),        // Message was read
     DELIVERED(0x03u),           // Message was delivered
     VOICE_FRAME(0x08u),         // Ephemeral live push-to-talk frame
+    VIDEO_FRAME(0x0Au),         // Ephemeral live video packet
     VERIFY_CHALLENGE(0x10u),    // Verification challenge
     VERIFY_RESPONSE(0x11u),     // Verification response
     FILE_TRANSFER(0x20u),

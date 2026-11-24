@@ -142,7 +142,9 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                             senderPeerID = peerID
                         )
 
-                        if (!LiveVoiceManager.getInstance(appContext).absorbFinalizedVoiceNote(message)) {
+                        if (!LiveVoiceManager.getInstance(appContext).absorbFinalizedVoiceNote(message) &&
+                            LiveVideoIngress.sink?.absorbFinalizedVideo(message) != true
+                        ) {
                             delegate?.onMessageReceived(message)
                         }
 
@@ -161,6 +163,17 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                         payload = noisePayload.data,
                         timestampMs = packet.timestamp.toLong()
                     )
+                }
+
+                com.bitchat.android.model.NoisePayloadType.VIDEO_FRAME -> {
+                    // Without a registered player (Wear OS) the frame is accepted and dropped.
+                    return LiveVideoIngress.sink?.handleFrame(
+                        peerID = peerID,
+                        nickname = delegate?.getPeerNickname(peerID) ?: peerID,
+                        isPrivate = true,
+                        payload = noisePayload.data,
+                        timestampMs = packet.timestamp.toLong()
+                    ) ?: true
                 }
 
                 com.bitchat.android.model.NoisePayloadType.PEER_STATE -> {
@@ -447,6 +460,30 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         )
     }
     
+    /** Validate and ingest an ephemeral public live video packet (same rules as live voice). */
+    fun handlePublicVideoFrame(routed: RoutedPacket): Boolean {
+        val packet = routed.packet
+        val peerID = routed.peerID ?: return false
+        if (peerID == myPeerID) return true
+        val recipient = packet.recipientID
+        if (recipient != null && !recipient.contentEquals(delegate?.getBroadcastRecipient())) return false
+        if (packet.timestamp > Long.MAX_VALUE.toULong()) return false
+        val ageMs = System.currentTimeMillis() - packet.timestamp.toLong()
+        if (ageMs !in -30_000L..30_000L) return false
+        val peerInfo = delegate?.getPeerInfo(peerID)
+        if (peerInfo == null || !peerInfo.isVerifiedNickname) return false
+        val sink = LiveVideoIngress.sink
+            // No local player: relay only structurally valid packets.
+            ?: return com.bitchat.android.features.video.VideoBurstPacket.decode(packet.payload) != null
+        return sink.handleFrame(
+            peerID = peerID,
+            nickname = delegate?.getPeerNickname(peerID) ?: peerID,
+            isPrivate = false,
+            payload = packet.payload,
+            timestampMs = packet.timestamp.toLong()
+        )
+    }
+
     /**
      * Handle broadcast message with verification enforcement
      */
@@ -476,7 +513,9 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     senderPeerID = peerID,
                     timestamp = Date(packet.timestamp.toLong())
                 )
-                if (!LiveVoiceManager.getInstance(appContext).absorbFinalizedVoiceNote(message)) {
+                if (!LiveVoiceManager.getInstance(appContext).absorbFinalizedVoiceNote(message) &&
+                    LiveVideoIngress.sink?.absorbFinalizedVideo(message) != true
+                ) {
                     delegate?.onMessageReceived(message)
                 }
                 return
@@ -538,7 +577,9 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     recipientNickname = delegate?.getMyNickname()
                 )
                 Log.d(TAG, "📄 Saved incoming file to $savedPath")
-                if (!LiveVoiceManager.getInstance(appContext).absorbFinalizedVoiceNote(message)) {
+                if (!LiveVoiceManager.getInstance(appContext).absorbFinalizedVoiceNote(message) &&
+                    LiveVideoIngress.sink?.absorbFinalizedVideo(message) != true
+                ) {
                     delegate?.onMessageReceived(message)
                 }
                 return

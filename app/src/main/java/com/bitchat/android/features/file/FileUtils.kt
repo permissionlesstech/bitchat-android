@@ -211,6 +211,7 @@ object FileUtils {
             "image/webp" -> ".webp"
             "application/pdf" -> ".pdf"
             "text/plain" -> ".txt"
+            "video/mp4" -> ".mp4"
             else -> if (isImage) ".jpg" else ".bin"
         }
 
@@ -272,6 +273,7 @@ object FileUtils {
         return when {
             lower.startsWith("image/") -> com.bitchat.android.model.BitchatMessageType.Image
             lower.startsWith("audio/") -> com.bitchat.android.model.BitchatMessageType.Audio
+            lower == "video/mp4" -> com.bitchat.android.model.BitchatMessageType.Video
             else -> com.bitchat.android.model.BitchatMessageType.File
         }
     }
@@ -356,7 +358,8 @@ object FileUtils {
         val mediaTypes = setOf(
             BitchatMessageType.Audio,
             BitchatMessageType.Image,
-            BitchatMessageType.File
+            BitchatMessageType.File,
+            BitchatMessageType.Video
         )
         val roots = listOf(context.filesDir, context.cacheDir)
             .mapNotNull { runCatching { it.canonicalFile }.getOrNull() }

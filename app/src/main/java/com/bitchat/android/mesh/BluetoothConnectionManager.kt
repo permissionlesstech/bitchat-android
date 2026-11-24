@@ -333,6 +333,46 @@ class BluetoothConnectionManager(
         return connectionScope.isActive
     }
     
+    /** Requests high (or balanced) connection priority, 2M PHY, and pauses scan churn during live media. */
+    @android.annotation.SuppressLint("MissingPermission")
+    fun setLinkPriority(high: Boolean) {
+        val priority = if (high) {
+            android.bluetooth.BluetoothGatt.CONNECTION_PRIORITY_HIGH
+        } else {
+            android.bluetooth.BluetoothGatt.CONNECTION_PRIORITY_BALANCED
+        }
+        val request2M = high && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O &&
+            runCatching { bluetoothAdapter?.isLe2MPhySupported == true }.getOrDefault(false)
+        connectionTracker.getConnectedDevices().values
+            .filter { it.isClient }
+            .forEach { connection ->
+                runCatching { connection.gatt?.requestConnectionPriority(priority) }
+                if (request2M) {
+                    runCatching {
+                        connection.gatt?.setPreferredPhy(
+                            android.bluetooth.BluetoothDevice.PHY_LE_2M_MASK,
+                            android.bluetooth.BluetoothDevice.PHY_LE_2M_MASK,
+                            android.bluetooth.BluetoothDevice.PHY_OPTION_NO_PREFERRED
+                        )
+                    }
+                }
+            }
+        clientManager.setLiveMediaBoost(high)
+    }
+
+    /** Packet budget per second for BLE live video: scaled by 2M PHY and broadcast fan-out. */
+    fun bleLivePacketBudget(isBroadcast: Boolean = false): Int {
+        val supports2M = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O &&
+            runCatching { bluetoothAdapter?.isLe2MPhySupported == true }.getOrDefault(false)
+        val base = if (supports2M) 48 else 24
+        if (!isBroadcast) return base
+        val directPeers = connectionTracker.addressPeerMap.values.distinct().size.coerceAtLeast(1)
+        return (base / directPeers).coerceAtLeast(12)
+    }
+
+    /** Deepest per-link GATT send queue, in packets. */
+    fun deepestLinkBacklog(): Int = packetBroadcaster.deepestLinkBacklog()
+
     /**
      * Broadcast packet to connected devices with connection limit enforcement
      * Automatically fragments large packets to fit within BLE MTU limits

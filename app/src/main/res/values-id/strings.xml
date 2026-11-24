@@ -285,10 +285,12 @@
     <string name="image_star">image/*</string>
     <string name="media_type_image">Gambar</string>
     <string name="media_type_file">File</string>
+    <string name="media_type_video">Video</string>
 
     <!-- Pembantu teks notifikasi -->
     <string name="notification_sent_image">📷 mengirim gambar</string>
     <string name="notification_sent_voice">🎤 mengirim pesan suara</string>
+    <string name="notification_sent_video">🎥 mengirim video</string>
     <string name="notification_sent_file">📎 mengirim file</string>
 
     <!-- Aksesibilitas pemutar suara -->
@@ -402,4 +404,45 @@
     <string name="cd_show_whole_globe">Tampilkan seluruh globe</string>
     <string name="cd_globe_activity">%1$d obrolan aktif, %2$d orang online</string>
     <string name="cd_channel_activity">%1$d orang, %2$d pesan dalam satu jam terakhir</string>
+
+    <!-- Live video and video messages -->
+    <string name="video_live_badge">LIVE</string>
+    <string name="video_joining_live">Bergabung ke siaran langsung…</string>
+    <string name="video_weak_signal">Sinyal lemah</string>
+    <string name="video_weak_signal_reconnecting">Sinyal lemah · mengejar ketertinggalan</string>
+    <string name="video_reconnecting">Menyambungkan ulang…</string>
+    <string name="video_live_ended">Video langsung berakhir</string>
+    <string name="video_live_ended_by">%1$s mengakhiri siaran</string>
+    <string name="video_watch_replay">Tonton rekaman</string>
+    <string name="video_live_rate">%1$.1f kbps melalui mesh</string>
+    <string name="video_unavailable">Video tidak tersedia</string>
+    <string name="video_too_short">Video terlalu pendek</string>
+    <string name="video_prepare_failed">Tidak dapat menyiapkan video ini untuk mesh</string>
+    <string name="video_camera_failed">Kamera atau encoder video tidak tersedia</string>
+    <string name="video_trimmed">Video panjang dipotong ke menit pertamanya</string>
+    <string name="video_camera_permission">Akses kamera diperlukan untuk merekam atau siaran langsung</string>
+    <string name="video_grant_camera">Izinkan kamera</string>
+    <string name="video_compressing">Mengompresi untuk mesh…</string>
+    <string name="video_finishing">Menyelesaikan…</string>
+    <string name="video_end_live_title">Akhiri video langsung?</string>
+    <string name="video_end_live_message">Penonton tetap menyimpan apa yang telah mereka terima. Rekaman dibagikan di obrolan.</string>
+    <string name="video_end_live_confirm">Akhiri</string>
+    <string name="video_uplink">↑ %1$.1f kbps · %2$s</string>
+    <string name="video_mode_live">LIVE</string>
+    <string name="video_mode_clip">VIDEO</string>
+    <string name="video_live_unavailable">Siaran langsung memerlukan peer mesh di dekat Anda (atau sesi terenkripsi di pesan langsung)</string>
+    <string name="video_quality_low">Rendah</string>
+    <string name="video_quality_medium">Sedang</string>
+    <string name="video_quality_high">Tinggi</string>
+    <string name="video_quality_low_hint">Terbaik untuk Bluetooth dan banyak hop</string>
+    <string name="video_quality_medium_hint">Satu atau dua hop Bluetooth</string>
+    <string name="video_quality_high_hint">Hanya peer Wi-Fi Aware</string>
+    <string name="cd_live_video">Video langsung</string>
+    <string name="cd_video">Video</string>
+    <string name="cd_play_video">Putar video</string>
+    <string name="cd_pause_video">Jeda video</string>
+    <string name="cd_mute">Bisukan</string>
+    <string name="cd_unmute">Bunyikan</string>
+    <string name="cd_switch_camera">Ganti kamera</string>
+    <string name="cd_pick_video">Pilih video</string>
 </resources>

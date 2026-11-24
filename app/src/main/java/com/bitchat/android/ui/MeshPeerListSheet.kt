@@ -1160,6 +1160,8 @@ private fun ConversationRow(
             stringResource(R.string.notification_sent_image)
         conversation.latestMessageType == BitchatMessageType.Audio ->
             stringResource(R.string.notification_sent_voice)
+        conversation.latestMessageType == BitchatMessageType.Video ->
+            stringResource(R.string.notification_sent_video)
         conversation.latestMessageType == BitchatMessageType.File ->
             conversation.latestMessagePreview
                 .takeIf(String::isNotBlank)
@@ -1894,6 +1896,7 @@ fun PrivateChatSheet(
                             viewModel.sendFileNote(peer, channel, path)
                         },
                         recorderFactory = viewModel::createVoiceRecorder,
+                        videoActions = viewModel.videoComposerActions,
                         showCommandSuggestions = false,
                         commandSuggestions = emptyList(),
                         showMentionSuggestions = false,

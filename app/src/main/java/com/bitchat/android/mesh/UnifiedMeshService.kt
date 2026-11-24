@@ -31,6 +31,7 @@ class UnifiedMeshService(
 ) : MeshService, BluetoothMeshDelegate {
 
     companion object {
+        private const val WIFI_LIVE_PACKET_BUDGET = 300
         private const val TAG = "UnifiedMeshService"
     }
 
@@ -184,6 +185,65 @@ class UnifiedMeshService(
         }
     }
 
+    override fun liveSendBacklog(): Int = liveSendBacklog(null)
+
+    override fun liveSendBacklog(recipientPeerID: String?): Int {
+        return if (shouldUseWifiForLiveVideo(recipientPeerID)) {
+            wifiService()?.liveSendBacklog(recipientPeerID) ?: 0
+        } else if (isBleEnabled()) {
+            bluetooth.liveSendBacklog()
+        } else {
+            wifiService()?.liveSendBacklog(recipientPeerID) ?: 0
+        }
+    }
+
+    override fun liveSendPacketBudget(recipientPeerID: String?): Int {
+        // Mirrors sendVideoFrame's route choice: prefer Wi-Fi Aware when ready (an order of magnitude more room).
+        return if (shouldUseWifiForLiveVideo(recipientPeerID)) {
+            WIFI_LIVE_PACKET_BUDGET
+        } else if (isBleEnabled()) {
+            bluetooth.liveSendPacketBudget(recipientPeerID)
+        } else {
+            WIFI_LIVE_PACKET_BUDGET
+        }
+    }
+
+    override fun sendVideoFrame(recipientPeerID: String?, payload: ByteArray) {
+        if (recipientPeerID == null) {
+            when {
+                shouldUseWifiForLiveVideo(null) -> wifiService()?.sendVideoFrame(null, payload)
+                isBleEnabled() -> bluetooth.sendVideoFrame(null, payload)
+                else -> wifiService()?.sendVideoFrame(null, payload)
+            }
+            return
+        }
+        when {
+            isWifiReady(recipientPeerID) -> wifiService()?.sendVideoFrame(recipientPeerID, payload)
+            isBleReady(recipientPeerID) -> bluetooth.sendVideoFrame(recipientPeerID, payload)
+            isWifiConnected(recipientPeerID) -> wifiService()?.sendVideoFrame(recipientPeerID, payload)
+            isBleConnected(recipientPeerID) || isBleEnabled() ->
+                bluetooth.sendVideoFrame(recipientPeerID, payload)
+            else -> wifiService()?.sendVideoFrame(recipientPeerID, payload)
+        }
+    }
+
+    private fun shouldUseWifiForLiveVideo(recipientPeerID: String?): Boolean {
+        return if (recipientPeerID == null) {
+            hasWifiConnectedPeers() || !isBleEnabled()
+        } else {
+            isWifiReady(recipientPeerID) || (!isBleReady(recipientPeerID) && isWifiConnected(recipientPeerID))
+        }
+    }
+
+    private fun hasWifiConnectedPeers(): Boolean {
+        return try {
+            val wifi = wifiService() ?: return false
+            wifi.getActivePeerCount() > 0
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     override fun prepareFilePrivate(
         recipientPeerID: String,
         file: BitchatFilePacket,
@@ -277,8 +337,8 @@ class UnifiedMeshService(
 
     override fun initiateNoiseHandshake(peerID: String) {
         when {
-            isBleConnected(peerID) -> bluetooth.initiateNoiseHandshake(peerID)
             isWifiConnected(peerID) -> wifiService()?.initiateNoiseHandshake(peerID)
+            isBleConnected(peerID) -> bluetooth.initiateNoiseHandshake(peerID)
             isBleEnabled() -> bluetooth.initiateNoiseHandshake(peerID)
             else -> wifiService()?.initiateNoiseHandshake(peerID)
         }

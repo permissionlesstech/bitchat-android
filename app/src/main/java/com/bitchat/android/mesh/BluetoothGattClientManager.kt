@@ -166,12 +166,33 @@ class BluetoothGattClientManager(
     }
     
     /**
+     * Pause active BLE scanning while live media is flowing over existing links so the radio
+     * does not preempt GATT writes/notifications; resume scanning as soon as live media ends.
+     */
+    fun setLiveMediaBoost(active: Boolean) {
+        if (!isActive || !isClientRoleEnabled()) return
+        if (active) {
+            if (connectionTracker.getConnectedDeviceCount() > 0 && isCurrentlyScanning) {
+                Log.d(TAG, "Pausing BLE scan during active live media stream")
+                stopScanning()
+            }
+        } else if (scanningDesired && !isCurrentlyScanning) {
+            Log.d(TAG, "Resuming BLE scan after live media stream")
+            startScanning()
+        }
+    }
+
+    /**
      * Handle scan state changes from power manager
      */
     fun onScanStateChanged(shouldScan: Boolean) {
         val enabled = isClientRoleEnabled()
         scanningDesired = shouldScan && enabled
         if (shouldScan && enabled) {
+            if (LiveMediaLinkBoost.isActive && connectionTracker.getConnectedDeviceCount() > 0) {
+                Log.d(TAG, "Deferring BLE scan start while live media boost is active")
+                return
+            }
             startScanning()
         } else {
             stopScanning()
@@ -327,9 +348,10 @@ class BluetoothGattClientManager(
             while (isActive) {
                 delay(SCAN_WATCHDOG_INTERVAL_MS)
                 try {
-                    // Only act when we are supposed to be scanning. Honors duty-cycle OFF windows
-                    // and the client-disabled state via scanningDesired.
+                    // Only act when we are supposed to be scanning. Honors duty-cycle OFF windows,
+                    // active live media boost, and the client-disabled state via scanningDesired.
                     if (!isActive || !scanningDesired || !isClientRoleEnabled()) continue
+                    if (LiveMediaLinkBoost.isActive && connectionTracker.getConnectedDeviceCount() > 0) continue
                     if (!permissionManager.hasBluetoothPermissions() || bluetoothAdapter?.isEnabled != true) continue
 
                     val now = System.currentTimeMillis()
@@ -433,6 +455,11 @@ class BluetoothGattClientManager(
             return
         }
         
+        // Avoid initiating new GATT connections while live media is saturating existing links.
+        if (LiveMediaLinkBoost.isActive && connectionTracker.getConnectedDeviceCount() > 0) {
+            return
+        }
+
         // Check if already connected OR already attempting to connect
         if (connectionTracker.isDeviceConnected(deviceAddress)) {
             return
@@ -477,6 +504,10 @@ class BluetoothGattClientManager(
                     connectionScope.launch {
                         delay(200) // A small delay can improve reliability of MTU request.
                         gatt.requestMtu(517)
+                        if (LiveMediaLinkBoost.isActive) {
+                            delay(300)
+                            runCatching { gatt.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH) }
+                        }
                     }
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                     if (status != BluetoothGatt.GATT_SUCCESS) {
@@ -516,6 +547,17 @@ class BluetoothGattClientManager(
                         linkID = linkID
                     )
                     connectionTracker.addDeviceConnection(deviceAddress, deviceConn)
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O &&
+                        runCatching { bluetoothAdapter?.isLe2MPhySupported == true }.getOrDefault(false)
+                    ) {
+                        runCatching {
+                            gatt.setPreferredPhy(
+                                BluetoothDevice.PHY_LE_2M_MASK,
+                                BluetoothDevice.PHY_LE_2M_MASK,
+                                BluetoothDevice.PHY_OPTION_NO_PREFERRED
+                            )
+                        }
+                    }
                     
                     // Start service discovery only AFTER MTU is set.
                     gatt.discoverServices()
