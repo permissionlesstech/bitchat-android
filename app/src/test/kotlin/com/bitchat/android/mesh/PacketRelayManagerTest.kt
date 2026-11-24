@@ -176,8 +176,8 @@ class PacketRelayManagerTest {
         val secondBridgeRelay = PacketRelayManager(me).apply { delegate = this@PacketRelayManagerTest.delegate }
         whenever(delegate.getDirectConnectedPeers()).thenReturn(setOf(prevHop, farPeer))
 
-        val fragment = broadcastPacket(MessageType.FRAGMENT, prevHop)
-        secondBridgeRelay.handlePacketRelay(RoutedPacket(fragment, prevHop, "link-p", previousHopPeerID = prevHop))
+        val signedFragment = broadcastPacket(MessageType.FRAGMENT, prevHop).copy(signature = ByteArray(64) { 0x11 })
+        secondBridgeRelay.handlePacketRelay(RoutedPacket(signedFragment, prevHop, "link-p", previousHopPeerID = prevHop))
 
         val file = broadcastPacket(MessageType.FILE_TRANSFER, prevHop)
         secondBridgeRelay.handlePacketRelay(RoutedPacket(file, prevHop, "link-p", previousHopPeerID = prevHop))
@@ -190,7 +190,9 @@ class PacketRelayManagerTest {
         assertFalse(captor.secondValue.skipNeighborPruning)
         secondBridgeRelay.shutdown()
 
-        // Triple-bridge: adding hubMid ("05...") between hubLow and me means me ("09...") is 3rd -> suppressed
+        // Triple-bridge: adding hubMid ("05...") between hubLow and me means me ("09...") is 3rd ->
+        // signed FRAGMENT & FILE_TRANSFER are suppressed under k=2, while legacy unsigned FRAGMENT
+        // fails closed to pruned relaying so arrival order cannot strand downstream peers.
         val hubMid = "0505050505050505"
         MeshGraphService.resetForTesting { nowMs }
         seedConfirmedEdges(
@@ -207,8 +209,15 @@ class PacketRelayManagerTest {
         whenever(thirdDelegate.getDirectConnectedPeers()).thenReturn(setOf(prevHop, farPeer))
         val thirdBridgeRelay = PacketRelayManager(me).apply { delegate = thirdDelegate }
 
-        thirdBridgeRelay.handlePacketRelay(RoutedPacket(fragment, prevHop, "link-p", previousHopPeerID = prevHop))
+        thirdBridgeRelay.handlePacketRelay(RoutedPacket(signedFragment, prevHop, "link-p", previousHopPeerID = prevHop))
+        thirdBridgeRelay.handlePacketRelay(RoutedPacket(file, prevHop, "link-p", previousHopPeerID = prevHop))
         verify(thirdDelegate, never()).broadcastPacket(any())
+
+        val unsignedFragment = broadcastPacket(MessageType.FRAGMENT, prevHop).copy(timestamp = 2_000UL, signature = null)
+        thirdBridgeRelay.handlePacketRelay(RoutedPacket(unsignedFragment, prevHop, "link-p", previousHopPeerID = prevHop))
+        val unsignedCaptor = argumentCaptor<RoutedPacket>()
+        verify(thirdDelegate, org.mockito.kotlin.times(1)).broadcastPacket(unsignedCaptor.capture())
+        assertFalse("Legacy unsigned FRAGMENT still applies neighbor pruning", unsignedCaptor.firstValue.skipNeighborPruning)
         thirdBridgeRelay.shutdown()
     }
 

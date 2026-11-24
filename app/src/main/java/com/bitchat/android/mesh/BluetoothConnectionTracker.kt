@@ -85,7 +85,7 @@ class BluetoothConnectionTracker(
      */
     fun addDeviceConnection(deviceAddress: String, deviceConn: DeviceConnection) {
         Log.d(TAG, "Tracker: Adding device connection for $deviceAddress (isClient: ${deviceConn.isClient}")
-        synchronized(connectionStateLock) {
+        val displacedPeerID = synchronized(connectionStateLock) {
             connectedDevices[deviceAddress] = deviceConn
             // A route observation belongs to this GATT generation, not its reusable address.
             addressPeerMap.remove(deviceAddress)
@@ -94,6 +94,9 @@ class BluetoothConnectionTracker(
         // Mark as awaiting first ANNOUNCE on this connection
         firstAnnounceSeen[deviceAddress] = false
         notifyConnectionStateChanged()
+        if (displacedPeerID != null) {
+            notifyObservedPeerDisconnected(displacedPeerID)
+        }
     }
     
     /**

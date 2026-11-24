@@ -197,19 +197,71 @@ class BluetoothPacketBroadcasterTest {
 
             val devReplacementAlt = addServerDevice("AA:00:00:00:00:98", replacementPeer)
 
-            // Late packet from link-1 carries stale ingressLinkID="link-1" and null previousHopPeerID
+            // Late packet from link-1 carries stale ingressLinkID="link-1", null previousHopPeerID,
+            // and pruning initially enabled (skipNeighborPruning=false). Even a fresh confirmed
+            // origin neighbor must receive the relay when the ingress link was replaced before egress.
+            seedConfirmedEdges(originPeerID to originNeighborPeerID)
+            val devOriginNeighbor = addServerDevice("AA:00:00:00:00:97", originNeighborPeerID)
+
             val latePacket = RoutedPacket(
                 packet = broadcastPacket(MessageType.MESSAGE, originPeerID),
                 peerID = originPeerID,
                 relayAddress = reusedAddress,
                 ingressLinkID = "link-1",
-                previousHopPeerID = null,
-                skipNeighborPruning = true
+                previousHopPeerID = prevHopPeerID,
+                skipNeighborPruning = false
             )
 
             assertTrue(broadcaster.broadcastSinglePacketInternal(latePacket, gattServer, serverChar))
             verify(gattServer).notifyCharacteristicChanged(eq(devReused), any(), eq(false))
             verify(gattServer).notifyCharacteristicChanged(eq(devReplacementAlt), any(), eq(false))
+            verify(gattServer).notifyCharacteristicChanged(eq(devOriginNeighbor), any(), eq(false))
+        }
+    }
+
+    @Test
+    fun `bridged Wi-Fi Aware ingress preserves previous-hop skipping and pruning on BLE egress`() {
+        runBlocking {
+            seedConfirmedEdges(
+                prevHopPeerID to prevHopNeighborPeerID,
+                myPeerID to prevHopPeerID,
+                myPeerID to farPeerID
+            )
+            val devPrevHop = addServerDevice("AA:00:00:00:00:21", prevHopPeerID)
+            val devPrevHopNeighbor = addServerDevice("AA:00:00:00:00:22", prevHopNeighborPeerID)
+            val devDownstream = addServerDevice("AA:00:00:00:00:23", farPeerID)
+
+            val wifiRouted = RoutedPacket(
+                packet = broadcastPacket(MessageType.MESSAGE, originPeerID).copy(timestamp = 9_999UL),
+                peerID = originPeerID,
+                relayAddress = "wifi-provisional-alias",
+                ingressLinkID = "wifi-link-gen-1",
+                previousHopPeerID = prevHopPeerID,
+                skipNeighborPruning = false
+            )
+
+            var bridgedToBle: RoutedPacket? = null
+            val testTransportId = "BLE-TEST-BRIDGE"
+            com.bitchat.android.service.TransportBridgeService.register(
+                testTransportId,
+                object : com.bitchat.android.service.TransportBridgeService.TransportLayer {
+                    override fun send(packet: RoutedPacket) {
+                        bridgedToBle = packet
+                    }
+                }
+            )
+            try {
+                com.bitchat.android.service.TransportBridgeService.broadcast("WIFI", wifiRouted)
+            } finally {
+                com.bitchat.android.service.TransportBridgeService.unregister(testTransportId)
+            }
+
+            val forwarded = bridgedToBle!!
+            assertTrue(broadcaster.broadcastSinglePacketInternal(forwarded, gattServer, serverChar))
+
+            verify(gattServer, never()).notifyCharacteristicChanged(eq(devPrevHop), any(), eq(false))
+            verify(gattServer, never()).notifyCharacteristicChanged(eq(devPrevHopNeighbor), any(), eq(false))
+            verify(gattServer).notifyCharacteristicChanged(eq(devDownstream), any(), eq(false))
         }
     }
 

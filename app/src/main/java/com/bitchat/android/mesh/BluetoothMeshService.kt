@@ -260,8 +260,9 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 hasUnidentifiedDirectLink = connectionManager.hasUnidentifiedConnection()
             )
         }
-        // Promptly prune stale direct graph edge even when disconnect() clears addressPeerMap
-        // before Android's delayed GATT STATE_DISCONNECTED callback fires.
+        // Promptly prune stale direct graph edge and broadcast topology update whenever an
+        // observed link is removed or replaced (covers explicit disconnect(), link replacement,
+        // and normal GATT disconnects before delayed callbacks run).
         connectionManager.setObservedPeerDisconnectedListener { removedPeerID ->
             val remainingDirect = connectionManager.addressPeerMap.values.toSet()
             MeshGraphTransportCleanup.onDirectLinkLost(
@@ -271,6 +272,12 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 remainingLocalDirectPeers = remainingDirect,
                 hasUnidentifiedDirectLink = connectionManager.hasUnidentifiedConnection()
             )
+            if (removedPeerID !in remainingDirect && remainingDirect.isNotEmpty() && isActive) {
+                serviceScope.launch {
+                    delay(500)
+                    if (isActive) sendBroadcastAnnounce()
+                }
+            }
         }
         // PeerManager delegates to main mesh service delegate
         peerManager.delegate = object : PeerManagerDelegate {
@@ -759,12 +766,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                         remainingLocalDirectPeers = remainingDirect,
                         hasUnidentifiedDirectLink = hasUnidentified
                     )
-                    if (peerID !in remainingDirect && remainingDirect.isNotEmpty() && isActive) {
-                        serviceScope.launch {
-                            delay(500)
-                            if (isActive) sendBroadcastAnnounce()
-                        }
-                    }
                 } else {
                     MeshGraphTransportCleanup.publishDirectState("BLE", remainingDirect, hasUnidentified)
                 }

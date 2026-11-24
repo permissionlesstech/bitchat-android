@@ -19,6 +19,7 @@ class PacketProcessor(
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
     meshGraphProvider: () -> com.bitchat.android.services.meshgraph.MeshGraphService =
         com.bitchat.android.services.meshgraph.MeshGraphService::getInstance,
+    relayClockMs: () -> Long = System::currentTimeMillis,
 ) {
     private val debugManager by lazy { try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (e: Exception) { null } }
     
@@ -33,7 +34,11 @@ class PacketProcessor(
     var delegate: PacketProcessorDelegate? = null
     
     // Packet relay manager for centralized relay decisions
-    private val packetRelayManager = PacketRelayManager(myPeerID, meshGraphProvider = meshGraphProvider)
+    private val packetRelayManager = PacketRelayManager(
+        myPeerID = myPeerID,
+        meshGraphProvider = meshGraphProvider,
+        clockMs = relayClockMs
+    )
     
     // Coroutines
     private val processorScope = CoroutineScope(dispatcher + SupervisorJob())

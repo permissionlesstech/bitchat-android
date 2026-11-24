@@ -67,12 +67,17 @@ object BroadcastPruningPolicy {
             return false
         }
 
-        // 7. Prune targets that are fresh confirmed neighbors of origin or previous hop.
+        // 7. Unknown or replaced previous hop disables neighbor pruning (including origin neighbors)
+        // so late packets after an ingress link replacement cannot prune the only remaining path.
+        if (resolvedPreviousHopPeerID.isNullOrBlank()) {
+            return false
+        }
+
+        // 8. Prune targets that are fresh confirmed neighbors of origin or previous hop.
         if (graphService.isFreshConfirmedNeighbor(originPeerID, targetPeerID, edgeMaxAgeMs)) {
             return true
         }
-        if (resolvedPreviousHopPeerID != null &&
-            resolvedPreviousHopPeerID != originPeerID &&
+        if (resolvedPreviousHopPeerID != originPeerID &&
             graphService.isFreshConfirmedNeighbor(resolvedPreviousHopPeerID, targetPeerID, edgeMaxAgeMs)
         ) {
             return true

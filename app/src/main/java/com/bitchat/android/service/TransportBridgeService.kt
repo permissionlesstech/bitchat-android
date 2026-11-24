@@ -93,8 +93,13 @@ object TransportBridgeService {
         // Prepared private-media fragments must remain the admitted plan when
         // crossing transports, but relay TTL still has to advance on every
         // hop. TTL is excluded from the signature and does not affect size.
+        // Clear source-transport-local relayAddress/ingressLinkID so target
+        // transports preserve the verified cross-transport previousHopPeerID
+        // instead of re-checking a foreign link ID against their own tracker.
         val forwarded = packet.copy(
             packet = forwardedPacket,
+            relayAddress = null,
+            ingressLinkID = null,
             preparedPackets = packet.preparedPackets?.map { prepared ->
                 prepared.copy(ttl = forwardedPacket.ttl)
             }
@@ -124,6 +129,8 @@ object TransportBridgeService {
         val forwardedPacket = prepared.packet
         val forwarded = packet.copy(
             packet = forwardedPacket,
+            relayAddress = null,
+            ingressLinkID = null,
             preparedPackets = packet.preparedPackets?.map { prepared ->
                 prepared.copy(ttl = forwardedPacket.ttl)
             }

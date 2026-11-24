@@ -81,6 +81,7 @@ class MprEndToEndRelayTest {
             return digest + digest
         }
 
+        var wallMs = 1_000_000L
         val deliveredCounts = mutableMapOf<String, Int>().withDefault { 0 }
         val relayCounts = mutableMapOf<String, Int>().withDefault { 0 }
 
@@ -96,7 +97,7 @@ class MprEndToEndRelayTest {
                     sig.contentEquals(sign(data, pub))
                 }
             }
-            val securityManager = SecurityManager(encryption, peerID).apply {
+            val securityManager = SecurityManager(encryption, peerID, clockMs = { wallMs }).apply {
                 delegate = object : SecurityManagerDelegate {
                     override fun onKeyExchangeCompleted(
                         peerID: String,
@@ -116,13 +117,13 @@ class MprEndToEndRelayTest {
                                 noisePublicKey = null,
                                 signingPublicKey = originSigningKey,
                                 isVerifiedNickname = true,
-                                lastSeen = System.currentTimeMillis()
+                                lastSeen = wallMs
                             )
                         } else null
                     }
                 }
             }
-            val processor = PacketProcessor(peerID, dispatcher = dispatcher)
+            val processor = PacketProcessor(peerID, dispatcher = dispatcher, relayClockMs = { wallMs })
 
             init {
                 processor.delegate = object : PacketProcessorDelegate {
@@ -195,7 +196,7 @@ class MprEndToEndRelayTest {
                 type = MessageType.MESSAGE.value,
                 senderID = hexToBytes(originId),
                 recipientID = SpecialRecipients.BROADCAST,
-                timestamp = System.currentTimeMillis().toULong(),
+                timestamp = wallMs.toULong(),
                 payload = "mpr-arrival-order-test".toByteArray(),
                 ttl = 7u
             )
@@ -250,7 +251,8 @@ class MprEndToEndRelayTest {
 
             // Security regression check: a forged duplicate (invalid signature) arriving at a node
             // whose first copy was MPR-suppressed must NEVER trigger a relay.
-            val unsigned2 = unsigned.copy(timestamp = (System.currentTimeMillis() + 100L).toULong())
+            wallMs += 100L
+            val unsigned2 = unsigned.copy(timestamp = wallMs.toULong())
             val signed2 = unsigned2.copy(signature = sign(unsigned2.toBinaryDataForSigning()!!, originSigningKey))
             val forged2 = signed2.copy(signature = ByteArray(64) { 0xFF.toByte() })
 
@@ -371,23 +373,81 @@ class MprEndToEndRelayTest {
     }
 
     @Test
-    fun `first unchanged announce after graph expiry forces conservative flood`() = runTest {
+    fun `first unchanged announce after graph expiry forces conservative flood through production MessageHandler`() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
-        val prevHop = "0000000000000001"
+        var relayClock = 1_000_000L
+
+        val prevHopNoiseKey = ByteArray(32) { (0x10 + it).toByte() }
+        val prevHopSigningKey = ByteArray(32) { (0x50 + it).toByte() }
+        val prevHop = com.bitchat.android.noise.NoisePeerIdentity.derivePeerID(prevHopNoiseKey)!!
         val peerB = "0000000000000002"
         val me = "0000000000000009"
+
+        fun sign(data: ByteArray, key: ByteArray): ByteArray {
+            val digest = MessageDigest.getInstance("SHA-256").digest(key + data)
+            return digest + digest
+        }
+
         val graph = MeshGraphService.getInstance()
-        graph.updateFromAnnouncement(prevHop, "P", listOf(peerB, me), 1_000UL)
-        graph.updateFromAnnouncement(peerB, "B", listOf(prevHop, me), 1_000UL)
-        graph.updateFromAnnouncement(me, "M", listOf(prevHop, peerB), 1_000UL)
+        val initialTs = System.currentTimeMillis().toULong()
+        graph.updateFromAnnouncement(prevHop, "P", listOf(peerB, me), initialTs)
+        graph.updateFromAnnouncement(peerB, "B", listOf(prevHop, me), initialTs)
+        graph.updateFromAnnouncement(me, "M", listOf(prevHop, peerB), initialTs)
 
         // Expire prevHop's graph announcement while keeping me and peerB fresh
         nowMs += MeshGraphService.DEFAULT_EDGE_MAX_AGE_MS + 1_000L
-        graph.updateFromAnnouncement(peerB, "B", listOf(prevHop, me), 2_000UL)
-        graph.updateFromAnnouncement(me, "M", listOf(prevHop, peerB), 2_000UL)
+        graph.updateFromAnnouncement(peerB, "B", listOf(prevHop, me), initialTs + 1UL)
+        graph.updateFromAnnouncement(me, "M", listOf(prevHop, peerB), initialTs + 1UL)
+
+        val messageHandler = MessageHandler(me, mock())
+        messageHandler.delegate = object : MessageHandlerDelegate {
+            override fun addOrUpdatePeer(peerID: String, nickname: String) = false
+            override fun removePeer(peerID: String) = Unit
+            override fun updatePeerNickname(peerID: String, nickname: String) = Unit
+            override fun getPeerNickname(peerID: String): String? = "P"
+            override fun getNetworkSize() = 10
+            override fun getMyNickname() = "M"
+            override fun getPeerInfo(peerID: String): PeerInfo? = PeerInfo(
+                id = prevHop,
+                nickname = "P",
+                isConnected = true,
+                isDirectConnection = true,
+                noisePublicKey = prevHopNoiseKey,
+                signingPublicKey = prevHopSigningKey,
+                isVerifiedNickname = true,
+                lastSeen = relayClock
+            )
+            override fun updatePeerInfoFromVerifiedAnnouncement(
+                peerID: String,
+                nickname: String,
+                noisePublicKey: ByteArray,
+                signingPublicKey: ByteArray,
+                isVerified: Boolean,
+                capabilities: com.bitchat.android.model.PeerCapabilities?
+            ) = false // Existing peer (isFirst = false)
+            override fun sendPacket(packet: BitchatPacket) = Unit
+            override fun relayPacket(routed: RoutedPacket) = Unit
+            override fun getBroadcastRecipient(): ByteArray = SpecialRecipients.BROADCAST
+            override fun verifySignature(packet: BitchatPacket, peerID: String) = true
+            override fun encryptForPeer(data: ByteArray, recipientPeerID: String): ByteArray? = null
+            override fun decryptFromPeer(encryptedData: ByteArray, senderPeerID: String): com.bitchat.android.noise.NoiseDecryptionResult? = null
+            override fun verifyEd25519Signature(signature: ByteArray, data: ByteArray, publicKey: ByteArray): Boolean =
+                signature.contentEquals(sign(data, publicKey))
+            override fun hasNoiseSession(peerID: String) = false
+            override fun removeNoiseSession(peerID: String) = Unit
+            override fun initiateNoiseHandshake(peerID: String) = Unit
+            override fun processNoiseHandshakeMessage(payload: ByteArray, peerID: String): ByteArray? = null
+            override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? = null
+            override fun onMessageReceived(message: com.bitchat.android.model.BitchatMessage) = Unit
+            override fun onChannelLeave(channel: String, fromPeer: String) = Unit
+            override fun onDeliveryAckReceived(messageID: String, peerID: String) = Unit
+            override fun onReadReceiptReceived(messageID: String, peerID: String) = Unit
+            override fun onVerifyChallengeReceived(peerID: String, payload: ByteArray, timestampMs: Long) = Unit
+            override fun onVerifyResponseReceived(peerID: String, payload: ByteArray, timestampMs: Long) = Unit
+        }
 
         val relayed = mutableListOf<RoutedPacket>()
-        val processor = PacketProcessor(me, dispatcher = dispatcher)
+        val processor = PacketProcessor(me, dispatcher = dispatcher, relayClockMs = { relayClock })
         processor.delegate = object : PacketProcessorDelegate {
             override fun validatePacketSecurity(packet: BitchatPacket, peerID: String) = true
             override fun updatePeerLastSeen(peerID: String) = Unit
@@ -397,12 +457,8 @@ class MprEndToEndRelayTest {
             override fun getDirectConnectedPeers(): Set<String> = setOf(prevHop, peerB)
             override fun handleNoiseHandshake(routed: RoutedPacket) = false
             override fun handleNoiseEncrypted(routed: RoutedPacket) = false
-            override suspend fun handleAnnounce(routed: RoutedPacket): AnnounceHandlingResult {
-                // Mirror MessageHandler: check staleness BEFORE updating graph receipt time
-                val wasStale = !graph.isFreshAnnouncement(prevHop)
-                val changed = graph.updateFromAnnouncement(prevHop, "P", listOf(peerB, me), 2_000UL)
-                return AnnounceHandlingResult.Accepted(isFirst = false, topologyChanged = changed, wasStale = wasStale)
-            }
+            override suspend fun handleAnnounce(routed: RoutedPacket): AnnounceHandlingResult =
+                messageHandler.handleAnnounceWithResult(routed)
             override suspend fun handleMessage(routed: RoutedPacket) = Unit
             override suspend fun handleLeave(routed: RoutedPacket) = Unit
             override fun handleFragment(packet: BitchatPacket): BitchatPacket? = null
@@ -413,22 +469,237 @@ class MprEndToEndRelayTest {
         }
 
         try {
-            val announce = BitchatPacket(
+            // Unchanged neighbor list [peerB, me], newer packet timestamp, valid Ed25519 signature
+            val baseTlv = com.bitchat.android.model.IdentityAnnouncement
+                .forLocalPeer("P", prevHopNoiseKey, prevHopSigningKey)
+                .encode()!!
+            val gossipTlv = com.bitchat.android.services.meshgraph.GossipTLV.encodeNeighbors(listOf(peerB, me))
+            val unsignedAnnounce = BitchatPacket(
                 version = 1u,
                 type = MessageType.ANNOUNCE.value,
                 senderID = hexToBytes(prevHop),
                 recipientID = SpecialRecipients.BROADCAST,
-                timestamp = 2_000UL,
-                payload = byteArrayOf(1),
+                timestamp = initialTs + 2UL,
+                payload = baseTlv + gossipTlv,
                 ttl = 5u
             )
-            processor.processPacket(RoutedPacket(announce, prevHop, "link-p", previousHopPeerID = prevHop))
+            val signedAnnounce = unsignedAnnounce.copy(
+                signature = sign(unsignedAnnounce.toBinaryDataForSigning()!!, prevHopSigningKey)
+            )
+
+            processor.processPacket(RoutedPacket(signedAnnounce, prevHop, "link-p", previousHopPeerID = prevHop))
             runCurrent()
 
             assertEquals("First unchanged ANNOUNCE after expiry must flood conservatively", 1, relayed.size)
             assertTrue("Stale recovery ANNOUNCE must disable neighbor pruning", relayed.single().skipNeighborPruning)
         } finally {
             processor.shutdown()
+            messageHandler.shutdown()
+        }
+    }
+
+    @Test
+    fun `11-node adversarial arrival order delivers unsigned multi-fragment broadcast to all nodes including node 7`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        var wallMs = 2_000_000L
+        val nodeIds = (0..10).map { i -> "%016x".format(i) }
+
+        val rawEdges = listOf(
+            0 to 2, 0 to 3, 0 to 8,
+            1 to 5, 1 to 6, 1 to 7, 1 to 10,
+            2 to 3, 2 to 4, 2 to 5, 2 to 8, 2 to 9, 2 to 10,
+            3 to 4, 3 to 6, 3 to 9,
+            4 to 5, 4 to 6, 4 to 7, 4 to 8, 4 to 10,
+            5 to 6, 5 to 7, 5 to 9,
+            6 to 8, 6 to 9, 6 to 10,
+            7 to 9, 7 to 10,
+            8 to 9, 9 to 10
+        )
+        val adjacency = mutableMapOf<String, MutableSet<String>>()
+        nodeIds.forEach { adjacency[it] = linkedSetOf() }
+        for ((a, b) in rawEdges) {
+            adjacency[nodeIds[a]]!!.add(nodeIds[b])
+            adjacency[nodeIds[b]]!!.add(nodeIds[a])
+        }
+
+        val graph = MeshGraphService.getInstance()
+        adjacency.forEach { (peer, neighbors) ->
+            graph.updateFromAnnouncement(peer, peer, neighbors.toList(), 1_000UL)
+        }
+
+        val originId = nodeIds[0]
+        val originSigningKey = ByteArray(32) { 0x63 }
+        fun sign(data: ByteArray, key: ByteArray): ByteArray {
+            val digest = MessageDigest.getInstance("SHA-256").digest(key + data)
+            return digest + digest
+        }
+
+        // Build a real multi-fragment broadcast packet using production FragmentManager (signature = null on fragments)
+        val largePayload = ByteArray(1_200) { (it and 0xFF).toByte() }
+        val innerUnsigned = BitchatPacket(
+            version = 2u,
+            type = MessageType.FILE_TRANSFER.value,
+            senderID = hexToBytes(originId),
+            recipientID = SpecialRecipients.BROADCAST,
+            timestamp = wallMs.toULong(),
+            payload = largePayload,
+            ttl = 7u
+        )
+        val innerSigned = innerUnsigned.copy(
+            signature = sign(innerUnsigned.toBinaryDataForSigning()!!, originSigningKey)
+        )
+        val senderFragMgr = FragmentManager()
+        val unsignedFragments = senderFragMgr.createFragments(innerSigned)
+        assertTrue("Expected multi-fragment transfer", unsignedFragments.size >= 2)
+        assertTrue("Current senders emit unsigned fragment envelopes", unsignedFragments.all { it.signature == null })
+        senderFragMgr.shutdown()
+
+        val reassembledByNode = mutableMapOf<String, MutableList<BitchatPacket>>()
+        data class FragEvent(val from: String, val to: String, val routed: RoutedPacket)
+        val pending = mutableListOf<FragEvent>()
+
+        class FragNode(val peerID: String) {
+            val fragManager = FragmentManager()
+            val encryption: EncryptionService = mock<EncryptionService>().apply {
+                whenever(verifyEd25519Signature(any(), any(), any())).thenAnswer { inv ->
+                    inv.getArgument<ByteArray>(0).contentEquals(sign(inv.getArgument(1), inv.getArgument(2)))
+                }
+            }
+            val securityManager = SecurityManager(encryption, peerID, clockMs = { wallMs }).apply {
+                delegate = object : SecurityManagerDelegate {
+                    override fun onKeyExchangeCompleted(
+                        peerID: String,
+                        authenticatedRemoteStaticKey: ByteArray,
+                        authenticatedSessionToken: ByteArray,
+                        directRelayAddress: String?,
+                        ingressLinkID: String?
+                    ) = Unit
+                    override fun sendHandshakeResponse(peerID: String, response: ByteArray) = Unit
+                    override fun getPeerInfo(peerID: String): PeerInfo? =
+                        if (peerID == originId) PeerInfo(
+                            id = originId, nickname = "origin", isConnected = true, isDirectConnection = false,
+                            noisePublicKey = null, signingPublicKey = originSigningKey,
+                            isVerifiedNickname = true, lastSeen = wallMs
+                        ) else null
+                }
+            }
+            val processor = PacketProcessor(peerID, dispatcher = dispatcher, relayClockMs = { wallMs })
+
+            init {
+                processor.delegate = object : PacketProcessorDelegate {
+                    override fun validatePacketSecurity(packet: BitchatPacket, peerID: String) =
+                        securityManager.validatePacket(packet, peerID)
+                    override fun validateDuplicatePacketForRelay(packet: BitchatPacket, peerID: String) =
+                        securityManager.validateAuthenticatedDuplicate(packet, peerID)
+                    override fun updatePeerLastSeen(peerID: String) = Unit
+                    override fun getPeerNickname(peerID: String): String? = peerID
+                    override fun getNetworkSize() = nodeIds.size
+                    override fun getBroadcastRecipient(): ByteArray = SpecialRecipients.BROADCAST
+                    override fun getDirectConnectedPeers(): Set<String> = adjacency[this@FragNode.peerID].orEmpty()
+                    override fun handleNoiseHandshake(routed: RoutedPacket) = false
+                    override fun handleNoiseEncrypted(routed: RoutedPacket) = false
+                    override suspend fun handleAnnounce(routed: RoutedPacket) = AnnounceHandlingResult.Rejected
+                    override suspend fun handleMessage(routed: RoutedPacket) {
+                        reassembledByNode.getOrPut(this@FragNode.peerID) { mutableListOf() }.add(routed.packet)
+                    }
+                    override suspend fun handleLeave(routed: RoutedPacket) = Unit
+                    override fun handleFragment(packet: BitchatPacket): BitchatPacket? =
+                        fragManager.handleFragment(packet)
+                    override fun handleRequestSync(routed: RoutedPacket) = Unit
+                    override fun sendAnnouncementToPeer(peerID: String) = Unit
+                    override fun sendToPeer(peerID: String, routed: RoutedPacket) = false
+                    override fun relayPacket(routed: RoutedPacket) {
+                        for (neighbor in adjacency[this@FragNode.peerID].orEmpty()) {
+                            val skip = BroadcastPruningPolicy.shouldSkipTarget(
+                                routed = routed,
+                                myPeerID = this@FragNode.peerID,
+                                targetPeerID = neighbor,
+                                targetAddress = "addr-$neighbor",
+                                resolvedPreviousHopPeerID = routed.previousHopPeerID,
+                                graphService = graph
+                            )
+                            if (!skip) {
+                                pending.add(
+                                    FragEvent(
+                                        from = this@FragNode.peerID,
+                                        to = neighbor,
+                                        routed = RoutedPacket(
+                                            packet = routed.packet,
+                                            peerID = originId,
+                                            relayAddress = "addr-${this@FragNode.peerID}",
+                                            previousHopPeerID = this@FragNode.peerID
+                                        )
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            fun shutdown() {
+                processor.shutdown()
+                securityManager.shutdown()
+                fragManager.shutdown()
+            }
+        }
+
+        val nodes = nodeIds.associateWith { FragNode(it) }
+        try {
+            // Seed all fragments from node 0 to its neighbors (2, 3, 8)
+            for (frag in unsignedFragments) {
+                for (neighbor in adjacency[originId].orEmpty()) {
+                    pending.add(
+                        FragEvent(
+                            from = originId,
+                            to = neighbor,
+                            routed = RoutedPacket(
+                                packet = frag,
+                                peerID = originId,
+                                relayAddress = "addr-$originId",
+                                previousHopPeerID = originId
+                            )
+                        )
+                    )
+                }
+            }
+
+            // Deliver the exact adversarial prefix order first for each fragment, then drain
+            val priorityEdges = listOf(
+                0 to 8, 0 to 2, 8 to 6, 6 to 5, 6 to 10, 2 to 4, 2 to 9
+            ).map { (a, b) -> nodeIds[a] to nodeIds[b] }
+
+            while (pending.isNotEmpty()) {
+                var chosenIndex = -1
+                for ((pf, pt) in priorityEdges) {
+                    val idx = pending.indexOfFirst { it.from == pf && it.to == pt }
+                    if (idx >= 0) {
+                        chosenIndex = idx
+                        break
+                    }
+                }
+                val ev = pending.removeAt(if (chosenIndex >= 0) chosenIndex else 0)
+                nodes[ev.to]!!.processor.processPacket(ev.routed)
+                runCurrent()
+            }
+
+            // Every non-origin node (specifically including node 7) must reassemble the full payload
+            // once, while strict duplicate-fragment authentication remains enforced.
+            for (i in 1..10) {
+                val pid = nodeIds[i]
+                val received = reassembledByNode[pid].orEmpty()
+                assertEquals("Node $i must reassemble the broadcast file exactly once", 1, received.size)
+                assertTrue(
+                    "Node $i payload must match original bytes",
+                    received.single().payload.contentEquals(largePayload)
+                )
+                org.junit.Assert.assertFalse(
+                    "Strict duplicate auth must still reject unsigned fragment duplicates on node $i",
+                    nodes[pid]!!.securityManager.validateAuthenticatedDuplicate(unsignedFragments.first(), originId)
+                )
+            }
+        } finally {
+            nodes.values.forEach(FragNode::shutdown)
         }
     }
 

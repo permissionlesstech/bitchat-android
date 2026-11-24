@@ -45,6 +45,7 @@ class PacketRelayManager(
     internal enum class RelayPolicy {
         MPR_1_COVERED,
         MPR_2_COVERED,
+        PRUNED_FLOOD,
         CONSERVATIVE_FLOOD
     }
 
@@ -288,8 +289,14 @@ class PacketRelayManager(
                 else RelayPolicy.CONSERVATIVE_FLOOD
             }
             MessageType.FRAGMENT -> {
-                if (isBroadcastPacket(packet)) RelayPolicy.MPR_2_COVERED
-                else RelayPolicy.CONSERVATIVE_FLOOD
+                if (isBroadcastPacket(packet)) {
+                    // Unsigned legacy FRAGMENT envelopes cannot be cryptographically re-authenticated
+                    // on duplicate ingress, so fail closed to neighbor-pruned relaying rather than
+                    // irreversibly MPR-suppressing on first arrival.
+                    if (packet.signature != null) RelayPolicy.MPR_2_COVERED else RelayPolicy.PRUNED_FLOOD
+                } else {
+                    RelayPolicy.CONSERVATIVE_FLOOD
+                }
             }
             MessageType.FILE_TRANSFER -> {
                 if (isBroadcastPacket(packet)) RelayPolicy.MPR_2_COVERED
@@ -334,6 +341,16 @@ class PacketRelayManager(
                 shouldRelay = true,
                 skipNeighborPruning = true,
                 reason = if (sourceRouteFallback) "source-route-fallback" else "conservative-policy"
+            )
+        }
+
+        if (policy == RelayPolicy.PRUNED_FLOOD) {
+            val missingOrStalePrevHop = previousHopPeerID.isNullOrBlank() ||
+                !graph.isFreshAnnouncement(previousHopPeerID, edgeMaxAgeMs)
+            return BroadcastRelayDecision(
+                shouldRelay = true,
+                skipNeighborPruning = missingOrStalePrevHop,
+                reason = "unsigned-fragment-pruned"
             )
         }
 
