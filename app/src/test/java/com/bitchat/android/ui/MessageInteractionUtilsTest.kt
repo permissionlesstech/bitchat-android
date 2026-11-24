@@ -28,6 +28,11 @@ class MessageInteractionUtilsTest {
     }
 
     @Test
+    fun `self detection preserves geohash local echo attribution`() {
+        assertTrue(message(sender = "me#1a2b", senderPeerId = "geohash:u4pru").isFromSelf("me", "peer-a"))
+    }
+
+    @Test
     fun `URL normalization preserves explicit HTTP schemes`() {
         assertEquals("http://example.com", normalizeMessageUrl("http://example.com"))
         assertEquals("HTTPS://example.com", normalizeMessageUrl("HTTPS://example.com"))

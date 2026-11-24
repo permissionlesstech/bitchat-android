@@ -13,7 +13,7 @@ internal fun BitchatMessage.isFromSelf(
     myPeerId: String,
 ): Boolean {
     val peerId = senderPeerID
-    if (peerId != null) {
+    if (peerId != null && !peerId.startsWith("geohash:")) {
         return peerId == myPeerId
     }
     return sender == currentUserNickname ||
