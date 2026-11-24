@@ -99,7 +99,12 @@ object RelayDirectory {
         val (lat, lon) = center
         return snapshot
             .asSequence()
-            .sortedBy { haversineMeters(lat, lon, it.latitude, it.longitude) }
+            .sortedWith(
+                compareBy<RelayInfo>(
+                    { haversineMeters(lat, lon, it.latitude, it.longitude) },
+                    { it.url }
+                )
+            )
             .take(nRelays.coerceAtLeast(0))
             .map { it.url }
             .toList()
@@ -114,10 +119,24 @@ object RelayDirectory {
         return R * c
     }
 
-    private fun normalizeRelayUrl(raw: String): String {
+    internal fun normalizeRelayUrl(raw: String): String {
         val trimmed = raw.trim()
         if (trimmed.isEmpty()) return trimmed
-        return if ("://" in trimmed) trimmed else "wss://$trimmed"
+        val withScheme = if ("://" in trimmed) trimmed else "wss://$trimmed"
+        return try {
+            val uri = java.net.URI(withScheme)
+            val scheme = (uri.scheme ?: "wss").lowercase(java.util.Locale.ROOT)
+            val host = uri.host?.lowercase(java.util.Locale.ROOT) ?: return withScheme.lowercase(java.util.Locale.ROOT).trimEnd('/')
+            val port = uri.port
+            val includePort = port != -1 &&
+                !((scheme == "wss" && port == 443) || (scheme == "ws" && port == 80))
+            val portPart = if (includePort) ":$port" else ""
+            val pathPart = (uri.rawPath ?: "").trimEnd('/')
+            val queryPart = uri.rawQuery?.let { "?$it" } ?: ""
+            "$scheme://$host$portPart$pathPart$queryPart"
+        } catch (_: Exception) {
+            withScheme.lowercase(java.util.Locale.ROOT).trimEnd('/')
+        }
     }
 
     // ===== Implementation details =====
@@ -255,8 +274,9 @@ object RelayDirectory {
         Log.i(TAG, "📦 Loaded ${list.size} relay entries from assets/$ASSET_FILE, sha256=$hash")
     }
 
-    private fun parseCsv(input: InputStream): List<RelayInfo> {
+    internal fun parseCsv(input: InputStream): List<RelayInfo> {
         val result = mutableListOf<RelayInfo>()
+        val seen = mutableSetOf<String>()
         BufferedReader(InputStreamReader(input)).use { reader ->
             var line: String?
             while (true) {
@@ -271,7 +291,9 @@ object RelayDirectory {
                 val lat = parts[1].trim().toDoubleOrNull()
                 val lon = parts[2].trim().toDoubleOrNull()
                 if (url.isEmpty() || lat == null || lon == null) continue
-                result.add(RelayInfo(url = url, latitude = lat, longitude = lon))
+                if (seen.add(url)) {
+                    result.add(RelayInfo(url = url, latitude = lat, longitude = lon))
+                }
             }
         }
         return result
