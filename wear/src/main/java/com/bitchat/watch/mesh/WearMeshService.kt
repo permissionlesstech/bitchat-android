@@ -159,6 +159,12 @@ class WearMeshService private constructor(private val context: Context) {
                 hasUnidentifiedDirectLink = connectionManager.hasUnidentifiedConnection()
             )
         }
+        connectionManager.setObservedPeerDisconnectedListener { removedPeerID ->
+            val remainingDirect = connectionManager.addressPeerMap.values.toSet()
+            if (removedPeerID !in remainingDirect) {
+                meshCore.setDirectConnection(removedPeerID, false)
+            }
+        }
         connectionManager.delegate = object : BluetoothConnectionManagerDelegate {
             override fun onPacketReceived(
                 packet: BitchatPacket,

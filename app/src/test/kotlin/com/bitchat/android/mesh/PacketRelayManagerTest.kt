@@ -404,6 +404,38 @@ class PacketRelayManagerTest {
         relay.shutdown()
     }
 
+    @Test
+    fun `queued packet re-validates ingress link generation and falls back safely if link was replaced`() = runTest {
+        // Full clique where prevHop would normally suppress me
+        val prevHop = "0101010101010101"
+        val peerB = "0202020202020202"
+        val me = "0909090909090909"
+        seedConfirmedEdges(prevHop to peerB, prevHop to me, peerB to me)
+
+        val relay = PacketRelayManager(me).apply { delegate = this@PacketRelayManagerTest.delegate }
+        whenever(delegate.getNetworkSize()).thenReturn(10)
+        whenever(delegate.getDirectConnectedPeers()).thenReturn(setOf(prevHop, peerB))
+        // Link was replaced between ingress admission and worker execution -> resolver returns null
+        whenever(delegate.resolvePeerIDForLink("AA:BB:CC:DD:EE:01", "stale-gen")).thenReturn(null)
+
+        val msg = broadcastPacket(MessageType.MESSAGE, prevHop).copy(timestamp = 7_000UL)
+        relay.handlePacketRelay(
+            RoutedPacket(
+                packet = msg,
+                peerID = prevHop,
+                relayAddress = "AA:BB:CC:DD:EE:01",
+                ingressLinkID = "stale-gen",
+                previousHopPeerID = prevHop // Cached at admission time before replacement
+            )
+        )
+
+        val captor = argumentCaptor<RoutedPacket>()
+        verify(delegate, org.mockito.kotlin.times(1)).broadcastPacket(captor.capture())
+        assertEquals(null, captor.firstValue.previousHopPeerID)
+        assertTrue("Replaced ingress generation must fall back safely with skipNeighborPruning=true", captor.firstValue.skipNeighborPruning)
+        relay.shutdown()
+    }
+
     private fun seedConfirmedEdges(vararg edges: Pair<String, String>) {
         val graph = MeshGraphService.getInstance()
         val adj = mutableMapOf<String, MutableList<String>>()

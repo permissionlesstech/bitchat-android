@@ -22,10 +22,19 @@ class WifiAwareConnectionTracker(
 
     // Active resources per peer
     val peerSockets = ConcurrentHashMap<String, SyncedSocket>()
+    private val verifiedSockets = ConcurrentHashMap<String, SyncedSocket>()
     private val socketAliases = ConcurrentHashMap<String, String>()
     private val socketBindingLock = Any()
     val serverSockets = ConcurrentHashMap<String, ServerSocket>()
     val networkCallbacks = ConcurrentHashMap<String, ConnectivityManager.NetworkCallback>()
+
+    /** Invoked whenever active socket connections or verified peer bindings change. */
+    @Volatile
+    var onConnectionStateChanged: (() -> Unit)? = null
+
+    private fun notifyConnectionStateChanged() {
+        try { onConnectionStateChanged?.invoke() } catch (_: Exception) { }
+    }
 
     override fun isConnected(id: String): Boolean {
         // We consider it connected if we have a client socket to them
@@ -41,6 +50,7 @@ class WifiAwareConnectionTracker(
             peerSockets.remove(canonicalId)?.let {
                 try { it.close() } catch (e: Exception) { Log.w(TAG, "Error closing socket for $id: ${e.message}") }
             }
+            verifiedSockets.remove(canonicalId)
             socketAliases.entries.removeIf { it.key == id || it.key == canonicalId || it.value == canonicalId }
 
             // 2. Close server socket
@@ -53,6 +63,7 @@ class WifiAwareConnectionTracker(
             removePendingConnection(id)
             removePendingConnection(canonicalId)
         }
+        notifyConnectionStateChanged()
     }
 
     fun releaseNetworkRequest(id: String) {
@@ -80,10 +91,13 @@ class WifiAwareConnectionTracker(
             peerSockets[canonicalPeerId]?.let {
                 try { it.close() } catch (_: Exception) {}
             }
+            // A newly connected socket is provisional until a validated direct ANNOUNCE binds it.
+            verifiedSockets.remove(canonicalPeerId)
             peerSockets[canonicalPeerId] = socket
             removePendingConnection(peerId) // Clear retry state on success
             if (canonicalPeerId != peerId) removePendingConnection(canonicalPeerId)
         }
+        notifyConnectionStateChanged()
     }
 
     fun getSocketForPeer(peerId: String): SyncedSocket? {
@@ -92,6 +106,48 @@ class WifiAwareConnectionTracker(
     }
 
     fun canonicalPeerId(peerId: String): String = resolveCanonicalPeerId(peerId)
+
+    /**
+     * Marks [expectedSocket] as cryptographically verified for its bound peer after a validated
+     * direct ANNOUNCE is observed on that socket.
+     */
+    fun markSocketVerified(peerId: String, expectedSocket: SyncedSocket): Boolean {
+        val marked = synchronized(socketBindingLock) {
+            val canonical = resolveCanonicalPeerId(peerId)
+            if (peerSockets[canonical] !== expectedSocket) return@synchronized false
+            verifiedSockets[canonical] = expectedSocket
+            true
+        }
+        if (marked) notifyConnectionStateChanged()
+        return marked
+    }
+
+    /**
+     * Returns true iff [expectedSocket] is still the active socket for [peerId] AND has been
+     * verified by a validated direct ANNOUNCE.
+     */
+    fun isSocketVerified(peerId: String, expectedSocket: SyncedSocket): Boolean =
+        synchronized(socketBindingLock) {
+            val canonical = resolveCanonicalPeerId(peerId)
+            peerSockets[canonical] === expectedSocket && verifiedSockets[canonical] === expectedSocket
+        }
+
+    /**
+     * True when at least one active writable socket has not yet been verified by a direct ANNOUNCE.
+     */
+    fun hasUnidentifiedConnection(): Boolean = synchronized(socketBindingLock) {
+        peerSockets.any { (pid, sock) -> verifiedSockets[pid] !== sock }
+    }
+
+    /**
+     * Canonical peer IDs whose active sockets have been verified by a direct ANNOUNCE.
+     */
+    fun getVerifiedConnectedPeerIDs(): Set<String> = synchronized(socketBindingLock) {
+        peerSockets.entries
+            .filter { (pid, sock) -> verifiedSockets[pid] === sock && pid.isNotBlank() }
+            .map { it.key }
+            .toSet()
+    }
 
     /**
      * Resolves the canonical peerID for [peerId] only if [expectedSocket] is still the active
@@ -104,10 +160,26 @@ class WifiAwareConnectionTracker(
             if (peerSockets[canonical] === expectedSocket) canonical else null
         }
 
+    /**
+     * Resolves the canonical peerID for [peerId] only if [expectedSocket] is both current and
+     * verified by a direct ANNOUNCE. Provisional discovery sockets return null until verified.
+     */
+    fun verifiedCanonicalPeerIdIfSocketCurrent(peerId: String, expectedSocket: SyncedSocket): String? =
+        synchronized(socketBindingLock) {
+            val canonical = resolveCanonicalPeerId(peerId)
+            if (peerSockets[canonical] === expectedSocket && verifiedSockets[canonical] === expectedSocket) {
+                canonical
+            } else {
+                null
+            }
+        }
+
     fun rebindPeerId(previousPeerId: String, resolvedPeerId: String, socket: SyncedSocket): String {
-        return synchronized(socketBindingLock) {
+        val result = synchronized(socketBindingLock) {
             rebindPeerIdLocked(previousPeerId, resolvedPeerId, socket)
         }
+        notifyConnectionStateChanged()
+        return result
     }
 
     /**
@@ -119,16 +191,21 @@ class WifiAwareConnectionTracker(
         previousPeerId: String,
         resolvedPeerId: String,
         expectedSocket: SyncedSocket
-    ): Boolean = synchronized(socketBindingLock) {
-        val previousCanonical = resolveCanonicalPeerId(previousPeerId)
-        if (peerSockets[previousCanonical] !== expectedSocket) return@synchronized false
-        val resolvedCanonical = resolveCanonicalPeerId(resolvedPeerId)
-        val existingResolvedSocket = peerSockets[resolvedCanonical]
-        if (existingResolvedSocket != null && existingResolvedSocket !== expectedSocket) {
-            return@synchronized false
+    ): Boolean {
+        val rebound = synchronized(socketBindingLock) {
+            val previousCanonical = resolveCanonicalPeerId(previousPeerId)
+            if (peerSockets[previousCanonical] !== expectedSocket) return@synchronized false
+            val resolvedCanonical = resolveCanonicalPeerId(resolvedPeerId)
+            val existingResolvedSocket = peerSockets[resolvedCanonical]
+            if (existingResolvedSocket != null && existingResolvedSocket !== expectedSocket) {
+                return@synchronized false
+            }
+            rebindPeerIdLocked(previousPeerId, resolvedPeerId, expectedSocket)
+            verifiedSockets[resolvedPeerId] = expectedSocket
+            true
         }
-        rebindPeerIdLocked(previousPeerId, resolvedPeerId, expectedSocket)
-        true
+        if (rebound) notifyConnectionStateChanged()
+        return rebound
     }
 
     private fun rebindPeerIdLocked(
@@ -146,6 +223,7 @@ class WifiAwareConnectionTracker(
         if (existing === socket) {
             peerSockets.remove(previousCanonical)
         }
+        verifiedSockets.remove(previousCanonical)
 
         peerSockets[resolvedPeerId]?.let { current ->
             if (current !== socket) {
@@ -261,6 +339,8 @@ class WifiAwareConnectionTracker(
         super.stop()
         val allIds = peerSockets.keys + serverSockets.keys + networkCallbacks.keys
         allIds.toSet().forEach { disconnect(it) }
+        verifiedSockets.clear()
+        notifyConnectionStateChanged()
     }
     
     fun getDebugInfo(): String {

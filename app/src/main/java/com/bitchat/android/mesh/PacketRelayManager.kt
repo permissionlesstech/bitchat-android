@@ -153,8 +153,13 @@ class PacketRelayManager(
             delay(Random.nextLong(8L, 26L))
         }
 
-        val effectivePreviousHop = routed.previousHopPeerID
-            ?: routed.relayAddress?.let { delegate?.resolvePeerIDForLink(it, routed.ingressLinkID) }
+        // When an ingress link generation is present, always re-verify the previous hop against
+        // the live transport generation so queued packets cannot rely on an obsolete link binding.
+        val effectivePreviousHop = if (routed.relayAddress != null && routed.ingressLinkID != null) {
+            delegate?.resolvePeerIDForLink(routed.relayAddress, routed.ingressLinkID)
+        } else {
+            routed.previousHopPeerID
+        }
 
         // Source-based routing: if route is set and includes us, try targeted next-hop forwarding
         var sourceRouteFallback = false

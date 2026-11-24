@@ -18,7 +18,11 @@ import kotlin.collections.mutableSetOf
  * replay attack protection, and key exchange handling
  * Extracted from BluetoothMeshService for better separation of concerns
  */
-class SecurityManager(private val encryptionService: EncryptionService, private val myPeerID: String) {
+class SecurityManager(
+    private val encryptionService: EncryptionService,
+    private val myPeerID: String,
+    private val clockMs: () -> Long = System::currentTimeMillis
+) {
     
     companion object {
         private const val TAG = "SecurityManager"
@@ -27,6 +31,13 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         private const val MAX_PROCESSED_MESSAGES = com.bitchat.android.util.AppConstants.Security.MAX_PROCESSED_MESSAGES
         private const val MAX_PROCESSED_KEY_EXCHANGES = com.bitchat.android.util.AppConstants.Security.MAX_PROCESSED_KEY_EXCHANGES
         private const val KEY_EXCHANGE_DEDUP_TIMEOUT = com.bitchat.android.util.AppConstants.Security.KEY_EXCHANGE_DEDUP_TIMEOUT_MS
+        private val SIGNED_PACKET_TYPES = setOf(
+            MessageType.ANNOUNCE,
+            MessageType.MESSAGE,
+            MessageType.FILE_TRANSFER,
+            MessageType.VOICE_FRAME,
+            MessageType.LEAVE
+        )
     }
     
     // Security tracking
@@ -55,7 +66,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         }
         
         // Replay attack protection (same 5-minute window as iOS)
-        val currentTime = System.currentTimeMillis()
+        val currentTime = clockMs()
         val messageType = MessageType.fromValue(packet.type)
 
         // LEAVE mutates presence immediately and cannot be safely replayed after the in-memory
@@ -107,14 +118,15 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
 
     /**
      * Validates an already-seen packet for relay reconsideration when a previous ingress was
-     * suppressed by MPR selection. Fail-closed: still enforces self-check, timestamp bounds,
-     * prior acceptance in [processedMessages], and cryptographic signature verification so
-     * spoofed or expired duplicates can never trigger a relay.
+     * suppressed by MPR selection. Fail-closed: enforces self-check, LEAVE timestamp bounds,
+     * prior acceptance in [processedMessages] within the local dedup window, and mandatory
+     * cryptographic Ed25519 signature verification (unsigned legacy FRAGMENT envelopes are
+     * rejected here so unauthenticated duplicates can never trigger a relay).
      */
     fun validateAuthenticatedDuplicate(packet: BitchatPacket, peerID: String): Boolean {
         if (peerID == myPeerID) return false
 
-        val currentTime = System.currentTimeMillis()
+        val currentTime = clockMs()
         val messageType = MessageType.fromValue(packet.type)
         if (messageType == MessageType.LEAVE) {
             val now = currentTime.coerceAtLeast(0).toULong()
@@ -135,7 +147,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         } ?: return false
         if (currentTime - seenAtMs > MESSAGE_TIMEOUT) return false
 
-        return verifyPacketSignature(packet, peerID)
+        return verifyCryptographicSignatureStrict(packet, peerID, messageType)
     }
     
     /**
@@ -290,17 +302,29 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             // Public packets that mutate identity, presence, or user-visible state must prove the
             // signing key learned from a verified announcement. LEAVE is included so an attacker
             // cannot evict a claimed peer or amplify a forged departure through relay.
-            if (MessageType.fromValue(packet.type) !in setOf(
-                    MessageType.ANNOUNCE,
-                    MessageType.MESSAGE,
-                    MessageType.FILE_TRANSFER,
-                    MessageType.VOICE_FRAME,
-                    MessageType.LEAVE
-                )) {
+            val messageType = MessageType.fromValue(packet.type)
+            if (messageType !in SIGNED_PACKET_TYPES) {
                 return true
             }
+            return verifyCryptographicSignatureStrict(packet, peerID, messageType)
+        } catch (e: Exception) {
+            Log.e(TAG, "Signature verification error for $peerID: ${e.message}")
+            return false
+        }
+    }
 
-            if (MessageType.fromValue(packet.type) == MessageType.ANNOUNCE) {
+    /**
+     * Strict cryptographic Ed25519 signature verification that fails closed for all packet types
+     * (including FRAGMENT or other normally-unsigned envelopes when called from duplicate-relay
+     * validation).
+     */
+    private fun verifyCryptographicSignatureStrict(
+        packet: BitchatPacket,
+        peerID: String,
+        messageType: MessageType?
+    ): Boolean {
+        try {
+            if (messageType == MessageType.ANNOUNCE) {
                 val announcement = AnnouncementIdentityValidator.verify(packet, peerID) { signature, data, key ->
                     encryptionService.verifyEd25519Signature(signature, data, key)
                 } ?: run {
@@ -423,7 +447,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
     /**
      * Clean up old processed messages and timestamps
      */
-    internal fun cleanupOldData(nowMs: Long = System.currentTimeMillis()) {
+    internal fun cleanupOldData(nowMs: Long = clockMs()) {
         val cutoffTime = nowMs - MESSAGE_TIMEOUT
 
         // Synchronized collection wrappers protect individual operations, not iteration.

@@ -105,6 +105,10 @@ class BluetoothConnectionManager(
         connectionTracker.onConnectionStateChanged = listener
     }
 
+    fun setObservedPeerDisconnectedListener(listener: ((String) -> Unit)?) {
+        connectionTracker.onObservedPeerDisconnected = listener
+    }
+
     fun observePeerIfCurrent(deviceAddress: String, linkID: String, peerID: String): Boolean =
         connectionTracker.observePeerIfCurrent(deviceAddress, linkID, peerID)
 

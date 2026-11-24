@@ -260,6 +260,18 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 hasUnidentifiedDirectLink = connectionManager.hasUnidentifiedConnection()
             )
         }
+        // Promptly prune stale direct graph edge even when disconnect() clears addressPeerMap
+        // before Android's delayed GATT STATE_DISCONNECTED callback fires.
+        connectionManager.setObservedPeerDisconnectedListener { removedPeerID ->
+            val remainingDirect = connectionManager.addressPeerMap.values.toSet()
+            MeshGraphTransportCleanup.onDirectLinkLost(
+                myPeerID = myPeerID,
+                transportId = "BLE",
+                peerID = removedPeerID,
+                remainingLocalDirectPeers = remainingDirect,
+                hasUnidentifiedDirectLink = connectionManager.hasUnidentifiedConnection()
+            )
+        }
         // PeerManager delegates to main mesh service delegate
         peerManager.delegate = object : PeerManagerDelegate {
             override fun onPeerListUpdated(peerIDs: List<String>) {
@@ -609,11 +621,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                         Log.d(
                             TAG,
                             "Observed direct BLE route ${observation.relayAddress} to ${observation.peerID}"
-                        )
-                        MeshGraphTransportCleanup.publishDirectState(
-                            transportId = "BLE",
-                            localDirectPeers = connectionManager.addressPeerMap.values.toSet(),
-                            hasUnidentifiedDirectLink = connectionManager.hasUnidentifiedConnection()
                         )
                         try { peerManager.refreshPeerList() } catch (_: Exception) { }
                         try {

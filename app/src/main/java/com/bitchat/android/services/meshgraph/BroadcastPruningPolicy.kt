@@ -25,10 +25,15 @@ object BroadcastPruningPolicy {
         targetAddress: String? = null,
         resolvedPreviousHopPeerID: String? = routed.previousHopPeerID,
         graphService: MeshGraphService = MeshGraphService.getInstance(),
-        edgeMaxAgeMs: Long = MeshGraphService.DEFAULT_EDGE_MAX_AGE_MS
+        edgeMaxAgeMs: Long = MeshGraphService.DEFAULT_EDGE_MAX_AGE_MS,
+        targetLinkID: String? = null
     ): Boolean {
         // 1. Never echo back onto the exact link/address the packet arrived on.
-        if (targetAddress != null && routed.relayAddress != null && targetAddress == routed.relayAddress) {
+        // When both ingress and target link generations are known, require matching linkID so a
+        // late packet from a replaced connection cannot suppress a replacement peer at the same address.
+        val sameIncomingAddress = targetAddress != null && routed.relayAddress != null && targetAddress == routed.relayAddress
+        val sameLinkGeneration = routed.ingressLinkID == null || targetLinkID == null || targetLinkID == routed.ingressLinkID
+        if (sameIncomingAddress && sameLinkGeneration) {
             return true
         }
 

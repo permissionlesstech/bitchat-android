@@ -108,6 +108,44 @@ class BluetoothConnectionTrackerLinkObservationTest {
         assertTrue("Connection state listener should fire on link/peer mutations", changeNotifications >= 4)
     }
 
+    @Test
+    fun `explicit disconnect immediately notifies observed peer listener and prunes direct graph edge`() {
+        val myPeer = "0000000000000001"
+        val address = "AA:BB:CC:DD:EE:04"
+        val device = mock<BluetoothDevice>()
+        whenever(device.address).thenReturn(address)
+
+        val graph = com.bitchat.android.services.meshgraph.MeshGraphService { 100_000L }
+        graph.updateFromAnnouncement(myPeer, "Me", listOf(PEER_ID), 1_000UL)
+        graph.updateFromAnnouncement(PEER_ID, "Peer", listOf(myPeer), 1_000UL)
+        assertTrue(graph.isFreshConfirmedNeighbor(myPeer, PEER_ID))
+
+        val disconnectedPeers = mutableListOf<String>()
+        tracker.onObservedPeerDisconnected = { removedPeer ->
+            disconnectedPeers += removedPeer
+            MeshGraphTransportCleanup.onDirectLinkLost(
+                myPeerID = myPeer,
+                transportId = "BLE",
+                peerID = removedPeer,
+                remainingLocalDirectPeers = tracker.addressPeerMap.values.toSet(),
+                hasUnidentifiedDirectLink = tracker.hasUnidentifiedConnection(),
+                graphService = graph
+            )
+        }
+
+        tracker.addDeviceConnection(
+            address,
+            BluetoothConnectionTracker.DeviceConnection(device = device, linkID = "link-explicit")
+        )
+        assertTrue(tracker.observePeerIfCurrent(address, "link-explicit", PEER_ID))
+
+        // Explicit disconnect clears addressPeerMap synchronously BEFORE Android's delayed GATT callback
+        tracker.disconnect(address)
+
+        assertEquals(listOf(PEER_ID), disconnectedPeers)
+        assertFalse("Direct graph edge must be pruned immediately on explicit disconnect", graph.isFreshConfirmedNeighbor(myPeer, PEER_ID))
+    }
+
     private companion object {
         const val PEER_ID = "0011223344556677"
     }

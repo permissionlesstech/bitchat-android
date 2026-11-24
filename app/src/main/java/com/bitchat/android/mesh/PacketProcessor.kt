@@ -166,7 +166,7 @@ class PacketProcessor(
                 val result = handleAnnounceWithResult(routed)
                 validPacket = result is AnnounceHandlingResult.Accepted
                 forceConservativeRelay = result is AnnounceHandlingResult.Accepted &&
-                    (result.isFirst || result.topologyChanged)
+                    (result.isFirst || result.topologyChanged || result.wasStale)
             }
             MessageType.MESSAGE -> handleMessage(routed)
             MessageType.FILE_TRANSFER -> handleMessage(routed) // treat same routing path; parsing happens in handler

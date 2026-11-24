@@ -18,7 +18,8 @@ import java.util.*
 sealed class AnnounceHandlingResult {
     data class Accepted(
         val isFirst: Boolean,
-        val topologyChanged: Boolean = false
+        val topologyChanged: Boolean = false,
+        val wasStale: Boolean = false
     ) : AnnounceHandlingResult()
     object Rejected : AnnounceHandlingResult()
 }
@@ -351,18 +352,22 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
             capabilities = announcement.capabilities
         ) ?: false
 
-        // Update mesh graph from gossip neighbors (only if TLV present)
-        val topologyChanged = try {
+        // Update mesh graph from gossip neighbors (only if TLV present).
+        // Capture prior freshness BEFORE updateFromAnnouncement refreshes lastReceivedAtMs so the
+        // first unchanged ANNOUNCE arriving after freshness expiry still floods conservatively.
+        val (topologyChanged, wasStale) = try {
+            val graph = com.bitchat.android.services.meshgraph.MeshGraphService.getInstance()
+            val staleBeforeUpdate = !graph.isFreshAnnouncement(peerID)
             val neighborsOrNull = com.bitchat.android.services.meshgraph.GossipTLV.decodeNeighborsFromAnnouncementPayload(packet.payload)
-            com.bitchat.android.services.meshgraph.MeshGraphService.getInstance()
-                .updateFromAnnouncement(peerID, nickname, neighborsOrNull, packet.timestamp)
+            val changed = graph.updateFromAnnouncement(peerID, nickname, neighborsOrNull, packet.timestamp)
+            changed to staleBeforeUpdate
         } catch (_: Exception) {
             // Fail closed to conservative flooding if graph update fails.
-            true
+            true to true
         }
 
         Log.d(TAG, "Verified announce from $peerID (${announcement.nickname})")
-        return AnnounceHandlingResult.Accepted(isFirstAnnounce, topologyChanged)
+        return AnnounceHandlingResult.Accepted(isFirstAnnounce, topologyChanged, wasStale)
     }
     
     /**

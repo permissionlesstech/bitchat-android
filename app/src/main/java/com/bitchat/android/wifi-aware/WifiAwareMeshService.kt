@@ -17,6 +17,7 @@ import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.mesh.DirectLinkAnnouncementPolicy
 import com.bitchat.android.mesh.FragmentingPacketSender
 import com.bitchat.android.mesh.MeshCore
+import com.bitchat.android.mesh.MeshGraphTransportCleanup
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.MeshTransport
 import com.bitchat.android.mesh.PeerInfo
@@ -135,11 +136,22 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
 
     // Transport state
     private val connectionTracker = WifiAwareConnectionTracker(serviceScope, cm)
-    private val packetBroadcaster = WifiAwarePacketBroadcaster(myPeerID, connectionTracker)
     private val ingressLinks = ConcurrentHashMap<
         String,
         IngressLinkPolicy.Link<SyncedSocket>
     >()
+    private val packetBroadcaster = WifiAwarePacketBroadcaster(
+        myPeerID = myPeerID,
+        connectionTracker = connectionTracker,
+        ingressSocketResolver = { relayAddress, ingressLinkID ->
+            IngressLinkPolicy.resolve(
+                ingressLinkID = ingressLinkID,
+                relayAddress = relayAddress,
+                links = ingressLinks,
+                currentTransportForRelay = connectionTracker::getSocketForPeer
+            )?.transport
+        }
+    )
     private val handleToPeerId = ConcurrentHashMap<PeerHandle, String>() // discovery mapping
     private val discoveredTimestamps = ConcurrentHashMap<String, Long>() // peerID -> last seen time
     // Subscribe-session-scoped handles only. PeerHandles are session-scoped, so a handle obtained
@@ -202,6 +214,13 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             )
         )
         fragmentingSender = FragmentingPacketSender(serviceScope, meshCore.fragmentManager, TAG)
+        connectionTracker.onConnectionStateChanged = {
+            MeshGraphTransportCleanup.publishDirectState(
+                transportId = "WIFI",
+                localDirectPeers = connectionTracker.getVerifiedConnectedPeerIDs(),
+                hasUnidentifiedDirectLink = connectionTracker.hasUnidentifiedConnection()
+            )
+        }
     }
 
     private fun handleMessageReceived(message: BitchatMessage): Boolean {
@@ -1282,7 +1301,9 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         val provisionalPeerId = link.relayAddress
         val existingCanonical = connectionTracker.canonicalPeerId(provisionalPeerId)
         if (existingCanonical == observation.peerID) {
-            try { meshCore.setDirectConnection(observation.peerID, true) } catch (_: Exception) { }
+            if (connectionTracker.markSocketVerified(observation.peerID, link.transport)) {
+                try { meshCore.setDirectConnection(observation.peerID, true) } catch (_: Exception) { }
+            }
             return
         }
         if (existingCanonical != provisionalPeerId) {
@@ -1368,8 +1389,8 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             // Route the packet:
             // - peerID = Originator (who signed it)
             // - relayAddress = Provisional link key (for IngressLinkPolicy / DirectLinkAnnouncementPolicy)
-            // - previousHopPeerID = Immediate 1-hop neighbor peerID resolved only if this exact socket is current
-            val previousHopPeerID = connectionTracker.canonicalPeerIdIfSocketCurrent(logicalPeerId, socket)
+            // - previousHopPeerID = Immediate 1-hop neighbor peerID resolved only if this exact socket is current AND verified
+            val previousHopPeerID = connectionTracker.verifiedCanonicalPeerIdIfSocketCurrent(logicalPeerId, socket)
                 ?.takeIf { it.isNotBlank() }
             meshCore.processIncoming(
                 packet = pkt,
@@ -1734,10 +1755,10 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             return map
         }
         override fun getDirectConnectedPeerIDs(): Set<String> {
-            return connectionTracker.peerSockets.keys
-                .map { connectionTracker.canonicalPeerId(it) }
-                .filter { it.isNotBlank() }
-                .toSet()
+            return connectionTracker.getVerifiedConnectedPeerIDs()
+        }
+        override fun hasUnidentifiedDirectLink(): Boolean {
+            return connectionTracker.hasUnidentifiedConnection()
         }
         override fun resolvePeerIDForLink(relayAddress: String, ingressLinkID: String?): String? {
             val linkId = ingressLinkID ?: return null
@@ -1747,7 +1768,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                 links = ingressLinks,
                 currentTransportForRelay = connectionTracker::getSocketForPeer
             ) ?: return null
-            return connectionTracker.canonicalPeerIdIfSocketCurrent(link.relayAddress, link.transport)
+            return connectionTracker.verifiedCanonicalPeerIdIfSocketCurrent(link.relayAddress, link.transport)
                 ?.takeIf { it.isNotBlank() }
         }
         override fun getTransportDebugInfo(): String {

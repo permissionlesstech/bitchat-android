@@ -35,6 +35,12 @@ class BluetoothConnectionTracker(
     private val connectionStateLock = Any()
     @Volatile
     var onConnectionStateChanged: (() -> Unit)? = null
+    @Volatile
+    var onObservedPeerDisconnected: ((String) -> Unit)? = null
+
+    private fun notifyObservedPeerDisconnected(peerID: String) {
+        try { onObservedPeerDisconnected?.invoke(peerID) } catch (_: Exception) { }
+    }
     
     /**
      * Consolidated device connection information
@@ -299,13 +305,16 @@ class BluetoothConnectionTracker(
      * Clean up a specific device connection
      */
     fun cleanupDeviceConnection(deviceAddress: String) {
-        synchronized(connectionStateLock) {
+        val removedPeerID = synchronized(connectionStateLock) {
             connectedDevices.remove(deviceAddress)
             subscribedDevices.removeAll { it.address == deviceAddress }
-            addressPeerMap.remove(deviceAddress)
             firstAnnounceSeen.remove(deviceAddress)
+            addressPeerMap.remove(deviceAddress)
         }
         notifyConnectionStateChanged()
+        if (removedPeerID != null) {
+            notifyObservedPeerDisconnected(removedPeerID)
+        }
         Log.d(TAG, "Cleaned up device connection for $deviceAddress")
     }
 
@@ -313,6 +322,7 @@ class BluetoothConnectionTracker(
         deviceAddress: String,
         expectedLinkID: String
     ): Boolean {
+        var removedPeerID: String? = null
         val cleaned = synchronized(connectionStateLock) {
             val current = connectedDevices[deviceAddress] ?: return@synchronized false
             if (current.linkID != expectedLinkID) {
@@ -320,7 +330,7 @@ class BluetoothConnectionTracker(
             }
             if (connectedDevices.remove(deviceAddress, current)) {
                 subscribedDevices.removeAll { it.address == deviceAddress }
-                addressPeerMap.remove(deviceAddress)
+                removedPeerID = addressPeerMap.remove(deviceAddress)
                 firstAnnounceSeen.remove(deviceAddress)
                 Log.d(TAG, "Cleaned up device connection for $deviceAddress")
                 true
@@ -328,7 +338,10 @@ class BluetoothConnectionTracker(
                 false
             }
         }
-        if (cleaned) notifyConnectionStateChanged()
+        if (cleaned) {
+            notifyConnectionStateChanged()
+            removedPeerID?.let(::notifyObservedPeerDisconnected)
+        }
         return cleaned
     }
     

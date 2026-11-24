@@ -164,9 +164,50 @@ class WifiAwarePacketBroadcasterTest {
         assertTrue(peer2Out.size() > 0)
     }
 
+    @Test
+    fun `unverified provisional socket is never neighbor-pruned and replaced ingress socket cannot suppress replacement peer`() {
+        seedConfirmedEdges(prevHopPeerID to prevHopNeighborPeerID)
+
+        // 1. Provisional (unverified) socket with discovery ID matching prevHopNeighborPeerID
+        // must NOT be pruned until verified by a direct ANNOUNCE.
+        val provisionalOut = ByteArrayOutputStream()
+        val provisionalSocket = syncedSocket(provisionalOut)
+        tracker.onClientConnected(prevHopNeighborPeerID, provisionalSocket)
+
+        // 2. Replacement socket on an alias previously used by a stale ingress link generation
+        val replacementPeer = "7777777777777777"
+        val replacementOut = ByteArrayOutputStream()
+        val replacementSocket = syncedSocket(replacementOut)
+        tracker.onClientConnected("reused-alias", replacementSocket)
+        assertTrue(tracker.rebindPeerIdIfCurrent("reused-alias", replacementPeer, replacementSocket))
+
+        val genAwareBroadcaster = WifiAwarePacketBroadcaster(
+            myPeerID = myPeerID,
+            connectionTracker = tracker,
+            meshGraphProvider = { graph },
+            edgeMaxAgeMs = 30_000L,
+            // Stale ingressLinkID resolves to null because the original socket was replaced
+            ingressSocketResolver = { _, _ -> null }
+        )
+
+        val lateRouted = RoutedPacket(
+            packet = broadcastPacket(MessageType.MESSAGE, originPeerID),
+            peerID = originPeerID,
+            relayAddress = "reused-alias",
+            ingressLinkID = "stale-link-gen",
+            previousHopPeerID = null
+        )
+
+        assertTrue(genAwareBroadcaster.broadcastSinglePacket(lateRouted))
+        assertTrue("Unverified provisional socket must not be pruned", provisionalOut.size() > 0)
+        assertTrue("Replacement peer on reused alias must not be suppressed by stale ingress generation", replacementOut.size() > 0)
+    }
+
     private fun connectPeer(peerID: String): ByteArrayOutputStream {
         val out = ByteArrayOutputStream()
-        tracker.onClientConnected(peerID, syncedSocket(out))
+        val sock = syncedSocket(out)
+        tracker.onClientConnected(peerID, sock)
+        tracker.markSocketVerified(peerID, sock)
         return out
     }
 

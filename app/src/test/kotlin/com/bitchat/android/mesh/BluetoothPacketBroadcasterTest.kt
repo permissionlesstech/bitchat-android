@@ -173,6 +173,46 @@ class BluetoothPacketBroadcasterTest {
         }
     }
 
+    @Test
+    fun `late packet from replaced link generation does not suppress replacement peer or its alternate link`() {
+        runBlocking {
+            val reusedAddress = "AA:00:00:00:00:99"
+            val replacementPeer = "7777777777777777"
+            val devReused = mock<BluetoothDevice> {
+                on { getAddress() } doReturn reusedAddress
+            }
+            // Original link-1 belonged to prevHopPeerID, then link-2 replaced it with replacementPeer
+            tracker.addDeviceConnection(
+                reusedAddress,
+                BluetoothConnectionTracker.DeviceConnection(device = devReused, isClient = false, linkID = "link-1")
+            )
+            tracker.observePeerIfCurrent(reusedAddress, "link-1", prevHopPeerID)
+
+            tracker.addDeviceConnection(
+                reusedAddress,
+                BluetoothConnectionTracker.DeviceConnection(device = devReused, isClient = false, linkID = "link-2")
+            )
+            tracker.addSubscribedDevice(devReused)
+            tracker.observePeerIfCurrent(reusedAddress, "link-2", replacementPeer)
+
+            val devReplacementAlt = addServerDevice("AA:00:00:00:00:98", replacementPeer)
+
+            // Late packet from link-1 carries stale ingressLinkID="link-1" and null previousHopPeerID
+            val latePacket = RoutedPacket(
+                packet = broadcastPacket(MessageType.MESSAGE, originPeerID),
+                peerID = originPeerID,
+                relayAddress = reusedAddress,
+                ingressLinkID = "link-1",
+                previousHopPeerID = null,
+                skipNeighborPruning = true
+            )
+
+            assertTrue(broadcaster.broadcastSinglePacketInternal(latePacket, gattServer, serverChar))
+            verify(gattServer).notifyCharacteristicChanged(eq(devReused), any(), eq(false))
+            verify(gattServer).notifyCharacteristicChanged(eq(devReplacementAlt), any(), eq(false))
+        }
+    }
+
     private fun addServerDevice(address: String, peerID: String?): BluetoothDevice {
         val device = mock<BluetoothDevice> {
             on { getAddress() } doReturn address

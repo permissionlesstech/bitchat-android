@@ -281,6 +281,157 @@ class MprEndToEndRelayTest {
         }
     }
 
+    @Test
+    fun `unsigned duplicate fragment is rejected fail-closed and injectable clock enforces exact expiry`() = runTest {
+        var wallMs = 1_000_000L
+        val myPeer = "0000000000000009"
+        val originId = "0000000000000001"
+        val signingKey = ByteArray(32) { 0x55 }
+
+        fun sign(data: ByteArray, key: ByteArray): ByteArray {
+            val digest = MessageDigest.getInstance("SHA-256").digest(key + data)
+            return digest + digest
+        }
+
+        val encryption: EncryptionService = mock<EncryptionService>().apply {
+            whenever(verifyEd25519Signature(any(), any(), any())).thenAnswer { inv ->
+                inv.getArgument<ByteArray>(0).contentEquals(
+                    sign(inv.getArgument(1), inv.getArgument(2))
+                )
+            }
+        }
+        val security = SecurityManager(encryption, myPeer, clockMs = { wallMs }).apply {
+            delegate = object : SecurityManagerDelegate {
+                override fun onKeyExchangeCompleted(
+                    peerID: String,
+                    authenticatedRemoteStaticKey: ByteArray,
+                    authenticatedSessionToken: ByteArray,
+                    directRelayAddress: String?,
+                    ingressLinkID: String?
+                ) = Unit
+                override fun sendHandshakeResponse(peerID: String, response: ByteArray) = Unit
+                override fun getPeerInfo(peerID: String): PeerInfo? = PeerInfo(
+                    id = originId,
+                    nickname = "origin",
+                    isConnected = true,
+                    isDirectConnection = false,
+                    noisePublicKey = null,
+                    signingPublicKey = signingKey,
+                    isVerifiedNickname = true,
+                    lastSeen = wallMs
+                )
+            }
+        }
+
+        try {
+            // 1. Legacy unsigned FRAGMENT is accepted on first arrival but rejected on duplicate-relay validation
+            val unsignedFragment = BitchatPacket(
+                version = 1u,
+                type = MessageType.FRAGMENT.value,
+                senderID = hexToBytes(originId),
+                recipientID = SpecialRecipients.BROADCAST,
+                timestamp = wallMs.toULong(),
+                payload = byteArrayOf(1, 2, 3, 4),
+                signature = null,
+                ttl = 5u
+            )
+            assertTrue("First unsigned FRAGMENT must remain compatible", security.validatePacket(unsignedFragment, originId))
+            org.junit.Assert.assertFalse(
+                "Unsigned duplicate FRAGMENT must fail closed in validateAuthenticatedDuplicate",
+                security.validateAuthenticatedDuplicate(unsignedFragment, originId)
+            )
+
+            // 2. Signed MESSAGE duplicate passes up to MESSAGE_TIMEOUT and fails deterministically at +1 ms
+            val unsignedMsg = BitchatPacket(
+                version = 1u,
+                type = MessageType.MESSAGE.value,
+                senderID = hexToBytes(originId),
+                recipientID = SpecialRecipients.BROADCAST,
+                timestamp = wallMs.toULong(),
+                payload = "boundary-test".toByteArray(),
+                ttl = 5u
+            )
+            val signedMsg = unsignedMsg.copy(signature = sign(unsignedMsg.toBinaryDataForSigning()!!, signingKey))
+            assertTrue(security.validatePacket(signedMsg, originId))
+
+            wallMs += com.bitchat.android.util.AppConstants.Security.MESSAGE_TIMEOUT_MS
+            assertTrue(
+                "Signed duplicate at exact timeout boundary must still validate",
+                security.validateAuthenticatedDuplicate(signedMsg, originId)
+            )
+
+            wallMs += 1L
+            org.junit.Assert.assertFalse(
+                "Signed duplicate past timeout boundary must be rejected",
+                security.validateAuthenticatedDuplicate(signedMsg, originId)
+            )
+        } finally {
+            security.shutdown()
+        }
+    }
+
+    @Test
+    fun `first unchanged announce after graph expiry forces conservative flood`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val prevHop = "0000000000000001"
+        val peerB = "0000000000000002"
+        val me = "0000000000000009"
+        val graph = MeshGraphService.getInstance()
+        graph.updateFromAnnouncement(prevHop, "P", listOf(peerB, me), 1_000UL)
+        graph.updateFromAnnouncement(peerB, "B", listOf(prevHop, me), 1_000UL)
+        graph.updateFromAnnouncement(me, "M", listOf(prevHop, peerB), 1_000UL)
+
+        // Expire prevHop's graph announcement while keeping me and peerB fresh
+        nowMs += MeshGraphService.DEFAULT_EDGE_MAX_AGE_MS + 1_000L
+        graph.updateFromAnnouncement(peerB, "B", listOf(prevHop, me), 2_000UL)
+        graph.updateFromAnnouncement(me, "M", listOf(prevHop, peerB), 2_000UL)
+
+        val relayed = mutableListOf<RoutedPacket>()
+        val processor = PacketProcessor(me, dispatcher = dispatcher)
+        processor.delegate = object : PacketProcessorDelegate {
+            override fun validatePacketSecurity(packet: BitchatPacket, peerID: String) = true
+            override fun updatePeerLastSeen(peerID: String) = Unit
+            override fun getPeerNickname(peerID: String): String? = peerID
+            override fun getNetworkSize() = 10
+            override fun getBroadcastRecipient(): ByteArray = SpecialRecipients.BROADCAST
+            override fun getDirectConnectedPeers(): Set<String> = setOf(prevHop, peerB)
+            override fun handleNoiseHandshake(routed: RoutedPacket) = false
+            override fun handleNoiseEncrypted(routed: RoutedPacket) = false
+            override suspend fun handleAnnounce(routed: RoutedPacket): AnnounceHandlingResult {
+                // Mirror MessageHandler: check staleness BEFORE updating graph receipt time
+                val wasStale = !graph.isFreshAnnouncement(prevHop)
+                val changed = graph.updateFromAnnouncement(prevHop, "P", listOf(peerB, me), 2_000UL)
+                return AnnounceHandlingResult.Accepted(isFirst = false, topologyChanged = changed, wasStale = wasStale)
+            }
+            override suspend fun handleMessage(routed: RoutedPacket) = Unit
+            override suspend fun handleLeave(routed: RoutedPacket) = Unit
+            override fun handleFragment(packet: BitchatPacket): BitchatPacket? = null
+            override fun handleRequestSync(routed: RoutedPacket) = Unit
+            override fun sendAnnouncementToPeer(peerID: String) = Unit
+            override fun relayPacket(routed: RoutedPacket) { relayed += routed }
+            override fun sendToPeer(peerID: String, routed: RoutedPacket) = false
+        }
+
+        try {
+            val announce = BitchatPacket(
+                version = 1u,
+                type = MessageType.ANNOUNCE.value,
+                senderID = hexToBytes(prevHop),
+                recipientID = SpecialRecipients.BROADCAST,
+                timestamp = 2_000UL,
+                payload = byteArrayOf(1),
+                ttl = 5u
+            )
+            processor.processPacket(RoutedPacket(announce, prevHop, "link-p", previousHopPeerID = prevHop))
+            runCurrent()
+
+            assertEquals("First unchanged ANNOUNCE after expiry must flood conservatively", 1, relayed.size)
+            assertTrue("Stale recovery ANNOUNCE must disable neighbor pruning", relayed.single().skipNeighborPruning)
+        } finally {
+            processor.shutdown()
+        }
+    }
+
     private fun hexToBytes(hex: String): ByteArray =
         hex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
 }

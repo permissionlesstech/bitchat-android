@@ -15,7 +15,8 @@ internal class WifiAwarePacketBroadcaster(
     private val myPeerID: String,
     private val connectionTracker: WifiAwareConnectionTracker,
     private val meshGraphProvider: () -> MeshGraphService = MeshGraphService::getInstance,
-    private val edgeMaxAgeMs: Long = MeshGraphService.DEFAULT_EDGE_MAX_AGE_MS
+    private val edgeMaxAgeMs: Long = MeshGraphService.DEFAULT_EDGE_MAX_AGE_MS,
+    private val ingressSocketResolver: ((relayAddress: String, ingressLinkID: String) -> SyncedSocket?)? = null
 ) {
     companion object {
         private const val TAG = "WifiAwareBroadcaster"
@@ -23,28 +24,48 @@ internal class WifiAwarePacketBroadcaster(
 
     fun broadcastSinglePacket(routed: RoutedPacket): Boolean {
         val data = routed.packet.toBinaryData() ?: return false
-        val relayCanonicalPeerID = routed.relayAddress
-            ?.takeIf { it.isNotBlank() }
-            ?.let { connectionTracker.canonicalPeerId(it) }
+        val ingressLinkID = routed.ingressLinkID
+        val hasLinkGeneration = ingressLinkID != null
+        val ingressSocket = if (ingressLinkID != null && !routed.relayAddress.isNullOrBlank()) {
+            ingressSocketResolver?.invoke(routed.relayAddress, ingressLinkID)
+        } else {
+            null
+        }
+        val legacyRelayCanonicalPeerID = if (!hasLinkGeneration) {
+            routed.relayAddress
+                ?.takeIf { it.isNotBlank() }
+                ?.let { connectionTracker.canonicalPeerId(it) }
+        } else {
+            null
+        }
         val resolvedPreviousHopPeerID = routed.previousHopPeerID?.takeIf { it.isNotBlank() }
-            ?: relayCanonicalPeerID
+            ?: legacyRelayCanonicalPeerID
         val graphService = meshGraphProvider()
 
         var accepted = false
         connectionTracker.peerSockets.forEach { (pid, sock) ->
-            val canonicalTargetPeerID = connectionTracker.canonicalPeerId(pid)
+            // When ingress link generation is tracked, skip only the exact incoming socket instance
+            // so a late packet from a replaced socket cannot suppress a replacement peer/socket.
+            if (hasLinkGeneration && ingressSocket != null && sock === ingressSocket) {
+                return@forEach
+            }
 
-            // Also guard against alias drift when a provisional relayAddress was rebound to its
-            // canonical peerID between packet arrival and relay transmission.
-            if (relayCanonicalPeerID != null && canonicalTargetPeerID == relayCanonicalPeerID) {
+            val canonicalTargetPeerID = connectionTracker.canonicalPeerId(pid)
+            val isTargetVerified = connectionTracker.isSocketVerified(pid, sock)
+
+            // Legacy (no ingressLinkID) alias drift guard for rebound provisional relayAddress
+            if (!hasLinkGeneration &&
+                legacyRelayCanonicalPeerID != null &&
+                canonicalTargetPeerID == legacyRelayCanonicalPeerID
+            ) {
                 return@forEach
             }
 
             if (BroadcastPruningPolicy.shouldSkipTarget(
                     routed = routed,
                     myPeerID = myPeerID,
-                    targetPeerID = canonicalTargetPeerID,
-                    targetAddress = pid,
+                    targetPeerID = if (isTargetVerified) canonicalTargetPeerID else null,
+                    targetAddress = if (hasLinkGeneration) null else pid,
                     resolvedPreviousHopPeerID = resolvedPreviousHopPeerID,
                     graphService = graphService,
                     edgeMaxAgeMs = edgeMaxAgeMs
