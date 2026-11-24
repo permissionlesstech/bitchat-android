@@ -12,6 +12,8 @@ class RelayDirectoryTest {
         assertEquals("wss://relay.example.com", RelayDirectory.normalizeRelayUrl("WSS://RELAY.EXAMPLE.COM:443"))
         assertEquals("wss://relay.example.com:8443", RelayDirectory.normalizeRelayUrl("wss://relay.example.com:8443/"))
         assertEquals("ws://relay.example.com", RelayDirectory.normalizeRelayUrl("ws://relay.example.com:80/"))
+        assertEquals("wss://relay.example.com/nostr/", RelayDirectory.normalizeRelayUrl("wss://relay.example.com/nostr/"))
+        assertEquals("wss://rélay.example/Feed?channel=AbC", RelayDirectory.normalizeRelayUrl("WSS://Rélay.Example/Feed?channel=AbC"))
     }
 
     @Test

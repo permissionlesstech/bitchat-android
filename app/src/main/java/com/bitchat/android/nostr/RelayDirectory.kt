@@ -126,16 +126,22 @@ object RelayDirectory {
         return try {
             val uri = java.net.URI(withScheme)
             val scheme = (uri.scheme ?: "wss").lowercase(java.util.Locale.ROOT)
-            val host = uri.host?.lowercase(java.util.Locale.ROOT) ?: return withScheme.lowercase(java.util.Locale.ROOT).trimEnd('/')
+            val rawPath = uri.rawPath ?: ""
+            val pathPart = if (rawPath == "/") "" else rawPath
+            val queryPart = uri.rawQuery?.let { "?$it" } ?: ""
+            val host = uri.host?.lowercase(java.util.Locale.ROOT)
+            if (host == null) {
+                val authority = uri.rawAuthority?.lowercase(java.util.Locale.ROOT)
+                    ?: return withScheme
+                return "$scheme://$authority$pathPart$queryPart"
+            }
             val port = uri.port
             val includePort = port != -1 &&
                 !((scheme == "wss" && port == 443) || (scheme == "ws" && port == 80))
             val portPart = if (includePort) ":$port" else ""
-            val pathPart = (uri.rawPath ?: "").trimEnd('/')
-            val queryPart = uri.rawQuery?.let { "?$it" } ?: ""
             "$scheme://$host$portPart$pathPart$queryPart"
         } catch (_: Exception) {
-            withScheme.lowercase(java.util.Locale.ROOT).trimEnd('/')
+            withScheme
         }
     }
 
