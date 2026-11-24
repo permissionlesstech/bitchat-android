@@ -311,6 +311,34 @@ class GeohashViewModel(
         }
     }
 
+    fun unblockUserInGeohash(targetNickname: String) {
+        val pubkey = repo.findPubkeyByNickname(targetNickname)
+            ?: dataManager.geohashBlockedUsers.firstOrNull {
+                it.equals(targetNickname, ignoreCase = true) ||
+                    it.take(4).equals(targetNickname.substringAfter("#", ""), ignoreCase = true)
+            }
+        if (pubkey != null && dataManager.isGeohashUserBlocked(pubkey)) {
+            dataManager.removeGeohashBlockedUser(pubkey)
+            repo.refreshGeohashPeople()
+            repo.updateReactiveParticipantCounts()
+            val sysMsg = com.bitchat.android.model.BitchatMessage(
+                sender = "system",
+                content = "unblocked $targetNickname in geohash channels",
+                timestamp = Date(),
+                isRelay = false
+            )
+            messageManager.addMessage(sysMsg)
+        } else {
+            val sysMsg = com.bitchat.android.model.BitchatMessage(
+                sender = "system",
+                content = "user '$targetNickname' not found in geohash block list",
+                timestamp = Date(),
+                isRelay = false
+            )
+            messageManager.addMessage(sysMsg)
+        }
+    }
+
     fun selectLocationChannel(channel: com.bitchat.android.geohash.ChannelID) {
         locationChannelManager?.select(channel) ?: run { Log.w(TAG, "Cannot select location channel - not initialized") }
     }
