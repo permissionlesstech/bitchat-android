@@ -45,6 +45,7 @@ class GeohashParticipantTrackingTest {
 
     @Before
     fun setUp() {
+        PoWPreferenceManager.setPowEnabled(false)
         AppStateStore.clear()
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         state = ChatState(scope)
@@ -59,6 +60,7 @@ class GeohashParticipantTrackingTest {
     fun tearDown() {
         scope.cancel()
         dataManager.removeGeohashBlockedUser(identity.publicKeyHex)
+        PoWPreferenceManager.resetToDefaults()
         AppStateStore.clear()
     }
 
