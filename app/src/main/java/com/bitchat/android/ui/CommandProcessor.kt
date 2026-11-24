@@ -37,7 +37,7 @@ class CommandProcessor(
     fun processCommand(command: String, meshService: MeshService, myPeerID: String, onSendMessage: (String, List<String>, String?) -> Unit, viewModel: ChatViewModel? = null): Boolean {
         if (!command.startsWith("/")) return false
         
-        val parts = command.split(" ")
+        val parts = command.trim().split(Regex("\\s+"))
         val cmd = parts.first().lowercase()
         when (cmd) {
             "/j", "/join" -> handleJoinCommand(parts, myPeerID)
