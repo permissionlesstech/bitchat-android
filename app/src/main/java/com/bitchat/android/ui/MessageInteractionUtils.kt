@@ -11,10 +11,14 @@ import com.bitchat.android.model.BitchatMessage
 internal fun BitchatMessage.isFromSelf(
     currentUserNickname: String,
     myPeerId: String,
-): Boolean =
-    senderPeerID == myPeerId ||
-        sender == currentUserNickname ||
+): Boolean {
+    val peerId = senderPeerID
+    if (peerId != null) {
+        return peerId == myPeerId
+    }
+    return sender == currentUserNickname ||
         sender.startsWith("$currentUserNickname#")
+}
 
 internal fun normalizeMessageUrl(rawUrl: String): String =
     if (
