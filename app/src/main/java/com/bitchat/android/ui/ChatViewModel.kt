@@ -106,13 +106,13 @@ class ChatViewModel(
             toPeerIDOrNull != null && recipientPeerID != null && mesh.hasEstablishedSession(recipientPeerID) ->
                 LiveVideoTarget.of(
                     send = { payload -> mesh.sendVideoFrame(recipientPeerID, payload) },
-                    backlog = mesh::liveSendBacklog,
+                    backlog = { mesh.liveSendBacklog(recipientPeerID) },
                     packetBudget = { mesh.liveSendPacketBudget(recipientPeerID) }
                 )
             toPeerIDOrNull == null && channelOrNull == null && mesh.getActivePeerCount() > 0 ->
                 LiveVideoTarget.of(
                     send = { payload -> mesh.sendVideoFrame(null, payload) },
-                    backlog = mesh::liveSendBacklog,
+                    backlog = { mesh.liveSendBacklog(null) },
                     packetBudget = { mesh.liveSendPacketBudget(null) }
                 )
             else -> null

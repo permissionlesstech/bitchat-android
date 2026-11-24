@@ -81,7 +81,124 @@ class YuvScaler(private val targetWidth: Int, private val targetHeight: Int) {
     private var rowU = ByteArray(0)
     private var rowV = ByteArray(0)
     private var rowUV = ByteArray(0)
+    private var staging = ByteArray(0)
     private var layout: ChromaLayout? = null
+
+    /**
+     * Packs [source] into a linear encoder input [java.nio.ByteBuffer] (NV12 semi-planar or I420 planar)
+     * in a single bulk `put`, avoiding per-frame `getInputImage` gralloc locks on vendor hardware encoders.
+     * Returns the exact byte count written.
+     */
+    fun writeIntoBuffer(
+        source: YuvSource,
+        buffer: java.nio.ByteBuffer,
+        stride: Int,
+        sliceHeight: Int,
+        semiPlanar: Boolean
+    ): Int {
+        val effStride = if (stride >= targetWidth) stride else targetWidth
+        val effSlice = if (sliceHeight >= targetHeight) sliceHeight else targetHeight
+        val yPlaneBytes = effStride * effSlice
+        val uvHeight = targetHeight / 2
+        val halfWidth = targetWidth / 2
+        val totalBytes = if (semiPlanar) {
+            yPlaneBytes + effStride * uvHeight
+        } else {
+            val uvStride = effStride / 2
+            val uvSlice = effSlice / 2
+            yPlaneBytes + uvStride * uvSlice + uvStride * uvHeight
+        }
+        val out = if (staging.size >= totalBytes) staging else ByteArray(totalBytes).also { staging = it }
+
+        val fastDirect = (source.rotationDegrees % 360 == 0) &&
+            source.width == targetWidth && source.height == targetHeight
+        val sourceY = source.y
+        val sourceU = source.u
+        val sourceV = source.v
+
+        if (fastDirect) {
+            // Fast path: source already matches output dimensions & orientation (no gather map).
+            val srcYStride = source.yRowStride
+            if (srcYStride == effStride && effStride == targetWidth) {
+                System.arraycopy(sourceY, 0, out, 0, targetWidth * targetHeight)
+            } else {
+                for (row in 0 until targetHeight) {
+                    System.arraycopy(sourceY, row * srcYStride, out, row * effStride, targetWidth)
+                }
+            }
+            val srcUvStride = source.uvRowStride
+            val srcUvPix = source.uvPixelStride
+            if (semiPlanar) {
+                for (row in 0 until uvHeight) {
+                    val dstBase = yPlaneBytes + row * effStride
+                    val srcBase = row * srcUvStride
+                    var dst = dstBase
+                    var src = srcBase
+                    for (col in 0 until halfWidth) {
+                        out[dst++] = if (src < sourceU.size) sourceU[src] else NEUTRAL
+                        out[dst++] = if (src < sourceV.size) sourceV[src] else NEUTRAL
+                        src += srcUvPix
+                    }
+                }
+            } else {
+                val uvStride = effStride / 2
+                val vOffset = yPlaneBytes + uvStride * (effSlice / 2)
+                for (row in 0 until uvHeight) {
+                    val uDst = yPlaneBytes + row * uvStride
+                    val vDst = vOffset + row * uvStride
+                    val srcBase = row * srcUvStride
+                    if (srcUvPix == 1 && srcBase + halfWidth <= sourceU.size && srcBase + halfWidth <= sourceV.size) {
+                        System.arraycopy(sourceU, srcBase, out, uDst, halfWidth)
+                        System.arraycopy(sourceV, srcBase, out, vDst, halfWidth)
+                    } else {
+                        var src = srcBase
+                        for (col in 0 until halfWidth) {
+                            out[uDst + col] = if (src < sourceU.size) sourceU[src] else NEUTRAL
+                            out[vDst + col] = if (src < sourceV.size) sourceV[src] else NEUTRAL
+                            src += srcUvPix
+                        }
+                    }
+                }
+            }
+        } else {
+            prepare(source)
+            val luma = lumaMap
+            val chromaOffsets = chromaMap
+            var index = 0
+            for (row in 0 until targetHeight) {
+                val dstBase = row * effStride
+                for (col in 0 until targetWidth) out[dstBase + col] = sourceY[luma[index++]]
+            }
+            index = 0
+            if (semiPlanar) {
+                for (row in 0 until uvHeight) {
+                    var dst = yPlaneBytes + row * effStride
+                    for (col in 0 until halfWidth) {
+                        val offset = chromaOffsets[index++]
+                        out[dst++] = if (offset < sourceU.size) sourceU[offset] else NEUTRAL
+                        out[dst++] = if (offset < sourceV.size) sourceV[offset] else NEUTRAL
+                    }
+                }
+            } else {
+                val uvStride = effStride / 2
+                val vOffset = yPlaneBytes + uvStride * (effSlice / 2)
+                for (row in 0 until uvHeight) {
+                    val uDst = yPlaneBytes + row * uvStride
+                    val vDst = vOffset + row * uvStride
+                    for (col in 0 until halfWidth) {
+                        val offset = chromaOffsets[index++]
+                        out[uDst + col] = if (offset < sourceU.size) sourceU[offset] else NEUTRAL
+                        out[vDst + col] = if (offset < sourceV.size) sourceV[offset] else NEUTRAL
+                    }
+                }
+            }
+        }
+
+        val writeLen = minOf(totalBytes, buffer.capacity())
+        buffer.clear()
+        buffer.put(out, 0, writeLen)
+        return writeLen
+    }
 
     /**
      * Codec input buffers are often uncached hardware memory where per-byte writes cost about a
@@ -329,6 +446,41 @@ object YuvToBitmap {
         val target = if (reuse.size == copy.remaining()) reuse else ByteArray(copy.remaining())
         copy.get(target)
         return target
+    }
+
+    /**
+     * Samples mean luma directly from a YUV_420_888 Image's Y plane (~512 samples) in <0.1 ms,
+     * avoiding full YUV->ARGB Bitmap conversion when no Bitmap consumer is attached.
+     */
+    fun meanLumaFromImage(image: Image): Double {
+        val crop = image.cropRect
+        val width = crop.width()
+        val height = crop.height()
+        if (width <= 0 || height <= 0) return 0.0
+        val yPlane = image.planes[0]
+        val buffer = yPlane.buffer
+        val rowStride = yPlane.rowStride
+        val pixelStride = yPlane.pixelStride
+        val limit = buffer.limit()
+        val rowStep = maxOf(1, height / 16)
+        val colStep = maxOf(1, width / 32)
+        var total = 0L
+        var count = 0
+        var row = 0
+        while (row < height) {
+            val base = (crop.top + row) * rowStride
+            var col = 0
+            while (col < width) {
+                val idx = base + (crop.left + col) * pixelStride
+                if (idx in 0 until limit) {
+                    total += buffer.get(idx).toInt() and 0xFF
+                    count++
+                }
+                col += colStep
+            }
+            row += rowStep
+        }
+        return if (count == 0) 0.0 else total.toDouble() / count
     }
 
     /** Mean luma of a decoded picture (test hooks use it to prove frames are not blank). */

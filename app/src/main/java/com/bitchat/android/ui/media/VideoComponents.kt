@@ -159,7 +159,7 @@ fun SignalBars(loss: Double, modifier: Modifier = Modifier) {
     }
 }
 
-/** Draws the latest decoded picture of a live stream, or a joining placeholder. */
+/** Draws the live stream via a zero-copy hardware TextureView Surface, or a joining placeholder. */
 @Composable
 fun LiveVideoFrameView(
     messageID: String,
@@ -169,20 +169,62 @@ fun LiveVideoFrameView(
     val context = LocalContext.current
     val manager = remember(context) { LiveVideoManager.getInstance(context) }
     val live by manager.live.collectAsState()
-    val frames = remember(messageID, live.containsKey(messageID)) { manager.frames(messageID) }
-    val frame = frames?.collectAsState()?.value
+    val info = live[messageID]
+    val renderedFlow = remember(messageID, info != null) { manager.hasRenderedFrame(messageID) }
+    val hasFrame = renderedFlow?.collectAsState()?.value == true
+    val videoWidth = info?.width ?: 144
+    val videoHeight = info?.height ?: 192
+    val surfaceHolder = remember(messageID) { arrayOfNulls<android.view.Surface>(1) }
+
+    DisposableEffect(messageID) {
+        onDispose {
+            surfaceHolder[0]?.let { surface ->
+                manager.detachSurface(messageID, surface)
+                runCatching { surface.release() }
+                surfaceHolder[0] = null
+            }
+        }
+    }
+
     Box(modifier = modifier.background(Color.Black), contentAlignment = Alignment.Center) {
-        if (frame != null) {
-            // Reading the index keeps a reused Bitmap redrawing on every new frame.
-            val index = frame.index
-            Image(
-                bitmap = remember(index) { frame.bitmap.asImageBitmap() },
-                contentDescription = stringResource(R.string.cd_live_video),
-                contentScale = contentScale,
-                filterQuality = FilterQuality.Low,
-                modifier = Modifier.fillMaxSize()
-            )
-        } else {
+        androidx.compose.ui.viewinterop.AndroidView(
+            factory = { ctx ->
+                android.view.TextureView(ctx).apply {
+                    isOpaque = true
+                    surfaceTextureListener = object : android.view.TextureView.SurfaceTextureListener {
+                        override fun onSurfaceTextureAvailable(st: android.graphics.SurfaceTexture, w: Int, h: Int) {
+                            applyVideoTransform(this@apply, w, h, videoWidth, videoHeight, contentScale)
+                            val surface = android.view.Surface(st)
+                            surfaceHolder[0] = surface
+                            manager.attachSurface(messageID, surface)
+                        }
+
+                        override fun onSurfaceTextureSizeChanged(st: android.graphics.SurfaceTexture, w: Int, h: Int) {
+                            applyVideoTransform(this@apply, w, h, videoWidth, videoHeight, contentScale)
+                        }
+
+                        override fun onSurfaceTextureDestroyed(st: android.graphics.SurfaceTexture): Boolean {
+                            surfaceHolder[0]?.let { surface ->
+                                manager.detachSurface(messageID, surface)
+                                runCatching { surface.release() }
+                                surfaceHolder[0] = null
+                            }
+                            return true
+                        }
+
+                        override fun onSurfaceTextureUpdated(st: android.graphics.SurfaceTexture) = Unit
+                    }
+                }
+            },
+            update = { view ->
+                if (view.width > 0 && view.height > 0) {
+                    applyVideoTransform(view, view.width, view.height, videoWidth, videoHeight, contentScale)
+                }
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+
+        if (!hasFrame) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.height(8.dp))
@@ -194,6 +236,30 @@ fun LiveVideoFrameView(
             }
         }
     }
+}
+
+private fun applyVideoTransform(
+    view: android.view.TextureView,
+    viewWidth: Int,
+    viewHeight: Int,
+    videoWidth: Int,
+    videoHeight: Int,
+    contentScale: ContentScale
+) {
+    if (viewWidth <= 0 || viewHeight <= 0 || videoWidth <= 0 || videoHeight <= 0) return
+    val viewAspect = viewWidth.toFloat() / viewHeight.toFloat()
+    val videoAspect = videoWidth.toFloat() / videoHeight.toFloat()
+    var scaleX = 1f
+    var scaleY = 1f
+    val crop = contentScale == ContentScale.Crop
+    if ((videoAspect > viewAspect) == crop) {
+        scaleX = videoAspect / viewAspect
+    } else {
+        scaleY = viewAspect / videoAspect
+    }
+    val matrix = android.graphics.Matrix()
+    matrix.setScale(scaleX, scaleY, viewWidth / 2f, viewHeight / 2f)
+    view.setTransform(matrix)
 }
 
 /** First-frame thumbnail and duration of a local MP4, cached in memory. */

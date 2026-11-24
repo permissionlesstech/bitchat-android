@@ -376,31 +376,35 @@ class LiveVideoCapture(
         // queue in front of the pacer is then ours to observe, rather than an invisible buffer
         // deep in the Bluetooth stack.
         val presetBytesPerSecond = quality.totalBitrate / 8.0 * (1.0 + quality.fec.parityRatio) * PACING_HEADROOM
-        val packetBudget = runCatching { sink.packetBudgetPerSecond() }.getOrDefault(DEFAULT_PACKET_BUDGET)
+        var packetBudget = runCatching { sink.packetBudgetPerSecond() }.getOrDefault(DEFAULT_PACKET_BUDGET)
             .coerceAtLeast(4)
-        val bytesPerSecond = minOf(presetBytesPerSecond, packetBudget * VideoBurstPacket.MAX_PACKET_BYTES.toDouble())
-        val packetsPerSecond = packetBudget.toDouble()
+        var bytesPerSecond = minOf(presetBytesPerSecond, packetBudget * VideoBurstPacket.MAX_PACKET_BYTES.toDouble())
+        var packetsPerSecond = packetBudget.toDouble()
         val byteBurst = PACING_BURST_PACKETS * VideoBurstPacket.MAX_PACKET_BYTES.toDouble()
         var byteTokens = byteBurst
         var packetTokens = PACING_BURST_PACKETS.toDouble()
         var lastRefill = System.nanoTime()
-        val outbound = ArrayDeque<Pair<Long, ByteArray>>()
-        val controller = LiveVideoCongestionController(
+        data class QueuedPacket(val queuedAtMs: Long, val data: ByteArray, val isControl: Boolean)
+        val outbound = ArrayDeque<QueuedPacket>()
+        fun makeController(budget: Int, initialBitrate: Int = quality.videoBitrate) = LiveVideoCongestionController(
             maxBitrate = quality.videoBitrate,
-            highWater = (packetBudget * 6 / 10).coerceAtLeast(6),
-            skipWater = (packetBudget * 3 / 2).coerceAtLeast(18)
+            highWater = (budget * 6 / 10).coerceAtLeast(6),
+            skipWater = (budget * 3 / 2).coerceAtLeast(18)
         )
+        var controller = makeController(packetBudget)
         congestion = controller
         fun nowMs() = (System.nanoTime() - startNs) / 1_000_000L
-        fun enqueue(packets: List<ByteArray>) {
+        fun enqueue(packets: List<ByteArray>, isControl: Boolean = false) {
             val now = nowMs()
-            packets.forEach { outbound.addLast(now to it) }
+            packets.forEach { outbound.addLast(QueuedPacket(now, it, isControl)) }
         }
         /** Sends what the token buckets allow; returns ms until the next send is possible. */
         fun drainPaced(finalDrain: Boolean): Long {
             while (outbound.isNotEmpty()) {
-                val (queuedAt, packet) = outbound.first()
-                if (!finalDrain && nowMs() - queuedAt > OUTBOUND_DEADLINE_MS) {
+                val item = outbound.first()
+                // Always drop stale media packets past deadline (even during finalDrain), while
+                // preserving control packets (START/END/CANCELED) so receivers close cleanly.
+                if (!item.isControl && nowMs() - item.queuedAtMs > OUTBOUND_DEADLINE_MS) {
                     outbound.removeFirst()
                     staleDropped.incrementAndGet()
                     continue
@@ -410,17 +414,17 @@ class LiveVideoCapture(
                 lastRefill = now
                 byteTokens = minOf(byteBurst, byteTokens + elapsed * bytesPerSecond)
                 packetTokens = minOf(PACING_BURST_PACKETS.toDouble(), packetTokens + elapsed * packetsPerSecond)
-                if (byteTokens < packet.size || packetTokens < 1.0) {
-                    val byteWait = (packet.size - byteTokens).coerceAtLeast(0.0) / bytesPerSecond
+                if (byteTokens < item.data.size || packetTokens < 1.0) {
+                    val byteWait = (item.data.size - byteTokens).coerceAtLeast(0.0) / bytesPerSecond
                     val packetWait = (1.0 - packetTokens).coerceAtLeast(0.0) / packetsPerSecond
                     return (maxOf(byteWait, packetWait) * 1_000).toLong().coerceIn(1L, 50L)
                 }
-                byteTokens -= packet.size
+                byteTokens -= item.data.size
                 packetTokens -= 1.0
                 outbound.removeFirst()
-                runCatching { sink.send(packet) }
+                runCatching { sink.send(item.data) }
                 packetsSent.incrementAndGet()
-                bytesSent.addAndGet(packet.size.toLong())
+                bytesSent.addAndGet(item.data.size.toLong())
             }
             return 20L
         }
@@ -438,13 +442,23 @@ class LiveVideoCapture(
             return true
         }
         try {
-            enqueue(packetizer.start())
+            enqueue(packetizer.start(), isControl = true)
             var wait = 0L
             while (senderRunning.get() || units.isNotEmpty()) {
                 val unit = units.poll(wait.coerceIn(1L, 20L), TimeUnit.MILLISECONDS)
                 val now = nowMs()
                 if (now - lastCongestionCheck >= 250L) {
                     lastCongestionCheck = now
+                    val latestBudget = runCatching { sink.packetBudgetPerSecond() }
+                        .getOrDefault(packetBudget)
+                        .coerceAtLeast(4)
+                    if (latestBudget != packetBudget) {
+                        packetBudget = latestBudget
+                        bytesPerSecond = minOf(presetBytesPerSecond, packetBudget * VideoBurstPacket.MAX_PACKET_BYTES.toDouble())
+                        packetsPerSecond = packetBudget.toDouble()
+                        controller = makeController(packetBudget)
+                        congestion = controller
+                    }
                     val linkBacklog = runCatching { sink.backlog() }.getOrDefault(0)
                     val backlog = maxOf(linkBacklog, outbound.size)
                     maxBacklog.accumulateAndGet(backlog, ::maxOf)
@@ -459,9 +473,13 @@ class LiveVideoCapture(
             }
             val duration = endPacketDuration
             if (duration != null && !canceledStream) {
-                enqueue(packetizer.finish(duration, nowMs()))
+                val tail = packetizer.finish(duration, nowMs())
+                // Last 3 packets are END copies; keep them marked as control so they are never dropped.
+                val endStart = (tail.size - 3).coerceAtLeast(0)
+                if (endStart > 0) enqueue(tail.subList(0, endStart), isControl = false)
+                enqueue(tail.subList(endStart, tail.size), isControl = true)
             } else {
-                packetizer.cancel()?.let { enqueue(listOf(it)) }
+                packetizer.cancel()?.let { enqueue(listOf(it), isControl = true) }
             }
             val deadline = System.nanoTime() + SENDER_DRAIN_TIMEOUT_MS * 1_000_000L
             while (outbound.isNotEmpty() && System.nanoTime() < deadline) {

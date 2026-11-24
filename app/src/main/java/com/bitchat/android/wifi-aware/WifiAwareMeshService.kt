@@ -1430,6 +1430,10 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         meshCore.sendVideoFrame(recipientPeerID, payload)
     }
 
+    override fun liveSendBacklog(): Int = meshCore.liveSendBacklog()
+
+    override fun liveSendPacketBudget(recipientPeerID: String?): Int = 300
+
     override fun prepareFilePrivate(
         recipientPeerID: String,
         file: BitchatFilePacket,

@@ -114,7 +114,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     private val packetProcessor = PacketProcessor(myPeerID)
     /** Live voice and live video share one best-effort, drop-when-full send queue. */
     private data class LiveFrameRequest(val recipientPeerID: String?, val payload: ByteArray, val isVideo: Boolean)
-    private val liveFrameQueue = Channel<LiveFrameRequest>(capacity = 256)
+    private val liveFrameQueue = Channel<LiveFrameRequest>(capacity = 512)
+    private val liveFrameQueueDepth = java.util.concurrent.atomic.AtomicInteger(0)
     private lateinit var gossipSyncManager: GossipSyncManager
     // Service-level notification manager for background (no-UI) DMs
     private val serviceNotificationManager = com.bitchat.android.ui.NotificationManager(
@@ -134,7 +135,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     
     init {
         serviceScope.launch {
-            for (request in liveFrameQueue) dispatchLiveFrame(request)
+            for (request in liveFrameQueue) {
+                liveFrameQueueDepth.decrementAndGet()
+                dispatchLiveFrame(request)
+            }
         }
         Log.i(TAG, "Initializing BluetoothMeshService for peer=$myPeerID")
         LiveMediaLinkBoost.applier = { high -> connectionManager.setLinkPriority(high) }
@@ -189,6 +193,11 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
 
     override fun send(packet: RoutedPacket) {
         if (!isBleTransportEnabled()) return
+        val isLiveVideo = packet.liveMedia || packet.packet.type == MessageType.VIDEO_FRAME.value
+        if (isLiveVideo && connectionManager.deepestLinkBacklog() >= 12) {
+            // Never let a high-rate Wi-Fi Aware stream overflow BLE's GATT send queue.
+            return
+        }
         connectionManager.broadcastPacket(packet)
     }
 
@@ -316,7 +325,11 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 )
                 // Sign the handshake response
                 val signedPacket = signPacketBeforeBroadcast(responsePacket)
-                broadcastRoutedPacket(RoutedPacket(signedPacket))
+                if (connectionManager.addressPeerMap.containsValue(peerID)) {
+                    if (isBleTransportEnabled()) connectionManager.broadcastPacket(RoutedPacket(signedPacket))
+                } else {
+                    broadcastRoutedPacket(RoutedPacket(signedPacket))
+                }
             }
             
             override fun getPeerInfo(peerID: String): PeerInfo? {
@@ -453,7 +466,11 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
 
                         // Sign the handshake packet before broadcasting
                         val signedPacket = signPacketBeforeBroadcast(packet)
-                        broadcastRoutedPacket(RoutedPacket(signedPacket))
+                        if (connectionManager.addressPeerMap.containsValue(peerID)) {
+                            if (isBleTransportEnabled()) connectionManager.broadcastPacket(RoutedPacket(signedPacket))
+                        } else {
+                            broadcastRoutedPacket(RoutedPacket(signedPacket))
+                        }
                     } else {
                         Log.w(TAG, "Failed to generate Noise handshake data for $peerID")
                     }
@@ -965,21 +982,28 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
 
     fun sendVoiceFrame(recipientPeerID: String?, payload: ByteArray) {
         if (payload.isEmpty()) return
-        liveFrameQueue.trySend(LiveFrameRequest(recipientPeerID, payload.copyOf(), isVideo = false))
+        if (liveFrameQueue.trySend(LiveFrameRequest(recipientPeerID, payload.copyOf(), isVideo = false)).isSuccess) {
+            liveFrameQueueDepth.incrementAndGet()
+        }
     }
 
-    fun liveSendBacklog(): Int = connectionManager.deepestLinkBacklog()
+    fun liveSendBacklog(): Int = connectionManager.deepestLinkBacklog() + liveFrameQueueDepth.get().coerceAtLeast(0)
+
+    fun liveSendPacketBudget(recipientPeerID: String?): Int =
+        connectionManager.bleLivePacketBudget(isBroadcast = recipientPeerID == null)
 
     fun sendVideoFrame(recipientPeerID: String?, payload: ByteArray) {
         if (payload.isEmpty()) return
-        liveFrameQueue.trySend(LiveFrameRequest(recipientPeerID, payload.copyOf(), isVideo = true))
+        if (liveFrameQueue.trySend(LiveFrameRequest(recipientPeerID, payload.copyOf(), isVideo = true)).isSuccess) {
+            liveFrameQueueDepth.incrementAndGet()
+        }
     }
 
     private fun dispatchLiveFrame(request: LiveFrameRequest) {
         try {
             val recipientPeerID = request.recipientPeerID
-            val packet = if (recipientPeerID == null) {
-                BitchatPacket(
+            if (recipientPeerID == null) {
+                val packet = BitchatPacket(
                     version = 1u,
                     type = if (request.isVideo) MessageType.VIDEO_FRAME.value else MessageType.VOICE_FRAME.value,
                     senderID = hexStringToByteArray(myPeerID),
@@ -988,12 +1012,14 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                     payload = request.payload,
                     ttl = MAX_TTL
                 )
+                broadcastRoutedPacket(RoutedPacket(signPacketBeforeBroadcast(packet), liveMedia = true))
             } else {
                 if (!encryptionService.hasEstablishedSession(recipientPeerID)) return
                 val innerType = if (request.isVideo) NoisePayloadType.VIDEO_FRAME else NoisePayloadType.VOICE_FRAME
                 val plaintext = NoisePayload(innerType, request.payload).encode()
                 val ciphertext = encryptionService.encrypt(plaintext, recipientPeerID)
-                BitchatPacket(
+                // Noise AEAD already authenticates DM live media; skip redundant outer Ed25519 signature.
+                val packet = BitchatPacket(
                     version = 1u,
                     type = MessageType.NOISE_ENCRYPTED.value,
                     senderID = hexStringToByteArray(myPeerID),
@@ -1002,8 +1028,14 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                     payload = ciphertext,
                     ttl = MAX_TTL
                 )
+                val routed = RoutedPacket(packet, liveMedia = true)
+                // Never bridge direct BLE Noise live media to another transport's Noise session.
+                if (connectionManager.addressPeerMap.containsValue(recipientPeerID)) {
+                    if (isBleTransportEnabled()) connectionManager.broadcastPacket(routed)
+                } else {
+                    broadcastRoutedPacket(routed)
+                }
             }
-            broadcastRoutedPacket(RoutedPacket(signPacketBeforeBroadcast(packet), liveMedia = true))
         } catch (e: Exception) {
             Log.w(TAG, "Live frame send failed: ${e.message}")
         }

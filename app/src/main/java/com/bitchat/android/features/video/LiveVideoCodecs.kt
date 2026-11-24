@@ -33,6 +33,9 @@ class H264Encoder(
 
     private val codec: MediaCodec
     private val scaler = YuvScaler(width, height)
+    private var linearSemiPlanar: Boolean? = null
+    private var inputStride: Int = width
+    private var inputSliceHeight: Int = height
     @Volatile private var parameterSets: ByteArray? = null
     @Volatile var outputFormat: MediaFormat? = null
         private set
@@ -40,23 +43,40 @@ class H264Encoder(
         private set
 
     init {
-        val format = { withProfile: Boolean ->
+        val format = { withProfile: Boolean, colorFormat: Int ->
             MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height).apply {
-                setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible)
+                setInteger(MediaFormat.KEY_COLOR_FORMAT, colorFormat)
                 setInteger(MediaFormat.KEY_BIT_RATE, bitrate)
                 setInteger(MediaFormat.KEY_FRAME_RATE, fps)
                 setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, keyframeIntervalSeconds)
                 if (withProfile) {
                     setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline)
                     setInteger(MediaFormat.KEY_LEVEL, MediaCodecInfo.CodecProfileLevel.AVCLevel31)
+                    setInteger(MediaFormat.KEY_PRIORITY, 0)
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        setInteger(MediaFormat.KEY_LATENCY, 1)
+                    }
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                        setInteger(MediaFormat.KEY_MAX_B_FRAMES, 0)
+                    }
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                        setInteger(MediaFormat.KEY_LOW_LATENCY, 1)
+                    }
                 }
             }
         }
         codec = createConfigured(format)
         codec.start()
+        if (linearSemiPlanar != null) {
+            runCatching {
+                val actual = codec.inputFormat
+                if (actual.containsKey(MediaFormat.KEY_STRIDE)) inputStride = actual.getInteger(MediaFormat.KEY_STRIDE)
+                if (actual.containsKey(MediaFormat.KEY_SLICE_HEIGHT)) inputSliceHeight = actual.getInteger(MediaFormat.KEY_SLICE_HEIGHT)
+            }
+        }
     }
 
-    private fun createConfigured(format: (Boolean) -> MediaFormat): MediaCodec {
+    private fun createConfigured(format: (Boolean, Int) -> MediaFormat): MediaCodec {
         val candidates = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
             .filter { info -> info.isEncoder && info.supportedTypes.any { it.equals(MediaFormat.MIMETYPE_VIDEO_AVC, true) } }
             .filter { info ->
@@ -68,7 +88,16 @@ class H264Encoder(
             .sortedBy { info -> if (info.isHardwareAcceleratedCompat()) 0 else 1 }
         for (info in candidates) {
             val capabilities = info.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC)
-            val attempt = format(true)
+            // Prefer linear NV12/I420 ByteBuffer input to bypass slow gralloc getInputImage() locks on vendor codecs.
+            val supportedFormats = capabilities.colorFormats
+            val preferredFormat = when {
+                MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar in supportedFormats ->
+                    MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar
+                MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar in supportedFormats ->
+                    MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar
+                else -> MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible
+            }
+            val attempt = format(true, preferredFormat)
             // CBR keeps each second's airtime predictable on a link with no spare capacity.
             if (capabilities.encoderCapabilities?.isBitrateModeSupported(
                     MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR
@@ -77,21 +106,33 @@ class H264Encoder(
                 attempt.setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR)
             }
             val codec = runCatching { MediaCodec.createByCodecName(info.name) }.getOrNull() ?: continue
+            var chosenColor = preferredFormat
             val configured = runCatching {
                 codec.configure(attempt, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
             }.recoverCatching {
-                // Some encoders reject an explicit profile/level or bitrate mode; retry plainly.
+                // Retry concrete color format without optional low-latency / profile / CBR extras.
                 codec.reset()
-                codec.configure(format(false), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+                codec.configure(format(false, preferredFormat), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+            }.recoverCatching {
+                // Final fallback to flexible YUV.
+                codec.reset()
+                chosenColor = MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible
+                codec.configure(format(false, chosenColor), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
             }
             if (configured.isSuccess) {
-                Log.i(TAG, "Using ${info.name} for ${width}x$height")
+                linearSemiPlanar = when (chosenColor) {
+                    MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar -> true
+                    MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar -> false
+                    else -> null
+                }
+                Log.i(TAG, "Using ${info.name} for ${width}x$height (linearSemiPlanar=$linearSemiPlanar)")
                 return codec
             }
             codec.release()
         }
+        linearSemiPlanar = null
         return MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC).also {
-            it.configure(format(false), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+            it.configure(format(false, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
         }
     }
 
@@ -99,6 +140,15 @@ class H264Encoder(
     fun encode(source: YuvSource, ptsUs: Long, timeoutUs: Long = 0L): Boolean {
         val index = codec.dequeueInputBuffer(timeoutUs)
         if (index < 0) return false
+        val semiPlanar = linearSemiPlanar
+        if (semiPlanar != null) {
+            val buffer = codec.getInputBuffer(index)
+            if (buffer != null) {
+                val bytes = scaler.writeIntoBuffer(source, buffer, inputStride, inputSliceHeight, semiPlanar)
+                codec.queueInputBuffer(index, 0, bytes, ptsUs, 0)
+                return true
+            }
+        }
         val image = codec.getInputImage(index)
         if (image == null) {
             codec.queueInputBuffer(index, 0, 0, ptsUs, 0)
@@ -344,6 +394,64 @@ class Mp4Writer(private val file: File, private val includeAudio: Boolean) {
         runCatching { mediaMuxer?.release() }
         if (!ok) file.delete()
         return ok
+    }
+}
+
+/**
+ * Non-blocking wrapper around [Mp4Writer] that moves MediaMuxer disk I/O off the mesh packet
+ * worker onto a dedicated writer thread. [finish] drains queued samples synchronously.
+ */
+class AsyncMp4Writer(file: File, includeAudio: Boolean) {
+    private sealed interface Op {
+        class Format(val format: MediaFormat) : Op
+        class Video(val data: ByteArray, val ptsUs: Long, val keyframe: Boolean) : Op
+        class Audio(val data: ByteArray, val ptsUs: Long) : Op
+        data object Finish : Op
+    }
+
+    private val delegate = Mp4Writer(file, includeAudio)
+    private val queue = java.util.concurrent.LinkedBlockingQueue<Op>(512)
+    private val closed = java.util.concurrent.atomic.AtomicBoolean(false)
+    @Volatile private var finishResult = false
+    private val worker = Thread(::runLoop, "bitchat-mp4-writer").also(Thread::start)
+
+    fun setVideoFormat(format: MediaFormat) {
+        if (!closed.get()) queue.offer(Op.Format(format))
+    }
+
+    fun writeVideo(data: ByteArray, ptsUs: Long, keyframe: Boolean) {
+        if (!closed.get()) queue.offer(Op.Video(data, ptsUs, keyframe))
+    }
+
+    fun writeAudio(data: ByteArray, ptsUs: Long) {
+        if (!closed.get()) queue.offer(Op.Audio(data, ptsUs))
+    }
+
+    fun finish(): Boolean {
+        if (closed.compareAndSet(false, true)) {
+            if (!queue.offer(Op.Finish)) {
+                worker.interrupt()
+            }
+        }
+        runCatching { worker.join(3_000L) }
+        return finishResult
+    }
+
+    private fun runLoop() {
+        try {
+            while (true) {
+                when (val op = queue.take()) {
+                    is Op.Format -> delegate.setVideoFormat(op.format)
+                    is Op.Video -> delegate.writeVideo(op.data, op.ptsUs, op.keyframe)
+                    is Op.Audio -> delegate.writeAudio(op.data, op.ptsUs)
+                    Op.Finish -> break
+                }
+            }
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        } finally {
+            finishResult = delegate.finish()
+        }
     }
 }
 

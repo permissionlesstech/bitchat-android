@@ -192,6 +192,18 @@ class BluetoothGattServerManager(
                             linkID = linkID
                         )
                         connectionTracker.addDeviceConnection(device.address, deviceConn)
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O &&
+                            runCatching { bluetoothAdapter?.isLe2MPhySupported == true }.getOrDefault(false)
+                        ) {
+                            runCatching {
+                                gattServer?.setPreferredPhy(
+                                    device,
+                                    BluetoothDevice.PHY_LE_2M_MASK,
+                                    BluetoothDevice.PHY_LE_2M_MASK,
+                                    BluetoothDevice.PHY_OPTION_NO_PREFERRED
+                                )
+                            }
+                        }
 
                         connectionScope.launch {
                             delay(1000)

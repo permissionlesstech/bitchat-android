@@ -145,7 +145,8 @@ class LiveVideoManager private constructor(private val context: Context) : LiveV
         var config: LiveVideoConfig? = null
         var decoder: LiveVideoDecoder? = null
         var audio: PttAudioPlayer? = null
-        var writer: Mp4Writer? = null
+        var writer: AsyncMp4Writer? = null
+        var surface: android.view.Surface? = null
         var lastPacketMs = System.currentTimeMillis()
         var lastFrameMs = 0L
         var receivedBytes = 0L
@@ -154,9 +155,12 @@ class LiveVideoManager private constructor(private val context: Context) : LiveV
         var latencySamples = 0
         var maxLatencyMs = 0L
         val frames = MutableStateFlow<LiveVideoFrame?>(null)
+        val hasRenderedFrame = MutableStateFlow(false)
         var frameIndex = 0
         var waitingForKeyframe = true
         var decoderStale = false
+        val seenSequences = java.util.ArrayDeque<Int>()
+        val seenSequenceSet = HashSet<Int>()
     }
 
     private data class FinishedStream(
@@ -219,6 +223,26 @@ class LiveVideoManager private constructor(private val context: Context) : LiveV
         streams.values.firstOrNull { it.message.id == messageID }?.frames
     }
 
+    fun hasRenderedFrame(messageID: String): StateFlow<Boolean>? = synchronized(this) {
+        streams.values.firstOrNull { it.message.id == messageID }?.hasRenderedFrame
+    }
+
+    fun attachSurface(messageID: String, surface: android.view.Surface) {
+        synchronized(this) {
+            val stream = streams.values.firstOrNull { it.message.id == messageID } ?: return
+            stream.surface = surface
+            stream.decoder?.attachSurface(surface)
+        }
+    }
+
+    fun detachSurface(messageID: String, surface: android.view.Surface) {
+        synchronized(this) {
+            val stream = streams.values.firstOrNull { it.message.id == messageID } ?: return
+            if (stream.surface === surface) stream.surface = null
+            stream.decoder?.detachSurface(surface)
+        }
+    }
+
     fun setMuted(messageID: String, muted: Boolean) {
         _mutedStreams.value = if (muted) _mutedStreams.value + messageID else _mutedStreams.value - messageID
         synchronized(this) { streams.values.firstOrNull { it.message.id == messageID }?.let(::updateAudio) }
@@ -246,6 +270,14 @@ class LiveVideoManager private constructor(private val context: Context) : LiveV
             streams[key] = stream
             _events.tryEmit(LiveVideoEvent.Started(peerID, streamHex, isPrivate))
             ensureTicking()
+        }
+        // Deduplicate cross-transport copies (e.g. Wi-Fi Aware + BLE both delivering the same public packet).
+        if (!stream.seenSequenceSet.add(packet.sequence)) {
+            return true
+        }
+        stream.seenSequences.addLast(packet.sequence)
+        if (stream.seenSequences.size > 512) {
+            stream.seenSequenceSet.remove(stream.seenSequences.removeFirst())
         }
         val now = System.currentTimeMillis()
         if (stream.reconnecting) {
@@ -397,8 +429,13 @@ class LiveVideoManager private constructor(private val context: Context) : LiveV
         }
         stream.config = config
         if (stream.decoder == null) {
-            stream.decoder = LiveVideoDecoder(onFrame = { bitmap -> onDecodedFrame(stream, bitmap) }).also {
+            stream.decoder = LiveVideoDecoder(
+                onFrame = { bitmap -> onDecodedFrame(stream, bitmap) },
+                onLumaSample = { luma -> stream.meanLuma = luma },
+                needsBitmap = { stream.frames.subscriptionCount.value > 0 }
+            ).also {
                 it.configure(config)
+                stream.surface?.let(it::attachSurface)
             }
         } else {
             stream.decoder?.configure(config)
@@ -412,7 +449,7 @@ class LiveVideoManager private constructor(private val context: Context) : LiveV
         if (unit.keyframe && stream.writer == null) {
             val csd = H264NalUnits.parameterSets(unit.data)
             if (csd != null) {
-                stream.writer = Mp4Writer(stream.file, config.hasAudio).also { writer ->
+                stream.writer = AsyncMp4Writer(stream.file, config.hasAudio).also { writer ->
                     writer.setVideoFormat(
                         MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, config.width, config.height).apply {
                             setByteBuffer("csd-0", ByteBuffer.wrap(csd.first))
@@ -437,11 +474,13 @@ class LiveVideoManager private constructor(private val context: Context) : LiveV
         }
     }
 
-    private fun onDecodedFrame(stream: Stream, bitmap: Bitmap) {
+    private fun onDecodedFrame(stream: Stream, bitmap: Bitmap?) {
         val index = ++stream.frameIndex
         stream.lastFrameMs = System.currentTimeMillis()
-        if (index % 8 == 1) stream.meanLuma = runCatching { YuvToBitmap.meanLuma(bitmap) }.getOrDefault(0.0)
-        stream.frames.value = LiveVideoFrame(bitmap, index)
+        if (!stream.hasRenderedFrame.value) stream.hasRenderedFrame.value = true
+        if (bitmap != null) {
+            stream.frames.value = LiveVideoFrame(bitmap, index)
+        }
     }
 
     private fun updateAudio(stream: Stream) {
@@ -494,7 +533,7 @@ class LiveVideoManager private constructor(private val context: Context) : LiveV
     private fun finalizeStream(stream: Stream, endedBySender: Boolean = true) {
         if (streams.remove(stream.key) == null) return
         com.bitchat.android.mesh.LiveMediaLinkBoost.release()
-        stream.decoder?.finishAfterDrain()
+        stream.decoder?.finishAndJoin(600L)
         stream.audio?.finishAfterDrain()
         val stats = stream.assembler.stats()
         val wroteSegment = stream.writer?.finish() == true

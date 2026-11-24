@@ -671,7 +671,7 @@ object TestHookDriver {
             } else {
                 mesh.sendVideoFrame(recipient?.meshPeerID, payload)
             }
-        }, mesh::liveSendBacklog, { mesh.liveSendPacketBudget(recipient?.meshPeerID) })
+        }, { mesh.liveSendBacklog(recipient?.meshPeerID) }, { mesh.liveSendPacketBudget(recipient?.meshPeerID) })
         val capture = LiveVideoCapture(
             File(context.filesDir, "videos/outgoing"),
             target,

@@ -27,6 +27,68 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         private const val MAX_PROCESSED_MESSAGES = com.bitchat.android.util.AppConstants.Security.MAX_PROCESSED_MESSAGES
         private const val MAX_PROCESSED_KEY_EXCHANGES = com.bitchat.android.util.AppConstants.Security.MAX_PROCESSED_KEY_EXCHANGES
         private const val KEY_EXCHANGE_DEDUP_TIMEOUT = com.bitchat.android.util.AppConstants.Security.KEY_EXCHANGE_DEDUP_TIMEOUT_MS
+        private const val MAX_VIDEO_DEDUP_STREAMS = 32
+    }
+
+    /** Compact 256-packet sliding sequence bitmap for high-rate VIDEO_FRAME deduplication. */
+    private class VideoStreamDedupWindow {
+        var highest: Long = -1L
+        val bits = LongArray(4) // 256 bits
+
+        private fun expand(seq16: Int): Long {
+            if (highest < 0L) return seq16.toLong()
+            val base = highest - (highest and 0xFFFFL)
+            var candidate = base + seq16
+            if (candidate - highest > 0x8000L) candidate -= 0x10000L
+            if (highest - candidate > 0x8000L) candidate += 0x10000L
+            return candidate
+        }
+
+        fun isDuplicate(seq16: Int): Boolean {
+            if (highest < 0L) return false
+            val seq = expand(seq16)
+            if (seq > highest) return false
+            val age = (highest - seq).toInt()
+            if (age >= 256) return true
+            return ((bits[age ushr 6] ushr (age and 63)) and 1L) != 0L
+        }
+
+        fun markSeen(seq16: Int) {
+            val seq = expand(seq16)
+            if (highest < 0L) {
+                highest = seq
+                bits[0] = 1L
+                return
+            }
+            if (seq > highest) {
+                val shift = (seq - highest).toInt()
+                if (shift >= 256) {
+                    bits.fill(0L)
+                } else {
+                    shiftUp(shift)
+                }
+                highest = seq
+                bits[0] = bits[0] or 1L
+            } else {
+                val age = (highest - seq).toInt()
+                if (age < 256) {
+                    bits[age ushr 6] = bits[age ushr 6] or (1L shl (age and 63))
+                }
+            }
+        }
+
+        private fun shiftUp(shift: Int) {
+            val wordShift = shift ushr 6
+            val bitShift = shift and 63
+            for (i in 3 downTo 0) {
+                val src = i - wordShift
+                var v = if (src >= 0) bits[src] shl bitShift else 0L
+                if (bitShift != 0 && src - 1 >= 0) {
+                    v = v or (bits[src - 1] ushr (64 - bitShift))
+                }
+                bits[i] = v
+            }
+        }
     }
     
     // Security tracking
@@ -34,6 +96,11 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
     private val processedKeyExchanges = Collections.synchronizedSet(mutableSetOf<String>())
     private val messageTimestamps = Collections.synchronizedMap(mutableMapOf<String, Long>())
     private val keyExchangeTimestamps = Collections.synchronizedMap(mutableMapOf<String, Long>())
+    private val videoDedupLock = Any()
+    private val videoDedupWindows = object : LinkedHashMap<String, VideoStreamDedupWindow>(32, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, VideoStreamDedupWindow>?): Boolean =
+            size > MAX_VIDEO_DEDUP_STREAMS
+    }
     
     // Delegate for callbacks
     var delegate: SecurityManagerDelegate? = null
@@ -72,6 +139,22 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
                 Log.w(TAG, "Dropping stale or future-dated LEAVE from $peerID")
                 return false
             }
+        }
+
+        // Fast O(1) sliding-window dedup for high-rate live VIDEO_FRAME streams:
+        // avoids SHA-256 hashing and flooding the 5-minute processedMessages cache.
+        if (messageType == MessageType.VIDEO_FRAME && packet.payload.size >= 10) {
+            val streamKey = videoStreamDedupKey(peerID, packet.payload)
+            val seq16 = ((packet.payload[8].toInt() and 0xFF) shl 8) or (packet.payload[9].toInt() and 0xFF)
+            val alreadySeen = synchronized(videoDedupLock) {
+                videoDedupWindows[streamKey]?.isDuplicate(seq16) == true
+            }
+            if (alreadySeen) return false
+            if (!verifyPacketSignature(packet, peerID)) return false
+            synchronized(videoDedupLock) {
+                videoDedupWindows.getOrPut(streamKey, ::VideoStreamDedupWindow).markSeen(seq16)
+            }
+            return true
         }
 
         // Duplicate detection
@@ -445,6 +528,17 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         }
     }
     
+    private fun videoStreamDedupKey(peerID: String, payload: ByteArray): String {
+        val sb = StringBuilder(peerID.length + 17)
+        sb.append(peerID).append(':')
+        val hex = "0123456789abcdef"
+        for (i in 0 until 8) {
+            val b = payload[i].toInt() and 0xFF
+            sb.append(hex[b ushr 4]).append(hex[b and 0x0F])
+        }
+        return sb.toString()
+    }
+
     /**
      * Clear all security data
      */
@@ -456,6 +550,9 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         synchronized(keyExchangeTimestamps) {
             processedKeyExchanges.clear()
             keyExchangeTimestamps.clear()
+        }
+        synchronized(videoDedupLock) {
+            videoDedupWindows.clear()
         }
     }
     

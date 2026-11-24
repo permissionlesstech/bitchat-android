@@ -23,7 +23,7 @@ class PacketProcessor(
     companion object {
         private const val TAG = "PacketProcessor"
         internal const val WORKER_COUNT = 16
-        internal const val QUEUE_CAPACITY = 64
+        internal const val QUEUE_CAPACITY = 512
         internal const val MAX_PENDING_PAYLOAD_BYTES = 8 * 1024 * 1024
     }
     
@@ -37,6 +37,8 @@ class PacketProcessor(
     private val processorScope = CoroutineScope(dispatcher + SupervisorJob())
     private val admissionLock = Any()
     private var pendingPayloadBytes = 0L
+    private var droppedPackets = 0L
+    private var lastDropLogMs = 0L
     private data class QueuedPacket(val routed: RoutedPacket, val payloadBytes: Int)
     private val queues = List(WORKER_COUNT) {
         Channel<QueuedPacket>(QUEUE_CAPACITY, onUndeliveredElement = ::release)
@@ -85,9 +87,24 @@ class PacketProcessor(
         synchronized(admissionLock) {
             if (!processorScope.isActive ||
                 pendingPayloadBytes + queued.payloadBytes > MAX_PENDING_PAYLOAD_BYTES
-            ) return
+            ) {
+                recordDropLocked(peerID, "byte-cap")
+                return
+            }
             pendingPayloadBytes += queued.payloadBytes
-            if (queue.trySend(queued).isFailure) release(queued)
+            if (queue.trySend(queued).isFailure) {
+                release(queued)
+                recordDropLocked(peerID, "queue-full")
+            }
+        }
+    }
+
+    private fun recordDropLocked(peerID: String, reason: String) {
+        droppedPackets++
+        val now = System.currentTimeMillis()
+        if (now - lastDropLogMs >= 2_000L) {
+            lastDropLogMs = now
+            Log.w(TAG, "Dropped incoming packet from ${peerID.take(8)} ($reason; total drops=$droppedPackets)")
         }
     }
     
