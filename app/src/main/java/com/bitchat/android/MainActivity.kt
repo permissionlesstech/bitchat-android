@@ -717,6 +717,7 @@ class MainActivity : OrientationAwareActivity() {
 
                 // Small delay to ensure mesh service is fully initialized
                 delay(500)
+                LocationChannelManager.getInstance(applicationContext).syncPermissionState()
                 Log.i("MainActivity", "App initialization complete")
                 mainViewModel.updateOnboardingState(OnboardingState.COMPLETE)
             } catch (e: Exception) {
