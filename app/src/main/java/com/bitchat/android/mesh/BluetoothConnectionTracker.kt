@@ -33,6 +33,8 @@ class BluetoothConnectionTracker(
     // RSSI tracking from scan results (for devices we discover but may connect as servers)
     private val scanRSSI = ConcurrentHashMap<String, Int>()
     private val connectionStateLock = Any()
+    @Volatile
+    var onConnectionStateChanged: (() -> Unit)? = null
     
     /**
      * Consolidated device connection information
@@ -85,6 +87,7 @@ class BluetoothConnectionTracker(
         removePendingConnection(deviceAddress)
         // Mark as awaiting first ANNOUNCE on this connection
         firstAnnounceSeen[deviceAddress] = false
+        notifyConnectionStateChanged()
     }
     
     /**
@@ -124,11 +127,25 @@ class BluetoothConnectionTracker(
      * other observations. The link generation check prevents a late packet from an old GATT
      * connection from being applied to a replacement connection that reused the same address.
      */
-    fun observePeerIfCurrent(deviceAddress: String, linkID: String, peerID: String): Boolean =
-        synchronized(connectionStateLock) {
+    fun observePeerIfCurrent(deviceAddress: String, linkID: String, peerID: String): Boolean {
+        val observed = synchronized(connectionStateLock) {
             if (connectedDevices[deviceAddress]?.linkID != linkID) return@synchronized false
             addressPeerMap[deviceAddress] = peerID
             true
+        }
+        if (observed) notifyConnectionStateChanged()
+        return observed
+    }
+
+    /**
+     * Resolves the mapped peerID for [deviceAddress] only if [linkID] still matches the current
+     * GATT generation for that address, preventing late callbacks from a replaced connection from
+     * inheriting the replacement peer's identity.
+     */
+    fun getPeerForLinkIfCurrent(deviceAddress: String, linkID: String): String? =
+        synchronized(connectionStateLock) {
+            if (connectedDevices[deviceAddress]?.linkID != linkID) return@synchronized null
+            addressPeerMap[deviceAddress]
         }
     
     /**
@@ -175,6 +192,7 @@ class BluetoothConnectionTracker(
      */
     fun addSubscribedDevice(device: BluetoothDevice) {
         subscribedDevices.add(device)
+        notifyConnectionStateChanged()
     }
     
     /**
@@ -182,6 +200,7 @@ class BluetoothConnectionTracker(
      */
     fun removeSubscribedDevice(device: BluetoothDevice) {
         subscribedDevices.remove(device)
+        notifyConnectionStateChanged()
     }
     
     /**
@@ -286,26 +305,31 @@ class BluetoothConnectionTracker(
             addressPeerMap.remove(deviceAddress)
             firstAnnounceSeen.remove(deviceAddress)
         }
+        notifyConnectionStateChanged()
         Log.d(TAG, "Cleaned up device connection for $deviceAddress")
     }
 
     fun cleanupDeviceConnectionIfCurrent(
         deviceAddress: String,
         expectedLinkID: String
-    ): Boolean = synchronized(connectionStateLock) {
-        val current = connectedDevices[deviceAddress] ?: return@synchronized false
-        if (current.linkID != expectedLinkID) {
-            return@synchronized false
+    ): Boolean {
+        val cleaned = synchronized(connectionStateLock) {
+            val current = connectedDevices[deviceAddress] ?: return@synchronized false
+            if (current.linkID != expectedLinkID) {
+                return@synchronized false
+            }
+            if (connectedDevices.remove(deviceAddress, current)) {
+                subscribedDevices.removeAll { it.address == deviceAddress }
+                addressPeerMap.remove(deviceAddress)
+                firstAnnounceSeen.remove(deviceAddress)
+                Log.d(TAG, "Cleaned up device connection for $deviceAddress")
+                true
+            } else {
+                false
+            }
         }
-        if (connectedDevices.remove(deviceAddress, current)) {
-            subscribedDevices.removeAll { it.address == deviceAddress }
-            addressPeerMap.remove(deviceAddress)
-            firstAnnounceSeen.remove(deviceAddress)
-            Log.d(TAG, "Cleaned up device connection for $deviceAddress")
-            true
-        } else {
-            false
-        }
+        if (cleaned) notifyConnectionStateChanged()
+        return cleaned
     }
     
     /**
@@ -333,12 +357,19 @@ class BluetoothConnectionTracker(
      * Clear all connection tracking
      */
     private fun clearAllConnections() {
-        connectedDevices.clear()
-        subscribedDevices.clear()
-        addressPeerMap.clear()
-        pendingConnections.clear()
-        scanRSSI.clear()
-        firstAnnounceSeen.clear()
+        synchronized(connectionStateLock) {
+            connectedDevices.clear()
+            subscribedDevices.clear()
+            addressPeerMap.clear()
+            pendingConnections.clear()
+            scanRSSI.clear()
+            firstAnnounceSeen.clear()
+        }
+        notifyConnectionStateChanged()
+    }
+
+    private fun notifyConnectionStateChanged() {
+        try { onConnectionStateChanged?.invoke() } catch (_: Exception) { }
     }
 
     /**

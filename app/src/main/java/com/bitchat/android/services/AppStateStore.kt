@@ -26,6 +26,8 @@ object AppStateStore {
     private var privateWritesSinceGlobalPrune = 0
     // Direct (single-hop) peer IDs per transport, used to gossip a unified neighbor set.
     private val directPeerIdsByTransport = mutableMapOf<String, Set<String>>()
+    // Whether each transport currently holds an active direct link not yet mapped to a peerID.
+    private val unidentifiedDirectLinksByTransport = mutableMapOf<String, Boolean>()
     private val _directPeers = MutableStateFlow<Set<String>>(emptySet())
     val directPeers: StateFlow<Set<String>> = _directPeers.asStateFlow()
     // Connected peer IDs (mesh ephemeral IDs)
@@ -178,8 +180,25 @@ object AppStateStore {
     fun clearTransportDirectPeers(transportId: String) {
         synchronized(this) {
             directPeerIdsByTransport.remove(transportId)
+            unidentifiedDirectLinksByTransport.remove(transportId)
             publishDirectPeersLocked()
         }
+    }
+
+    /** Record whether [transportId] currently has an active direct link awaiting peerID binding. */
+    fun setTransportHasUnidentifiedDirectLink(transportId: String, hasUnidentified: Boolean) {
+        synchronized(this) {
+            if (hasUnidentified) {
+                unidentifiedDirectLinksByTransport[transportId] = true
+            } else {
+                unidentifiedDirectLinksByTransport.remove(transportId)
+            }
+        }
+    }
+
+    /** Returns true if any active transport currently has a direct link awaiting peerID binding. */
+    fun hasAnyUnidentifiedDirectLink(): Boolean = synchronized(this) {
+        unidentifiedDirectLinksByTransport.values.any { it }
     }
 
     /** Union of direct peers across all transports. */

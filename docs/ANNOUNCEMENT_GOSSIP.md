@@ -109,4 +109,4 @@ ANNOUNCE payload TLVs (concatenated):
 
 Where each `peerIDk(8)` is the 8‑byte binary form of the peer ID as specified above.
 
-That’s the entire change; the outer packet header, message type, and relay/TTL behavior are unchanged.
+That’s the entire wire change; the outer packet header, message type, and TLV `0x04` encoding are unchanged. Implementations MAY use the freshness-bounded confirmed topology built from TLV `0x04` for source routing and deterministic 2-hop MPR / neighbor-pruned broadcast relaying (see `docs/SOURCE_ROUTING.md` Section 7); legacy clients that omit TLV `0x04` remain fully interoperable under the fail-safe relay rules.

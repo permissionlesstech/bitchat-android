@@ -104,6 +104,39 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
 
         return true
     }
+
+    /**
+     * Validates an already-seen packet for relay reconsideration when a previous ingress was
+     * suppressed by MPR selection. Fail-closed: still enforces self-check, timestamp bounds,
+     * prior acceptance in [processedMessages], and cryptographic signature verification so
+     * spoofed or expired duplicates can never trigger a relay.
+     */
+    fun validateAuthenticatedDuplicate(packet: BitchatPacket, peerID: String): Boolean {
+        if (peerID == myPeerID) return false
+
+        val currentTime = System.currentTimeMillis()
+        val messageType = MessageType.fromValue(packet.type)
+        if (messageType == MessageType.LEAVE) {
+            val now = currentTime.coerceAtLeast(0).toULong()
+            val clockSkew = if (packet.timestamp >= now) {
+                packet.timestamp - now
+            } else {
+                now - packet.timestamp
+            }
+            if (clockSkew > MESSAGE_TIMEOUT.toULong()) {
+                return false
+            }
+        }
+
+        val messageID = generateMessageID(packet, peerID)
+        val seenAtMs = synchronized(messageTimestamps) {
+            if (!processedMessages.contains(messageID)) return false
+            messageTimestamps[messageID]
+        } ?: return false
+        if (currentTime - seenAtMs > MESSAGE_TIMEOUT) return false
+
+        return verifyPacketSignature(packet, peerID)
+    }
     
     /**
      * Handle Noise handshake packet - SIMPLIFIED iOS-compatible version

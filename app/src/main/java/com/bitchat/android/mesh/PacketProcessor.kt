@@ -17,6 +17,8 @@ import kotlinx.coroutines.channels.Channel
 class PacketProcessor(
     private val myPeerID: String,
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    meshGraphProvider: () -> com.bitchat.android.services.meshgraph.MeshGraphService =
+        com.bitchat.android.services.meshgraph.MeshGraphService::getInstance,
 ) {
     private val debugManager by lazy { try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (e: Exception) { null } }
     
@@ -31,7 +33,7 @@ class PacketProcessor(
     var delegate: PacketProcessorDelegate? = null
     
     // Packet relay manager for centralized relay decisions
-    private val packetRelayManager = PacketRelayManager(myPeerID)
+    private val packetRelayManager = PacketRelayManager(myPeerID, meshGraphProvider = meshGraphProvider)
     
     // Coroutines
     private val processorScope = CoroutineScope(dispatcher + SupervisorJob())
@@ -112,8 +114,8 @@ class PacketProcessor(
                 return delegate?.hasUnidentifiedDirectLink() ?: false
             }
 
-            override fun resolvePeerIDForRelayAddress(relayAddress: String): String? {
-                return delegate?.resolvePeerIDForRelayAddress(relayAddress)
+            override fun resolvePeerIDForLink(relayAddress: String, ingressLinkID: String?): String? {
+                return delegate?.resolvePeerIDForLink(relayAddress, ingressLinkID)
             }
 
             override fun broadcastPacket(routed: RoutedPacket) {
@@ -134,6 +136,15 @@ class PacketProcessor(
 
         // Basic validation and security checks
         if (delegate?.validatePacketSecurity(packet, peerID) != true) {
+            // Separate local-delivery dedup from relay dedup: if an earlier authenticated copy
+            // was suppressed solely by MPR selection from a non-electing previous hop, reconsider
+            // relay when an authenticated duplicate arrives from another previous hop without
+            // re-delivering locally or updating last-seen.
+            if (packetRelayManager.isPendingSuppressedRelay(packet, peerID) &&
+                delegate?.validateDuplicatePacketForRelay(packet, peerID) == true
+            ) {
+                packetRelayManager.handlePacketRelay(routed, isDuplicateIngress = true)
+            }
             return
         }
 
@@ -209,7 +220,7 @@ class PacketProcessor(
      * Handle announce message with topology-change outcome
      */
     private suspend fun handleAnnounceWithResult(routed: RoutedPacket): AnnounceHandlingResult {
-        return delegate?.handleAnnounceWithOutcome(routed) ?: AnnounceHandlingResult.Rejected
+        return delegate?.handleAnnounce(routed) ?: AnnounceHandlingResult.Rejected
     }
 
     /**
@@ -294,6 +305,7 @@ class PacketProcessor(
 interface PacketProcessorDelegate {
     // Security validation
     fun validatePacketSecurity(packet: BitchatPacket, peerID: String): Boolean
+    fun validateDuplicatePacketForRelay(packet: BitchatPacket, peerID: String): Boolean = false
     
     // Peer management
     fun updatePeerLastSeen(peerID: String)
@@ -304,19 +316,12 @@ interface PacketProcessorDelegate {
     fun getBroadcastRecipient(): ByteArray
     fun getDirectConnectedPeers(): Set<String> = emptySet()
     fun hasUnidentifiedDirectLink(): Boolean = false
-    fun resolvePeerIDForRelayAddress(relayAddress: String): String? = null
+    fun resolvePeerIDForLink(relayAddress: String, ingressLinkID: String?): String? = null
 
     // Message type handlers
     fun handleNoiseHandshake(routed: RoutedPacket): Boolean
     fun handleNoiseEncrypted(routed: RoutedPacket): Boolean
-    suspend fun handleAnnounce(routed: RoutedPacket): Boolean
-    suspend fun handleAnnounceWithOutcome(routed: RoutedPacket): AnnounceHandlingResult {
-        return if (handleAnnounce(routed)) {
-            AnnounceHandlingResult.Accepted(isFirst = true, topologyChanged = true)
-        } else {
-            AnnounceHandlingResult.Rejected
-        }
-    }
+    suspend fun handleAnnounce(routed: RoutedPacket): AnnounceHandlingResult
     suspend fun handleMessage(routed: RoutedPacket)
     fun handleVoiceFrame(routed: RoutedPacket): Boolean = false
     suspend fun handleLeave(routed: RoutedPacket)

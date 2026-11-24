@@ -36,7 +36,7 @@ interface MeshTransport {
 
     fun hasUnidentifiedDirectLink(): Boolean = false
 
-    fun resolvePeerIDForRelayAddress(relayAddress: String): String? = null
+    fun resolvePeerIDForLink(relayAddress: String, ingressLinkID: String?): String? = null
 
     fun getTransportDebugInfo(): String = ""
 }

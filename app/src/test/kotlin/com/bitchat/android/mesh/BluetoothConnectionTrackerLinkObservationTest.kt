@@ -79,6 +79,35 @@ class BluetoothConnectionTrackerLinkObservationTest {
         assertTrue(tracker.addressPeerMap.containsValue(PEER_ID))
     }
 
+    @Test
+    fun `getPeerForLinkIfCurrent rejects stale linkID after replacement and notifies listener`() {
+        val address = "AA:BB:CC:DD:EE:03"
+        val device = mock<BluetoothDevice>()
+        whenever(device.address).thenReturn(address)
+
+        var changeNotifications = 0
+        tracker.onConnectionStateChanged = { changeNotifications += 1 }
+
+        tracker.addDeviceConnection(
+            address,
+            BluetoothConnectionTracker.DeviceConnection(device = device, linkID = "link-1")
+        )
+        assertTrue(tracker.observePeerIfCurrent(address, "link-1", "1111111111111111"))
+        assertEquals("1111111111111111", tracker.getPeerForLinkIfCurrent(address, "link-1"))
+        assertEquals(null, tracker.getPeerForLinkIfCurrent(address, "link-stale"))
+
+        // Replace link at same address with a new generation and different peer
+        tracker.addDeviceConnection(
+            address,
+            BluetoothConnectionTracker.DeviceConnection(device = device, linkID = "link-2")
+        )
+        assertTrue(tracker.observePeerIfCurrent(address, "link-2", "2222222222222222"))
+
+        assertEquals(null, tracker.getPeerForLinkIfCurrent(address, "link-1"))
+        assertEquals("2222222222222222", tracker.getPeerForLinkIfCurrent(address, "link-2"))
+        assertTrue("Connection state listener should fire on link/peer mutations", changeNotifications >= 4)
+    }
+
     private companion object {
         const val PEER_ID = "0011223344556677"
     }

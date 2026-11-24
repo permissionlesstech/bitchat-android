@@ -384,6 +384,53 @@ class MprSelectorTest {
         assertFalse(BroadcastPruningPolicy.shouldSkipTarget(localMsg, me, prevHop, "AA:BB:CC:DD:EE:02", null, graph))
     }
 
+    @Test
+    fun `golden vector deterministic MPR selection across k=1 and k=2`() {
+        // Canonical 16-hex-char peer IDs matching wire format, testing mandatory sole cover,
+        // greedy uncovered-reach dominance, degree tie-break, and lexicographical peerID tie-break.
+        val p = "0000000000000000"
+        val uSole = "0000000000000001"     // sole cover for wSole
+        val uHighReach = "0000000000000004" // covers {wA, wB}
+        val uMidA = "0000000000000002"     // covers {wA, wC}, deg=4 (extra link to uAux)
+        val uMidB = "0000000000000003"     // covers {wA, wC}, deg=3
+        val uLow = "0000000000000005"      // covers {wB, wC}, deg=3
+        val uAux = "0000000000000006"      // extra confirmed N1 neighbor boosting uMidA degree
+        val wSole = "0000000000000010"
+        val wA = "0000000000000011"
+        val wB = "0000000000000012"
+        val wC = "0000000000000013"
+
+        val graph = newGraph(
+            listOf(
+                p to uSole, p to uHighReach, p to uMidA, p to uMidB, p to uLow, p to uAux,
+                uSole to wSole,
+                uHighReach to wA, uHighReach to wB,
+                uMidA to wA, uMidA to wC, uMidA to uAux,
+                uMidB to wA, uMidB to wC,
+                uLow to wB, uLow to wC
+            )
+        )
+
+        // k=1 golden vector:
+        // Step 1 picks uSole (sole cover of wSole).
+        // Step 2: uMidA, uMidB, uHighReach, uLow all have uncovered reach 2; uMidA wins by highest
+        // confirmed degree (4 vs 3) covering {wA, wC}; then uHighReach beats uLow for {wB} by
+        // lexicographical peerID ("...04" < "...05").
+        assertEquals(
+            setOf(uSole, uMidA, uHighReach),
+            MprSelector.selectMprs(p, graph, coverageK = 1)
+        )
+
+        // k=2 golden vector:
+        // Step 1 picks uSole (<=2 covers for wSole), uHighReach & uLow (only 2 covers for wB).
+        // Remaining under-covered: wA (covered by uHighReach -> needs 1 more), wC (covered by uLow -> needs 1 more).
+        // Step 2 picks uMidA (reach=2 covering {wA, wC}, highest degree 4).
+        assertEquals(
+            setOf(uSole, uHighReach, uLow, uMidA),
+            MprSelector.selectMprs(p, graph, coverageK = 2)
+        )
+    }
+
     private fun hexToBytes(hex: String): ByteArray =
         hex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
 }

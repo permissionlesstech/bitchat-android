@@ -71,6 +71,32 @@ class WifiAwareConnectionTrackerTest {
         assertTrue("Rejected promotion must not alias the provisional ID", tracker.canonicalPeerId("provisional") == "provisional")
     }
 
+    @Test
+    fun `canonicalPeerIdIfSocketCurrent returns peer only for active socket generation`() {
+        val tracker = WifiAwareConnectionTracker(
+            CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+            mock<ConnectivityManager>()
+        )
+        val firstSocket = syncedSocket()
+        val replacementSocket = syncedSocket()
+        tracker.onClientConnected("provisional", firstSocket)
+        assertTrue(
+            tracker.rebindPeerIdIfCurrent(
+                previousPeerId = "provisional",
+                resolvedPeerId = "canonical-a",
+                expectedSocket = firstSocket
+            )
+        )
+        assertTrue(tracker.canonicalPeerIdIfSocketCurrent("provisional", firstSocket) == "canonical-a")
+        assertTrue(tracker.canonicalPeerIdIfSocketCurrent("canonical-a", firstSocket) == "canonical-a")
+
+        // Replace socket for canonical peer: stale reader holding firstSocket must get null
+        tracker.onClientConnected("canonical-a", replacementSocket)
+        assertNull(tracker.canonicalPeerIdIfSocketCurrent("provisional", firstSocket))
+        assertNull(tracker.canonicalPeerIdIfSocketCurrent("canonical-a", firstSocket))
+        assertTrue(tracker.canonicalPeerIdIfSocketCurrent("provisional", replacementSocket) == "canonical-a")
+    }
+
     private fun syncedSocket(): SyncedSocket {
         val raw = mock<Socket> {
             on { getInputStream() } doReturn ByteArrayInputStream(byteArrayOf())

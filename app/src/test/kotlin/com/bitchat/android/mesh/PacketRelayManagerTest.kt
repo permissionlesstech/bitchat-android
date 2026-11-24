@@ -312,9 +312,95 @@ class PacketRelayManagerTest {
         // Large network (> 3) with a legacy direct neighbor not in N1(prevHop): fail-safe relay
         whenever(delegate.getNetworkSize()).thenReturn(12)
         whenever(delegate.getDirectConnectedPeers()).thenReturn(setOf(prevHop, peerB, "deadbeef00000001"))
-        relay.handlePacketRelay(RoutedPacket(msg, prevHop, "link-p", previousHopPeerID = prevHop))
+        relay.handlePacketRelay(RoutedPacket(msg.copy(timestamp = 2_000UL), prevHop, "link-p", previousHopPeerID = prevHop))
 
         verify(delegate, org.mockito.kotlin.times(2)).broadcastPacket(any())
+        relay.shutdown()
+    }
+
+    @Test
+    fun `unknown previous hop and stale graph fallbacks disable neighbor pruning`() = runTest {
+        val prevHop = "0101010101010101"
+        val peerB = "0202020202020202"
+        val me = "0909090909090909"
+        seedConfirmedEdges(prevHop to peerB, prevHop to me, peerB to me)
+
+        val relay = PacketRelayManager(me).apply { delegate = this@PacketRelayManagerTest.delegate }
+        whenever(delegate.getDirectConnectedPeers()).thenReturn(setOf(prevHop, peerB))
+
+        // 1. Unknown previous hop in large network -> relay with skipNeighborPruning = true
+        whenever(delegate.getNetworkSize()).thenReturn(10)
+        relay.handlePacketRelay(
+            RoutedPacket(broadcastPacket(MessageType.MESSAGE, prevHop).copy(timestamp = 1_001UL), prevHop, "link-p", previousHopPeerID = null)
+        )
+
+        // 2. Small network with fresh graph and known previous hop -> skipNeighborPruning = false
+        whenever(delegate.getNetworkSize()).thenReturn(3)
+        relay.handlePacketRelay(
+            RoutedPacket(broadcastPacket(MessageType.MESSAGE, prevHop).copy(timestamp = 1_002UL), prevHop, "link-p", previousHopPeerID = prevHop)
+        )
+
+        // 3. Stale graph in both large and small networks -> skipNeighborPruning = true
+        nowMs += MeshGraphService.DEFAULT_EDGE_MAX_AGE_MS + 10_000L
+        whenever(delegate.getNetworkSize()).thenReturn(10)
+        relay.handlePacketRelay(
+            RoutedPacket(broadcastPacket(MessageType.MESSAGE, prevHop).copy(timestamp = 1_003UL), prevHop, "link-p", previousHopPeerID = prevHop)
+        )
+        whenever(delegate.getNetworkSize()).thenReturn(3)
+        relay.handlePacketRelay(
+            RoutedPacket(broadcastPacket(MessageType.MESSAGE, prevHop).copy(timestamp = 1_004UL), prevHop, "link-p", previousHopPeerID = prevHop)
+        )
+
+        val captor = argumentCaptor<RoutedPacket>()
+        verify(delegate, org.mockito.kotlin.times(4)).broadcastPacket(captor.capture())
+        assertTrue("Unknown previous hop must disable neighbor pruning", captor.allValues[0].skipNeighborPruning)
+        assertFalse("Fresh small-network relay keeps neighbor pruning enabled", captor.allValues[1].skipNeighborPruning)
+        assertTrue("Stale graph fallback in large network must disable neighbor pruning", captor.allValues[2].skipNeighborPruning)
+        assertTrue("Stale graph fallback in small network must disable neighbor pruning", captor.allValues[3].skipNeighborPruning)
+        relay.shutdown()
+    }
+
+    @Test
+    fun `suppressed broadcast relays once when authenticated duplicate arrives from electing hop`() = runTest {
+        // Non-electing prevHopA shares clique with me, prevHopB, farPeer;
+        // electing prevHopB elects me ("01...") over prevHopA ("08...") to cover farPeer.
+        val origin = "0000000000000001"
+        val prevHopA = "0808080808080808"
+        val prevHopB = "0202020202020202"
+        val me = "0101010101010101"
+        val farPeer = "0a0a0a0a0a0a0a0a"
+        seedConfirmedEdges(
+            prevHopA to me,
+            prevHopA to prevHopB,
+            prevHopA to farPeer,
+            prevHopB to me,
+            me to farPeer
+        )
+
+        val relay = PacketRelayManager(me).apply { delegate = this@PacketRelayManagerTest.delegate }
+        whenever(delegate.getNetworkSize()).thenReturn(10)
+        whenever(delegate.getDirectConnectedPeers()).thenReturn(setOf(prevHopA, prevHopB, farPeer))
+
+        val msg = broadcastPacket(MessageType.MESSAGE, origin).copy(timestamp = 5_000UL)
+
+        // First ingress from prevHopA is suppressed because farPeer is already in N1(prevHopA)
+        relay.handlePacketRelay(RoutedPacket(msg, origin, "link-a", previousHopPeerID = prevHopA))
+        assertTrue(relay.isPendingSuppressedRelay(msg, origin))
+        verify(delegate, never()).broadcastPacket(any())
+
+        // Duplicate ingress from prevHopB elects me as sole cover for farPeer -> relays once
+        relay.handlePacketRelay(
+            RoutedPacket(msg, origin, "link-b", previousHopPeerID = prevHopB),
+            isDuplicateIngress = true
+        )
+        assertFalse(relay.isPendingSuppressedRelay(msg, origin))
+
+        // Third duplicate ingress is ignored (never double-relayed)
+        relay.handlePacketRelay(
+            RoutedPacket(msg, origin, "link-b", previousHopPeerID = prevHopB),
+            isDuplicateIngress = true
+        )
+        verify(delegate, org.mockito.kotlin.times(1)).broadcastPacket(any())
         relay.shutdown()
     }
 

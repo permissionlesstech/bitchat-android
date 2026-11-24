@@ -93,6 +93,17 @@ class WifiAwareConnectionTracker(
 
     fun canonicalPeerId(peerId: String): String = resolveCanonicalPeerId(peerId)
 
+    /**
+     * Resolves the canonical peerID for [peerId] only if [expectedSocket] is still the active
+     * socket bound to that peer, preventing a stale reader from attributing late packets to a
+     * replacement connection.
+     */
+    fun canonicalPeerIdIfSocketCurrent(peerId: String, expectedSocket: SyncedSocket): String? =
+        synchronized(socketBindingLock) {
+            val canonical = resolveCanonicalPeerId(peerId)
+            if (peerSockets[canonical] === expectedSocket) canonical else null
+        }
+
     fun rebindPeerId(previousPeerId: String, resolvedPeerId: String, socket: SyncedSocket): String {
         return synchronized(socketBindingLock) {
             rebindPeerIdLocked(previousPeerId, resolvedPeerId, socket)
