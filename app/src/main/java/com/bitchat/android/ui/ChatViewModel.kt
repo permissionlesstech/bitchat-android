@@ -962,7 +962,7 @@ class ChatViewModel(
         if (content.startsWith("/")) {
             val selectedLocationForCommand = state.selectedLocationChannel.value
             commandProcessor.processCommand(content, mesh, mesh.myPeerID, { messageContent, mentions, channel ->
-                if (selectedLocationForCommand is com.bitchat.android.geohash.ChannelID.Location) {
+                if (channel == null && selectedLocationForCommand is com.bitchat.android.geohash.ChannelID.Location) {
                     // Route command-generated public messages via Nostr in geohash channels
                     geohashViewModel.sendGeohashMessage(
                         messageContent,
@@ -987,9 +987,9 @@ class ChatViewModel(
         if (selectedPeer != null) {
             sendPrivateConversationMessage(selectedPeer, content, onAccepted)
         } else {
-            // Check if we're in a location channel
+            // Check if we're in a location channel (only when no mesh channel is active)
             val selectedLocationChannel = state.selectedLocationChannel.value
-            if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location) {
+            if (currentChannelValue == null && selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location) {
                 // Send to geohash channel via Nostr ephemeral event
                 geohashViewModel.sendGeohashMessage(content, selectedLocationChannel.channel, mesh.myPeerID, state.getNicknameValue())
             } else {
