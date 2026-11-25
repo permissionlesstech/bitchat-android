@@ -450,6 +450,7 @@
   <string name="location_notes_relays_unavailable">Geo relays unavailable; notes paused</string>
   <string name="location_notes_no_relays_title">No geo relays nearby</string>
   <string name="location_notes_no_relays_desc">Notes rely on geo relays. Check connection and try again.</string>
+  <string name="location_notes_location_unavailable">Unable to determine your current location. Check device location and try again.</string>
   <string name="loading_location_notes">Loading notes…</string>
   <string name="location_notes_empty_title">No notes yet</string>
   <string name="location_notes_empty_desc">Be the first to add one for this spot.</string>
@@ -671,3 +672,4 @@
     <string name="cd_globe_activity">%1$d active chats, %2$d people online</string>
     <string name="cd_channel_activity">%1$d people, %2$d messages in the last hour</string>
 </resources>
+
