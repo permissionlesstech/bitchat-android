@@ -1419,17 +1419,21 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         socket.close()
     }
 
+    private fun disconnectPeerAndClearCore(rawPeerId: String, canonicalPeerId: String) {
+        connectionTracker.disconnect(rawPeerId)
+        meshCore.setDirectConnection(canonicalPeerId, false)
+        meshCore.removePeer(canonicalPeerId)
+        if (canonicalPeerId != rawPeerId) {
+            meshCore.setDirectConnection(rawPeerId, false)
+            meshCore.removePeer(rawPeerId)
+        }
+    }
+
     private fun handleNetworkFailure(peerId: String) {
          serviceScope.launch {
             if (!connectionTracker.isConnected(peerId)) {
                 val canonicalPeerId = connectionTracker.canonicalPeerId(peerId)
-                connectionTracker.disconnect(peerId)
-                meshCore.setDirectConnection(canonicalPeerId, false)
-                meshCore.removePeer(canonicalPeerId)
-                if (canonicalPeerId != peerId) {
-                    meshCore.setDirectConnection(peerId, false)
-                    meshCore.removePeer(peerId)
-                }
+                disconnectPeerAndClearCore(peerId, canonicalPeerId)
             }
         }
     }
@@ -1439,29 +1443,9 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             // Check if this socket is the current active one before nuking the session
             val currentSocket = connectionTracker.getSocketForPeer(initialId)
             val canonicalPeerId = connectionTracker.canonicalPeerId(initialId)
-            var disconnected = false
-            if (currentSocket === socket) {
-                disconnected = true
-                connectionTracker.disconnect(initialId)
-                meshCore.setDirectConnection(canonicalPeerId, false)
-                meshCore.removePeer(canonicalPeerId)
-                if (canonicalPeerId != initialId) {
-                    meshCore.setDirectConnection(initialId, false)
-                    meshCore.removePeer(initialId)
-                }
-            } else if (socket == null && currentSocket == null) {
-                disconnected = true
-                // Fallback: If we don't have a specific socket context but we are already disconnected, ensure cleanup
-                connectionTracker.disconnect(initialId)
-                meshCore.setDirectConnection(canonicalPeerId, false)
-                meshCore.removePeer(canonicalPeerId)
-                if (canonicalPeerId != initialId) {
-                    meshCore.setDirectConnection(initialId, false)
-                    meshCore.removePeer(initialId)
-                }
-            }
-            // Else: socket replaced or inactive; do not remove peer/session, as a new socket has likely taken over
+            val disconnected = currentSocket === socket || (socket == null && currentSocket == null)
             if (disconnected) {
+                disconnectPeerAndClearCore(initialId, canonicalPeerId)
                 MeshGraphTransportCleanup.scheduleTopologyChangeAnnounce(
                     scope = serviceScope,
                     removedPeerID = canonicalPeerId,
@@ -1470,6 +1454,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                     sendAnnounce = { meshCore.sendBroadcastAnnounce() }
                 )
             }
+            // Else: socket replaced or inactive; do not remove peer/session, as a new socket has likely taken over
             publishControllerDebugSnapshot()
         }
     }

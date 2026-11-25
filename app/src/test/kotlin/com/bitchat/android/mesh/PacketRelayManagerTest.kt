@@ -445,6 +445,60 @@ class PacketRelayManagerTest {
         relay.shutdown()
     }
 
+    @Test
+    fun `relay lifecycle transition table enforces terminal RELAYED state and monotonic expiry ordering`() = runTest {
+        var fakeWallMs = 1_000_000L
+        val origin = "0000000000000001"
+        val prevHopA = "0808080808080808"
+        val prevHopB = "0202020202020202"
+        val me = "0101010101010101"
+        val farPeer = "0a0a0a0a0a0a0a0a"
+        seedConfirmedEdges(
+            prevHopA to me,
+            prevHopA to prevHopB,
+            prevHopA to farPeer,
+            prevHopB to me,
+            me to farPeer
+        )
+
+        val relay = PacketRelayManager(me, clockMs = { fakeWallMs }).apply { delegate = this@PacketRelayManagerTest.delegate }
+        whenever(delegate.getNetworkSize()).thenReturn(10)
+        whenever(delegate.getDirectConnectedPeers()).thenReturn(setOf(prevHopA, prevHopB, farPeer))
+
+        // Verify every (from, to) transition pair against the explicit lifecycle table
+        assertTrue(relay.canTransitionRelayState(null, PacketRelayManager.RelayLifecycleState.SUPPRESSED))
+        assertTrue(relay.canTransitionRelayState(null, PacketRelayManager.RelayLifecycleState.RELAYED))
+        assertTrue(relay.canTransitionRelayState(PacketRelayManager.RelayLifecycleState.SUPPRESSED, PacketRelayManager.RelayLifecycleState.SUPPRESSED))
+        assertTrue(relay.canTransitionRelayState(PacketRelayManager.RelayLifecycleState.SUPPRESSED, PacketRelayManager.RelayLifecycleState.RELAYED))
+        assertFalse(relay.canTransitionRelayState(PacketRelayManager.RelayLifecycleState.RELAYED, PacketRelayManager.RelayLifecycleState.SUPPRESSED))
+        assertFalse(relay.canTransitionRelayState(PacketRelayManager.RelayLifecycleState.RELAYED, PacketRelayManager.RelayLifecycleState.RELAYED))
+
+        // Refreshing msg1 via a second non-electing suppression must move msg1 behind msg2 so
+        // msg2 still expires cleanly on schedule while refreshed msg1 remains pending.
+        val msg1 = broadcastPacket(MessageType.MESSAGE, origin).copy(timestamp = 1_000UL)
+        val msg2 = broadcastPacket(MessageType.MESSAGE, origin).copy(timestamp = 2_000UL)
+
+        relay.handlePacketRelay(RoutedPacket(msg1, origin, "link-a", previousHopPeerID = prevHopA))
+        fakeWallMs += 1_000L
+        relay.handlePacketRelay(RoutedPacket(msg2, origin, "link-a", previousHopPeerID = prevHopA))
+        fakeWallMs += 100_000L
+        // Second non-electing suppression of msg1 refreshes its updatedAtMs past msg2
+        relay.handlePacketRelay(RoutedPacket(msg1, origin, "link-a", previousHopPeerID = prevHopA), isDuplicateIngress = true)
+
+        // Advance past msg2's expiry (5 min + 1 ms after msg2), still within msg1's refreshed window
+        fakeWallMs = 1_001_000L + com.bitchat.android.util.AppConstants.Security.MESSAGE_TIMEOUT_MS + 1L
+        assertFalse("Older msg2 must expire even after msg1 was refreshed", relay.isPendingSuppressedRelay(msg2, origin))
+        assertTrue("Refreshed msg1 must remain pending for duplicate reconsideration", relay.isPendingSuppressedRelay(msg1, origin))
+
+        // Transition msg1 to terminal RELAYED via electing hop; a subsequent non-electing ingress must not reopen it
+        relay.handlePacketRelay(RoutedPacket(msg1, origin, "link-b", previousHopPeerID = prevHopB), isDuplicateIngress = true)
+        assertFalse(relay.isPendingSuppressedRelay(msg1, origin))
+        relay.handlePacketRelay(RoutedPacket(msg1, origin, "link-a", previousHopPeerID = prevHopA), isDuplicateIngress = false)
+        assertFalse("Terminal RELAYED state must never reopen to SUPPRESSED", relay.isPendingSuppressedRelay(msg1, origin))
+        verify(delegate, org.mockito.kotlin.times(1)).broadcastPacket(any())
+        relay.shutdown()
+    }
+
     private fun seedConfirmedEdges(vararg edges: Pair<String, String>) {
         val graph = MeshGraphService.getInstance()
         val adj = mutableMapOf<String, MutableList<String>>()

@@ -22,8 +22,7 @@ internal object MeshGraphTransportCleanup {
         hasUnidentifiedDirectLink: Boolean
     ) {
         try {
-            AppStateStore.setTransportDirectPeers(transportId, localDirectPeers)
-            AppStateStore.setTransportHasUnidentifiedDirectLink(transportId, hasUnidentifiedDirectLink)
+            AppStateStore.setTransportDirectState(transportId, localDirectPeers, hasUnidentifiedDirectLink)
         } catch (_: Exception) { }
     }
 
@@ -79,8 +78,7 @@ internal object MeshGraphTransportCleanup {
         previousActivePeers: Set<String>,
         graphService: MeshGraphService = MeshGraphService.getInstance()
     ) {
-        try { AppStateStore.clearTransportPeers(transportId) } catch (_: Exception) { }
-        try { AppStateStore.clearTransportDirectPeers(transportId) } catch (_: Exception) { }
+        try { AppStateStore.clearTransportState(transportId) } catch (_: Exception) { }
 
         for (peerID in previousDirectPeers) {
             removeDirectEdgeIfAbsentElsewhere(myPeerID, transportId, peerID, graphService)

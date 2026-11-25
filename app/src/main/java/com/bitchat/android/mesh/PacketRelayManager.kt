@@ -50,6 +50,33 @@ class PacketRelayManager(
         CONSERVATIVE_FLOOD
     }
 
+    /**
+     * Explicit process-local relay lifecycle for a packet ID (absent = UNSEEN):
+     * - `null -> SUPPRESSED`: first ingress suppressed by MPR; eligible for authenticated duplicate retry.
+     * - `null -> RELAYED`: first ingress claimed for relay (terminal).
+     * - `SUPPRESSED -> RELAYED`: authenticated duplicate from an electing hop claimed for relay (terminal).
+     * - `SUPPRESSED -> SUPPRESSED`: additional non-electing hop saw it; refreshes expiry without reopening terminal state.
+     * - `RELAYED -> *`: terminal; never reopens.
+     */
+    internal enum class RelayLifecycleState {
+        SUPPRESSED,
+        RELAYED
+    }
+
+    private data class RelayLifecycleEntry(
+        val state: RelayLifecycleState,
+        val updatedAtMs: Long
+    )
+
+    internal fun canTransitionRelayState(
+        from: RelayLifecycleState?,
+        to: RelayLifecycleState
+    ): Boolean = when (from) {
+        null -> true
+        RelayLifecycleState.SUPPRESSED -> true
+        RelayLifecycleState.RELAYED -> false
+    }
+
     private data class BroadcastRelayDecision(
         val shouldRelay: Boolean,
         val skipNeighborPruning: Boolean,
@@ -57,8 +84,8 @@ class PacketRelayManager(
     )
 
     private val relayDedupLock = Any()
-    private val suppressedPacketIds = LinkedHashMap<String, Long>()
-    private val relayedPacketIds = LinkedHashMap<String, Long>()
+    // Strictly insertion-ordered by updatedAtMs (re-inserted on update) for O(expired) pruning.
+    private val relayStates = LinkedHashMap<String, RelayLifecycleEntry>()
 
     private fun isRelayEnabled(): Boolean = try {
         com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().packetRelayEnabled.value
@@ -80,7 +107,7 @@ class PacketRelayManager(
         val now = clockMs()
         synchronized(relayDedupLock) {
             pruneExpiredLocked(now)
-            return suppressedPacketIds.containsKey(key) && !relayedPacketIds.containsKey(key)
+            return relayStates[key]?.state == RelayLifecycleState.SUPPRESSED
         }
     }
 
@@ -132,9 +159,10 @@ class PacketRelayManager(
         val canProceed = synchronized(relayDedupLock) {
             val now = clockMs()
             pruneExpiredLocked(now)
+            val currentState = relayStates[dedupKey]?.state
             when {
-                relayedPacketIds.containsKey(dedupKey) -> false
-                isDuplicateIngress -> suppressedPacketIds.containsKey(dedupKey)
+                currentState == RelayLifecycleState.RELAYED -> false
+                isDuplicateIngress -> currentState == RelayLifecycleState.SUPPRESSED
                 else -> true
             }
         }
@@ -246,25 +274,8 @@ class PacketRelayManager(
      * Check if a packet is specifically addressed to us.
      */
     internal fun isPacketAddressedToMe(packet: BitchatPacket): Boolean {
-        val recipientID = packet.recipientID
-
-        // No recipient means broadcast (not addressed to us specifically)
-        if (recipientID == null) {
-            return false
-        }
-
-        // Check if it's a broadcast recipient
-        if (recipientID.contentEquals(SpecialRecipients.BROADCAST)) {
-            return false
-        }
-        val broadcastRecipient = delegate?.getBroadcastRecipient()
-        if (broadcastRecipient != null && recipientID.contentEquals(broadcastRecipient)) {
-            return false
-        }
-
-        // Check if recipient matches our peer ID
-        val recipientIDString = recipientID.toHexString()
-        return recipientIDString == myPeerID
+        if (isBroadcastPacket(packet)) return false
+        return packet.recipientID?.toHexString() == myPeerID
     }
 
     private fun isBroadcastPacket(packet: BitchatPacket): Boolean {
@@ -347,22 +358,18 @@ class PacketRelayManager(
         }
 
         if (policy == RelayPolicy.PRUNED_FLOOD) {
-            val missingOrStalePrevHop = previousHopPeerID.isNullOrBlank() ||
-                !graph.isFreshAnnouncement(previousHopPeerID, edgeMaxAgeMs)
             return BroadcastRelayDecision(
                 shouldRelay = true,
-                skipNeighborPruning = missingOrStalePrevHop,
+                skipNeighborPruning = isPreviousHopGraphMissingOrStale(graph, previousHopPeerID),
                 reason = "unsigned-fragment-pruned"
             )
         }
 
         // Small networks always relay to ensure connectivity; still guard pruning on a fresh graph
         if (networkSize <= SMALL_NETWORK_RELAY_THRESHOLD) {
-            val missingOrStalePrevHop = previousHopPeerID.isNullOrBlank() ||
-                !graph.isFreshAnnouncement(previousHopPeerID, edgeMaxAgeMs)
             return BroadcastRelayDecision(
                 shouldRelay = true,
-                skipNeighborPruning = missingOrStalePrevHop,
+                skipNeighborPruning = isPreviousHopGraphMissingOrStale(graph, previousHopPeerID),
                 reason = "small-network($networkSize)"
             )
         }
@@ -394,6 +401,12 @@ class PacketRelayManager(
         )
     }
 
+    private fun isPreviousHopGraphMissingOrStale(
+        graph: MeshGraphService,
+        previousHopPeerID: String?
+    ): Boolean = previousHopPeerID.isNullOrBlank() ||
+        !graph.isFreshAnnouncement(previousHopPeerID, edgeMaxAgeMs)
+
     private fun relayDedupKey(packet: BitchatPacket, peerID: String): String {
         return "$peerID-${PacketIdUtil.computeIdHex(packet)}"
     }
@@ -402,11 +415,10 @@ class PacketRelayManager(
         val now = clockMs()
         synchronized(relayDedupLock) {
             pruneExpiredLocked(now)
-            if (relayedPacketIds.containsKey(key)) return false
-            if (isDuplicateIngress && !suppressedPacketIds.containsKey(key)) return false
-            suppressedPacketIds.remove(key)
-            relayedPacketIds[key] = now
-            enforceCapacityLocked(relayedPacketIds)
+            val current = relayStates[key]?.state
+            if (isDuplicateIngress && current != RelayLifecycleState.SUPPRESSED) return false
+            if (!canTransitionRelayState(current, RelayLifecycleState.RELAYED)) return false
+            putRelayStateLocked(key, RelayLifecycleState.RELAYED, now)
             return true
         }
     }
@@ -415,9 +427,9 @@ class PacketRelayManager(
         val now = clockMs()
         synchronized(relayDedupLock) {
             pruneExpiredLocked(now)
-            suppressedPacketIds.remove(key)
-            relayedPacketIds[key] = now
-            enforceCapacityLocked(relayedPacketIds)
+            val current = relayStates[key]?.state
+            if (!canTransitionRelayState(current, RelayLifecycleState.RELAYED)) return
+            putRelayStateLocked(key, RelayLifecycleState.RELAYED, now)
         }
     }
 
@@ -425,35 +437,33 @@ class PacketRelayManager(
         val now = clockMs()
         synchronized(relayDedupLock) {
             pruneExpiredLocked(now)
-            if (relayedPacketIds.containsKey(key)) return
-            suppressedPacketIds[key] = now
-            enforceCapacityLocked(suppressedPacketIds)
+            val current = relayStates[key]?.state
+            if (!canTransitionRelayState(current, RelayLifecycleState.SUPPRESSED)) return
+            putRelayStateLocked(key, RelayLifecycleState.SUPPRESSED, now)
+        }
+    }
+
+    private fun putRelayStateLocked(key: String, state: RelayLifecycleState, nowMs: Long) {
+        // Remove before insert so LinkedHashMap iteration order remains strictly monotonic by updatedAtMs.
+        relayStates.remove(key)
+        relayStates[key] = RelayLifecycleEntry(state, nowMs)
+        val iter = relayStates.entries.iterator()
+        while (relayStates.size > MAX_TRACKED_RELAY_PACKETS && iter.hasNext()) {
+            iter.next()
+            iter.remove()
         }
     }
 
     private fun pruneExpiredLocked(nowMs: Long) {
         val cutoff = nowMs - RELAY_DEDUP_TTL_MS
-        pruneMapLocked(suppressedPacketIds, cutoff)
-        pruneMapLocked(relayedPacketIds, cutoff)
-    }
-
-    private fun pruneMapLocked(map: LinkedHashMap<String, Long>, cutoffMs: Long) {
-        val iter = map.entries.iterator()
+        val iter = relayStates.entries.iterator()
         while (iter.hasNext()) {
             val entry = iter.next()
-            if (entry.value < cutoffMs) {
+            if (entry.value.updatedAtMs < cutoff) {
                 iter.remove()
             } else {
                 break
             }
-        }
-    }
-
-    private fun enforceCapacityLocked(map: LinkedHashMap<String, Long>) {
-        val iter = map.entries.iterator()
-        while (map.size > MAX_TRACKED_RELAY_PACKETS && iter.hasNext()) {
-            iter.next()
-            iter.remove()
         }
     }
 
@@ -483,8 +493,7 @@ class PacketRelayManager(
     fun shutdown() {
         Log.d(TAG, "Shutting down PacketRelayManager")
         synchronized(relayDedupLock) {
-            suppressedPacketIds.clear()
-            relayedPacketIds.clear()
+            relayStates.clear()
         }
         relayScope.cancel()
     }

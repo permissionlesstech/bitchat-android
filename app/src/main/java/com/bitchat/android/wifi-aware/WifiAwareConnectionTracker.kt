@@ -50,26 +50,33 @@ class WifiAwareConnectionTracker(
     }
 
     override fun disconnect(id: String) {
+        val canonicalId: String
+        val clientSocket: SyncedSocket?
+        val serverSocket: ServerSocket?
+        val networkCallback: ConnectivityManager.NetworkCallback?
         synchronized(socketBindingLock) {
             Log.d(TAG, "Disconnecting peer $id")
-            val canonicalId = resolveCanonicalPeerId(id)
-
-            // 1. Close client socket
-            peerSockets.remove(canonicalId)?.let {
-                try { it.close() } catch (e: Exception) { Log.w(TAG, "Error closing socket for $id: ${e.message}") }
-            }
+            canonicalId = resolveCanonicalPeerId(id)
+            clientSocket = peerSockets.remove(canonicalId)
             verifiedSockets.remove(canonicalId)
             socketAliases.entries.removeIf { it.key == id || it.key == canonicalId || it.value == canonicalId }
-
-            // 2. Close server socket
-            serverSockets.remove(canonicalId)?.let {
-                try { it.close() } catch (e: Exception) { Log.w(TAG, "Error closing server socket for $id: ${e.message}") }
-            }
-
-            // Ensure any pending/active network request is explicitly released
-            releaseNetworkRequest(canonicalId)
+            serverSocket = serverSockets.remove(canonicalId)
+            networkCallback = networkCallbacks.remove(canonicalId)
             removePendingConnection(id)
             removePendingConnection(canonicalId)
+        }
+        // Keep blocking socket close and ConnectivityManager Binder IPC outside socketBindingLock.
+        clientSocket?.let {
+            try { it.close() } catch (e: Exception) { Log.w(TAG, "Error closing socket for $id: ${e.message}") }
+        }
+        serverSocket?.let {
+            try { it.close() } catch (e: Exception) { Log.w(TAG, "Error closing server socket for $id: ${e.message}") }
+        }
+        networkCallback?.let {
+            try {
+                Log.d(TAG, "Unregistering network callback for $canonicalId")
+                cm.unregisterNetworkCallback(it)
+            } catch (e: Exception) { Log.w(TAG, "Error unregistering callback for $canonicalId: ${e.message}") }
         }
         notifyConnectionStateChanged()
     }
@@ -93,18 +100,21 @@ class WifiAwareConnectionTracker(
      * Successfully established a client connection
      */
     fun onClientConnected(peerId: String, socket: SyncedSocket) {
-        val displacedVerifiedPeerId = synchronized(socketBindingLock) {
+        val previousSocket: SyncedSocket?
+        val displacedVerifiedPeerId: String?
+        synchronized(socketBindingLock) {
             val canonicalPeerId = resolveCanonicalPeerId(peerId)
-            // Close previous socket if one exists to prevent zombie readers
-            peerSockets[canonicalPeerId]?.let {
-                try { it.close() } catch (_: Exception) {}
-            }
+            previousSocket = peerSockets[canonicalPeerId]
             // A newly connected socket is provisional until a validated direct ANNOUNCE binds it.
             val wasVerified = verifiedSockets.remove(canonicalPeerId) != null
             peerSockets[canonicalPeerId] = socket
             removePendingConnection(peerId) // Clear retry state on success
             if (canonicalPeerId != peerId) removePendingConnection(canonicalPeerId)
-            if (wasVerified) canonicalPeerId else null
+            displacedVerifiedPeerId = if (wasVerified) canonicalPeerId else null
+        }
+        // Close replaced socket outside socketBindingLock to prevent zombie readers without holding the lock.
+        if (previousSocket != null && previousSocket !== socket) {
+            try { previousSocket.close() } catch (_: Exception) {}
         }
         notifyConnectionStateChanged()
         if (displacedVerifiedPeerId != null) {

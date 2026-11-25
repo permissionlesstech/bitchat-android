@@ -241,16 +241,14 @@ object MprSelector {
         //   1. highest uncovered 2-hop reach
         //   2. highest confirmed 1-hop degree
         //   3. lexicographically smallest peerID
-        val remainingCandidates = sortedN1.filterTo(LinkedHashSet()) { it !in selectedMprs }
-        while (remainingCandidates.isNotEmpty()) {
-            val uncoveredN2 = HashSet<String>()
-            for ((w, required) in requiredCoverageByW) {
-                if ((coverageCountByW[w] ?: 0) < required) {
-                    uncoveredN2.add(w)
-                }
+        val uncoveredN2 = HashSet<String>(requiredCoverageByW.size)
+        for ((w, required) in requiredCoverageByW) {
+            if ((coverageCountByW[w] ?: 0) < required) {
+                uncoveredN2.add(w)
             }
-            if (uncoveredN2.isEmpty()) break
-
+        }
+        val remainingCandidates = sortedN1.filterTo(LinkedHashSet()) { it !in selectedMprs }
+        while (uncoveredN2.isNotEmpty() && remainingCandidates.isNotEmpty()) {
             var bestCandidate: String? = null
             var bestReach = 0
             var bestDegree = -1
@@ -281,7 +279,12 @@ object MprSelector {
             selectedMprs.add(bestCandidate)
             remainingCandidates.remove(bestCandidate)
             for (w in strictN2ByU[bestCandidate].orEmpty()) {
-                coverageCountByW[w] = (coverageCountByW[w] ?: 0) + 1
+                val updated = (coverageCountByW[w] ?: 0) + 1
+                coverageCountByW[w] = updated
+                val required = requiredCoverageByW[w]
+                if (required != null && updated >= required) {
+                    uncoveredN2.remove(w)
+                }
             }
         }
 

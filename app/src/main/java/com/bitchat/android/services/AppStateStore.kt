@@ -177,6 +177,26 @@ object AppStateStore {
         }
     }
 
+    /**
+     * Atomically record both the direct peer set and unidentified-link state for [transportId]
+     * under a single lock so cross-transport readers never observe torn direct-link state.
+     */
+    fun setTransportDirectState(
+        transportId: String,
+        ids: Collection<String>,
+        hasUnidentifiedDirectLink: Boolean
+    ) {
+        synchronized(this) {
+            directPeerIdsByTransport[transportId] = ids.toSet()
+            if (hasUnidentifiedDirectLink) {
+                unidentifiedDirectLinksByTransport[transportId] = true
+            } else {
+                unidentifiedDirectLinksByTransport.remove(transportId)
+            }
+            publishDirectPeersLocked()
+        }
+    }
+
     fun clearTransportDirectPeers(transportId: String) {
         synchronized(this) {
             directPeerIdsByTransport.remove(transportId)
@@ -185,14 +205,17 @@ object AppStateStore {
         }
     }
 
-    /** Record whether [transportId] currently has an active direct link awaiting peerID binding. */
-    fun setTransportHasUnidentifiedDirectLink(transportId: String, hasUnidentified: Boolean) {
+    /**
+     * Atomically clears all published active-peer, direct-peer, and unidentified-link state for
+     * [transportId] under a single lock during transport disable/teardown.
+     */
+    fun clearTransportState(transportId: String) {
         synchronized(this) {
-            if (hasUnidentified) {
-                unidentifiedDirectLinksByTransport[transportId] = true
-            } else {
-                unidentifiedDirectLinksByTransport.remove(transportId)
-            }
+            peerIdsByTransport.remove(transportId)
+            directPeerIdsByTransport.remove(transportId)
+            unidentifiedDirectLinksByTransport.remove(transportId)
+            publishTransportPeersLocked()
+            publishDirectPeersLocked()
         }
     }
 

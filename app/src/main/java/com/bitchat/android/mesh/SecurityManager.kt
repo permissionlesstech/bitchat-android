@@ -72,17 +72,9 @@ class SecurityManager(
         // LEAVE mutates presence immediately and cannot be safely replayed after the in-memory
         // duplicate cache expires (or after an app restart). Bound it to the same five-minute
         // security window used for duplicate retention while tolerating symmetric clock skew.
-        if (messageType == MessageType.LEAVE) {
-            val now = currentTime.coerceAtLeast(0).toULong()
-            val clockSkew = if (packet.timestamp >= now) {
-                packet.timestamp - now
-            } else {
-                now - packet.timestamp
-            }
-            if (clockSkew > MESSAGE_TIMEOUT.toULong()) {
-                Log.w(TAG, "Dropping stale or future-dated LEAVE from $peerID")
-                return false
-            }
+        if (messageType == MessageType.LEAVE && !isLeaveTimestampValid(packet, currentTime)) {
+            Log.w(TAG, "Dropping stale or future-dated LEAVE from $peerID")
+            return false
         }
 
         // Duplicate detection
@@ -128,16 +120,8 @@ class SecurityManager(
 
         val currentTime = clockMs()
         val messageType = MessageType.fromValue(packet.type)
-        if (messageType == MessageType.LEAVE) {
-            val now = currentTime.coerceAtLeast(0).toULong()
-            val clockSkew = if (packet.timestamp >= now) {
-                packet.timestamp - now
-            } else {
-                now - packet.timestamp
-            }
-            if (clockSkew > MESSAGE_TIMEOUT.toULong()) {
-                return false
-            }
+        if (messageType == MessageType.LEAVE && !isLeaveTimestampValid(packet, currentTime)) {
+            return false
         }
 
         val messageID = generateMessageID(packet, peerID)
@@ -148,6 +132,16 @@ class SecurityManager(
         if (currentTime - seenAtMs > MESSAGE_TIMEOUT) return false
 
         return verifyCryptographicSignatureStrict(packet, peerID, messageType)
+    }
+
+    private fun isLeaveTimestampValid(packet: BitchatPacket, currentTimeMs: Long): Boolean {
+        val now = currentTimeMs.coerceAtLeast(0).toULong()
+        val clockSkew = if (packet.timestamp >= now) {
+            packet.timestamp - now
+        } else {
+            now - packet.timestamp
+        }
+        return clockSkew <= MESSAGE_TIMEOUT.toULong()
     }
     
     /**
@@ -185,7 +179,7 @@ class SecurityManager(
             val result = encryptionService.processHandshakeMessageWithResult(packet.payload, peerID)
             synchronized(keyExchangeTimestamps) {
                 processedKeyExchanges.add(exchangeKey)
-                keyExchangeTimestamps[exchangeKey] = System.currentTimeMillis()
+                keyExchangeTimestamps[exchangeKey] = clockMs()
             }
             
             if (result.response != null) {
