@@ -26,6 +26,8 @@ object AppStateStore {
     private var privateWritesSinceGlobalPrune = 0
     // Direct (single-hop) peer IDs per transport, used to gossip a unified neighbor set.
     private val directPeerIdsByTransport = mutableMapOf<String, Set<String>>()
+    // Whether each transport currently holds an active direct link not yet mapped to a peerID.
+    private val unidentifiedDirectLinksByTransport = mutableMapOf<String, Boolean>()
     private val _directPeers = MutableStateFlow<Set<String>>(emptySet())
     val directPeers: StateFlow<Set<String>> = _directPeers.asStateFlow()
     // Connected peer IDs (mesh ephemeral IDs)
@@ -175,15 +177,65 @@ object AppStateStore {
         }
     }
 
-    fun clearTransportDirectPeers(transportId: String) {
+    /**
+     * Atomically record both the direct peer set and unidentified-link state for [transportId]
+     * under a single lock so cross-transport readers never observe torn direct-link state.
+     */
+    fun setTransportDirectState(
+        transportId: String,
+        ids: Collection<String>,
+        hasUnidentifiedDirectLink: Boolean
+    ) {
         synchronized(this) {
-            directPeerIdsByTransport.remove(transportId)
+            directPeerIdsByTransport[transportId] = ids.toSet()
+            if (hasUnidentifiedDirectLink) {
+                unidentifiedDirectLinksByTransport[transportId] = true
+            } else {
+                unidentifiedDirectLinksByTransport.remove(transportId)
+            }
             publishDirectPeersLocked()
         }
     }
 
+    fun clearTransportDirectPeers(transportId: String) {
+        synchronized(this) {
+            directPeerIdsByTransport.remove(transportId)
+            unidentifiedDirectLinksByTransport.remove(transportId)
+            publishDirectPeersLocked()
+        }
+    }
+
+    /**
+     * Atomically clears all published active-peer, direct-peer, and unidentified-link state for
+     * [transportId] under a single lock during transport disable/teardown.
+     */
+    fun clearTransportState(transportId: String) {
+        synchronized(this) {
+            peerIdsByTransport.remove(transportId)
+            directPeerIdsByTransport.remove(transportId)
+            unidentifiedDirectLinksByTransport.remove(transportId)
+            publishTransportPeersLocked()
+            publishDirectPeersLocked()
+        }
+    }
+
+    /** Returns true if any active transport currently has a direct link awaiting peerID binding. */
+    fun hasAnyUnidentifiedDirectLink(): Boolean = synchronized(this) {
+        unidentifiedDirectLinksByTransport.values.any { it }
+    }
+
     /** Union of direct peers across all transports. */
     fun getDirectPeers(): Set<String> = _directPeers.value
+
+    /** Returns true if [peerID] is currently tracked as active on any transport other than [transportId]. */
+    fun hasPeerOnOtherTransport(transportId: String, peerID: String): Boolean = synchronized(this) {
+        peerIdsByTransport.any { (id, peers) -> id != transportId && peerID in peers }
+    }
+
+    /** Returns true if [peerID] is currently directly connected on any transport other than [transportId]. */
+    fun hasDirectPeerOnOtherTransport(transportId: String, peerID: String): Boolean = synchronized(this) {
+        directPeerIdsByTransport.any { (id, peers) -> id != transportId && peerID in peers }
+    }
 
     private fun publishDirectPeersLocked() {
         _directPeers.value = directPeerIdsByTransport.values
@@ -934,6 +986,7 @@ object AppStateStore {
             privateWritesSinceGlobalPrune = 0
             peerIdsByTransport.clear()
             directPeerIdsByTransport.clear()
+            unidentifiedDirectLinksByTransport.clear()
             _peers.value = emptyList()
             _directPeers.value = emptySet()
             _publicMessages.value = emptyList()

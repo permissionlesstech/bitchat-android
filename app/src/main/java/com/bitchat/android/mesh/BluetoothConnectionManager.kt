@@ -101,8 +101,19 @@ class BluetoothConnectionManager(
     // Public property for address-peer mapping
     val addressPeerMap get() = connectionTracker.addressPeerMap
 
+    fun setConnectionStateListener(listener: (() -> Unit)?) {
+        connectionTracker.onConnectionStateChanged = listener
+    }
+
+    fun setObservedPeerDisconnectedListener(listener: ((String) -> Unit)?) {
+        connectionTracker.onObservedPeerDisconnected = listener
+    }
+
     fun observePeerIfCurrent(deviceAddress: String, linkID: String, peerID: String): Boolean =
         connectionTracker.observePeerIfCurrent(deviceAddress, linkID, peerID)
+
+    fun getPeerForLinkIfCurrent(deviceAddress: String, linkID: String): String? =
+        connectionTracker.getPeerForLinkIfCurrent(deviceAddress, linkID)
 
     fun getCurrentLinkID(deviceAddress: String): String? =
         connectionTracker.getCurrentLinkID(deviceAddress)
@@ -460,6 +471,11 @@ class BluetoothConnectionManager(
      * Get connected device count
      */
     fun getConnectedDeviceCount(): Int = connectionTracker.getConnectedDeviceCount()
+
+    /**
+     * Returns true if any currently connected BLE link has not yet mapped to a peerID.
+     */
+    fun hasUnidentifiedConnection(): Boolean = connectionTracker.hasUnidentifiedConnection()
     
     /**
      * Get debug information including power management

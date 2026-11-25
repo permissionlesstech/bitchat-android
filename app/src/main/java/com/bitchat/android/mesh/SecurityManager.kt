@@ -18,7 +18,11 @@ import kotlin.collections.mutableSetOf
  * replay attack protection, and key exchange handling
  * Extracted from BluetoothMeshService for better separation of concerns
  */
-class SecurityManager(private val encryptionService: EncryptionService, private val myPeerID: String) {
+class SecurityManager(
+    private val encryptionService: EncryptionService,
+    private val myPeerID: String,
+    private val clockMs: () -> Long = System::currentTimeMillis
+) {
     
     companion object {
         private const val TAG = "SecurityManager"
@@ -27,6 +31,13 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         private const val MAX_PROCESSED_MESSAGES = com.bitchat.android.util.AppConstants.Security.MAX_PROCESSED_MESSAGES
         private const val MAX_PROCESSED_KEY_EXCHANGES = com.bitchat.android.util.AppConstants.Security.MAX_PROCESSED_KEY_EXCHANGES
         private const val KEY_EXCHANGE_DEDUP_TIMEOUT = com.bitchat.android.util.AppConstants.Security.KEY_EXCHANGE_DEDUP_TIMEOUT_MS
+        private val SIGNED_PACKET_TYPES = setOf(
+            MessageType.ANNOUNCE,
+            MessageType.MESSAGE,
+            MessageType.FILE_TRANSFER,
+            MessageType.VOICE_FRAME,
+            MessageType.LEAVE
+        )
     }
     
     // Security tracking
@@ -55,23 +66,15 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         }
         
         // Replay attack protection (same 5-minute window as iOS)
-        val currentTime = System.currentTimeMillis()
+        val currentTime = clockMs()
         val messageType = MessageType.fromValue(packet.type)
 
         // LEAVE mutates presence immediately and cannot be safely replayed after the in-memory
         // duplicate cache expires (or after an app restart). Bound it to the same five-minute
         // security window used for duplicate retention while tolerating symmetric clock skew.
-        if (messageType == MessageType.LEAVE) {
-            val now = currentTime.coerceAtLeast(0).toULong()
-            val clockSkew = if (packet.timestamp >= now) {
-                packet.timestamp - now
-            } else {
-                now - packet.timestamp
-            }
-            if (clockSkew > MESSAGE_TIMEOUT.toULong()) {
-                Log.w(TAG, "Dropping stale or future-dated LEAVE from $peerID")
-                return false
-            }
+        if (messageType == MessageType.LEAVE && !isLeaveTimestampValid(packet, currentTime)) {
+            Log.w(TAG, "Dropping stale or future-dated LEAVE from $peerID")
+            return false
         }
 
         // Duplicate detection
@@ -103,6 +106,42 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         }
 
         return true
+    }
+
+    /**
+     * Validates an already-seen packet for relay reconsideration when a previous ingress was
+     * suppressed by MPR selection. Fail-closed: enforces self-check, LEAVE timestamp bounds,
+     * prior acceptance in [processedMessages] within the local dedup window, and mandatory
+     * cryptographic Ed25519 signature verification (unsigned legacy FRAGMENT envelopes are
+     * rejected here so unauthenticated duplicates can never trigger a relay).
+     */
+    fun validateAuthenticatedDuplicate(packet: BitchatPacket, peerID: String): Boolean {
+        if (peerID == myPeerID) return false
+
+        val currentTime = clockMs()
+        val messageType = MessageType.fromValue(packet.type)
+        if (messageType == MessageType.LEAVE && !isLeaveTimestampValid(packet, currentTime)) {
+            return false
+        }
+
+        val messageID = generateMessageID(packet, peerID)
+        val seenAtMs = synchronized(messageTimestamps) {
+            if (!processedMessages.contains(messageID)) return false
+            messageTimestamps[messageID]
+        } ?: return false
+        if (currentTime - seenAtMs > MESSAGE_TIMEOUT) return false
+
+        return verifyCryptographicSignatureStrict(packet, peerID, messageType)
+    }
+
+    private fun isLeaveTimestampValid(packet: BitchatPacket, currentTimeMs: Long): Boolean {
+        val now = currentTimeMs.coerceAtLeast(0).toULong()
+        val clockSkew = if (packet.timestamp >= now) {
+            packet.timestamp - now
+        } else {
+            now - packet.timestamp
+        }
+        return clockSkew <= MESSAGE_TIMEOUT.toULong()
     }
     
     /**
@@ -140,7 +179,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             val result = encryptionService.processHandshakeMessageWithResult(packet.payload, peerID)
             synchronized(keyExchangeTimestamps) {
                 processedKeyExchanges.add(exchangeKey)
-                keyExchangeTimestamps[exchangeKey] = System.currentTimeMillis()
+                keyExchangeTimestamps[exchangeKey] = clockMs()
             }
             
             if (result.response != null) {
@@ -257,18 +296,44 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             // Public packets that mutate identity, presence, or user-visible state must prove the
             // signing key learned from a verified announcement. LEAVE is included so an attacker
             // cannot evict a claimed peer or amplify a forged departure through relay.
-            if (MessageType.fromValue(packet.type) !in setOf(
-                    MessageType.ANNOUNCE,
-                    MessageType.MESSAGE,
-                    MessageType.FILE_TRANSFER,
-                    MessageType.VOICE_FRAME,
-                    MessageType.LEAVE
-                )) {
+            val messageType = MessageType.fromValue(packet.type)
+            if (messageType == MessageType.FRAGMENT) {
+                // Legacy/current fragments are unsigned (signature == null) and remain accepted
+                // on first ingress; any non-null signature must verify fail-closed so forged
+                // signatures can never enter the signed-fragment MPR policy.
+                return if (packet.signature == null) {
+                    true
+                } else {
+                    verifyCryptographicSignatureStrict(packet, peerID, messageType)
+                }
+            }
+            if (messageType !in SIGNED_PACKET_TYPES) {
                 return true
             }
+            return verifyCryptographicSignatureStrict(packet, peerID, messageType)
+        } catch (e: Exception) {
+            Log.e(TAG, "Signature verification error for $peerID: ${e.message}")
+            return false
+        }
+    }
 
-            if (MessageType.fromValue(packet.type) == MessageType.ANNOUNCE) {
-                val announcement = AnnouncementIdentityValidator.verify(packet, peerID) { signature, data, key ->
+    /**
+     * Strict cryptographic Ed25519 signature verification that fails closed for all packet types
+     * (including FRAGMENT or other normally-unsigned envelopes when called from duplicate-relay
+     * validation).
+     */
+    private fun verifyCryptographicSignatureStrict(
+        packet: BitchatPacket,
+        peerID: String,
+        messageType: MessageType?
+    ): Boolean {
+        try {
+            if (messageType == MessageType.ANNOUNCE) {
+                val announcement = AnnouncementIdentityValidator.verify(
+                    packet = packet,
+                    claimedPeerID = peerID,
+                    nowMs = clockMs()
+                ) { signature, data, key ->
                     encryptionService.verifyEd25519Signature(signature, data, key)
                 } ?: run {
                     Log.w(TAG, "Rejecting malformed, unbound, or invalidly signed ANNOUNCE from $peerID")
@@ -390,7 +455,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
     /**
      * Clean up old processed messages and timestamps
      */
-    internal fun cleanupOldData(nowMs: Long = System.currentTimeMillis()) {
+    internal fun cleanupOldData(nowMs: Long = clockMs()) {
         val cutoffTime = nowMs - MESSAGE_TIMEOUT
 
         // Synchronized collection wrappers protect individual operations, not iteration.

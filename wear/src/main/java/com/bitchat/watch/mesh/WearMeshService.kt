@@ -9,6 +9,7 @@ import com.bitchat.android.mesh.BluetoothConnectionManager
 import com.bitchat.android.mesh.BluetoothConnectionManagerDelegate
 import com.bitchat.android.mesh.DirectLinkAnnouncementPolicy
 import com.bitchat.android.mesh.MeshCore
+import com.bitchat.android.mesh.MeshGraphTransportCleanup
 import com.bitchat.android.mesh.MeshTransport
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
@@ -138,10 +139,39 @@ class WearMeshService private constructor(private val context: Context) {
         override fun getDeviceAddressToPeerMapping(): Map<String, String> =
             connectionManager.addressPeerMap.toMap()
 
+        override fun getDirectConnectedPeerIDs(): Set<String> =
+            connectionManager.addressPeerMap.values.toSet()
+
+        override fun hasUnidentifiedDirectLink(): Boolean =
+            connectionManager.hasUnidentifiedConnection()
+
+        override fun resolvePeerIDForLink(relayAddress: String, ingressLinkID: String?): String? =
+            ingressLinkID?.let { connectionManager.getPeerForLinkIfCurrent(relayAddress, it) }
+
         override fun getTransportDebugInfo(): String = connectionManager.getDebugInfo()
     }
 
     private fun wireBluetoothDelegate() {
+        connectionManager.setConnectionStateListener {
+            MeshGraphTransportCleanup.publishDirectState(
+                transportId = "BLE",
+                localDirectPeers = connectionManager.addressPeerMap.values.toSet(),
+                hasUnidentifiedDirectLink = connectionManager.hasUnidentifiedConnection()
+            )
+        }
+        connectionManager.setObservedPeerDisconnectedListener { removedPeerID ->
+            val remainingDirect = connectionManager.addressPeerMap.values.toSet()
+            if (removedPeerID !in remainingDirect) {
+                meshCore.setDirectConnection(removedPeerID, false)
+                MeshGraphTransportCleanup.scheduleTopologyChangeAnnounce(
+                    scope = serviceScope,
+                    removedPeerID = removedPeerID,
+                    remainingLocalDirectPeers = remainingDirect,
+                    isServiceActive = { this@WearMeshService.isActive },
+                    sendAnnounce = { meshCore.sendBroadcastAnnounce() }
+                )
+            }
+        }
         connectionManager.delegate = object : BluetoothConnectionManagerDelegate {
             override fun onPacketReceived(
                 packet: BitchatPacket,
@@ -149,16 +179,20 @@ class WearMeshService private constructor(private val context: Context) {
                 device: BluetoothDevice?,
                 ingressLinkID: String
             ) {
+                val relayAddress = device?.address
+                val previousHopPeerID = relayAddress?.let {
+                    connectionManager.getPeerForLinkIfCurrent(it, ingressLinkID)
+                }
                 try {
                     com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logIncoming(
                         packet = packet,
                         fromPeerID = peerID,
                         fromNickname = null,
-                        fromDeviceAddress = device?.address,
+                        fromDeviceAddress = relayAddress,
                         myPeerID = myPeerID
                     )
                 } catch (_: Exception) { }
-                meshCore.processIncoming(packet, peerID, device?.address, ingressLinkID)
+                meshCore.processIncoming(packet, peerID, relayAddress, ingressLinkID, previousHopPeerID)
             }
 
             override fun onDeviceConnected(device: BluetoothDevice) {
@@ -176,8 +210,13 @@ class WearMeshService private constructor(private val context: Context) {
             ) {
                 Log.i(TAG, "Device disconnected: ${device.address} (peerID: $peerID)")
                 try { meshCore.refreshPeerList() } catch (_: Exception) { }
+                val remainingDirect = connectionManager.addressPeerMap.values.toSet()
+                val hasUnidentified = connectionManager.hasUnidentifiedConnection()
+                MeshGraphTransportCleanup.publishDirectState("BLE", remainingDirect, hasUnidentified)
                 if (peerID != null) {
-                    meshCore.setDirectConnection(peerID, false)
+                    if (peerID !in remainingDirect) {
+                        meshCore.setDirectConnection(peerID, false)
+                    }
                     val deviceAddress = device.address
                     serviceScope.launch {
                         delay(PEER_DISCONNECT_GRACE_MS)
@@ -285,6 +324,7 @@ class WearMeshService private constructor(private val context: Context) {
     fun stopServices() {
         if (!isActive) return
         isActive = false
+        meshCore.cleanupOnTransportDisabled(connectionManager.addressPeerMap.values.toSet())
         meshCore.stopCore()
         connectionManager.stopServices()
         Log.i(TAG, "Mesh services stopped")

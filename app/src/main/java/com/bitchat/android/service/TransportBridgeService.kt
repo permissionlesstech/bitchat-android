@@ -1,6 +1,7 @@
 package com.bitchat.android.service
 
 import android.util.Log
+import com.bitchat.android.model.BridgedIngressOrigin
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.util.toHexString
@@ -44,6 +45,12 @@ object TransportBridgeService {
          * Send a packet to a specific peer via this transport (optional).
          */
         fun sendToPeer(peerID: String, packet: BitchatPacket) { }
+
+        /**
+         * Returns false when the given source ingress link generation has been replaced or
+         * disconnected on this transport; defaults to true for transports without generation tracking.
+         */
+        fun isIngressLinkCurrent(relayAddress: String, ingressLinkID: String): Boolean = true
     }
 
     private val transports = ConcurrentHashMap<String, TransportLayer>()
@@ -79,6 +86,46 @@ object TransportBridgeService {
     }
 
     /**
+     * Checks whether the source transport's ingress link generation recorded when a packet was
+     * bridged is still current and verified. Fails closed (returns false) if the source transport
+     * is no longer registered or its link generation was replaced.
+     */
+    fun isBridgedIngressCurrent(origin: BridgedIngressOrigin): Boolean {
+        val sourceLayer = transports[origin.sourceTransportId] ?: return false
+        return try {
+            sourceLayer.isIngressLinkCurrent(origin.relayAddress, origin.ingressLinkID)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Builds the cross-transport [RoutedPacket] carrying [forwardedPacket]: advances prepared
+     * fragment TTLs, clears source-transport-local `relayAddress`/`ingressLinkID`, and records
+     * [BridgedIngressOrigin] so target egress can re-verify that the source link is still current.
+     */
+    private fun buildBridgedPacket(
+        sourceId: String,
+        packet: RoutedPacket,
+        forwardedPacket: BitchatPacket
+    ): RoutedPacket {
+        val bridgedOrigin = if (packet.relayAddress != null && packet.ingressLinkID != null) {
+            BridgedIngressOrigin(sourceId, packet.relayAddress, packet.ingressLinkID)
+        } else {
+            packet.bridgedIngressOrigin
+        }
+        return packet.copy(
+            packet = forwardedPacket,
+            relayAddress = null,
+            ingressLinkID = null,
+            bridgedIngressOrigin = bridgedOrigin,
+            preparedPackets = packet.preparedPackets?.map { prepared ->
+                prepared.copy(ttl = forwardedPacket.ttl)
+            }
+        )
+    }
+
+    /**
      * Broadcast a packet from a specific source transport to ALL other registered transports.
      * 
      * @param sourceId The ID of the transport initiating the broadcast (e.g., "BLE").
@@ -89,16 +136,7 @@ object TransportBridgeService {
         val targets = transports.filterKeys { it != sourceId }
         if (targets.isEmpty()) return
         val prepared = prepareForwardedPacket("broadcast", packet.packet) ?: return
-        val forwardedPacket = prepared.packet
-        // Prepared private-media fragments must remain the admitted plan when
-        // crossing transports, but relay TTL still has to advance on every
-        // hop. TTL is excluded from the signature and does not affect size.
-        val forwarded = packet.copy(
-            packet = forwardedPacket,
-            preparedPackets = packet.preparedPackets?.map { prepared ->
-                prepared.copy(ttl = forwardedPacket.ttl)
-            }
-        )
+        val forwarded = buildBridgedPacket(sourceId, packet, prepared.packet)
 
         // Log.v(TAG, "Bridging packet type ${packet.packet.type} from $sourceId to ${targets.keys}")
         
@@ -121,13 +159,7 @@ object TransportBridgeService {
         if (targets.isEmpty()) return false
         val kind = "broadcast"
         val prepared = prepareForwardedPacket(kind, packet.packet) ?: return false
-        val forwardedPacket = prepared.packet
-        val forwarded = packet.copy(
-            packet = forwardedPacket,
-            preparedPackets = packet.preparedPackets?.map { prepared ->
-                prepared.copy(ttl = forwardedPacket.ttl)
-            }
-        )
+        val forwarded = buildBridgedPacket(sourceId, packet, prepared.packet)
 
         var accepted = false
         targets.forEach { (id, layer) ->

@@ -32,5 +32,11 @@ interface MeshTransport {
 
     fun getDeviceAddressToPeerMapping(): Map<String, String> = emptyMap()
 
+    fun getDirectConnectedPeerIDs(): Set<String> = emptySet()
+
+    fun hasUnidentifiedDirectLink(): Boolean = false
+
+    fun resolvePeerIDForLink(relayAddress: String, ingressLinkID: String?): String? = null
+
     fun getTransportDebugInfo(): String = ""
 }

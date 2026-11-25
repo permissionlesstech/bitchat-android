@@ -1,79 +1,199 @@
 package com.bitchat.android.mesh
-import com.bitchat.android.protocol.MessageType
 
 import android.util.Log
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
+import com.bitchat.android.protocol.MessageType
+import com.bitchat.android.protocol.SpecialRecipients
+import com.bitchat.android.services.meshgraph.MeshGraphService
+import com.bitchat.android.services.meshgraph.MprSelector
+import com.bitchat.android.sync.PacketIdUtil
+import com.bitchat.android.util.AppConstants
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import kotlin.random.Random
 
 /**
- * Centralized packet relay management
- * 
- * This class handles all relay decisions and logic for bitchat packets.
- * All packets that aren't specifically addressed to us get processed here.
+ * Centralized packet relay management.
+ *
+ * Handles all relay decisions for packets not specifically addressed to us:
+ * - Preserves explicit source-routed unicast (`packet.route`) and 1-hop `REQUEST_SYNC` behavior.
+ * - Uses deterministic 2-hop Multipoint Relay (MPR) hub selection with fail-safe unconfirmed-peer
+ *   protection for broadcast traffic classes when the immediate previous hop is known and the
+ *   local 2-hop graph is fresh.
+ * - Tracks MPR-suppressed vs. relayed packet IDs separately from local-delivery deduplication so a
+ *   later authenticated copy arriving from an electing previous hop still relays at most once.
+ * - Keeps topology-healing control traffic (`ANNOUNCE` for new peers / neighbor changes, `LEAVE`)
+ *   and unicast/broken-route fallbacks (`NOISE_HANDSHAKE`, `NOISE_ENCRYPTED`) on conservative
+ *   flooding so partitions heal promptly.
  */
-class PacketRelayManager(private val myPeerID: String) {
+class PacketRelayManager(
+    private val myPeerID: String,
+    private val meshGraphProvider: () -> MeshGraphService = MeshGraphService::getInstance,
+    private val edgeMaxAgeMs: Long = MeshGraphService.DEFAULT_EDGE_MAX_AGE_MS,
+    private val clockMs: () -> Long = { System.currentTimeMillis() },
+    private val voiceJitterDelayMs: () -> Long = { Random.nextLong(8L, 26L) }
+) {
     private val debugManager by lazy { try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (e: Exception) { null } }
-    
+
     companion object {
         private const val TAG = "PacketRelayManager"
+        internal const val SMALL_NETWORK_RELAY_THRESHOLD = 3
+        private const val MAX_TRACKED_RELAY_PACKETS = AppConstants.Security.MAX_PROCESSED_MESSAGES
+        private const val RELAY_DEDUP_TTL_MS = AppConstants.Security.MESSAGE_TIMEOUT_MS
     }
-    
+
+    internal enum class RelayPolicy {
+        MPR_1_COVERED,
+        MPR_2_COVERED,
+        PRUNED_FLOOD,
+        CONSERVATIVE_FLOOD
+    }
+
+    /**
+     * Explicit process-local relay lifecycle for a packet ID (absent = UNSEEN):
+     * - `null -> SUPPRESSED`: first ingress suppressed by MPR; eligible for authenticated duplicate retry.
+     * - `null -> RELAYED`: first ingress claimed for relay (terminal).
+     * - `SUPPRESSED -> RELAYED`: authenticated duplicate from an electing hop claimed for relay (terminal).
+     * - `SUPPRESSED -> SUPPRESSED`: additional non-electing hop saw it; refreshes expiry without reopening terminal state.
+     * - `RELAYED -> *`: terminal; never reopens.
+     */
+    internal enum class RelayLifecycleState {
+        SUPPRESSED,
+        RELAYED
+    }
+
+    private data class RelayLifecycleEntry(
+        val state: RelayLifecycleState,
+        val updatedAtMs: Long
+    )
+
+    internal fun canTransitionRelayState(
+        from: RelayLifecycleState?,
+        to: RelayLifecycleState
+    ): Boolean = when (from) {
+        null -> true
+        RelayLifecycleState.SUPPRESSED -> true
+        RelayLifecycleState.RELAYED -> false
+    }
+
+    private data class BroadcastRelayDecision(
+        val shouldRelay: Boolean,
+        val skipNeighborPruning: Boolean,
+        val reason: String
+    )
+
+    private val relayDedupLock = Any()
+    // Strictly insertion-ordered by updatedAtMs (re-inserted on update) for O(expired) pruning.
+    private val relayStates = LinkedHashMap<String, RelayLifecycleEntry>()
+
     private fun isRelayEnabled(): Boolean = try {
         com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().packetRelayEnabled.value
     } catch (_: Exception) { true }
 
-    // Logging moved to BluetoothPacketBroadcaster per actual transmission target
-    
     // Delegate for callbacks
     var delegate: PacketRelayManagerDelegate? = null
-    
+
     // Coroutines
     private val relayScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    
+
     /**
-     * Main entry point for relay decisions
-     * Only packets that aren't specifically addressed to us should be passed here
+     * Returns true when [packet] from [peerID] was previously suppressed solely by MPR selection
+     * (and has not yet been relayed or expired), so a duplicate copy arriving via an electing
+     * previous hop may be reconsidered for relay without re-delivering locally.
      */
-    suspend fun handlePacketRelay(routed: RoutedPacket) {
+    fun isPendingSuppressedRelay(packet: BitchatPacket, peerID: String): Boolean {
+        val key = relayDedupKey(packet, peerID)
+        val now = clockMs()
+        synchronized(relayDedupLock) {
+            pruneExpiredLocked(now)
+            return relayStates[key]?.state == RelayLifecycleState.SUPPRESSED
+        }
+    }
+
+    /**
+     * Main entry point for relay decisions.
+     * Only packets that aren't specifically addressed to us should be passed here.
+     *
+     * @param forceConservativeRelay Set true for topology-changing or first-time ANNOUNCE packets
+     *   so they are never MPR-suppressed or neighbor-pruned.
+     * @param isDuplicateIngress Set true when reconsidering a packet already accepted for local
+     *   delivery whose earlier ingress was MPR-suppressed.
+     */
+    suspend fun handlePacketRelay(
+        routed: RoutedPacket,
+        forceConservativeRelay: Boolean = false,
+        isDuplicateIngress: Boolean = false
+    ) {
         val packet = routed.packet
         val peerID = routed.peerID ?: "unknown"
-        
+        val messageType = MessageType.fromValue(packet.type)
+
         Log.d(TAG, "Evaluating relay for packet type ${packet.type} from ${peerID} (TTL: ${packet.ttl})")
-        
+
         // Double-check this packet isn't addressed to us
         if (isPacketAddressedToMe(packet)) {
             Log.d(TAG, "Packet addressed to us, skipping relay")
             return
         }
-        
+
         // Skip our own packets
         if (peerID == myPeerID) {
             Log.d(TAG, "Packet from ourselves, skipping relay")
             return
         }
-        
-        // Check TTL and decrement
+
+        // Check TTL
         if (packet.ttl == 0u.toUByte()) {
             Log.d(TAG, "TTL expired, not relaying packet")
             return
         }
-        
+
+        // Preserve strict 1-hop REQUEST_SYNC behavior (never multi-hop flood TTL <= 1 sync requests)
+        if (messageType == MessageType.REQUEST_SYNC && packet.ttl <= 1u.toUByte()) {
+            Log.d(TAG, "1-hop REQUEST_SYNC (TTL=${packet.ttl}), not relaying")
+            return
+        }
+
+        val dedupKey = relayDedupKey(packet, peerID)
+        val canProceed = synchronized(relayDedupLock) {
+            val now = clockMs()
+            pruneExpiredLocked(now)
+            val currentState = relayStates[dedupKey]?.state
+            when {
+                currentState == RelayLifecycleState.RELAYED -> false
+                isDuplicateIngress -> currentState == RelayLifecycleState.SUPPRESSED
+                else -> true
+            }
+        }
+        if (!canProceed) {
+            Log.d(TAG, "Relay dedup skipped packet type ${packet.type} (duplicate=$isDuplicateIngress)")
+            return
+        }
+
         // Decrement TTL by 1
         val networkSize = delegate?.getNetworkSize() ?: 1
         val decrementedTtl = (packet.ttl - 1u).toUByte()
         val voiceTtl = if (
-            MessageType.fromValue(packet.type) == MessageType.VOICE_FRAME && networkSize > 6
+            messageType == MessageType.VOICE_FRAME && networkSize > 6
         ) minOf(decrementedTtl, 5u.toUByte()) else decrementedTtl
         val relayPacket = packet.copy(ttl = voiceTtl)
         Log.d(TAG, "Decremented TTL from ${packet.ttl} to ${relayPacket.ttl}")
-        if (MessageType.fromValue(packet.type) == MessageType.VOICE_FRAME) {
-            delay(Random.nextLong(8L, 26L))
+        if (messageType == MessageType.VOICE_FRAME) {
+            val jitter = voiceJitterDelayMs()
+            if (jitter > 0L) delay(jitter)
         }
-        
+
+        // When an ingress link generation is present, always re-verify the previous hop against
+        // the live transport generation so queued packets cannot rely on an obsolete link binding.
+        val effectivePreviousHop = if (routed.relayAddress != null && routed.ingressLinkID != null) {
+            delegate?.resolvePeerIDForLink(routed.relayAddress, routed.ingressLinkID)
+        } else {
+            routed.previousHopPeerID
+        }
+
         // Source-based routing: if route is set and includes us, try targeted next-hop forwarding
+        var sourceRouteFallback = false
         val route = relayPacket.route
         if (!route.isNullOrEmpty()) {
             // Check for duplicate hops to prevent routing loops
@@ -94,89 +214,269 @@ class PacketRelayManager(private val myPeerID: String) {
                     }
                 }
                 if (nextHopIdHex != null) {
-                    val success = try { delegate?.sendToPeer(nextHopIdHex, RoutedPacket(relayPacket, peerID, routed.relayAddress)) } catch (_: Exception) { false } ?: false
+                    val nextHopRouted = RoutedPacket(
+                        packet = relayPacket,
+                        peerID = peerID,
+                        relayAddress = routed.relayAddress,
+                        ingressLinkID = routed.ingressLinkID,
+                        previousHopPeerID = effectivePreviousHop
+                    )
+                    val success = try { delegate?.sendToPeer(nextHopIdHex, nextHopRouted) } catch (_: Exception) { false } ?: false
                     if (success) {
-                        Log.i(TAG, "📦 Source-route relay: ${peerID.take(8)} -> ${nextHopIdHex.take(8)} (type ${'$'}{packet.type}, TTL ${'$'}{relayPacket.ttl})")
+                        markRelayed(dedupKey)
+                        Log.i(TAG, "📦 Source-route relay: ${peerID.take(8)} -> ${nextHopIdHex.take(8)} (type ${packet.type}, TTL ${relayPacket.ttl})")
                         return
                     } else {
                         Log.w(TAG, "Source-route next hop ${nextHopIdHex.take(8)} not directly connected; falling back to broadcast")
+                        sourceRouteFallback = true
                     }
                 }
             }
         }
 
-        // Apply relay logic based on packet type and debug switch
-        val shouldRelay = isRelayEnabled() && shouldRelayPacket(relayPacket, networkSize)
-        if (shouldRelay) {
-            relayPacket(RoutedPacket(relayPacket, peerID, routed.relayAddress))
+        if (!isRelayEnabled()) {
+            Log.d(TAG, "Relay decision: disabled by settings for packet type ${packet.type}")
+            return
+        }
+
+        val decision = evaluateBroadcastRelay(
+            packet = relayPacket,
+            messageType = messageType,
+            originPeerID = peerID,
+            previousHopPeerID = effectivePreviousHop,
+            networkSize = networkSize,
+            forceConservativeRelay = forceConservativeRelay,
+            sourceRouteFallback = sourceRouteFallback
+        )
+        if (decision.shouldRelay) {
+            if (!tryClaimRelay(dedupKey, isDuplicateIngress)) {
+                Log.d(TAG, "Relay decision already claimed concurrently for packet type ${packet.type}")
+                return
+            }
+            Log.d(TAG, "Relay decision: RELAY type=${packet.type} reason=${decision.reason}")
+            relayPacket(
+                RoutedPacket(
+                    packet = relayPacket,
+                    peerID = peerID,
+                    relayAddress = routed.relayAddress,
+                    ingressLinkID = routed.ingressLinkID,
+                    previousHopPeerID = effectivePreviousHop,
+                    skipNeighborPruning = decision.skipNeighborPruning
+                )
+            )
         } else {
-            Log.d(TAG, "Relay decision: NOT relaying packet type ${packet.type}")
+            markSuppressed(dedupKey)
+            Log.d(TAG, "Relay decision: SUPPRESS type=${packet.type} reason=${decision.reason}")
         }
     }
-    
+
     /**
-     * Check if a packet is specifically addressed to us
+     * Check if a packet is specifically addressed to us.
      */
     internal fun isPacketAddressedToMe(packet: BitchatPacket): Boolean {
-        val recipientID = packet.recipientID
-        
-        // No recipient means broadcast (not addressed to us specifically)
-        if (recipientID == null) {
-            return false
-        }
-        
-        // Check if it's a broadcast recipient
+        if (isBroadcastPacket(packet)) return false
+        return packet.recipientID?.toHexString() == myPeerID
+    }
+
+    private fun isBroadcastPacket(packet: BitchatPacket): Boolean {
+        val recipientID = packet.recipientID ?: return true
+        if (recipientID.contentEquals(SpecialRecipients.BROADCAST)) return true
         val broadcastRecipient = delegate?.getBroadcastRecipient()
-        if (broadcastRecipient != null && recipientID.contentEquals(broadcastRecipient)) {
-            return false
-        }
-        
-        // Check if recipient matches our peer ID
-        val recipientIDString = recipientID.toHexString()
-        return recipientIDString == myPeerID
+        return broadcastRecipient != null && recipientID.contentEquals(broadcastRecipient)
     }
-    
-    /**
-     * Determine if we should relay this packet based on type and network conditions
-     */
-    private fun shouldRelayPacket(packet: BitchatPacket, networkSize: Int): Boolean {
-        // Always relay if TTL is high enough (indicates important message)
-        if (packet.ttl >= 4u) {
-            Log.d(TAG, "High TTL (${packet.ttl}), relaying")
+
+    internal fun relayPolicyFor(
+        packet: BitchatPacket,
+        messageType: MessageType?,
+        originPeerID: String,
+        forceConservativeRelay: Boolean,
+        sourceRouteFallback: Boolean,
+        graph: MeshGraphService
+    ): RelayPolicy {
+        if (sourceRouteFallback) return RelayPolicy.CONSERVATIVE_FLOOD
+
+        return when (messageType) {
+            MessageType.VOICE_FRAME -> RelayPolicy.MPR_1_COVERED
+            MessageType.MESSAGE -> {
+                if (isBroadcastPacket(packet)) RelayPolicy.MPR_1_COVERED
+                else RelayPolicy.CONSERVATIVE_FLOOD
+            }
+            MessageType.FRAGMENT -> {
+                if (isBroadcastPacket(packet)) {
+                    // Unsigned legacy FRAGMENT envelopes cannot be cryptographically re-authenticated
+                    // on duplicate ingress, so fail closed to neighbor-pruned relaying rather than
+                    // irreversibly MPR-suppressing on first arrival.
+                    if (packet.signature != null) RelayPolicy.MPR_2_COVERED else RelayPolicy.PRUNED_FLOOD
+                } else {
+                    RelayPolicy.CONSERVATIVE_FLOOD
+                }
+            }
+            MessageType.FILE_TRANSFER -> {
+                if (isBroadcastPacket(packet)) RelayPolicy.MPR_2_COVERED
+                else RelayPolicy.CONSERVATIVE_FLOOD
+            }
+            MessageType.ANNOUNCE -> {
+                if (forceConservativeRelay || !graph.isFreshAnnouncement(originPeerID, edgeMaxAgeMs)) {
+                    RelayPolicy.CONSERVATIVE_FLOOD
+                } else {
+                    RelayPolicy.MPR_1_COVERED
+                }
+            }
+            MessageType.LEAVE,
+            MessageType.NOISE_HANDSHAKE,
+            MessageType.NOISE_ENCRYPTED,
+            MessageType.REQUEST_SYNC,
+            null -> RelayPolicy.CONSERVATIVE_FLOOD
+        }
+    }
+
+    private fun evaluateBroadcastRelay(
+        packet: BitchatPacket,
+        messageType: MessageType?,
+        originPeerID: String,
+        previousHopPeerID: String?,
+        networkSize: Int,
+        forceConservativeRelay: Boolean,
+        sourceRouteFallback: Boolean
+    ): BroadcastRelayDecision {
+        val graph = meshGraphProvider()
+        val policy = relayPolicyFor(
+            packet = packet,
+            messageType = messageType,
+            originPeerID = originPeerID,
+            forceConservativeRelay = forceConservativeRelay,
+            sourceRouteFallback = sourceRouteFallback,
+            graph = graph
+        )
+
+        if (policy == RelayPolicy.CONSERVATIVE_FLOOD) {
+            return BroadcastRelayDecision(
+                shouldRelay = true,
+                skipNeighborPruning = true,
+                reason = if (sourceRouteFallback) "source-route-fallback" else "conservative-policy"
+            )
+        }
+
+        if (policy == RelayPolicy.PRUNED_FLOOD) {
+            return BroadcastRelayDecision(
+                shouldRelay = true,
+                skipNeighborPruning = isPreviousHopGraphMissingOrStale(graph, previousHopPeerID),
+                reason = "unsigned-fragment-pruned"
+            )
+        }
+
+        // Small networks always relay to ensure connectivity; still guard pruning on a fresh graph
+        if (networkSize <= SMALL_NETWORK_RELAY_THRESHOLD) {
+            return BroadcastRelayDecision(
+                shouldRelay = true,
+                skipNeighborPruning = isPreviousHopGraphMissingOrStale(graph, previousHopPeerID),
+                reason = "small-network($networkSize)"
+            )
+        }
+
+        // Unknown previous hop cannot safely compute N1(P)/N2(P) or prune neighbors
+        if (previousHopPeerID.isNullOrBlank()) {
+            return BroadcastRelayDecision(
+                shouldRelay = true,
+                skipNeighborPruning = true,
+                reason = "unknown-previous-hop"
+            )
+        }
+
+        val coverageK = if (policy == RelayPolicy.MPR_2_COVERED) 2 else 1
+        val mprDecision = MprSelector.evaluateRelay(
+            myPeerID = myPeerID,
+            previousHopPeerID = previousHopPeerID,
+            originPeerID = originPeerID,
+            graphService = graph,
+            directConnectedNeighbors = delegate?.getDirectConnectedPeers().orEmpty(),
+            hasUnidentifiedDirectLink = delegate?.hasUnidentifiedDirectLink() ?: false,
+            coverageK = coverageK,
+            maxAgeMs = edgeMaxAgeMs
+        )
+        return BroadcastRelayDecision(
+            shouldRelay = mprDecision.shouldRelay,
+            skipNeighborPruning = mprDecision.reason == MprSelector.RelayDecisionReason.STALE_OR_MISSING_GRAPH,
+            reason = "mpr(k=$coverageK):${mprDecision.reason}"
+        )
+    }
+
+    private fun isPreviousHopGraphMissingOrStale(
+        graph: MeshGraphService,
+        previousHopPeerID: String?
+    ): Boolean = previousHopPeerID.isNullOrBlank() ||
+        !graph.isFreshAnnouncement(previousHopPeerID, edgeMaxAgeMs)
+
+    private fun relayDedupKey(packet: BitchatPacket, peerID: String): String {
+        return "$peerID-${PacketIdUtil.computeIdHex(packet)}"
+    }
+
+    private fun tryClaimRelay(key: String, isDuplicateIngress: Boolean): Boolean {
+        val now = clockMs()
+        synchronized(relayDedupLock) {
+            pruneExpiredLocked(now)
+            val current = relayStates[key]?.state
+            if (isDuplicateIngress && current != RelayLifecycleState.SUPPRESSED) return false
+            if (!canTransitionRelayState(current, RelayLifecycleState.RELAYED)) return false
+            putRelayStateLocked(key, RelayLifecycleState.RELAYED, now)
             return true
         }
-        
-        // Small networks always relay to ensure connectivity
-        if (networkSize <= 3) {
-            Log.d(TAG, "Small network (${networkSize} peers), relaying")
-            return true
-        }
-        
-        // Apply adaptive relay probability based on network size
-        val relayProb = when {
-            networkSize <= 10 -> 1.0    // Always relay in small networks
-            networkSize <= 30 -> 0.85   // High probability for medium networks
-            networkSize <= 50 -> 0.7    // Moderate probability
-            networkSize <= 100 -> 0.55  // Lower probability for large networks
-            else -> 0.4                 // Lowest probability for very large networks
-        }
-        
-        val shouldRelay = Random.nextDouble() < relayProb
-        Log.d(TAG, "Network size: ${networkSize}, Relay probability: ${relayProb}, Decision: ${shouldRelay}")
-        
-        return shouldRelay
     }
-    
+
+    private fun markRelayed(key: String) {
+        val now = clockMs()
+        synchronized(relayDedupLock) {
+            pruneExpiredLocked(now)
+            val current = relayStates[key]?.state
+            if (!canTransitionRelayState(current, RelayLifecycleState.RELAYED)) return
+            putRelayStateLocked(key, RelayLifecycleState.RELAYED, now)
+        }
+    }
+
+    private fun markSuppressed(key: String) {
+        val now = clockMs()
+        synchronized(relayDedupLock) {
+            pruneExpiredLocked(now)
+            val current = relayStates[key]?.state
+            if (!canTransitionRelayState(current, RelayLifecycleState.SUPPRESSED)) return
+            putRelayStateLocked(key, RelayLifecycleState.SUPPRESSED, now)
+        }
+    }
+
+    private fun putRelayStateLocked(key: String, state: RelayLifecycleState, nowMs: Long) {
+        // Remove before insert so LinkedHashMap iteration order remains strictly monotonic by updatedAtMs.
+        relayStates.remove(key)
+        relayStates[key] = RelayLifecycleEntry(state, nowMs)
+        val iter = relayStates.entries.iterator()
+        while (relayStates.size > MAX_TRACKED_RELAY_PACKETS && iter.hasNext()) {
+            iter.next()
+            iter.remove()
+        }
+    }
+
+    private fun pruneExpiredLocked(nowMs: Long) {
+        val cutoff = nowMs - RELAY_DEDUP_TTL_MS
+        val iter = relayStates.entries.iterator()
+        while (iter.hasNext()) {
+            val entry = iter.next()
+            if (entry.value.updatedAtMs < cutoff) {
+                iter.remove()
+            } else {
+                break
+            }
+        }
+    }
+
     /**
-     * Actually broadcast the packet for relay
+     * Actually broadcast the packet for relay.
      */
     private fun relayPacket(routed: RoutedPacket) {
         Log.d(TAG, "🔄 Relaying packet type ${routed.packet.type} with TTL ${routed.packet.ttl}")
         delegate?.broadcastPacket(routed)
     }
-    
+
     /**
-     * Get debug information
+     * Get debug information.
      */
     fun getDebugInfo(): String {
         return buildString {
@@ -186,24 +486,36 @@ class PacketRelayManager(private val myPeerID: String) {
             appendLine("Network Size: ${delegate?.getNetworkSize() ?: "unknown"}")
         }
     }
-    
+
     /**
-     * Shutdown the relay manager
+     * Shutdown the relay manager.
      */
     fun shutdown() {
         Log.d(TAG, "Shutting down PacketRelayManager")
+        synchronized(relayDedupLock) {
+            relayStates.clear()
+        }
         relayScope.cancel()
     }
 }
 
 /**
- * Delegate interface for packet relay manager callbacks
+ * Delegate interface for packet relay manager callbacks.
  */
 interface PacketRelayManagerDelegate {
     // Network information
     fun getNetworkSize(): Int
     fun getBroadcastRecipient(): ByteArray
-    
+
+    /** Currently connected direct 1-hop neighbor peer IDs (for MPR fail-safe protection). */
+    fun getDirectConnectedPeers(): Set<String> = emptySet()
+
+    /** True if any active direct link has not yet mapped to a peerID. */
+    fun hasUnidentifiedDirectLink(): Boolean = false
+
+    /** Optional link-generation-checked fallback resolver from transport link to immediate neighbor peerID. */
+    fun resolvePeerIDForLink(relayAddress: String, ingressLinkID: String?): String? = null
+
     // Packet operations
     fun broadcastPacket(routed: RoutedPacket)
     fun sendToPeer(peerID: String, routed: RoutedPacket): Boolean

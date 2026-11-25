@@ -179,14 +179,16 @@ class MeshCore(
         packet: BitchatPacket,
         peerID: String?,
         relayAddress: String?,
-        ingressLinkID: String? = null
+        ingressLinkID: String? = null,
+        previousHopPeerID: String? = null
     ) {
         packetProcessor.processPacket(
             RoutedPacket(
                 packet = packet,
                 peerID = peerID,
                 relayAddress = relayAddress,
-                ingressLinkID = ingressLinkID
+                ingressLinkID = ingressLinkID,
+                previousHopPeerID = previousHopPeerID
             )
         )
     }
@@ -221,6 +223,13 @@ class MeshCore(
             override fun onPeerRemoved(peerID: String) {
                 directPeers.remove(peerID)
                 authenticatedPeerState.clear(peerID)
+                MeshGraphTransportCleanup.onPeerRemoved(
+                    myPeerID = myPeerID,
+                    transportId = transport.id,
+                    peerID = peerID,
+                    remainingLocalDirectPeers = currentLocalDirectPeers(),
+                    hasUnidentifiedDirectLink = transport.hasUnidentifiedDirectLink()
+                )
                 try { gossipSyncManager.removeAnnouncementForPeer(peerID) } catch (_: Exception) { }
                 try { encryptionService.removePeer(peerID) } catch (_: Exception) { }
                 try { peerManager.refreshPeerList() } catch (_: Exception) { }
@@ -426,6 +435,10 @@ class MeshCore(
                 return securityManager.validatePacket(packet, peerID)
             }
 
+            override fun validateDuplicatePacketForRelay(packet: BitchatPacket, peerID: String): Boolean {
+                return securityManager.validateAuthenticatedDuplicate(packet, peerID)
+            }
+
             override fun updatePeerLastSeen(peerID: String) {
                 peerManager.updatePeerLastSeen(peerID)
             }
@@ -442,6 +455,29 @@ class MeshCore(
                 return SpecialRecipients.BROADCAST
             }
 
+            override fun getDirectConnectedPeers(): Set<String> {
+                val localDirect = currentLocalDirectPeers()
+                val crossTransportDirect = try {
+                    com.bitchat.android.services.AppStateStore.getDirectPeers()
+                } catch (_: Exception) {
+                    emptySet()
+                }
+                return (localDirect + crossTransportDirect).toSet()
+            }
+
+            override fun hasUnidentifiedDirectLink(): Boolean {
+                val crossTransportUnidentified = try {
+                    com.bitchat.android.services.AppStateStore.hasAnyUnidentifiedDirectLink()
+                } catch (_: Exception) {
+                    false
+                }
+                return transport.hasUnidentifiedDirectLink() || crossTransportUnidentified
+            }
+
+            override fun resolvePeerIDForLink(relayAddress: String, ingressLinkID: String?): String? {
+                return transport.resolvePeerIDForLink(relayAddress, ingressLinkID)
+            }
+
             override fun handleNoiseHandshake(routed: RoutedPacket): Boolean {
                 return runBlocking { securityManager.handleNoiseHandshake(routed) }
             }
@@ -450,12 +486,12 @@ class MeshCore(
                 return runBlocking { messageHandler.handleNoiseEncrypted(routed) }
             }
 
-            override suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
+            override suspend fun handleAnnounce(routed: RoutedPacket): AnnounceHandlingResult {
                 val result = messageHandler.handleAnnounceWithResult(routed)
-                if (result !is AnnounceHandlingResult.Accepted) return false
+                if (result !is AnnounceHandlingResult.Accepted) return result
                 hooks.onAnnounceProcessed?.invoke(routed, result.isFirst)
                 try { gossipSyncManager.onPublicPacketSeen(routed.packet) } catch (_: Exception) { }
-                return true
+                return result
             }
 
             override suspend fun handleMessage(routed: RoutedPacket) {
@@ -903,13 +939,61 @@ class MeshCore(
         peerManager.removePeer(peerID)
     }
 
+    private fun currentLocalDirectPeers(): Set<String> {
+        val verifiedDirect = try {
+            peerManager.getVerifiedPeers()
+                .filter { it.value.isDirectConnection }
+                .keys
+        } catch (_: Exception) {
+            emptySet()
+        }
+        val transportDirect = try {
+            transport.getDirectConnectedPeerIDs()
+        } catch (_: Exception) {
+            emptySet()
+        }
+        return (verifiedDirect + directPeers + transportDirect).toSet()
+    }
+
     fun setDirectConnection(peerID: String, isDirect: Boolean) {
         if (isDirect) {
             directPeers.add(peerID)
+            MeshGraphTransportCleanup.publishDirectState(
+                transportId = transport.id,
+                localDirectPeers = currentLocalDirectPeers(),
+                hasUnidentifiedDirectLink = transport.hasUnidentifiedDirectLink()
+            )
         } else {
             directPeers.remove(peerID)
+            MeshGraphTransportCleanup.onDirectLinkLost(
+                myPeerID = myPeerID,
+                transportId = transport.id,
+                peerID = peerID,
+                remainingLocalDirectPeers = currentLocalDirectPeers(),
+                hasUnidentifiedDirectLink = transport.hasUnidentifiedDirectLink()
+            )
         }
         peerManager.refreshPeerList()
+    }
+
+    /**
+     * Cleans up published transport state and prunes stale mesh-graph edges/nodes when this
+     * transport is disabled or torn down, before transport-internal connection maps are cleared.
+     */
+    fun cleanupOnTransportDisabled(extraDirectPeers: Set<String> = emptySet()) {
+        val previousDirect = currentLocalDirectPeers() + extraDirectPeers
+        val previousActive = try {
+            peerManager.getActivePeerIDs().toSet()
+        } catch (_: Exception) {
+            emptySet()
+        }
+        directPeers.clear()
+        MeshGraphTransportCleanup.onTransportDisabled(
+            myPeerID = myPeerID,
+            transportId = transport.id,
+            previousDirectPeers = previousDirect,
+            previousActivePeers = previousActive
+        )
     }
 
     fun updatePeerRSSI(peerID: String, rssi: Int) {

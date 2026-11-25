@@ -17,6 +17,9 @@ import kotlinx.coroutines.channels.Channel
 class PacketProcessor(
     private val myPeerID: String,
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    meshGraphProvider: () -> com.bitchat.android.services.meshgraph.MeshGraphService =
+        com.bitchat.android.services.meshgraph.MeshGraphService::getInstance,
+    relayClockMs: () -> Long = System::currentTimeMillis,
 ) {
     private val debugManager by lazy { try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (e: Exception) { null } }
     
@@ -31,7 +34,11 @@ class PacketProcessor(
     var delegate: PacketProcessorDelegate? = null
     
     // Packet relay manager for centralized relay decisions
-    private val packetRelayManager = PacketRelayManager(myPeerID)
+    private val packetRelayManager = PacketRelayManager(
+        myPeerID = myPeerID,
+        meshGraphProvider = meshGraphProvider,
+        clockMs = relayClockMs
+    )
     
     // Coroutines
     private val processorScope = CoroutineScope(dispatcher + SupervisorJob())
@@ -99,11 +106,23 @@ class PacketProcessor(
             override fun getNetworkSize(): Int {
                 return delegate?.getNetworkSize() ?: 1
             }
-            
+
             override fun getBroadcastRecipient(): ByteArray {
                 return delegate?.getBroadcastRecipient() ?: ByteArray(0)
             }
-            
+
+            override fun getDirectConnectedPeers(): Set<String> {
+                return delegate?.getDirectConnectedPeers() ?: emptySet()
+            }
+
+            override fun hasUnidentifiedDirectLink(): Boolean {
+                return delegate?.hasUnidentifiedDirectLink() ?: false
+            }
+
+            override fun resolvePeerIDForLink(relayAddress: String, ingressLinkID: String?): String? {
+                return delegate?.resolvePeerIDForLink(relayAddress, ingressLinkID)
+            }
+
             override fun broadcastPacket(routed: RoutedPacket) {
                 delegate?.relayPacket(routed)
             }
@@ -122,10 +141,20 @@ class PacketProcessor(
 
         // Basic validation and security checks
         if (delegate?.validatePacketSecurity(packet, peerID) != true) {
+            // Separate local-delivery dedup from relay dedup: if an earlier authenticated copy
+            // was suppressed solely by MPR selection from a non-electing previous hop, reconsider
+            // relay when an authenticated duplicate arrives from another previous hop without
+            // re-delivering locally or updating last-seen.
+            if (packetRelayManager.isPendingSuppressedRelay(packet, peerID) &&
+                delegate?.validateDuplicatePacketForRelay(packet, peerID) == true
+            ) {
+                packetRelayManager.handlePacketRelay(routed, isDuplicateIngress = true)
+            }
             return
         }
 
         var validPacket = true
+        var forceConservativeRelay = false
         val messageType = MessageType.fromValue(packet.type)
         // Verbose logging to debug manager (and chat via ChatViewModel observer)
         try {
@@ -134,11 +163,16 @@ class PacketProcessor(
             val nick = delegate?.getPeerNickname(peerID)
             debugManager?.logIncomingPacket(peerID, nick, mt, routeDevice)
         } catch (_: Exception) { }
-        
-        
+
+
         // Handle public packet types (no address check needed)
         when (messageType) {
-            MessageType.ANNOUNCE -> validPacket = handleAnnounce(routed)
+            MessageType.ANNOUNCE -> {
+                val result = handleAnnounceWithResult(routed)
+                validPacket = result is AnnounceHandlingResult.Accepted
+                forceConservativeRelay = result is AnnounceHandlingResult.Accepted &&
+                    (result.isFirst || result.topologyChanged || result.wasStale)
+            }
             MessageType.MESSAGE -> handleMessage(routed)
             MessageType.FILE_TRANSFER -> handleMessage(routed) // treat same routing path; parsing happens in handler
             MessageType.VOICE_FRAME -> validPacket = delegate?.handleVoiceFrame(routed) ?: false
@@ -162,13 +196,13 @@ class PacketProcessor(
                 }
             }
         }
-        
+
         // Update last seen timestamp
         if (validPacket) {
             delegate?.updatePeerLastSeen(peerID)
-            
+
             // CENTRALIZED RELAY LOGIC: Handle relay decisions for all packets not addressed to us
-            packetRelayManager.handlePacketRelay(routed)
+            packetRelayManager.handlePacketRelay(routed, forceConservativeRelay = forceConservativeRelay)
         }
     }
     
@@ -188,26 +222,26 @@ class PacketProcessor(
     }
     
     /**
-     * Handle announce message
+     * Handle announce message with topology-change outcome
      */
-    private suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
-        return delegate?.handleAnnounce(routed) ?: false
+    private suspend fun handleAnnounceWithResult(routed: RoutedPacket): AnnounceHandlingResult {
+        return delegate?.handleAnnounce(routed) ?: AnnounceHandlingResult.Rejected
     }
-    
+
     /**
      * Handle regular message
      */
     private suspend fun handleMessage(routed: RoutedPacket) {
         delegate?.handleMessage(routed)
     }
-    
+
     /**
      * Handle leave message
      */
     private suspend fun handleLeave(routed: RoutedPacket) {
         delegate?.handleLeave(routed)
     }
-    
+
     /**
      * Handle message fragments
      */
@@ -219,11 +253,12 @@ class PacketProcessor(
                     packet = reassembledPacket,
                     peerID = routed.peerID,
                     relayAddress = routed.relayAddress,
-                    ingressLinkID = routed.ingressLinkID
+                    ingressLinkID = routed.ingressLinkID,
+                    previousHopPeerID = routed.previousHopPeerID
                 )
             )
         }
-        
+
         // Fragment relay is now handled by centralized PacketRelayManager
     }
 
@@ -275,6 +310,7 @@ class PacketProcessor(
 interface PacketProcessorDelegate {
     // Security validation
     fun validatePacketSecurity(packet: BitchatPacket, peerID: String): Boolean
+    fun validateDuplicatePacketForRelay(packet: BitchatPacket, peerID: String): Boolean = false
     
     // Peer management
     fun updatePeerLastSeen(peerID: String)
@@ -283,11 +319,14 @@ interface PacketProcessorDelegate {
     // Network information
     fun getNetworkSize(): Int
     fun getBroadcastRecipient(): ByteArray
-    
+    fun getDirectConnectedPeers(): Set<String> = emptySet()
+    fun hasUnidentifiedDirectLink(): Boolean = false
+    fun resolvePeerIDForLink(relayAddress: String, ingressLinkID: String?): String? = null
+
     // Message type handlers
     fun handleNoiseHandshake(routed: RoutedPacket): Boolean
     fun handleNoiseEncrypted(routed: RoutedPacket): Boolean
-    suspend fun handleAnnounce(routed: RoutedPacket): Boolean
+    suspend fun handleAnnounce(routed: RoutedPacket): AnnounceHandlingResult
     suspend fun handleMessage(routed: RoutedPacket)
     fun handleVoiceFrame(routed: RoutedPacket): Boolean = false
     suspend fun handleLeave(routed: RoutedPacket)
