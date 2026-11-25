@@ -26,6 +26,7 @@ internal data class ConversationSummary(
     val sourceGeohash: String? = null,
     val isPinned: Boolean = false,
     val isMuted: Boolean = false,
+    val isPrivateContact: Boolean = false,
     val draft: String? = null
 )
 
@@ -162,6 +163,7 @@ internal fun sortConversationSummaries(
     conversations: List<ConversationSummary>
 ): List<ConversationSummary> = conversations.sortedWith(
     compareByDescending<ConversationSummary> { it.isConnected }
+        .thenByDescending { it.isPrivateContact }
         .thenByDescending { it.isPinned }
         .thenByDescending { it.unreadCount > 0 }
         .thenByDescending { it.latestActivityOrder }
