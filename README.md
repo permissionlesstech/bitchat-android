@@ -35,7 +35,7 @@
 
 完整的檔案層級差異：`git diff 632ee88 main`（`632ee88` 為 fork 自上游的最後一個未修改狀態）。
 
-離線地圖資料與導航引擎的安裝方式見 [離線地圖導航說明](docs/offline-map-navigation.md)。
+台灣離線瓦片原型的資料與實機測試方式見 [離線地圖瓦片說明](docs/offline-map-tiles.md)。
 
 ---
 

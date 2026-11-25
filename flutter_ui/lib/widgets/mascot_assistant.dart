@@ -34,12 +34,8 @@ class _MascotAssistantState extends State<MascotAssistant> {
 
   void _tapMascot() {
     setState(() {
-      if (_state == _MascotState.idle) {
-        _state = _MascotState.greeting;
-      } else {
-        _state = _MascotState.idle;
-        _selected = null;
-      }
+      _state = _MascotState.greeting;
+      _selected = null;
     });
   }
 

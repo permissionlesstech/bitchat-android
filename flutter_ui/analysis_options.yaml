@@ -1,4 +1,9 @@
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  exclude:
+    # Legacy native-map UI is kept for the later MBTiles integration stage.
+    - deferred_integration/**
+
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options
