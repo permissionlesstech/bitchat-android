@@ -70,6 +70,31 @@ values.
 - [ ] Cancel a queued transfer and stop the service during another; confirm no
   later fragments or progress callbacks.
 
+## BLE long range (LE Coded PHY)
+
+See `docs/ble-long-range.md`. Record the controller capability line from the
+debug sheet for each device; don't record addresses.
+
+- [ ] Both devices report Coded PHY and extended advertising; confirm the debug
+  sheet shows coded advertising `active` and scan `extended 1M+Coded`.
+- [ ] Each device hears the other's Coded advertisement (coded count rises)
+  and opens exactly one client link per peer despite two advertised addresses.
+- [ ] In `MAX_RANGE`, links report tx/rx `Coded` on both client and server.
+- [ ] In `ADAPTIVE` (default), walk apart and back; confirm the link moves to
+  Coded before messages stop (about -78 dBm) and returns to 1M only after
+  ~30 s above about -65 dBm, without flapping. For a desk check, set
+  "To Coded below" near the current signal in the debug menu.
+- [ ] With both devices in `MAX_RANGE` and links on Coded, switch both to
+  `ADAPTIVE`; confirm every link between them returns to 1M (incoming sides
+  log "releases Coded") instead of repeating 1M requests.
+- [ ] Walk-out range test outdoors with line of sight: record the distance at
+  which messages stop being delivered in `OFF`, `ADAPTIVE` and `MAX_RANGE`.
+- [ ] Pair a long-range build with a device lacking Coded support (or with
+  `OFF` on one side); confirm discovery, encryption, and messaging still work
+  over legacy 1M.
+- [ ] Switch modes with links up; confirm advertising and scanning restart and
+  no duplicate scanner or advertiser remains.
+
 ## Wi-Fi Aware
 
 - [ ] Confirm unsupported hardware and temporarily unavailable radio states are
