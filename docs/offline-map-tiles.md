@@ -5,6 +5,7 @@
 ## 瓦片資料
 
 - 來源：Esri exploded cache `CH_3857_Contour_OpenData`，投影 EPSG:3857，256×256 JPEG。
+- 官方資料來源／授權資訊參考：內政部國土測繪中心[電子地圖資料供應服務](https://maps.nlsc.gov.tw/MbIndex_qryPage.action?fun=8)。
 - `tools/offline_maps/build_taiwan_mbtiles.py` 篩選台灣本島及離島範圍，並將 XYZ 列轉為 MBTiles TMS 列。
 - 產生的 `Taiwan_Offline_Tiles.mbtiles` 含 77,741 張瓦片，涵蓋 L00–L15；MBTiles 約 826 MiB。L16–L19 沒有來源瓦片，原型縮放上限因此為 L15。
 - 地理範圍以多個矩形選取瓦片，並非依行政界線裁切。MBTiles 的 `bounds` 只描述整體範圍，不代表每個位置、每個層級都有瓦片。
@@ -19,7 +20,24 @@
   adb push <Taiwan_Offline_Tiles.mbtiles 路徑> /sdcard/Android/data/com.bitchat.droid/files/offline_maps/Taiwan_Offline_Tiles.mbtiles
   ```
 
-資料來源授權、再散布條件及正式產品署名要求尚待確認；確認前只應用於受控測試，不應將資料包發布或納入 APK。
+官方資料來源頁面已記錄；資料的再散布條件及正式產品署名要求仍須依該頁資訊確認。確認前只應用於受控測試，不應將資料包發布或納入 APK。
+
+## Windows 下載環境
+
+目前 App 不會自行下載地圖瓦片；需先在電腦取得來源資料、產生 MBTiles，再透過 USB/ADB 複製到手機。準備以下工具：
+
+- Python 3.10 或更新版本。匯入器只使用 Python 標準函式庫，不需安裝額外套件。
+- Android SDK Platform-Tools（提供 `adb`）。可透過 Android Studio 的 SDK Manager 安裝，或從 [Android 官方 Platform-Tools 頁面](https://developer.android.com/tools/releases/platform-tools)下載；將 `adb.exe` 所在目錄加入 `PATH`。
+- 從[內政部國土測繪中心電子地圖資料供應服務](https://maps.nlsc.gov.tw/MbIndex_qryPage.action?fun=8)依其網站提供的方式下載 `CH_3857_Contour_OpenData`，並解壓縮。下載權限、使用條款及署名要求以該網站公告為準。匯入器的 `--tile-root` 要指向包含 `L00`、`L01` 等層級目錄的資料夾（若有 `conf.xml`，也應在同一層）。
+
+在 PowerShell 確認工具可用：
+
+```powershell
+python --version
+adb version
+```
+
+若 `python` 指令不存在，可改用 Windows Python Launcher 的 `py -3` 執行下方匯入器命令。打包後的資料約 826 MiB；另外還需要保留已下載／解壓縮的來源資料空間。
 
 ## 原型行為
 
@@ -34,14 +52,18 @@
 
 ## 產生與驗證資料包
 
-在瓦片來源目錄執行匯入器：
+在 repository root 開啟 PowerShell，將範例中的來源與輸出路徑換成實際位置，先執行 dry run 驗證來源，再產生資料包：
 
 ```powershell
-python tools/offline_maps/build_taiwan_mbtiles.py --tile-root <CH_3857_Contour_OpenData 路徑> --output <Taiwan_Offline_Tiles.mbtiles 路徑> --dry-run
-python tools/offline_maps/build_taiwan_mbtiles.py --tile-root <CH_3857_Contour_OpenData 路徑> --output <Taiwan_Offline_Tiles.mbtiles 路徑>
+python .\tools\offline_maps\build_taiwan_mbtiles.py --tile-root "D:\map-source\CH_3857_Contour_OpenData" --output "D:\map-output\Taiwan_Offline_Tiles.mbtiles" --dry-run
+python .\tools\offline_maps\build_taiwan_mbtiles.py --tile-root "D:\map-source\CH_3857_Contour_OpenData" --output "D:\map-output\Taiwan_Offline_Tiles.mbtiles"
+adb devices
+adb push "D:\map-output\Taiwan_Offline_Tiles.mbtiles" "/sdcard/Android/data/com.bitchat.droid/files/offline_maps/Taiwan_Offline_Tiles.mbtiles"
 ```
 
 產生器不會覆寫既有輸出檔。`--dry-run` 會檢查選取瓦片皆為 256×256 JPEG 並回報數量；實際產生時會另外執行 SQLite integrity check。
+
+執行 `adb push` 前，請先在手機開啟離線瓦片頁以建立 App 專用資料夾，並確認 `adb devices` 顯示已授權的裝置。
 
 ## 後續實機檢查
 
