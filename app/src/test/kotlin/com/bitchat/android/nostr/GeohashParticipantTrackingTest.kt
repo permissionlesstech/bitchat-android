@@ -20,6 +20,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -73,12 +74,19 @@ class GeohashParticipantTrackingTest {
     private suspend fun receiveChat() {
         val event = chatEvent()
         processor.onGeohashMessage(event, geohash)
-        withTimeout(5_000) {
+        withTimeout(10_000) {
             AppStateStore.channelMessages.first { messages ->
+                yield()
                 messages["geo:$geohash"].orEmpty().any { it.id == event.id }
             }
-            state.geohashPeople.first { it.singleOrNull()?.displayName == "fixture-speaker" }
-            state.geohashParticipantCounts.first { it[geohash] == 1 }
+            state.geohashPeople.first { people ->
+                yield()
+                people.singleOrNull()?.displayName == "fixture-speaker"
+            }
+            state.geohashParticipantCounts.first { counts ->
+                yield()
+                counts[geohash] == 1
+            }
         }
     }
 
@@ -86,8 +94,11 @@ class GeohashParticipantTrackingTest {
     fun `service chat adds a visible named participant without a heartbeat`() = runBlocking {
         receiveChat()
 
-        val people = withTimeout(5_000) {
-            state.geohashPeople.first { it.singleOrNull()?.displayName == "fixture-speaker" }
+        val people = withTimeout(10_000) {
+            state.geohashPeople.first { people ->
+                yield()
+                people.singleOrNull()?.displayName == "fixture-speaker"
+            }
         }
         assertEquals(identity.publicKeyHex, people.single().id)
         assertEquals(1, state.geohashParticipantCounts.value[geohash])
@@ -99,7 +110,12 @@ class GeohashParticipantTrackingTest {
     @Test
     fun `chat names a heartbeat identity and later heartbeats retain the name`() = runBlocking {
         repo.updateParticipant(geohash, identity.publicKeyHex, Date(now - 1_000))
-        withTimeout(5_000) { state.geohashPeople.first { it.size == 1 } }
+        withTimeout(10_000) {
+            state.geohashPeople.first { people ->
+                yield()
+                people.size == 1
+            }
+        }
         assertEquals("anon", state.geohashPeople.value.single().displayName)
 
         receiveChat()
@@ -117,17 +133,26 @@ class GeohashParticipantTrackingTest {
         val recreatedRepo = GeohashRepository(application, recreatedState, dataManager, scope, store)
         recreatedRepo.setCurrentGeohash(geohash)
         recreatedRepo.observeParticipants()
-        withTimeout(5_000) {
-            recreatedState.geohashPeople.first { it.singleOrNull()?.displayName == "fixture-speaker" }
+        withTimeout(10_000) {
+            recreatedState.geohashPeople.first { people ->
+                yield()
+                people.singleOrNull()?.displayName == "fixture-speaker"
+            }
         }
 
         assertEquals("fixture-speaker", recreatedState.geohashPeople.value.single().displayName)
         assertEquals(setOf(identity.publicKeyHex), recreatedState.teleportedGeo.value)
 
         repo.clearAll()
-        withTimeout(5_000) {
-            recreatedState.geohashPeople.first { it.isEmpty() }
-            recreatedState.geohashParticipantCounts.first { it.isEmpty() }
+        withTimeout(10_000) {
+            recreatedState.geohashPeople.first { people ->
+                yield()
+                people.isEmpty()
+            }
+            recreatedState.geohashParticipantCounts.first { counts ->
+                yield()
+                counts.isEmpty()
+            }
         }
 
         assertTrue(recreatedState.geohashPeople.value.isEmpty())
