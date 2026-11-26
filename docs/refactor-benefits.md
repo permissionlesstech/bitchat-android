@@ -7,6 +7,9 @@ with the costs summarized at the end so the picture stays honest.
 
 Kept up to date at the end of every phase.
 
+**In short:** 29 bugs users could hit are fixed, 12 more upstream bugs were found and are
+listed for small upstream PRs, and one found here was fixed upstream since and is merged.
+
 ## Bugs users could hit, now fixed
 
 These existed in upstream before the refactor.
@@ -85,10 +88,18 @@ kept out of the refactor so it changes no behaviour it did not have to. Details 
 - After a panic, a nearby peer syncs old public messages back to the new identity within seconds.
 - Each panic leaves the other device holding about one more connection, up to its limit (seen on simulated Bluetooth).
 - A small private file sometimes never arrives while the sender reports success (seen on simulated Bluetooth).
+- Reverse geocoding bypasses Tor on devices with Google Play Services, sending exact coordinates (issue #1023).
+- Turning live location off can leave a relay socket open when the globe already used that relay.
+- The location channels notes card returns to "Loading notes…" every few seconds while a jittering GPS fix crosses building cells.
 - A geohash channel shows two different "N people" counts: the channel list and the chat
   screen's top bar count everyone seen in five minutes, silent heartbeats included, while the
   people list counts only people with a known name, so the two can differ by an order of
   magnitude.
+
+Found here and fixed upstream since, merged into this branch:
+- A boot-time foreground-service start the system refused (`ForegroundServiceStartNotAllowedException`)
+  crashed the process from `BootCompletedReceiver`. Upstream #1007 now catches the refusal in
+  `MeshForegroundService.start`.
 
 ## For contributors and the codebase
 

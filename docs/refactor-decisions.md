@@ -473,7 +473,8 @@ merge first, expect a Back-handling conflict in `MainActivity`. Keep this branch
 
 ### Pre-existing upstream bugs found, not fixed
 
-- `BootCompletedReceiver` calls `MeshForegroundService.start` with no guard, so the system refusing
+- **Fixed upstream since (#1007, merged in the sync after 10c-3):** `MeshForegroundService.start` now catches the refusal.
+  `BootCompletedReceiver` called `MeshForegroundService.start` with no guard, so the system refusing
   the foreground start throws `ForegroundServiceStartNotAllowedException` and crashes the process.
   Seen once on an emulator during Phase 10c-2a-2b, some time after a boot, and not reproduced. What
   delivered the broadcast that late is not established. A normal reboot auto-started correctly.
