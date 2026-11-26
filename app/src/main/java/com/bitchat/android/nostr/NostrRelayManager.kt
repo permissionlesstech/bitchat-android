@@ -353,6 +353,7 @@ class NostrRelayManager internal constructor(
         }
         updateRelaysList()
         updateConnectionStatus()
+        wakeDegradedBackgroundRelays()
     }
 
     /**
@@ -533,6 +534,7 @@ class NostrRelayManager internal constructor(
         liveLocationRelayTokens.clear()
         updateRelaysList()
         updateConnectionStatus()
+        wakeDegradedBackgroundRelays()
     }
 
     private fun ensureConnectionsFor(
@@ -946,10 +948,10 @@ class NostrRelayManager internal constructor(
     }
 
     /**
-     * Get detailed status for all relays
+     * Get detailed status for all relays (immutable snapshots with live message counters).
      */
     fun getRelayStatuses(): List<Relay> {
-        return synchronized(relaysList) { relaysList.toList() }
+        return synchronized(relaysList) { relaysList.map { it.copy() } }
     }
     
     /**
@@ -1316,13 +1318,17 @@ class NostrRelayManager internal constructor(
         // failure: "unable to resolve host" is what this device reports when it
         // simply has no network, so treating it as permanent turns a walk
         // through a tunnel into a dead relay layer for the rest of the process.
-        var extendedBackgroundThrottle = false
-        val backoffInterval = synchronized(relaysList) {
+        // Decide backoff AND register both throttle marker and reconnect job atomically under
+        // synchronized(relaysList) so a concurrent disconnect/release/revoke cannot interleave
+        // and miss waking this relay.
+        var backoffInterval = 0L
+        synchronized(relaysList) {
             val relay = relaysList.find { it.url == relayUrl } ?: return
             val previousAttempts = if (wasStable) 0 else relay.reconnectAttempts
             relay.reconnectAttempts = RelayReconnectPolicy.nextAttempt(previousAttempts)
             var delayMs = RelayReconnectPolicy.backoffMs(relay.reconnectAttempts)
             val isBackground = isAppBackgrounded()
+            var extendedBackgroundThrottle = false
             if (isBackground &&
                 relay.reconnectAttempts >= BACKGROUND_DEAD_RELAY_MIN_ATTEMPTS &&
                 hasHealthyAlternativeForRelayLocked(relayUrl)
@@ -1331,54 +1337,57 @@ class NostrRelayManager internal constructor(
                 extendedBackgroundThrottle = true
             }
             relay.nextReconnectTime = nowWall + delayMs
-            delayMs
-        }
-        if (extendedBackgroundThrottle) {
-            backgroundThrottledRelays.add(relayUrl)
-        } else {
-            backgroundThrottledRelays.remove(relayUrl)
+            backoffInterval = delayMs
+
+            if (extendedBackgroundThrottle) {
+                backgroundThrottledRelays.add(relayUrl)
+            } else {
+                backgroundThrottledRelays.remove(relayUrl)
+            }
+
+            reconnectJobs.remove(relayUrl)?.cancel()
+            val reconnectJob = scope.launch {
+                delay(delayMs)
+                backgroundThrottledRelays.remove(relayUrl)
+                val (stillAllowed, currentToken) = authorizeRelayConnection(relayUrl, connectionToken)
+                if (desiredConnected.get() &&
+                    networkAvailable.get() &&
+                    stillAllowed
+                ) {
+                    connectToRelay(relayUrl, currentToken)
+                }
+            }
+            reconnectJobs[relayUrl] = reconnectJob
+            if (connectionToken != null) {
+                liveLocationConnectionJobs.add(reconnectJob)
+            }
+            reconnectJob.invokeOnCompletion {
+                reconnectJobs.remove(relayUrl, reconnectJob)
+                if (connectionToken != null) {
+                    liveLocationConnectionJobs.remove(reconnectJob)
+                }
+            }
         }
 
         Log.d(TAG, "Scheduling Nostr relay reconnection in ${backoffInterval}ms")
-
-        reconnectJobs.remove(relayUrl)?.cancel()
-        val reconnectJob = scope.launch {
-            delay(backoffInterval)
-            backgroundThrottledRelays.remove(relayUrl)
-            val (stillAllowed, currentToken) = authorizeRelayConnection(relayUrl, connectionToken)
-            if (desiredConnected.get() &&
-                networkAvailable.get() &&
-                stillAllowed
-            ) {
-                connectToRelay(relayUrl, currentToken)
-            }
-        }
-        reconnectJobs[relayUrl] = reconnectJob
-        if (connectionToken != null) {
-            liveLocationConnectionJobs.add(reconnectJob)
-        }
-        reconnectJob.invokeOnCompletion {
-            reconnectJobs.remove(relayUrl, reconnectJob)
-            if (connectionToken != null) {
-                liveLocationConnectionJobs.remove(reconnectJob)
-            }
-        }
     }
 
     /**
      * Cancel extended 15-minute background backoff timers for any throttled relay that no longer
-     * has a healthy connected alternative (for example after the healthy relay disconnects or a
-     * new subscription targets the throttled relay exclusively).
+     * has a healthy connected alternative (for example after the healthy relay disconnects,
+     * is released/revoked, or a new subscription targets the throttled relay exclusively).
      */
     private fun wakeDegradedBackgroundRelays() {
-        if (backgroundThrottledRelays.isEmpty()) return
         if (!desiredConnected.get() || !networkAvailable.get()) return
 
         val relaysToWake = synchronized(relaysList) {
+            if (backgroundThrottledRelays.isEmpty()) return
             val toWake = mutableListOf<String>()
-            for (url in backgroundThrottledRelays) {
+            for (url in backgroundThrottledRelays.toList()) {
                 if (!hasHealthyAlternativeForRelayLocked(url)) {
                     toWake.add(url)
+                    backgroundThrottledRelays.remove(url)
+                    reconnectJobs.remove(url)?.cancel()
                     relaysList.find { it.url == url }?.nextReconnectTime = null
                 }
             }
@@ -1386,10 +1395,6 @@ class NostrRelayManager internal constructor(
         }
         if (relaysToWake.isEmpty()) return
 
-        relaysToWake.forEach { url ->
-            backgroundThrottledRelays.remove(url)
-            reconnectJobs.remove(url)?.cancel()
-        }
         updateRelaysList()
 
         scope.launch {

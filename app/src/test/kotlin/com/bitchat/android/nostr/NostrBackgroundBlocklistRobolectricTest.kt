@@ -5,11 +5,11 @@ import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.ui.DataManager
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestDispatcher
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -19,17 +19,20 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
-class NostrBackgroundBlocklistTest {
+class NostrBackgroundBlocklistRobolectricTest {
 
     private lateinit var app: Application
+    private lateinit var dispatcher: TestDispatcher
     private lateinit var scope: CoroutineScope
 
     @Before
     fun setUp() {
         app = ApplicationProvider.getApplicationContext()
         AppStateStore.clear()
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        dispatcher = StandardTestDispatcher()
+        scope = CoroutineScope(SupervisorJob() + dispatcher)
     }
 
     @After
@@ -41,46 +44,51 @@ class NostrBackgroundBlocklistTest {
 
     @Test
     @Config(sdk = [29])
-    fun `DataManager clearAllData lifts geohash sender block through public event handling on API 29`() = runBlocking {
+    fun `DataManager clearAllData lifts geohash sender block through public event handling on API 29`() {
         val externalDataManager = DataManager(app)
         externalDataManager.clearAllData()
 
-        val blockedSender = NostrIdentity.generate()
-        val unblockedSender = NostrIdentity.generate()
+        val fixedNowMs = 1_700_000_000_000L
+        val fixedNowSec = (fixedNowMs / 1_000L).toInt()
+        val blockedSender = NostrIdentity.fromPrivateKey("11".repeat(32))
+        val unblockedSender = NostrIdentity.fromPrivateKey("22".repeat(32))
         externalDataManager.addGeohashBlockedUser(blockedSender.publicKeyHex)
 
-        val participantStore = GeohashParticipantStore()
-        val processor = NostrBackgroundEventProcessor(app, scope, participantStore)
+        val participantStore = GeohashParticipantStore(nowMillis = { fixedNowMs })
+        val processor = NostrBackgroundEventProcessor(
+            application = app,
+            parentScope = scope,
+            participantStore = participantStore,
+            processingDispatcher = dispatcher,
+            signatureVerificationDispatcher = dispatcher
+        )
         val geohash = "u4pruy"
-        val nowSec = (System.currentTimeMillis() / 1_000L).toInt()
 
-        // Send a presence event from the blocked sender followed by a sentinel presence event from
-        // an unblocked sender. Because processor serializes on a single-threaded IO dispatcher,
-        // once the sentinel lands in participantStore the earlier blocked event was already dropped.
         val blockedBeforeWipe = NostrEvent(
             pubkey = blockedSender.publicKeyHex,
-            createdAt = nowSec,
+            createdAt = fixedNowSec,
             kind = NostrKind.GEOHASH_PRESENCE,
             tags = listOf(listOf("g", geohash)),
             content = ""
         ).sign(blockedSender.privateKeyHex)
-        val sentinel = NostrEvent(
+        val unblockedBeforeWipe = NostrEvent(
             pubkey = unblockedSender.publicKeyHex,
-            createdAt = nowSec,
+            createdAt = fixedNowSec,
             kind = NostrKind.GEOHASH_PRESENCE,
             tags = listOf(listOf("g", geohash)),
             content = ""
         ).sign(unblockedSender.privateKeyHex)
 
         processor.onGeohashMessage(blockedBeforeWipe, geohash)
-        processor.onGeohashMessage(sentinel, geohash)
+        processor.onGeohashMessage(unblockedBeforeWipe, geohash)
+        // Drain every coroutine (including signature verification) deterministically before asserting.
+        dispatcher.scheduler.advanceUntilIdle()
 
-        withTimeout(5_000) {
-            while (unblockedSender.publicKeyHex !in participantStore.snapshots.value.participants[geohash].orEmpty()) {
-                kotlinx.coroutines.yield()
-            }
-        }
         val beforeParticipants = participantStore.snapshots.value.participants[geohash].orEmpty()
+        assertTrue(
+            "unblocked sender event must be recorded prior to wipe",
+            unblockedSender.publicKeyHex in beforeParticipants
+        )
         assertFalse(
             "blocked sender event must be dropped prior to wipe",
             blockedSender.publicKeyHex in beforeParticipants
@@ -92,18 +100,14 @@ class NostrBackgroundBlocklistTest {
 
         val afterWipe = NostrEvent(
             pubkey = blockedSender.publicKeyHex,
-            createdAt = nowSec + 1,
+            createdAt = fixedNowSec + 1,
             kind = NostrKind.GEOHASH_PRESENCE,
             tags = listOf(listOf("g", geohash)),
             content = ""
         ).sign(blockedSender.privateKeyHex)
         processor.onGeohashMessage(afterWipe, geohash)
+        dispatcher.scheduler.advanceUntilIdle()
 
-        withTimeout(5_000) {
-            while (blockedSender.publicKeyHex !in participantStore.snapshots.value.participants[geohash].orEmpty()) {
-                kotlinx.coroutines.yield()
-            }
-        }
         val afterParticipants = participantStore.snapshots.value.participants[geohash].orEmpty()
         assertTrue(
             "event from previously blocked sender must be accepted after API 29 clearAllData",

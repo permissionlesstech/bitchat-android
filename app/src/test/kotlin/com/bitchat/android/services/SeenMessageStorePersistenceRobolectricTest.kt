@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
-class SeenMessageStorePersistenceTest {
+class SeenMessageStorePersistenceRobolectricTest {
 
     private val app: Application = ApplicationProvider.getApplicationContext()
     private val gson = Gson()

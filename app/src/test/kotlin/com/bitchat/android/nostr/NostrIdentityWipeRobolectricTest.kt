@@ -13,7 +13,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
-class NostrIdentityWipeTest {
+class NostrIdentityWipeRobolectricTest {
 
     private val app: Application = ApplicationProvider.getApplicationContext()
 

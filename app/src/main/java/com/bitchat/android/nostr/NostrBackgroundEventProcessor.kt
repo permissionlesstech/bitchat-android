@@ -10,6 +10,7 @@ import com.bitchat.android.ui.DataManager
 import com.bitchat.android.ui.MessageManager
 import com.bitchat.android.ui.NoiseSessionDelegate
 import com.bitchat.android.ui.PrivateChatManager
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -24,10 +25,12 @@ import kotlinx.coroutines.launch
 internal class NostrBackgroundEventProcessor(
     application: Application,
     parentScope: CoroutineScope,
-    participantStore: GeohashParticipantStore = NostrBackgroundRuntime.participants
+    participantStore: GeohashParticipantStore = NostrBackgroundRuntime.participants,
+    processingDispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(1),
+    signatureVerificationDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) {
     private val scope = CoroutineScope(
-        parentScope.coroutineContext + Dispatchers.IO.limitedParallelism(1)
+        parentScope.coroutineContext + processingDispatcher
     )
     private val state = ChatState(scope)
     private val dataManager = DataManager(application.applicationContext).apply {
@@ -53,7 +56,8 @@ internal class NostrBackgroundEventProcessor(
         repo = geohashRepository,
         scope = scope,
         dataManager = dataManager,
-        addChannelMessage = AppStateStore::addChannelMessage
+        addChannelMessage = AppStateStore::addChannelMessage,
+        signatureVerificationDispatcher = signatureVerificationDispatcher
     )
     private val directMessageHandler = NostrDirectMessageHandler(
         application = application,

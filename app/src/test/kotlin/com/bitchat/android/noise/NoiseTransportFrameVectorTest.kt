@@ -11,6 +11,35 @@ import org.junit.Test
 
 class NoiseTransportFrameVectorTest {
 
+    private fun newTransportSession(
+        isInitiator: Boolean,
+        sendKey: ByteArray,
+        receiveKey: ByteArray,
+        initialSendNonce: Long = 0L
+    ): NoiseSession {
+        val dummyKey = ByteArray(32) { 0x11 }
+        val session = NoiseSession("0102030405060708", isInitiator, dummyKey, dummyKey)
+        val sendCipher = Noise.createCipher("ChaChaPoly").apply { initializeKey(sendKey, 0) }
+        val receiveCipher = Noise.createCipher("ChaChaPoly").apply { initializeKey(receiveKey, 0) }
+        NoiseSession::class.java.getDeclaredField("sendCipher").apply {
+            isAccessible = true
+            set(session, sendCipher)
+        }
+        NoiseSession::class.java.getDeclaredField("receiveCipher").apply {
+            isAccessible = true
+            set(session, receiveCipher)
+        }
+        NoiseSession::class.java.getDeclaredField("messagesSent").apply {
+            isAccessible = true
+            setLong(session, initialSendNonce)
+        }
+        NoiseSession::class.java.getDeclaredField("state").apply {
+            isAccessible = true
+            set(session, NoiseSession.NoiseSessionState.Established)
+        }
+        return session
+    }
+
     @Test
     fun `NoiseSession transport encrypt and decrypt match independent RFC 8439 ChaCha20-Poly1305 golden vector with nonzero nonce`() {
         val transportKey = ByteArray(32) { it.toByte() }
@@ -25,21 +54,18 @@ class NoiseTransportFrameVectorTest {
                 "9d65ef2c2cb05224827ea8812ec2"
             ).dataFromHexString()!!
 
-        val dummyKey = ByteArray(32) { 0x11 }
-        val sender = NoiseSession("0102030405060708", true, dummyKey, dummyKey)
-        val receiver = NoiseSession("0102030405060708", false, dummyKey, dummyKey)
+        val sender = newTransportSession(
+            isInitiator = true,
+            sendKey = transportKey,
+            receiveKey = transportKey,
+            initialSendNonce = nonce
+        )
+        val receiver = newTransportSession(
+            isInitiator = false,
+            sendKey = transportKey,
+            receiveKey = transportKey
+        )
         try {
-            sender.configureTransportForTesting(
-                sendKey = transportKey,
-                receiveKey = transportKey,
-                initialSendNonce = nonce
-            )
-            receiver.configureTransportForTesting(
-                sendKey = transportKey,
-                receiveKey = transportKey,
-                initialSendNonce = 0L
-            )
-
             val encrypted = sender.encrypt(plaintext)
             assertArrayEquals(expectedWireFrame, encrypted)
 
@@ -51,12 +77,22 @@ class NoiseTransportFrameVectorTest {
                 receiver.decrypt(expectedWireFrame)
             }
 
-            // Flipping a bit in nonce prefix, ciphertext, or Poly1305 tag must fail closed
+            // Flipping a bit in nonce prefix, ciphertext, or Poly1305 tag on a fresh receiver
+            // exercises AEAD authentication directly (before replay window marks nonce seen).
             for (bitOffset in listOf(3, 4, expectedWireFrame.lastIndex)) {
-                val tampered = expectedWireFrame.copyOf()
-                tampered[bitOffset] = (tampered[bitOffset].toInt() xor 0x01).toByte()
-                assertThrows(SessionError.DecryptionFailed::class.java) {
-                    receiver.decrypt(tampered)
+                val freshReceiver = newTransportSession(
+                    isInitiator = false,
+                    sendKey = transportKey,
+                    receiveKey = transportKey
+                )
+                try {
+                    val tampered = expectedWireFrame.copyOf()
+                    tampered[bitOffset] = (tampered[bitOffset].toInt() xor 0x01).toByte()
+                    assertThrows(SessionError.DecryptionFailed::class.java) {
+                        freshReceiver.decrypt(tampered)
+                    }
+                } finally {
+                    freshReceiver.destroy()
                 }
             }
         } finally {

@@ -13,6 +13,7 @@ import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -23,7 +24,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
-class NostrRelayBackgroundRecoveryTest {
+class NostrRelayBackgroundRecoveryRobolectricTest {
 
     private val dispatcher = StandardTestDispatcher()
     private val scope = CoroutineScope(dispatcher + SupervisorJob())
@@ -38,13 +39,7 @@ class NostrRelayBackgroundRecoveryTest {
 
     @Test
     fun `background-throttled relay wakes immediately when healthy alternative disconnects`() {
-        val manager = NostrRelayManager(
-            webSocketFactory = { factory },
-            scope = scope,
-            monotonicClockMs = { fakeMonoMs.get() },
-            awaitTorRoute = { true },
-            backgroundStateFlow = isBackground
-        )
+        val manager = newManager()
         val relays = NostrRelayManager.defaultRelays()
         val deadRelay = relays[0]
         val healthyRelays = relays.drop(1)
@@ -52,43 +47,18 @@ class NostrRelayBackgroundRecoveryTest {
         manager.connect()
         dispatcher.scheduler.runCurrent()
 
-        // Mark all other relays open and healthy
-        val openResponse = Response.Builder()
-            .request(Request.Builder().url("https://relay.example").build())
-            .protocol(Protocol.HTTP_1_1)
-            .code(101)
-            .message("Switching Protocols")
-            .build()
-        val healthyPairs = healthyRelays.map { url ->
-            factory.openedWithListeners.last { it.first.url == url }.also { (ws, listener) ->
-                listener.onOpen(ws, openResponse)
-            }
-        }
-
-        // Fail deadRelay 4 times in background so it enters the 15-minute backoff
-        repeat(4) { attempt ->
-            val (ws, listener) = factory.openedWithListeners.last { it.first.url == deadRelay }
-            listener.onFailure(ws, IOException("scripted connect failure"), null)
-            if (attempt < 3) {
-                val backoff = RelayReconnectPolicy.backoffMs(attempt + 1) + 1L
-                dispatcher.scheduler.advanceTimeBy(backoff)
-                fakeMonoMs.addAndGet(backoff)
-                dispatcher.scheduler.runCurrent()
-            }
-        }
+        val healthyPairs = healthyRelays.map { url -> openRelay(url) }
+        failRelayIntoBackgroundThrottle(deadRelay)
 
         // Confirm deadRelay is throttled past normal attempt-4 backoff while healthy relays are up
         factory.reset()
-        val normalBackoff = RelayReconnectPolicy.backoffMs(4) + 1L
-        dispatcher.scheduler.advanceTimeBy(normalBackoff)
-        fakeMonoMs.addAndGet(normalBackoff)
-        dispatcher.scheduler.runCurrent()
+        advance(RelayReconnectPolicy.backoffMs(4) + 1L)
         assertFalse(
             "deadRelay should stay throttled while healthy alternatives are connected",
             factory.openedSinceReset.any { it.url == deadRelay }
         )
 
-        // Now drop all healthy alternatives -> deadRelay must wake immediately without waiting 15m
+        // Drop all healthy alternatives -> deadRelay must wake immediately without waiting 15m
         factory.reset()
         healthyPairs.forEach { (ws, listener) ->
             listener.onFailure(ws, IOException("healthy relay lost"), null)
@@ -103,13 +73,7 @@ class NostrRelayBackgroundRecoveryTest {
 
     @Test
     fun `background-throttled relay wakes immediately when a new subscription targets it exclusively`() {
-        val manager = NostrRelayManager(
-            webSocketFactory = { factory },
-            scope = scope,
-            monotonicClockMs = { fakeMonoMs.get() },
-            awaitTorRoute = { true },
-            backgroundStateFlow = isBackground
-        )
+        val manager = newManager()
         val relays = NostrRelayManager.defaultRelays()
         val deadRelay = relays[0]
         val healthyRelay = relays[1]
@@ -117,34 +81,11 @@ class NostrRelayBackgroundRecoveryTest {
         manager.connect()
         dispatcher.scheduler.runCurrent()
 
-        val openResponse = Response.Builder()
-            .request(Request.Builder().url("https://relay.example").build())
-            .protocol(Protocol.HTTP_1_1)
-            .code(101)
-            .message("Switching Protocols")
-            .build()
-        factory.openedWithListeners.last { it.first.url == healthyRelay }.let { (ws, listener) ->
-            listener.onOpen(ws, openResponse)
-        }
+        openRelay(healthyRelay)
+        failRelayIntoBackgroundThrottle(deadRelay)
 
-        // Fail deadRelay 4 times in background so it enters the 15-minute backoff
-        repeat(4) { attempt ->
-            val (ws, listener) = factory.openedWithListeners.last { it.first.url == deadRelay }
-            listener.onFailure(ws, IOException("scripted connect failure"), null)
-            if (attempt < 3) {
-                val backoff = RelayReconnectPolicy.backoffMs(attempt + 1) + 1L
-                dispatcher.scheduler.advanceTimeBy(backoff)
-                fakeMonoMs.addAndGet(backoff)
-                dispatcher.scheduler.runCurrent()
-            }
-        }
-
-        // Confirm deadRelay is throttled past normal attempt-4 backoff
         factory.reset()
-        val normalBackoff = RelayReconnectPolicy.backoffMs(4) + 1L
-        dispatcher.scheduler.advanceTimeBy(normalBackoff)
-        fakeMonoMs.addAndGet(normalBackoff)
-        dispatcher.scheduler.runCurrent()
+        advance(RelayReconnectPolicy.backoffMs(4) + 1L)
         assertFalse(
             "deadRelay should stay throttled before sole-target subscription arrives",
             factory.openedSinceReset.any { it.url == deadRelay }
@@ -164,6 +105,101 @@ class NostrRelayBackgroundRecoveryTest {
             "throttled relay must reconnect immediately when a subscription targets it exclusively",
             factory.openedSinceReset.any { it.url == deadRelay }
         )
+    }
+
+    @Test
+    fun `background-throttled relay wakes immediately when healthy extra relay is released`() {
+        val manager = newManager()
+        val relays = NostrRelayManager.defaultRelays()
+        val deadRelay = relays[0]
+        val extraHealthyRelay = "wss://extra-healthy.example"
+
+        manager.connect()
+        dispatcher.scheduler.runCurrent()
+        manager.connectToRelays(listOf(extraHealthyRelay))
+        dispatcher.scheduler.runCurrent()
+
+        // Only the extra relay is connected; all default relays fail
+        openRelay(extraHealthyRelay)
+        failRelayIntoBackgroundThrottle(deadRelay)
+
+        factory.reset()
+        advance(RelayReconnectPolicy.backoffMs(4) + 1L)
+        assertFalse(factory.openedSinceReset.any { it.url == deadRelay })
+
+        // Releasing the sole connected extra relay must wake throttled default relays immediately
+        factory.reset()
+        manager.releaseRelays(listOf(extraHealthyRelay))
+        dispatcher.scheduler.runCurrent()
+
+        assertTrue(
+            "releasing the last healthy alternative must wake throttled relays immediately",
+            factory.openedSinceReset.any { it.url == deadRelay }
+        )
+    }
+
+    @Test
+    fun `getRelayStatuses reports live sent and received counters without waiting for reconnect`() {
+        val manager = newManager()
+        val targetRelay = NostrRelayManager.defaultRelays()[0]
+        manager.connect()
+        dispatcher.scheduler.runCurrent()
+
+        val (ws, listener) = openRelay(targetRelay)
+        val identity = NostrIdentity.fromPrivateKey("33".repeat(32))
+        val event = NostrEvent(
+            pubkey = identity.publicKeyHex,
+            createdAt = 1_700_000_000,
+            kind = NostrKind.TEXT_NOTE,
+            tags = emptyList(),
+            content = "live-counter-check"
+        ).sign(identity.privateKeyHex)
+
+        manager.sendEvent(event, relayUrls = listOf(targetRelay))
+        dispatcher.scheduler.runCurrent()
+
+        val inboundJson = """["EVENT","sub-1",{"id":"${event.id}","pubkey":"${event.pubkey}","created_at":${event.createdAt},"kind":${event.kind},"tags":[],"content":"live-counter-check","sig":"${event.sig}"}]"""
+        listener.onMessage(ws, inboundJson)
+
+        val liveStatus = manager.getRelayStatuses().first { it.url == targetRelay }
+        assertEquals(1, liveStatus.messagesSent)
+        assertEquals(1, liveStatus.messagesReceived)
+    }
+
+    private fun newManager() = NostrRelayManager(
+        webSocketFactory = { factory },
+        scope = scope,
+        monotonicClockMs = { fakeMonoMs.get() },
+        awaitTorRoute = { true },
+        backgroundStateFlow = isBackground
+    )
+
+    private fun openRelay(url: String): Pair<FakeWebSocket, WebSocketListener> {
+        val openResponse = Response.Builder()
+            .request(Request.Builder().url("https://relay.example").build())
+            .protocol(Protocol.HTTP_1_1)
+            .code(101)
+            .message("Switching Protocols")
+            .build()
+        return factory.openedWithListeners.last { it.first.url == url }.also { (ws, listener) ->
+            listener.onOpen(ws, openResponse)
+        }
+    }
+
+    private fun failRelayIntoBackgroundThrottle(relayUrl: String) {
+        repeat(4) { attempt ->
+            val (ws, listener) = factory.openedWithListeners.last { it.first.url == relayUrl }
+            listener.onFailure(ws, IOException("scripted connect failure"), null)
+            if (attempt < 3) {
+                advance(RelayReconnectPolicy.backoffMs(attempt + 1) + 1L)
+            }
+        }
+    }
+
+    private fun advance(ms: Long) {
+        dispatcher.scheduler.advanceTimeBy(ms)
+        fakeMonoMs.addAndGet(ms)
+        dispatcher.scheduler.runCurrent()
     }
 
     private class FakeWebSocketFactory : WebSocket.Factory {

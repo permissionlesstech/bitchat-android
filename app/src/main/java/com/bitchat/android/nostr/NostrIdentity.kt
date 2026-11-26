@@ -30,7 +30,7 @@ data class NostrIdentity(
          */
         fun generate(): NostrIdentity {
             val (privateKeyHex, publicKeyHex) = NostrCrypto.generateKeyPair()
-            val npub = Bech32.encode("npub", publicKeyHex.hexToByteArrayLocal())
+            val npub = Bech32.encode("npub", publicKeyHex.hexToByteArray())
             
             Log.d(TAG, "Generated new Nostr identity: npub=$npub")
             
@@ -51,7 +51,7 @@ data class NostrIdentity(
             }
             
             val publicKeyHex = NostrCrypto.derivePublicKey(privateKeyHex)
-            val npub = Bech32.encode("npub", publicKeyHex.hexToByteArrayLocal())
+            val npub = Bech32.encode("npub", publicKeyHex.hexToByteArray())
             
             return NostrIdentity(
                 privateKeyHex = privateKeyHex,
@@ -177,7 +177,7 @@ object NostrIdentityBridge {
             // Try a few iterations to ensure a valid key can be formed (exactly like iOS)
             for (i in 0 until 10) {
                 val candidateKey = candidateKey(seed, geohashBytes, i.toUInt())
-                val candidateKeyHex = candidateKey.toHexStringLocal()
+                val candidateKeyHex = candidateKey.toHexString()
 
                 if (NostrCrypto.isValidPrivateKey(candidateKeyHex)) {
                     val identity = NostrIdentity.fromPrivateKey(candidateKeyHex)
@@ -192,7 +192,7 @@ object NostrIdentityBridge {
             val digest = MessageDigest.getInstance("SHA-256")
             val fallbackKey = digest.digest(combined)
 
-            val fallbackIdentity = NostrIdentity.fromPrivateKey(fallbackKey.toHexStringLocal())
+            val fallbackIdentity = NostrIdentity.fromPrivateKey(fallbackKey.toHexString())
             geohashIdentityCache[forGeohash] = fallbackIdentity
 
             Log.d(TAG, "Used fallback geohash identity derivation")
@@ -318,11 +318,6 @@ object NostrIdentityBridge {
         return mac.doFinal(message)
     }
 }
-
-// Extension functions for data conversion
-private fun String.hexToByteArrayLocal(): ByteArray = this.hexToByteArray()
-
-private fun ByteArray.toHexStringLocal(): String = this.toHexString()
 
 private fun UInt.toLittleEndianBytes(): ByteArray {
     val bytes = ByteArray(4)

@@ -370,13 +370,24 @@ class GeohashViewModel(
                 notificationManager.clearNotificationsForGeohash(channel.channel.geohash)
                 try { messageManager.clearChannelUnreadCount("geo:${channel.channel.geohash}") } catch (_: Exception) { }
 
-                try {
-                    val identity = NostrIdentityBridge.deriveIdentity(channel.channel.geohash, getApplication())
-                    // We don't update participant here anymore; presence loop handles it via Kind 20001
-                    val teleported = locationChannelManager?.teleported?.value
-                        ?: state.isTeleported.value
-                    if (teleported) repo.markTeleported(identity.publicKeyHex)
-                } catch (e: Exception) { Log.w(TAG, "Failed identity setup: ${e.message}") }
+                val targetGeohash = channel.channel.geohash
+                val teleported = locationChannelManager?.teleported?.value
+                    ?: state.isTeleported.value
+                val cachedIdentity = NostrIdentityBridge.getCachedIdentity(targetGeohash)
+                if (cachedIdentity != null) {
+                    if (teleported) repo.markTeleported(cachedIdentity.publicKeyHex)
+                } else {
+                    viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        try {
+                            val identity = NostrIdentityBridge.deriveIdentity(targetGeohash, getApplication())
+                            if (teleported && activeChannelGeohash == targetGeohash) {
+                                repo.markTeleported(identity.publicKeyHex)
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Failed identity setup: ${e.message}")
+                        }
+                    }
+                }
 
                 startGeoParticipantsTimer()
                 val liveLocationToken = locationChannelManager

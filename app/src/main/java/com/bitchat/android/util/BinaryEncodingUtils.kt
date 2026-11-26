@@ -14,11 +14,12 @@ import java.util.*
 fun ByteArray.hexEncodedString(): String = toHexString()
 
 fun String.dataFromHexString(): ByteArray? {
-    // Match iOS Data(hexString:): trim, optional 0x/0X prefix, reject odd length.
+    // Match iOS Data(hexString:) and Kotlin String.trim(): Unicode whitespace only (never NUL),
+    // optional 0x/0X prefix, reject odd length.
     var start = 0
     var end = length
-    while (start < end && this[start] <= ' ') start++
-    while (end > start && this[end - 1] <= ' ') end--
+    while (start < end && this[start].isWhitespace()) start++
+    while (end > start && this[end - 1].isWhitespace()) end--
     if (end - start >= 2 && this[start] == '0' && (this[start + 1] == 'x' || this[start + 1] == 'X')) {
         start += 2
     }

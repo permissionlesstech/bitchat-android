@@ -633,24 +633,6 @@ class NoiseSession(
         appendLine("  Has receive cipher: ${receiveCipher != null}")
     }
     
-    internal fun configureTransportForTesting(
-        sendKey: ByteArray,
-        receiveKey: ByteArray,
-        initialSendNonce: Long = 0L
-    ) {
-        synchronized(cipherLock) {
-            sendCipher?.destroy()
-            receiveCipher?.destroy()
-            sendCipher = Noise.createCipher("ChaChaPoly").apply { initializeKey(sendKey, 0) }
-            receiveCipher = Noise.createCipher("ChaChaPoly").apply { initializeKey(receiveKey, 0) }
-            messagesSent = initialSendNonce
-            messagesReceived = 0L
-            highestReceivedNonce = 0L
-            replayWindow.fill(0)
-            state = NoiseSessionState.Established
-        }
-    }
-
     /**
      * Reset session state
      */
