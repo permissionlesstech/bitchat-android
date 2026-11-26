@@ -50,6 +50,7 @@ Each real fix is one commit and can be reverted alone.
 
 - After a completed panic, each mesh's notification manager is closed, so no sender names or message text stay in process-wide previews. 10c-2b
 - Panic also clears the clipboard and the debug buffers of peer IDs and nicknames. A new kind of system-side effect has to register a panic cleanup. 10c-3
+- Sending a file no longer leaves a persisted read grant for it with the system, where it outlived a panic. The picker's own grant covers the copy. Phase 11
 - The peer list no longer logs peer IDs or favourites on every redraw, in release builds too. A unit test fails if a peer-list log call interpolates a peer ID, favourite or nickname. 10b (F1)
 
 ## State that now survives rotation and process death
@@ -98,7 +99,7 @@ kept out of the refactor so it changes no behaviour it did not have to. Details 
 | Onboarding | About 300 lines of private functions in `MainActivity`, five helpers holding the Activity | One MVI view model in `:feature:onboarding`, one pure `nextStep` function, one startup gate |
 | Dependency injection | Hand-built objects and static `getInstance()` calls | Hilt, with the graph checked at compile time |
 | Navigation | Visibility flags in view models | Typed, serializable Navigation 3 routes on one back stack |
-| Device tests | None | 64 in `:app` and `:feature:chat`, plus one suite per feature (settings 5, location 2, share 3): Back behaviour, every sheet opener, saved state, onboarding, screens |
+| Device tests | None | 122: app 104, chat 6, settings 5, location 4, share 3. Back behaviour, every sheet opener, saved state, onboarding, screens, the panic on the real graph |
 | Screens (10a) | About, Debug, Location Notes and the APK section ran logic in composables and called singletons; Hotspot and the APK section had their own shapes | All on one shape: `uiState`, `onAction`, `events`; three ViewModels added (`AboutViewModel`, `DebugSettingsViewModel`, `LocationNotesViewModel`), three reshaped |
 | Screens (10b) | The peer list and the location channels sheet were composables of 1648 and 1202 lines that read singletons while composing | Both on the same shape, with row models and state builders as tested pure functions; the largest composable file is 769 and 419 lines; the row building runs off the main thread |
 | `TransportDiagnostics` | 23 members | 13 |
@@ -115,6 +116,8 @@ kept out of the refactor so it changes no behaviour it did not have to. Details 
 | Unit and device tests (10c-2b) | JVM 1496; device app 79 | JVM 1626; device app 102 |
 | Panic wipe (10c-3) | A hand-written list of clears; a wipe that could not confirm kept running on the old storage | The sandbox is wiped by location; a wipe that cannot confirm restarts the process and is finished at the next launch |
 | Unit and device tests (10c-3) | JVM 1626; device app 102 | JVM 1685; device app 104 (the full gate on the final code, after the 10c-3 follow-ups) |
+| Encrypted storage after a panic (10c-3 follow-up) | A manager started while a panic held the storage lock built the master key outside it, so after the wipe two key generators could race and leave the new identity's encrypted storage unreadable on every launch (a bug of this branch only, seen on test emulators) | The master key is built inside the storage lock with its keyset, through one helper that `EncryptionService` uses too. `PanicContractTest` starts a manager inside a real wipe and fails if a key exists before the panic lets go |
+| Unit tests (upstream sync and Phase 11 audit) | JVM 1685 | JVM 1761 (3 skipped): upstream's new tests ported beside their subjects, and the audit's |
 | Module rules | Unwritten | `FeatureDependencyRulesTest` fails when a feature depends on another feature, an `:api` module grows dependencies, or `:core:tor` gains one |
 | Watch crypto | Tink 1.8.0 | Tink 1.23.0, the phone's version |
 | Watch theme | Its own copy of the palette, peer-color hash and fonts | The shared `:core:designsystem` base |
@@ -136,7 +139,8 @@ Safety rails added on the way:
   no teardown, and when anything but panic ends an identity (10c-2b).
 - `KeepListRulesTest` and `PanicSystemSideRulesTest` fail the build when a kept key has no owner in
   the code, or when code uses a system-side API (notifications, shortcuts, clipboard, alarms,
-  `MediaStore` and the like) with no panic cleanup or reason (10c-3).
+  `MediaStore`, persisted URI grants and the like) with no panic cleanup or reason (10c-3, grants
+  added in Phase 11).
 - `PanicContractTest` (device) runs a real panic on the app's graph and fails if anything outside
   the keep-list is on disk when the wipe returns, or if the new identity cannot read its own keys
   (10c-3).
@@ -151,6 +155,15 @@ Safety rails added on the way:
 - Every persisted preference key stays byte-identical, pinned by a test, so upgrading users do
   not see first-launch onboarding again.
 
+## Kept in step with upstream
+
+The branch is merged with upstream `main` up to `f6bfceac` (2026-11-26, 30 commits). Every
+upstream behaviour fix is kept: foreground-service retries, Wi-Fi Aware and BLE scan recovery,
+the Tor restart fixes, the private chat send fix, offline peers greyed, and Nostr relays
+reconnecting after a panic only once the wipe has confirmed. Where the refactor had moved the
+code, the fix was ported and upstream's tests came with it ("Upstream sync after Phase 10c-3"
+in the decision log).
+
 ## What it cost
 
 - Hilt, KSP, Navigation 3 and the Kotlin serialization plugin were added. The Gradle daemon's
@@ -162,7 +175,9 @@ Safety rails added on the way:
 - `/clear`, and switching to an empty conversation, lose the message list's fade (10c-2b).
 - A panic takes 1.0 to 2.9 s on an emulator (eight measured panics), against about 0.4 s before
   10c-3, with no ANR. The wipe itself is 0.06 to 0.58 s of that; the split by stage is in the
-  decision log. A wipe that cannot confirm restarts the app (10c-3).
-- Owed before handover: Mesh Lab on two Android phones, a panic on a real phone on a throwaway
-  install, the watch, and a short phone checklist for the onboarding fixes (section 5 of
-  `refactor-decisions.md`).
+  decision log. The developer accepted it, to be measured on a real phone later. A wipe that
+  cannot confirm restarts the app (10c-3).
+- Owed before handover: the real-device checks, which the developer runs at the end (Mesh Lab on
+  two Android phones, a panic on a throwaway install, the watch, voice notes and the Phase 9
+  fresh-install checklist), the container reproducible build and the handover screenshots
+  (section 5 of `refactor-decisions.md`).

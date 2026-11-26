@@ -35,12 +35,19 @@ or alternative.
   Wear depends on `:core:domain`, `:core:mesh` and `:core:designsystem`. The copy task is gone.
 - **Onboarding.** It left `MainActivity` (Phase 9). One view model drives its steps, and one app
   gate decides between onboarding and chat. Eleven onboarding bugs were fixed or removed.
-- **Device tests.** The repo had no instrumented tests when Phase 4 began. There are now 64: 63
-  in `:app` and 1 in `:feature:chat`. They run on a connected device or emulator, not in CI.
+- **One screen shape (Phase 10a, 10b).** Every screen with state has a ViewModel with one UI
+  state and one action entry point, and a stateless screen that can be previewed and tested
+  without Hilt.
+- **No `getInstance()` singletons, and an identity scope (Phase 10c).** Every one is injected.
+  What belongs to one identity lives in a Hilt identity scope that can end, so a panic throws the
+  identity away and builds a new one, and then wipes the sandbox except a short keep-list.
+- **Device tests.** The repo had no instrumented tests when Phase 4 began. There are now 122:
+  104 in `:app`, 6 in `:feature:chat`, 5 in `:feature:settings`, 4 in `:feature:location` and
+  3 in `:feature:share`. They run on a connected device or emulator, not in CI.
 
 ### What users will notice
 
-Very little. Every user-visible change is listed below.
+Little outside panic. Every user-visible change is listed below.
 
 Visual and navigation changes (Phase 7.5):
 - The peer list, the private chat and location notes are full screens instead of bottom sheets.
@@ -75,6 +82,28 @@ Onboarding (Phase 9). The full list, with commits, is in "What Phase 9 fixed" in
 - Phones without Bluetooth get the "Bluetooth not supported → Continue" step instead of an error.
 - A skipped battery step no longer comes back when a new optional permission is asked. Turning
   Bluetooth off while granting permissions no longer jumps to the Bluetooth step.
+
+Screens (Phases 10a and 10b):
+- Debug shows the current mesh and never creates one; its relay graph samples the whole time
+  Debug is shown, keeps stable colours and refreshes nicknames; it stops polling while not on
+  screen.
+- About's Tor status, and the channels screen's Tor row, follow the Tor switch.
+- A location note's draft is kept until it sends, and survives rotation.
+- A swiped conversation row slides back, and Undo shows on every delete and survives rotation
+  and opening a chat, for up to two minutes.
+
+Panic (Phase 10c; 10c-1 and 10c-2a changed no behaviour):
+- Panic stays in the same process and Activity, closes an open private chat or sheet, and
+  returns to the main chat on a new identity.
+- The screen goes blank before the slow stages of the wipe, so no message shows during it.
+- Sends still mining when panic starts are not published, and swiping the app away mid-panic no
+  longer stops the wipe.
+- Everything outside a short keep-list of settings is wiped, along with every Keystore key, the
+  clipboard, notifications and conversation shortcuts. Settings and onboarding stay; the hotspot
+  name and the last peer-alert time reset.
+- A wipe that cannot confirm restarts the app (the splash shows), and the next launch finishes
+  it. This should never happen on a working phone.
+- Panic takes longer: 1.0 to 2.9 s on an emulator, against about 0.4 s before 10c-3.
 
 ### What contributors will notice
 
@@ -127,8 +156,11 @@ Facts only where the sources measured them.
   7.5. The container build is deferred to the end of the refactor, after Phase 11, and is not
   run per phase. Fork CI is blocked for now: GitHub answers "Actions has been disabled" with
   every setting enabled.
-- **Tests.** 879 JVM tests (3 skipped) across the phone, the core modules, the features and Wear
-  at the end of Phase 9. 64 device tests: 63 in `:app`, 1 in `:feature:chat`.
+- **Panic time.** 1.0 to 2.9 s on an emulator, against about 0.4 s in 10c-2b. The developer
+  accepted it; it is to be measured on a real phone later.
+- **Tests.** 1761 JVM tests (3 skipped) across the phone, the core modules, the features and
+  Wear, after the Phase 11 audit. 122 device tests: 104 in `:app`, 6 in `:feature:chat`, 5 in
+  `:feature:settings`, 4 in `:feature:location`, 3 in `:feature:share`.
 
 ## 3. Decisions, by phase
 
@@ -214,7 +246,7 @@ Session classes (`MessageSender`, `PrivateChatSession`, `ComposerMedia`, `Contac
 | The session scope is a main-thread supervisor, cancelled when the retained component clears. | That is what `viewModelScope` was. The component clears from the same `ViewModelStore`, so no lifetime changes. | Not recorded. | — |
 | Managers are provided, not `@Inject`-annotated. | They keep their plain constructors, which their unit tests call. | Annotating them. | — |
 | `ChatSessionMesh` holds the mesh and is replaced only by a panic clear. | The foreground service clears `MeshServiceHolder` on stop. Re-reading it would create a mesh that was never started. | Re-reading the holder. | — |
-| `GeohashSession` keeps a never-cancelled scope. | Tying it to the session would cancel a geohash message still sending when the Activity finishes. That is a messaging change for its own commit. | The session scope. | Still open. |
+| `GeohashSession` keeps a never-cancelled scope. | Tying it to the session would cancel a geohash message still sending when the Activity finishes. That is a messaging change for its own commit. | The session scope. | Closed in 10c-2b: the session's end cancels the scope, and a send runs on the identity's scope. |
 | Session classes expose a start call instead of registering in their constructors. | The favourites listener must be registered after its service initialises, or it fails silently. | Registering on construction. | — |
 | Code moves unchanged and in order (send path, panic clear, conversation list). | Not recorded. | Not recorded. | Mesh delegate wiring moved; owed Mesh Lab. |
 | Location channels ends sampling in `onCleared`. | Recreating the Activity no longer stops and restarts sampling. | `DisposableEffect`. | Small behaviour change, toward what the screen meant. |
@@ -541,12 +573,8 @@ Each would change onboarding UX or startup, which Phase 9 ruled out of scope.
 - `ic_notification` lives in `:core:domain`, the lowest module chat and share both see.
 - `TransportDiagnostics` has about 20 members. The real fix is moving `BluetoothMeshService`
   out of `:app`.
-- `MessageRouter` relies on an unscoped `Provider` to follow a replaced mesh. The deeper fix is
-  a mesh service with a stable identity.
-- `GeohashSession` keeps a never-cancelled scope (see Phase 5).
-- About 17 `object` singletons remained in `services/` and `ui/` at the end of Phase 3.
-- `AppStartupGate.forcePhase` is an `internal` test hook in main sources, used only by device
-  tests.
+- `AppStartupGate.forcePhase` and `ChatSessionMesh.replace` are test seams in main sources,
+  used only by tests (see "Phase 11: audit").
 - Two binding modules with near names: `ReadinessBindingsModule` (main, Wi-Fi Aware only) and
   `ReadinessBindingModule` (debug and release, `DeviceReadiness`).
 
@@ -558,21 +586,26 @@ Each would change onboarding UX or startup, which Phase 9 ruled out of scope.
 
 ### Owed before handover
 
+The real-device checks are the developer's, run once at the end:
 - **Mesh Lab on two physical Android phones.** Phases 4–7 moved the private chat path, the mesh
   delegate wiring, the send path and the transport files. Phase 8 moved Tor. Phase 9 moved app
-  startup and where the mesh delegate attaches and detaches.
-- **Manual checks on a real device:** a public message, the peer list, the user sheet, and the
-  geohash picker and globe. These are blocked on the emulator by the rule against using
-  location data.
+  startup and where the mesh delegate attaches and detaches. Phase 10c moved every mesh class
+  into the identity scope.
+- **A panic on a real phone, on a throwaway install**, never on a phone holding a real identity.
+  Phases 10c-2b and 10c-3 checked it on emulators only. This is also where the panic's time is
+  measured on real flash.
+- **The watch on a device**, including the visual check of Phase 8's design system change.
+- **Voice notes** between real phones.
 - **Phase 9 phone run, fresh install, from the spec's checklist:** no chat flash before the
   permission explanation (F8); declining the battery dialog stays on the step (F7); Bluetooth
   off and on in chat restores the open chat and reopens nothing (F1); rotating during startup
   shows no error (F2); a DM sent from a second device while the app is in the background
   arrives as a notification (F9); the onboarding screens' insets.
-- **A panic on a real phone, on a throwaway install.** Phases 10c-2b and 10c-3 checked it on
-  emulators only. The check is the developer's to run, and never on a phone holding a real
-  identity.
-- **Wear visual check.** No Wear emulator was available for Phase 8's design system change.
+- **Manual checks on a real device:** a public message, the peer list, the user sheet, and the
+  geohash picker and globe. These are blocked on the emulator by the rule against using
+  location data.
+
+Also owed:
 - **Container reproducible build**, once, at the end of the refactor, when fork CI can run.
 - **Before/after screenshots** in the handover PR for the Phase 7.5 screens and the Wear peer
   colors, with synthetic data only.
@@ -1136,7 +1169,7 @@ Simulated Bluetooth, two emulators started for this check.
 
 Tests: JVM 1679 (from 1626) with 0 failures (3 skipped), and lint green. Device suites: app 103 (from 102, the new panic contract test), chat 6, settings 5, location 4, share 3, all passing.
 
-After the review fixes, the full gate on the final code: JVM 1684 with 0 failures (3 skipped), lint and both assembles green; device chat 6, settings 5, location 4, share 3. The app suite crashed once in that gate, in `PanicAroundTheScreenTest`'s panic while stopped: the new identity's first encrypted preferences failed to decrypt their keyset (`AEADBadTagException`), the class the storage lock was added for. The same test then failed every time on the base commit and on the fixes alike while the app kept the data that run left, and passed on a fresh install: the class twice, and the whole app suite, 103 of 103 with the panic contract test. So the fixes did not cause it, and the crash is not closed; it is the first follow-up below.
+After the review fixes, the full gate on the final code: JVM 1684 with 0 failures (3 skipped), lint and both assembles green; device chat 6, settings 5, location 4, share 3. The app suite crashed once in that gate, in `PanicAroundTheScreenTest`'s panic while stopped: the new identity's first encrypted preferences failed to decrypt their keyset (`AEADBadTagException`), the class the storage lock was added for. The same test then failed every time on the base commit and on the fixes alike while the app kept the data that run left, and passed on a fresh install: the class twice, and the whole app suite, 103 of 103 with the panic contract test. So the fixes did not cause it. The crash was closed afterwards; see "Closed after 10c-3".
 
 #### Closed from the 10c-2b follow-ups
 
@@ -1155,7 +1188,7 @@ After the review fixes, the full gate on the final code: JVM 1684 with 0 failure
 - `NotificationManager`'s `liveManagers` stays a static companion.
 - An earlier session's geohash send can still publish during a wipe.
 - Test quality: some keep-list key checks are weak for generic names; the clipboard check passes on an unreadable clip; `MeshSingletonIdentityTest`'s name over-claims; one contract seeding failure was not root-caused.
-- Panic takes 1.0 to 2.9 s on an emulator, against about 0.4 s in 10c-2b. The split by stage is above; the developer decides.
+- Panic takes 1.0 to 2.9 s on an emulator, against about 0.4 s in 10c-2b. The split by stage is above. (D) Accepted; to be measured on a real phone later (see "Phase 11: audit").
 
 Owed: a panic on a real phone, on a throwaway install, which is the developer's to run; Mesh Lab on two physical phones; the watch.
 
@@ -1188,10 +1221,63 @@ Merged upstream to `f6bfceac` (30 commits). Every behaviour fix is kept; where t
 
 Tests: upstream's tests were ported to this branch's classes, beside their subjects. The two `MainActivity` Robolectric tests became `ForegroundServiceStartRetryTest`, because the app's JVM tests do not build Hilt entry points; for the same reason `MeshForegroundServiceStartupTest` sets the injected fields by hand and drops upstream's `onCreate` check. The relay test fails against the old `clearAllOnPanic`. `PanicClearTest` gains the order upstream's intent needs: relays released before the identity ends, the reconnecting start-up only after a confirmed wipe, none after one that failed.
 
-### Phase 11: Wear shares UI with the phone (not started)
+### Phase 11: audit
 
-Planned scope: Wear shares UI with the phone beyond the design system base that Phase 8 added.
+(D) Phase 11 was narrowed to a short audit of the finished refactor. Sharing Wear's UI with the
+phone is deferred and out of scope for this refactor. (2026-11-26)
+
+#### Fixed
+
+| ID | Before | After |
+|---|---|---|
+| P11-01 | The chat file picker took a persistable read grant on every picked document. The system keeps that grant outside the sandbox, so it survived a panic. | The copy runs inside the picker's callback, where the picker's own grant is enough, so no grant is persisted. `PanicSystemSideRulesTest` now treats `takePersistableUriPermission` as a system-side API. |
+| P11-02 | `FileShareDispatcher`, a stateful `object` that nothing dispatched through, was still installed by `ChatScreen`. | Deleted, with its `LaunchedEffect` and its allowlist entry. |
+| P11-06 | Three process-wide reasons in `IdentityScopeRulesTest` were wrong. `DebugSettingsManager` and `DebugPreferenceManager` both said "the wipe list must cover its buffers": a panic cleanup empties the first one's buffers, and the second holds none. `WearNotificationCoordinator`'s said only "system notifications", though it keeps unread message previews. | Each says what the class holds: the debug toggles and limits, which are no peer or identity data; the buffers of peer IDs, nicknames and device addresses that `DebugBuffersPanicCleanup` empties; and the watch's unread previews, which no panic reaches because the watch has no panic. |
+| P11-13 | `MeshIdentityBindings` had a `@CurrentIdentity` bridge for `PrivateMessageArrivalOrder` that nothing took. | Deleted; the stores inside the scope take it directly. |
+| — | Nothing pinned that the panic's relay release only unsubscribes. | `GeohashSessionSendTest` and `NostrBackgroundRuntimeReleaseTest` check that `panicReleaseRelays` and `releaseSubscriptions` make no subscribe call, even after ten minutes of virtual time. The runtime's test fails against a release that subscribes again. |
+
+Also closed in this section's cleanup of section 5: the smells `MessageRouter`'s unscoped
+`Provider` (10c-2a-2b), `GeohashSession`'s never-cancelled scope (10c-2b) and the `object`
+singletons left after Phase 3 (10c-1 and 10c-2a-1); and the 10c-3 follow-ups closed after it,
+which are listed in "Closed after 10c-3".
+
+#### Known, not fixed
+
+- **P11-07: relay state after a panic.** Since the upstream sync, `clearAllOnPanic` drops the
+  subscriptions, handlers, per-geohash routing, queued events and the deduplication cache,
+  closes every socket, and puts the relay list back to the defaults with fresh relay objects
+  and no live-location tokens (`forgetSessionRelays`). What remains in memory is
+  `pendingGiftWrapIDs`: the IDs of gift wraps the wiped identity sent that no relay has
+  acknowledged yet. They stay until a relay answers or the process ends.
+- **Two relay timing gaps, both also upstream.** A Tor route change that races the panic's
+  release can open the default relays again during the wipe. And anything the ending identity
+  hands the relay manager after the release is replayed on the next identity's sockets.
+- **Test seams in main sources:** `ChatSessionMesh.replace`, used only by device tests, and
+  `AppStartupGate.forcePhase`, an `internal` hook used only by device tests.
+- **P11-11: `:app` still declares libraries of code that moved out.** No `:app` main source
+  imports ZXing, ML Kit, CameraX, Accompanist, Play Services location, ExifInterface, Navigation
+  Compose, the Nordic BLE library or security-crypto, yet `app/build.gradle.kts` declares them.
+  Removing them changes the lockfiles and the verification metadata, so it is left for a
+  dependency change of its own.
+- **P11-12: functions the refactor left without callers.** Their callers upstream were moved or
+  rebuilt: `BitchatSheetTopBar` and `BitchatSheetCenterTopBar` (the sheets became full
+  screens), `MeshCore.sendFilePrivate` and `MeshCore.getEncryptedPeers` (10c-2a-2a),
+  `NotificationManager.clearAllNotifications` (the panic cleanup does its work; the 10c-3
+  removal of uncalled clear methods missed it),
+  `FavoritesPersistenceService.clearAllFavorites` (see "Closed after 10c-3"),
+  `VerificationHandler.isNoisePublicKeyVerified`, `GeohashSession.peerIdentityForNostrPubkey`,
+  `NostrFilter.geohashEphemeral` and the constant `AppConstants.Nostr.SUBSCRIPTION_VALIDATION_INTERVAL_MS`.
+- **P11-15:** `cd_close` and `join` are defined in both `:feature:chat` and `:feature:location`.
+- **P11-16:** `ScreenTransitions.DURATION_MS` repeats `BitchatMotion.EMPHASIZED_MS` (240),
+  because `:core:navigation` cannot see the theme.
+
+#### Decisions
 
 | Decision | Why | Alternatives rejected | Cost / what to watch |
 |---|---|---|---|
-| *To be filled in* | | | |
+| (D) A panic taking 1.0 to 2.9 s on an emulator, against about 0.4 s in 10c-2b, is accepted. It is measured on a real phone later. (2026-11-26) | The split by stage (10c-3) shows no single cause, and emulator storage says little about real flash. | The bulk-media change now. | If the real phone is slow, the conversation store's clear and the blank frame are the first stages to look at. |
+| (D) The real-device checks are the developer's, at the end of the refactor. (2026-11-26) | They need two physical phones, a throwaway install and a watch. | Running them per phase. | Listed in section 5, "Owed before handover". |
+
+Tests: JVM 1761 with 0 failures (3 skipped), lint and both assembles green. Device suites were
+not run in this phase; the last run, at the end of 10c-3, was app 104, chat 6, settings 5,
+location 4, share 3.
