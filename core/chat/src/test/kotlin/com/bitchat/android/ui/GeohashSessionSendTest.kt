@@ -49,7 +49,10 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.shadows.ShadowLog
 
-/** A geohash send outlives the session it started in, and not the identity it signs for. */
+/**
+ * A geohash send outlives the session it started in, and not the identity it signs for. A panic's
+ * release of the relays subscribes nothing again for the identity being wiped.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class GeohashSessionSendTest {
@@ -59,6 +62,7 @@ class GeohashSessionSendTest {
     private val application: Application = RuntimeEnvironment.getApplication()
     private val stores = TestMeshStores(application)
     private val relayManager = mock<NostrRelayManager>()
+    private val backgroundRuntime = mock<NostrBackgroundRuntime> { on { participants } doReturn GeohashParticipantStore() }
     // Synthetic channel near the coordinate origin; no location provider or relay is used.
     private val channel = GeohashChannel(GeohashChannelLevel.CITY, "s0000")
     private val identity = NostrIdentity.fromSeed("geohash-send-fixture")
@@ -84,7 +88,7 @@ class GeohashSessionSendTest {
             messageManager = mock(),
             dataManager = mock(),
             notificationManager = mock(),
-            nostrBackgroundRuntime = mock { on { participants } doReturn GeohashParticipantStore() },
+            nostrBackgroundRuntime = backgroundRuntime,
             liveLocationPrivacyGate = mock(),
             powPreferences = mock<PoWPreferenceManager> {
                 on { getCurrentSettings() } doReturn PoWPreferenceManager(application).getCurrentSettings()
@@ -191,5 +195,23 @@ class GeohashSessionSendTest {
         scheduler.runCurrent()
 
         verifyNoInteractions(relayManager)
+    }
+
+    @Test
+    fun `the panic's release of the relays only unsubscribes, even as time passes`() {
+        session.beginGeohashSampling(emptyList(), listOf(channel.geohash))
+        session.onStart(mock())
+        scheduler.runCurrent()
+        val subscribed = org.mockito.Mockito.mockingDetails(relayManager).invocations.map { it.method.name }
+        assertTrue("the fixture subscribes before the release", subscribed.any { it.startsWith("subscribe") })
+        org.mockito.Mockito.clearInvocations(relayManager)
+
+        session.panicReleaseRelays()
+        scheduler.advanceTimeBy(10 * 60_000L)
+        scheduler.runCurrent()
+
+        val calls = org.mockito.Mockito.mockingDetails(relayManager).invocations.map { it.method.name }
+        assertEquals(listOf("unsubscribeOwner", "clearAllOnPanic"), calls)
+        verify(backgroundRuntime).releaseSubscriptions()
     }
 }
