@@ -58,11 +58,6 @@ class DataManager(private val context: Context) {
         Log.d(TAG, "Saved last geohash channel")
     }
     
-    fun clearLastGeohashChannel() {
-        prefs.edit().remove("last_geohash_channel").apply()
-        Log.d(TAG, "Cleared last geohash channel")
-    }
-
     // MARK: - Location Services State
     
     fun saveLocationServicesEnabled(enabled: Boolean) {
@@ -255,16 +250,5 @@ class DataManager(private val context: Context) {
     @Synchronized
     fun isGeohashUserBlocked(pubkeyHex: String): Boolean {
         return _geohashBlockedUsers.contains(pubkeyHex)
-    }
-    
-    // MARK: - Emergency Clear
-    
-    fun clearAllData() {
-        _channelCreators.clear()
-        _favoritePeers.clear()
-        _blockedUsers.clear()
-        _geohashBlockedUsers.clear()
-        _channelMembers.clear()
-        prefs.edit().clear().apply()
     }
 }

@@ -1651,18 +1651,4 @@ class BluetoothMeshService @AssistedInject constructor(
             Log.e(TAG, "Error clearing mesh service internal data: ${e.message}")
         }
     }
-    
-    /**
-     * Clear all encryption and cryptographic data (for panic mode)
-     */
-    fun clearAllEncryptionData(): Boolean {
-        Log.w(TAG, "Clearing all encryption data")
-        return try {
-            // Clear encryption service persistent identity (includes Ed25519 signing keys)
-            encryptionService.clearPersistentIdentity()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error clearing encryption data: ${e.message}")
-            false
-        }
-    }
 }

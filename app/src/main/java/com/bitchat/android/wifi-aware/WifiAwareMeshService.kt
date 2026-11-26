@@ -1612,9 +1612,6 @@ class WifiAwareMeshService @Inject constructor(
         meshCore.clearAllInternalData()
     }
 
-    override fun clearAllEncryptionData(): Boolean =
-        meshCore.clearAllEncryptionData()
-
     /** Utility extension to safely close server sockets. */
     private fun ServerSocket.closeQuietly() = try { close() } catch (_: Exception) {}
 

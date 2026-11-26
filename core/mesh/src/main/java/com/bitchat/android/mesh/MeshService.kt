@@ -66,8 +66,6 @@ interface MeshDiagnostics {
 /** Panic wipe of the in-memory and persistent state. */
 interface MeshWipe {
     fun clearAllInternalData()
-    /** Returns true only when every transport's persistent identity was wiped from disk. */
-    fun clearAllEncryptionData(): Boolean
 }
 
 /**

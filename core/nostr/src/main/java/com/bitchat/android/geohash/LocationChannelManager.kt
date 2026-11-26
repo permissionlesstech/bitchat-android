@@ -651,16 +651,6 @@ class LocationChannelManager @Inject constructor(
         }
     }
 
-    /**
-     * Clear persisted channel selection (useful for testing or reset)
-     */
-    fun clearPersistedChannel() {
-        dataManager?.clearLastGeohashChannel()
-        _selectedChannel.value = ChannelID.Mesh
-        selectedLocationSource = null
-        _teleported.value = false
-    }
-
     // MARK: - Location Services State Persistence
 
     /**

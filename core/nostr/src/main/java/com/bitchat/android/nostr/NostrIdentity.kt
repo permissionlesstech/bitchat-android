@@ -209,31 +209,6 @@ class NostrIdentityBridge @Inject constructor(
         return favorites.findNostrPubkey(noisePublicKey)
     }
     
-    /**
-     * Clear all Nostr identity data
-     */
-    /** Returns true only when the Nostr key and geohash seed were wiped from disk. */
-    fun clearAllAssociations(context: Context): Boolean {
-        val stateManager = SecureIdentityStateManager(context)
-        
-        // Clear cache first
-        geohashIdentityCache.clear()
-        
-        // Clear Nostr private key using public methods instead of reflection
-        return try {
-            val cleared = stateManager.clearSecureValuesSynchronously(NOSTR_PRIVATE_KEY, DEVICE_SEED_KEY)
-            if (cleared) {
-                Log.i(TAG, "Cleared all Nostr identity data and cache")
-            } else {
-                Log.e(TAG, "Nostr identity wipe could not be committed")
-            }
-            cleared
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to clear Nostr data: ${e.message}")
-            false
-        }
-    }
-
     fun clearGeohashIdentityCache(geohashes: Collection<String>) {
         geohashes.forEach(geohashIdentityCache::remove)
     }
