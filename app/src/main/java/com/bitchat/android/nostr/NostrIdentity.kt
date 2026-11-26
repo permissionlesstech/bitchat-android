@@ -7,6 +7,9 @@ import com.bitchat.android.identity.SecureIdentityStateManager
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
+import kotlin.concurrent.write
 
 /**
  * Manages Nostr identity (secp256k1 keypair) for NIP-17 private messaging
@@ -104,35 +107,47 @@ object NostrIdentityBridge {
     private val geohashIdentityCache = ConcurrentHashMap<String, NostrIdentity>()
     @Volatile
     private var cachedCurrentIdentity: NostrIdentity? = null
-    private val identityLock = Any()
+    // Read-write lock: concurrent cold lookups share readLock (no contention between lookups),
+    // while panic wipe takes writeLock so wipe + cache clear is atomic against cold loads.
+    private val identityLock = ReentrantReadWriteLock()
+    private val currentIdentityInitLock = Any()
+    private val deviceSeedInitLock = Any()
+
+    /**
+     * Lock-free lookup of an already-derived geohash identity (safe to call on the main thread).
+     */
+    fun getCachedIdentity(forGeohash: String): NostrIdentity? = geohashIdentityCache[forGeohash]
 
     /**
      * Get or create the current Nostr identity
      */
     fun getCurrentNostrIdentity(context: Context): NostrIdentity? {
         cachedCurrentIdentity?.let { return it }
-        synchronized(identityLock) {
-            cachedCurrentIdentity?.let { return it }
-            val stateManager = SecureIdentityStateManager(context)
+        return identityLock.read {
+            cachedCurrentIdentity?.let { return@read it }
+            synchronized(currentIdentityInitLock) {
+                cachedCurrentIdentity?.let { return@synchronized it }
+                val stateManager = SecureIdentityStateManager(context)
 
-            // Try to load existing Nostr private key
-            val existingKey = loadNostrPrivateKey(stateManager)
-            if (existingKey != null) {
-                return try {
-                    NostrIdentity.fromPrivateKey(existingKey).also { cachedCurrentIdentity = it }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to create identity from stored key: ${e.message}")
-                    null
+                // Try to load existing Nostr private key
+                val existingKey = loadNostrPrivateKey(stateManager)
+                if (existingKey != null) {
+                    return@synchronized try {
+                        NostrIdentity.fromPrivateKey(existingKey).also { cachedCurrentIdentity = it }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to create identity from stored key: ${e.message}")
+                        null
+                    }
                 }
+
+                // Generate new identity
+                val newIdentity = NostrIdentity.generate()
+                saveNostrPrivateKey(stateManager, newIdentity.privateKeyHex)
+                cachedCurrentIdentity = newIdentity
+
+                Log.i(TAG, "Created new Nostr identity: ${newIdentity.getShortNpub()}")
+                newIdentity
             }
-
-            // Generate new identity
-            val newIdentity = NostrIdentity.generate()
-            saveNostrPrivateKey(stateManager, newIdentity.privateKeyHex)
-            cachedCurrentIdentity = newIdentity
-
-            Log.i(TAG, "Created new Nostr identity: ${newIdentity.getShortNpub()}")
-            return newIdentity
         }
     }
 
@@ -149,10 +164,10 @@ object NostrIdentityBridge {
             return cachedIdentity
         }
 
-        // Serialize cold derivation with clearAllAssociations under identityLock so a panic wipe
-        // cannot race between reading the device seed and returning/caching a pre-wipe identity.
-        synchronized(identityLock) {
-            geohashIdentityCache[forGeohash]?.let { return it }
+        // Hold shared readLock so concurrent cold derivations never block one another,
+        // while panic wipe (writeLock) remains strictly serialized against cold loads.
+        return identityLock.read {
+            geohashIdentityCache[forGeohash]?.let { return@read it }
 
             val stateManager = SecureIdentityStateManager(context)
             val seed = getOrCreateDeviceSeed(stateManager)
@@ -168,7 +183,7 @@ object NostrIdentityBridge {
                     val identity = NostrIdentity.fromPrivateKey(candidateKeyHex)
                     geohashIdentityCache[forGeohash] = identity
                     Log.d(TAG, "Derived geohash identity")
-                    return identity
+                    return@read identity
                 }
             }
 
@@ -181,7 +196,7 @@ object NostrIdentityBridge {
             geohashIdentityCache[forGeohash] = fallbackIdentity
 
             Log.d(TAG, "Used fallback geohash identity derivation")
-            return fallbackIdentity
+            fallbackIdentity
         }
     }
     
@@ -217,10 +232,10 @@ object NostrIdentityBridge {
     fun clearAllAssociations(context: Context): Boolean {
         val stateManager = SecureIdentityStateManager(context)
 
-        // Hold identityLock across both cache invalidation and synchronous disk wipe so a
+        // Hold exclusive writeLock across both cache invalidation and synchronous disk wipe so a
         // concurrent getCurrentNostrIdentity/deriveIdentity call cannot cache a key that the
         // wipe immediately deletes from storage.
-        return synchronized(identityLock) {
+        return identityLock.write {
             cachedCurrentIdentity = null
             geohashIdentityCache.clear()
 
@@ -269,21 +284,27 @@ object NostrIdentityBridge {
     
     private fun getOrCreateDeviceSeed(stateManager: SecureIdentityStateManager): ByteArray {
         try {
-            // Use public methods instead of reflection to access the encrypted preferences
             val existingSeed = stateManager.getSecureValue(DEVICE_SEED_KEY)
             if (existingSeed != null) {
                 return android.util.Base64.decode(existingSeed, android.util.Base64.DEFAULT)
             }
-            
-            // Generate new seed
-            val seed = ByteArray(32)
-            SecureRandom().nextBytes(seed)
-            
-            val seedBase64 = android.util.Base64.encodeToString(seed, android.util.Base64.DEFAULT)
-            stateManager.storeSecureValue(DEVICE_SEED_KEY, seedBase64)
-                
-            Log.d(TAG, "Generated new device seed for geohash identity derivation")
-            return seed
+
+            return synchronized(deviceSeedInitLock) {
+                val recheckedSeed = stateManager.getSecureValue(DEVICE_SEED_KEY)
+                if (recheckedSeed != null) {
+                    return@synchronized android.util.Base64.decode(recheckedSeed, android.util.Base64.DEFAULT)
+                }
+
+                // Generate new seed
+                val seed = ByteArray(32)
+                SecureRandom().nextBytes(seed)
+
+                val seedBase64 = android.util.Base64.encodeToString(seed, android.util.Base64.DEFAULT)
+                stateManager.storeSecureValue(DEVICE_SEED_KEY, seedBase64)
+
+                Log.d(TAG, "Generated new device seed for geohash identity derivation")
+                seed
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to get/create device seed: ${e.message}")
             throw e

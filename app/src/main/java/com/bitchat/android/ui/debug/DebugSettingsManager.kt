@@ -105,19 +105,54 @@ class DebugSettingsManager private constructor() {
     private val _relayStats = MutableStateFlow(PacketRelayStats())
     val relayStats: StateFlow<PacketRelayStats> = _relayStats.asStateFlow()
 
-    // Timestamps to compute rolling window stats
-    private val relayTimestamps = ConcurrentLinkedQueue<Long>()
-    // Per-device and per-peer rolling timestamps for stacked graphs (only populated while sheet visible)
-    private val perDeviceRelayTimestamps = ConcurrentHashMap<String, ConcurrentLinkedQueue<Long>>()
-    private val perPeerRelayTimestamps = ConcurrentHashMap<String, ConcurrentLinkedQueue<Long>>()
+    /**
+     * Zero-allocation per-second circular ring buffer for rolling packet-rate windows.
+     * Recording costs a single synchronized array increment with zero boxing or queue allocations,
+     * keeping rolling 1m/15m counters accurate even while the debug sheet is closed.
+     */
+    private class RollingSecondCounter(private val windowSeconds: Int) {
+        private val epochs = LongArray(windowSeconds) { Long.MIN_VALUE }
+        private val counts = IntArray(windowSeconds)
 
-    // Additional buckets to split incoming vs outgoing
-    private val incomingTimestamps = ConcurrentLinkedQueue<Long>()
-    private val outgoingTimestamps = ConcurrentLinkedQueue<Long>()
-    private val perDeviceIncoming = ConcurrentHashMap<String, ConcurrentLinkedQueue<Long>>()
-    private val perDeviceOutgoing = ConcurrentHashMap<String, ConcurrentLinkedQueue<Long>>()
-    private val perPeerIncoming = ConcurrentHashMap<String, ConcurrentLinkedQueue<Long>>()
-    private val perPeerOutgoing = ConcurrentHashMap<String, ConcurrentLinkedQueue<Long>>()
+        @Synchronized
+        fun record(nowSec: Long) {
+            val idx = Math.floorMod(nowSec, windowSeconds.toLong()).toInt()
+            if (epochs[idx] != nowSec) {
+                epochs[idx] = nowSec
+                counts[idx] = 1
+            } else {
+                counts[idx]++
+            }
+        }
+
+        @Synchronized
+        fun sumLast(nowSec: Long, seconds: Int): Int {
+            val clamped = minOf(seconds, windowSeconds)
+            val cutoff = nowSec - clamped + 1
+            var total = 0
+            for (i in 0 until windowSeconds) {
+                val ep = epochs[i]
+                if (ep >= cutoff && ep <= nowSec) {
+                    total += counts[i]
+                }
+            }
+            return total
+        }
+
+        @Synchronized
+        fun hasRecent(nowSec: Long): Boolean = sumLast(nowSec, windowSeconds) > 0
+    }
+
+    // Rolling window ring buffers (15m global; 60s per-device/per-peer)
+    private val relayWindow = RollingSecondCounter(15 * 60)
+    private val incomingWindow = RollingSecondCounter(15 * 60)
+    private val outgoingWindow = RollingSecondCounter(15 * 60)
+    private val perDeviceRelayWindows = ConcurrentHashMap<String, RollingSecondCounter>()
+    private val perPeerRelayWindows = ConcurrentHashMap<String, RollingSecondCounter>()
+    private val perDeviceIncomingWindows = ConcurrentHashMap<String, RollingSecondCounter>()
+    private val perDeviceOutgoingWindows = ConcurrentHashMap<String, RollingSecondCounter>()
+    private val perPeerIncomingWindows = ConcurrentHashMap<String, RollingSecondCounter>()
+    private val perPeerOutgoingWindows = ConcurrentHashMap<String, RollingSecondCounter>()
 
     // Expose current per-second rates (updated when logging/pruning occurs)
     private val _perDeviceLastSecond: MutableStateFlow<Map<String, Int>> = MutableStateFlow(emptyMap())
@@ -173,73 +208,53 @@ class DebugSettingsManager private constructor() {
     
     private fun updateRelayStatsFromTimestamps() {
         if (!_debugSheetVisible.value) return
-        val now = System.currentTimeMillis()
-        // prune older than 15m
-        while (true) {
-            val head = relayTimestamps.peek() ?: break
-            if (now - head > 15 * 60 * 1000L) {
-                relayTimestamps.poll()
-            } else break
-        }
-        // prune per-device and per-peer and compute 1s/60s rates
-        fun pruneAndCount1s(map: MutableMap<String, ConcurrentLinkedQueue<Long>>): Map<String, Int> {
+        val nowSec = System.currentTimeMillis() / 1_000L
+
+        fun snapshotAndPrune(
+            map: ConcurrentHashMap<String, RollingSecondCounter>,
+            windowSec: Int
+        ): Map<String, Int> {
             val result = mutableMapOf<String, Int>()
             val iterator = map.entries.iterator()
             while (iterator.hasNext()) {
-                val (key, q) = iterator.next()
-                // prune this queue
-                while (true) {
-                    val ts = q.peek() ?: break
-                    if (now - ts > 15 * 60 * 1000L) {
-                        q.poll()
-                    } else break
-                }
-                // count last 1s only
-                val count1s = q.count { now - it <= 1_000L }
-                if (q.isEmpty()) {
-                    // cleanup empty queues to prevent unbounded growth
+                val (key, counter) = iterator.next()
+                val count = counter.sumLast(nowSec, windowSec)
+                if (count > 0) {
+                    result[key] = count
+                } else if (!counter.hasRecent(nowSec)) {
                     iterator.remove()
                 }
-                if (count1s > 0) result[key] = count1s
-            }
-            return result
-        }
-        fun pruneAndCount60s(map: MutableMap<String, ConcurrentLinkedQueue<Long>>): Map<String, Int> {
-            val result = mutableMapOf<String, Int>()
-            map.forEach { (key, q) ->
-                val count60 = q.count { now - it <= 60_000L }
-                if (count60 > 0) result[key] = count60
             }
             return result
         }
 
-        val perDevice1s = pruneAndCount1s(perDeviceRelayTimestamps)
-        val perPeer1s = pruneAndCount1s(perPeerRelayTimestamps)
+        val perDevice1s = snapshotAndPrune(perDeviceRelayWindows, 1)
+        val perPeer1s = snapshotAndPrune(perPeerRelayWindows, 1)
 
         _perDeviceLastSecond.value = perDevice1s
         _perPeerLastSecond.value = perPeer1s
         // Also compute incoming/outgoing per-key rates
-        _perDeviceIncomingLastSecond.value = pruneAndCount1s(perDeviceIncoming)
-        _perDeviceOutgoingLastSecond.value = pruneAndCount1s(perDeviceOutgoing)
-        _perPeerIncomingLastSecond.value = pruneAndCount1s(perPeerIncoming)
-        _perPeerOutgoingLastSecond.value = pruneAndCount1s(perPeerOutgoing)
-        _perDeviceIncomingLastMinute.value = pruneAndCount60s(perDeviceIncoming)
-        _perDeviceOutgoingLastMinute.value = pruneAndCount60s(perDeviceOutgoing)
-        _perPeerIncomingLastMinute.value = pruneAndCount60s(perPeerIncoming)
-        _perPeerOutgoingLastMinute.value = pruneAndCount60s(perPeerOutgoing)
-        val last1s = relayTimestamps.count { now - it <= 1_000L }
-        val last10s = relayTimestamps.count { now - it <= 10_000L }
-        val last1m = relayTimestamps.count { now - it <= 60_000L }
-        val last15m = relayTimestamps.size
-        // And incoming/outgoing per-second counters
-        val last1sIncoming = incomingTimestamps.count { now - it <= 1_000L }
-        val last1sOutgoing = outgoingTimestamps.count { now - it <= 1_000L }
-        val last10sIncoming = incomingTimestamps.count { now - it <= 10_000L }
-        val last10sOutgoing = outgoingTimestamps.count { now - it <= 10_000L }
-        val last1mIncoming = incomingTimestamps.count { now - it <= 60_000L }
-        val last1mOutgoing = outgoingTimestamps.count { now - it <= 60_000L }
-        val last15mIncoming = incomingTimestamps.size
-        val last15mOutgoing = outgoingTimestamps.size
+        _perDeviceIncomingLastSecond.value = snapshotAndPrune(perDeviceIncomingWindows, 1)
+        _perDeviceOutgoingLastSecond.value = snapshotAndPrune(perDeviceOutgoingWindows, 1)
+        _perPeerIncomingLastSecond.value = snapshotAndPrune(perPeerIncomingWindows, 1)
+        _perPeerOutgoingLastSecond.value = snapshotAndPrune(perPeerOutgoingWindows, 1)
+        _perDeviceIncomingLastMinute.value = snapshotAndPrune(perDeviceIncomingWindows, 60)
+        _perDeviceOutgoingLastMinute.value = snapshotAndPrune(perDeviceOutgoingWindows, 60)
+        _perPeerIncomingLastMinute.value = snapshotAndPrune(perPeerIncomingWindows, 60)
+        _perPeerOutgoingLastMinute.value = snapshotAndPrune(perPeerOutgoingWindows, 60)
+        val last1s = relayWindow.sumLast(nowSec, 1)
+        val last10s = relayWindow.sumLast(nowSec, 10)
+        val last1m = relayWindow.sumLast(nowSec, 60)
+        val last15m = relayWindow.sumLast(nowSec, 15 * 60)
+        // And incoming/outgoing counters
+        val last1sIncoming = incomingWindow.sumLast(nowSec, 1)
+        val last1sOutgoing = outgoingWindow.sumLast(nowSec, 1)
+        val last10sIncoming = incomingWindow.sumLast(nowSec, 10)
+        val last10sOutgoing = outgoingWindow.sumLast(nowSec, 10)
+        val last1mIncoming = incomingWindow.sumLast(nowSec, 60)
+        val last1mOutgoing = outgoingWindow.sumLast(nowSec, 60)
+        val last15mIncoming = incomingWindow.sumLast(nowSec, 15 * 60)
+        val last15mOutgoing = outgoingWindow.sumLast(nowSec, 15 * 60)
         val totalIncoming = totalIncomingCountAtomic.get()
         val totalOutgoing = totalOutgoingCountAtomic.get()
         _relayStats.value = PacketRelayStats(
@@ -558,12 +573,17 @@ class DebugSettingsManager private constructor() {
     
     // Explicit incoming/outgoing logging to avoid double counting
     fun logIncoming(packet: BitchatPacket, fromPeerID: String, fromNickname: String?, fromDeviceAddress: String?, myPeerID: String) {
-        // Lightweight lock-free totals always stay accurate even when the debug sheet is closed.
+        // Lightweight lock-free totals and zero-allocation ring buffers always stay accurate
+        // even when the debug sheet is closed (no UI StateFlow updates while hidden).
+        val nowSec = System.currentTimeMillis() / 1_000L
         totalIncomingCountAtomic.incrementAndGet()
+        incomingWindow.record(nowSec)
         fromDeviceAddress?.let {
             deviceIncomingTotalsMap.computeIfAbsent(it) { AtomicLong(0L) }.incrementAndGet()
+            perDeviceIncomingWindows.computeIfAbsent(it) { RollingSecondCounter(60) }.record(nowSec)
         }
         peerIncomingTotalsMap.computeIfAbsent(fromPeerID) { AtomicLong(0L) }.incrementAndGet()
+        perPeerIncomingWindows.computeIfAbsent(fromPeerID) { RollingSecondCounter(60) }.record(nowSec)
 
         val verbose = verboseLoggingEnabled.value
         val visible = _debugSheetVisible.value
@@ -590,26 +610,27 @@ class DebugSettingsManager private constructor() {
             emitVisualEvent(MeshVisualEvent.RouteActivity(fullRoute))
         }
 
-        val now = System.currentTimeMillis()
-        incomingTimestamps.offer(now)
-        fromDeviceAddress?.let {
-            perDeviceIncoming.computeIfAbsent(it) { ConcurrentLinkedQueue() }.offer(now)
+        if (fromDeviceAddress != null) {
             _perDeviceIncomingTotalsFlow.value = deviceIncomingTotalsMap.entries.associate { e -> e.key to e.value.get() }
         }
-        perPeerIncoming.computeIfAbsent(fromPeerID) { ConcurrentLinkedQueue() }.offer(now)
         _perPeerIncomingTotalsFlow.value = peerIncomingTotalsMap.entries.associate { e -> e.key to e.value.get() }
         updateRelayStatsFromTimestamps()
     }
 
     fun logOutgoing(packetType: String, toPeerID: String?, toNickname: String?, toDeviceAddress: String?, previousHopPeerID: String? = null, packetVersion: UByte = 1u, routeInfo: String? = null) {
-        // Lightweight lock-free totals always stay accurate even when the debug sheet is closed.
+        // Lightweight lock-free totals and zero-allocation ring buffers always stay accurate
+        // even when the debug sheet is closed (no UI StateFlow updates while hidden).
+        val nowSec = System.currentTimeMillis() / 1_000L
         totalOutgoingCountAtomic.incrementAndGet()
+        outgoingWindow.record(nowSec)
         toDeviceAddress?.let {
             deviceOutgoingTotalsMap.computeIfAbsent(it) { AtomicLong(0L) }.incrementAndGet()
+            perDeviceOutgoingWindows.computeIfAbsent(it) { RollingSecondCounter(60) }.record(nowSec)
         }
         val peerKey = toPeerID ?: previousHopPeerID
         peerKey?.let {
             peerOutgoingTotalsMap.computeIfAbsent(it) { AtomicLong(0L) }.incrementAndGet()
+            perPeerOutgoingWindows.computeIfAbsent(it) { RollingSecondCounter(60) }.record(nowSec)
         }
 
         val verbose = verboseLoggingEnabled.value
@@ -624,14 +645,10 @@ class DebugSettingsManager private constructor() {
 
         if (!visible) return
 
-        val now = System.currentTimeMillis()
-        outgoingTimestamps.offer(now)
-        toDeviceAddress?.let {
-            perDeviceOutgoing.computeIfAbsent(it) { ConcurrentLinkedQueue() }.offer(now)
+        if (toDeviceAddress != null) {
             _perDeviceOutgoingTotalsFlow.value = deviceOutgoingTotalsMap.entries.associate { e -> e.key to e.value.get() }
         }
-        peerKey?.let {
-            perPeerOutgoing.computeIfAbsent(it) { ConcurrentLinkedQueue() }.offer(now)
+        if (peerKey != null) {
             _perPeerOutgoingTotalsFlow.value = peerOutgoingTotalsMap.entries.associate { e -> e.key to e.value.get() }
         }
         updateRelayStatsFromTimestamps()

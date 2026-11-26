@@ -221,11 +221,10 @@ object NostrKind {
     const val GEOHASH_PRESENCE = 20001 // For geohash presence heartbeat
 }
 
-private fun nostrHexNibble(c: Char): Int = when (c) {
-    in '0'..'9' -> c.code - '0'.code
-    in 'a'..'f' -> c.code - 'a'.code + 10
-    in 'A'..'F' -> c.code - 'A'.code + 10
-    else -> throw NumberFormatException("Invalid hex char: $c")
+private fun nostrHexNibble(c: Char): Int {
+    val value = com.bitchat.android.util.hexNibbleOrNegative(c)
+    if (value < 0) throw NumberFormatException("Invalid hex char: $c")
+    return value
 }
 
 /**

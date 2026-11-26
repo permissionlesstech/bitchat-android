@@ -1,5 +1,6 @@
 package com.bitchat.android.mesh
 
+import com.bitchat.android.util.hexNibbleOrNegative
 import com.bitchat.android.util.toHexString
 import java.security.MessageDigest
 
@@ -8,13 +9,6 @@ import java.security.MessageDigest
  */
 object MeshPacketUtils {
     private val sha256ThreadLocal = ThreadLocal.withInitial { MessageDigest.getInstance("SHA-256") }
-
-    private fun hexNibble(c: Char): Int = when (c) {
-        in '0'..'9' -> c.code - '0'.code
-        in 'a'..'f' -> c.code - 'a'.code + 10
-        in 'A'..'F' -> c.code - 'A'.code + 10
-        else -> -1
-    }
 
     /**
      * Convert hex string peer ID to binary data (8 bytes), matching iOS behavior.
@@ -26,8 +20,8 @@ object MeshPacketUtils {
         var index = 0
 
         while (pos + 1 < len && index < 8) {
-            val hi = hexNibble(hexString[pos])
-            val lo = hexNibble(hexString[pos + 1])
+            val hi = hexNibbleOrNegative(hexString[pos])
+            val lo = hexNibbleOrNegative(hexString[pos + 1])
             if (hi >= 0 && lo >= 0) {
                 result[index] = ((hi shl 4) or lo).toByte()
             }

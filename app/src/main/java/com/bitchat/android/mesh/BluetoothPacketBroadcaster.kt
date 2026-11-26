@@ -589,11 +589,13 @@ class BluetoothPacketBroadcaster(
         if (!accepted) rejectStart(key)
     }
 
-    private fun isLinkStillConnected(key: SendKey): Boolean = when (key.direction) {
-        SendDirection.CLIENT_WRITE -> connectionTracker.getDeviceConnection(key.deviceAddress) != null
-        SendDirection.SERVER_NOTIFICATION ->
-            connectionTracker.getDeviceConnection(key.deviceAddress) != null ||
-                connectionTracker.getSubscribedDevices().any { it.address == key.deviceAddress }
+    private fun isLinkStillConnected(key: SendKey): Boolean {
+        val current = connectionTracker.getDeviceConnection(key.deviceAddress) ?: return false
+        if (current.linkID != key.linkID) return false
+        return when (key.direction) {
+            SendDirection.CLIENT_WRITE -> current.isClient
+            SendDirection.SERVER_NOTIFICATION -> !current.isClient
+        }
     }
 
     private fun rejectStart(key: SendKey): Boolean {
@@ -607,7 +609,7 @@ class BluetoothPacketBroadcaster(
                 return false
             }
             if (!linkAlive) {
-                Log.d(TAG, "BLE ${key.direction} link disconnected; clearing ${state.pending.size} pending sends")
+                Log.d(TAG, "BLE ${key.direction} link disconnected or replaced; clearing ${state.pending.size} pending sends")
                 sendStates.remove(key)
                 return false
             }
@@ -617,7 +619,7 @@ class BluetoothPacketBroadcaster(
             } else {
                 // Bounded exponential backoff (15ms -> 30ms -> 60ms -> 120ms -> 250ms) so transient
                 // GATT busy never spins CPU and accepted file transfers are never silently dropped
-                // while the link remains connected.
+                // while this link generation remains connected.
                 val shift = (head.startRetries - 1).coerceAtMost(4)
                 nextDelayMs = (SEND_RETRY_DELAY_MS shl shift).coerceAtMost(MAX_START_RETRY_DELAY_MS)
                 state.retryScheduled = true
@@ -627,10 +629,14 @@ class BluetoothPacketBroadcaster(
         if (schedule) {
             connectionScope.launch {
                 delay(nextDelayMs)
+                val stillConnected = isLinkStillConnected(key)
                 val retry = synchronized(sendLock) {
                     val state = sendStates[key] ?: return@synchronized false
                     state.retryScheduled = false
-                    if (!state.inFlight && state.pending.isNotEmpty()) {
+                    if (!stillConnected) {
+                        sendStates.remove(key)
+                        false
+                    } else if (!state.inFlight && state.pending.isNotEmpty()) {
                         state.inFlight = true
                         true
                     } else false

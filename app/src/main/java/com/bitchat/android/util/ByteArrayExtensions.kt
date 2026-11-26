@@ -23,3 +23,14 @@ fun ByteArray.toHexString(maxBytes: Int): String {
     }
     return String(out)
 }
+
+/**
+ * Decode a single ASCII hexadecimal digit into 0..15, or -1 if invalid.
+ * Callers preserve their own invalid-character policy on negative values.
+ */
+fun hexNibbleOrNegative(c: Char): Int = when (c) {
+    in '0'..'9' -> c.code - '0'.code
+    in 'a'..'f' -> c.code - 'a'.code + 10
+    in 'A'..'F' -> c.code - 'A'.code + 10
+    else -> -1
+}

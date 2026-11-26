@@ -118,6 +118,7 @@ class NostrRelayManager internal constructor(
     private val relaysList = mutableListOf<Relay>()
     private val connections = ConcurrentHashMap<String, WebSocket>()
     private val reconnectJobs = ConcurrentHashMap<String, Job>()
+    private val backgroundThrottledRelays = ConcurrentHashMap.newKeySet<String>()
     private val desiredConnected = AtomicBoolean(false)
     private val panicReconnectWithheld = AtomicBoolean(false)
     private val subscriptions = ConcurrentHashMap<String, Set<String>>() // relay URL -> subscription IDs
@@ -177,6 +178,7 @@ class NostrRelayManager internal constructor(
             bgFlow.collect { nowBackground ->
                 if (wasBackground && !nowBackground && desiredConnected.get() && networkAvailable.get()) {
                     // Cancel long background backoff timers and recover disconnected relays immediately on foregrounding.
+                    backgroundThrottledRelays.clear()
                     reconnectJobs.values.forEach(Job::cancel)
                     reconnectJobs.clear()
                     reconnectDisconnectedRelays(resetBackoff = true)
@@ -213,6 +215,7 @@ class NostrRelayManager internal constructor(
                     if (!stillOnline) {
                         networkAvailable.set(false)
                         // Pause reconnect timers while completely offline to avoid burning Tor/CPU.
+                        backgroundThrottledRelays.clear()
                         reconnectJobs.values.forEach(Job::cancel)
                         reconnectJobs.clear()
                     }
@@ -339,6 +342,7 @@ class NostrRelayManager internal constructor(
         val releasable = relayUrls.toSet() - DEFAULT_RELAYS.toSet() - routed - targeted
         if (releasable.isEmpty()) return
         releasable.forEach { url ->
+            backgroundThrottledRelays.remove(url)
             reconnectJobs.remove(url)?.cancel()
             connections.remove(url)?.close(1000, "Released")
             subscriptions.remove(url)
@@ -518,6 +522,7 @@ class NostrRelayManager internal constructor(
         val liveOnlyRelayUrls = liveLocationRelayTokens.keys
             .filterNotTo(mutableSetOf()) { it in nonLiveRelayUrls }
         liveOnlyRelayUrls.forEach { relayUrl ->
+            backgroundThrottledRelays.remove(relayUrl)
             connections.remove(relayUrl)?.cancel()
             subscriptions.remove(relayUrl)
             reconnectJobs.remove(relayUrl)?.cancel()
@@ -630,6 +635,7 @@ class NostrRelayManager internal constructor(
 
         // Stop subscription validation
         stopSubscriptionValidation()
+        backgroundThrottledRelays.clear()
         reconnectJobs.values.forEach(Job::cancel)
         reconnectJobs.clear()
         liveLocationConnectionJobs.forEach(Job::cancel)
@@ -713,6 +719,7 @@ class NostrRelayManager internal constructor(
         runNetworkAction(liveLocationToken) {
             activeSubscriptions[id] = subscriptionInfo
             messageHandlers[id] = handler
+            wakeDegradedBackgroundRelays()
             sendSubscriptionToRelays(subscriptionInfo)
         }
         
@@ -830,6 +837,7 @@ class NostrRelayManager internal constructor(
         }
 
         // Disconnect if connected
+        backgroundThrottledRelays.remove(relayUrl)
         reconnectJobs.remove(relayUrl)?.cancel()
         connections.remove(relayUrl)?.close(1000, "Manual retry")
 
@@ -1291,16 +1299,24 @@ class NostrRelayManager internal constructor(
         }
 
         updateRelayStatus(relayUrl, false, error)
+        // If this disconnect removed the last healthy alternative for a background-throttled relay,
+        // wake that relay immediately instead of leaving it sitting on a 15-minute backoff timer.
+        wakeDegradedBackgroundRelays()
+
         val (allowed, connectionToken) = authorizeRelayConnection(relayUrl, liveLocationToken)
         if (!desiredConnected.get() ||
             !networkAvailable.get() ||
             !allowed
-        ) return
+        ) {
+            backgroundThrottledRelays.remove(relayUrl)
+            return
+        }
 
         // Every failure backs off and retries, including a name-resolution
         // failure: "unable to resolve host" is what this device reports when it
         // simply has no network, so treating it as permanent turns a walk
         // through a tunnel into a dead relay layer for the rest of the process.
+        var extendedBackgroundThrottle = false
         val backoffInterval = synchronized(relaysList) {
             val relay = relaysList.find { it.url == relayUrl } ?: return
             val previousAttempts = if (wasStable) 0 else relay.reconnectAttempts
@@ -1312,9 +1328,15 @@ class NostrRelayManager internal constructor(
                 hasHealthyAlternativeForRelayLocked(relayUrl)
             ) {
                 delayMs = maxOf(delayMs, BACKGROUND_DEAD_RELAY_BACKOFF_MS)
+                extendedBackgroundThrottle = true
             }
             relay.nextReconnectTime = nowWall + delayMs
             delayMs
+        }
+        if (extendedBackgroundThrottle) {
+            backgroundThrottledRelays.add(relayUrl)
+        } else {
+            backgroundThrottledRelays.remove(relayUrl)
         }
 
         Log.d(TAG, "Scheduling Nostr relay reconnection in ${backoffInterval}ms")
@@ -1322,6 +1344,7 @@ class NostrRelayManager internal constructor(
         reconnectJobs.remove(relayUrl)?.cancel()
         val reconnectJob = scope.launch {
             delay(backoffInterval)
+            backgroundThrottledRelays.remove(relayUrl)
             val (stillAllowed, currentToken) = authorizeRelayConnection(relayUrl, connectionToken)
             if (desiredConnected.get() &&
                 networkAvailable.get() &&
@@ -1342,7 +1365,54 @@ class NostrRelayManager internal constructor(
         }
     }
 
+    /**
+     * Cancel extended 15-minute background backoff timers for any throttled relay that no longer
+     * has a healthy connected alternative (for example after the healthy relay disconnects or a
+     * new subscription targets the throttled relay exclusively).
+     */
+    private fun wakeDegradedBackgroundRelays() {
+        if (backgroundThrottledRelays.isEmpty()) return
+        if (!desiredConnected.get() || !networkAvailable.get()) return
+
+        val relaysToWake = synchronized(relaysList) {
+            val toWake = mutableListOf<String>()
+            for (url in backgroundThrottledRelays) {
+                if (!hasHealthyAlternativeForRelayLocked(url)) {
+                    toWake.add(url)
+                    relaysList.find { it.url == url }?.nextReconnectTime = null
+                }
+            }
+            toWake
+        }
+        if (relaysToWake.isEmpty()) return
+
+        relaysToWake.forEach { url ->
+            backgroundThrottledRelays.remove(url)
+            reconnectJobs.remove(url)?.cancel()
+        }
+        updateRelaysList()
+
+        scope.launch {
+            relaysToWake.forEach { url ->
+                if (!desiredConnected.get() || !networkAvailable.get()) return@launch
+                if (!connections.containsKey(url)) {
+                    val (allowed, liveToken) = authorizeRelayConnection(url)
+                    if (allowed) {
+                        val job = launch { connectToRelay(url, liveToken) }
+                        if (liveToken != null) {
+                            liveLocationConnectionJobs.add(job)
+                            job.invokeOnCompletion { liveLocationConnectionJobs.remove(job) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private fun updateRelayStatus(url: String, isConnected: Boolean, error: Throwable? = null) {
+        if (isConnected) {
+            backgroundThrottledRelays.remove(url)
+        }
         synchronized(relaysList) {
             val relay = relaysList.find { it.url == url } ?: return
 

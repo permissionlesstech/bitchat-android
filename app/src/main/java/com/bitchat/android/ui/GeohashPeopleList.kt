@@ -48,28 +48,46 @@ fun GeohashPeopleList(
 
     val palette = LocalBitchatPalette.current
     val colorScheme = MaterialTheme.colorScheme
-    val myHex = remember(selectedLocationChannel) {
-        when (val channel = selectedLocationChannel) {
-            is com.bitchat.android.geohash.ChannelID.Location -> {
-                try {
-                    val identity = com.bitchat.android.nostr.NostrIdentityBridge.deriveIdentity(
-                        forGeohash = channel.channel.geohash,
-                        context = viewModel.getApplication()
-                    )
-                    identity.publicKeyHex.lowercase(Locale.ROOT)
-                } catch (e: Exception) {
-                    Log.e("GeohashPeopleList", "Failed to derive identity: ${e.message}")
-                    null
-                }
-            }
+    val myHex by produceState<String?>(
+        initialValue = when (val channel = selectedLocationChannel) {
+            is com.bitchat.android.geohash.ChannelID.Location ->
+                com.bitchat.android.nostr.NostrIdentityBridge
+                    .getCachedIdentity(channel.channel.geohash)
+                    ?.publicKeyHex
+                    ?.lowercase(Locale.ROOT)
             else -> null
+        },
+        key1 = selectedLocationChannel
+    ) {
+        val channel = selectedLocationChannel
+        if (channel !is com.bitchat.android.geohash.ChannelID.Location) {
+            value = null
+            return@produceState
+        }
+        val cached = com.bitchat.android.nostr.NostrIdentityBridge
+            .getCachedIdentity(channel.channel.geohash)
+        if (cached != null) {
+            value = cached.publicKeyHex.lowercase(Locale.ROOT)
+            return@produceState
+        }
+        value = try {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.bitchat.android.nostr.NostrIdentityBridge.deriveIdentity(
+                    forGeohash = channel.channel.geohash,
+                    context = viewModel.getApplication()
+                ).publicKeyHex.lowercase(Locale.ROOT)
+            }
+        } catch (e: Exception) {
+            Log.e("GeohashPeopleList", "Failed to derive identity: ${e.message}")
+            null
         }
     }
     val peopleIncludingSelf = remember(geohashPeople, myHex, nickname) {
-        if (myHex != null && geohashPeople.none { it.id.equals(myHex, ignoreCase = true) }) {
+        val currentMyHex = myHex
+        if (currentMyHex != null && geohashPeople.none { it.id.equals(currentMyHex, ignoreCase = true) }) {
             listOf(
                 GeoPerson(
-                    id = myHex,
+                    id = currentMyHex,
                     displayName = nickname.ifBlank { "anon" },
                     lastSeen = Date(0)
                 )

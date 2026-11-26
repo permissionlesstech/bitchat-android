@@ -7,6 +7,7 @@ import com.bitchat.android.model.RequestSyncPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
+import com.bitchat.android.util.hexNibbleOrNegative
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
@@ -30,7 +31,8 @@ class GossipSyncManager(
     private val syncIntervalProvider: () -> Long = { DEFAULT_SYNC_INTERVAL_MS },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val syncIntervalFlow: Flow<Long>? = null,
-    private val monotonicClockMs: () -> Long = { System.nanoTime() / 1_000_000L }
+    private val monotonicClockMs: () -> Long = { System.nanoTime() / 1_000_000L },
+    private val wallClockMs: () -> Long = { System.currentTimeMillis() }
 ) {
     interface Delegate {
         fun sendPacket(packet: BitchatPacket)
@@ -82,6 +84,7 @@ class GossipSyncManager(
     private val stateVersion = AtomicLong(0L)
     private val snapshotCacheLock = Any()
     private var cachedSnapshotVersion: Long = -1L
+    private var cachedSnapshotExpiresAtWallMs: Long = Long.MAX_VALUE
     private var cachedCap: Int = -1
     private var cachedMaxBytes: Int = -1
     private var cachedFpr: Double = Double.NaN
@@ -94,8 +97,16 @@ class GossipSyncManager(
     private var cleanupJob: Job? = null
     private val cleanupWakeup = Channel<Unit>(Channel.CONFLATED)
 
-    private fun invalidateSnapshotCache() {
+    private fun invalidateSnapshotCache(clearReferences: Boolean = false) {
         stateVersion.incrementAndGet()
+        if (clearReferences) {
+            synchronized(snapshotCacheLock) {
+                cachedSnapshotVersion = -1L
+                cachedSnapshotExpiresAtWallMs = Long.MAX_VALUE
+                cachedSnapshot = null
+                cachedGcsPayload = null
+            }
+        }
     }
 
     fun start() {
@@ -169,7 +180,7 @@ class GossipSyncManager(
             messages.clear()
         }
         latestAnnouncementByPeer.clear()
-        invalidateSnapshotCache()
+        invalidateSnapshotCache(clearReferences = true)
         Log.d(TAG, "Cleared all gossip sync messages and announcements")
     }
 
@@ -212,7 +223,7 @@ class GossipSyncManager(
             invalidateSnapshotCache()
         } else if (isAnnouncement) {
             // Ignore stale announcements older than STALE_PEER_TIMEOUT
-            val now = System.currentTimeMillis()
+            val now = wallClockMs()
             val age = now - packet.timestamp.toLong()
             if (age > com.bitchat.android.util.AppConstants.Mesh.STALE_PEER_TIMEOUT_MS) {
                 Log.d(TAG, "Ignoring stale ANNOUNCE (age=${age}ms > ${com.bitchat.android.util.AppConstants.Mesh.STALE_PEER_TIMEOUT_MS}ms)")
@@ -298,20 +309,15 @@ class GossipSyncManager(
         }
     }
 
-    private fun hexNibble(c: Char): Int = when (c) {
-        in '0'..'9' -> c.code - '0'.code
-        in 'a'..'f' -> c.code - 'a'.code + 10
-        in 'A'..'F' -> c.code - 'A'.code + 10
-        else -> 0
-    }
-
     private fun hexToBytes(hex: String): ByteArray {
         val clean = if (hex.length % 2 == 0) hex else "0$hex"
         val out = ByteArray(clean.length ushr 1)
         var i = 0
         var pos = 0
         while (pos < clean.length) {
-            out[i++] = ((hexNibble(clean[pos]) shl 4) or hexNibble(clean[pos + 1])).toByte()
+            val hi = hexNibbleOrNegative(clean[pos]).coerceAtLeast(0)
+            val lo = hexNibbleOrNegative(clean[pos + 1]).coerceAtLeast(0)
+            out[i++] = ((hi shl 4) or lo).toByte()
             pos += 2
         }
         return out
@@ -326,12 +332,14 @@ class GossipSyncManager(
         val maxBytes = try { configProvider.gcsMaxBytes() } catch (_: Exception) { defaultMaxBytes }
         val fpr = try { configProvider.gcsTargetFpr() } catch (_: Exception) { defaultFpr }
         val cap = configProvider.seenCapacity().coerceAtLeast(1)
+        val now = wallClockMs()
         val version = stateVersion.get()
 
         synchronized(snapshotCacheLock) {
             val existing = cachedSnapshot
             if (existing != null &&
                 cachedSnapshotVersion == version &&
+                now <= cachedSnapshotExpiresAtWallMs &&
                 cachedCap == cap &&
                 cachedMaxBytes == maxBytes &&
                 cachedFpr == fpr
@@ -340,7 +348,19 @@ class GossipSyncManager(
             }
         }
 
-        val announcements = latestAnnouncementByPeer.toMap()
+        val maxAnnouncementAgeMs = com.bitchat.android.util.AppConstants.Mesh.STALE_PEER_TIMEOUT_MS
+        var earliestExpiryWallMs = Long.MAX_VALUE
+        val announcements = HashMap<String, Pair<String, BitchatPacket>>()
+        for ((peer, pair) in latestAnnouncementByPeer.entries) {
+            val ts = pair.second.timestamp.toLong()
+            if (now - ts <= maxAnnouncementAgeMs) {
+                announcements[peer] = pair
+                val expiresAt = ts + maxAnnouncementAgeMs
+                if (expiresAt < earliestExpiryWallMs) {
+                    earliestExpiryWallMs = expiresAt
+                }
+            }
+        }
         val candidates = announcements.values.toMutableList()
         synchronized(messages) {
             candidates.addAll(messages.entries.map { it.key to it.value })
@@ -371,6 +391,7 @@ class GossipSyncManager(
         synchronized(snapshotCacheLock) {
             if (stateVersion.get() == version) {
                 cachedSnapshotVersion = version
+                cachedSnapshotExpiresAtWallMs = earliestExpiryWallMs
                 cachedCap = cap
                 cachedMaxBytes = maxBytes
                 cachedFpr = fpr
@@ -400,7 +421,7 @@ class GossipSyncManager(
 
     // Periodically remove stale announcements and all their messages
     private fun pruneStaleAnnouncements() {
-        val now = System.currentTimeMillis()
+        val now = wallClockMs()
         val stalePeers = mutableListOf<String>()
 
         // Identify stale announcements by age

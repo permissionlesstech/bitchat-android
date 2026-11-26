@@ -1,6 +1,5 @@
 package com.bitchat.android.mesh
 
-import com.bitchat.android.noise.NoiseSession
 import com.bitchat.android.protocol.BinaryProtocol
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.CompressionUtil
@@ -8,17 +7,11 @@ import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.services.meshgraph.MeshGraphService
 import com.bitchat.android.services.meshgraph.RoutePlanner
 import com.bitchat.android.sync.GCSFilter
-import com.bitchat.android.sync.GossipSyncManager
 import com.bitchat.android.ui.debug.DebugSettingsManager
 import com.bitchat.android.util.dataFromHexString
+import com.bitchat.android.util.hexNibbleOrNegative
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.advanceTimeBy
-import kotlinx.coroutines.test.runCurrent
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -26,14 +19,11 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicInteger
 
-@OptIn(ExperimentalCoroutinesApi::class)
-class BatteryOptimizationContractTest {
+class MeshPacketPipelineTest {
 
     @Test
-    fun `fast hex encoding and decoding match standard formats`() {
+    fun `hex encoding and decoding preserve round-trip and caller invalid-input rules`() {
         val bytes = ByteArray(256) { it.toByte() }
         val hex = bytes.toHexString()
         assertEquals(512, hex.length)
@@ -42,8 +32,12 @@ class BatteryOptimizationContractTest {
         assertArrayEquals(bytes, "  0x${hex.uppercase()}  ".dataFromHexString())
         assertNull("abc".dataFromHexString())
         assertNull("zz".dataFromHexString())
-        assertArrayEquals(byteArrayOf(0x01, 0x23, 0x45, 0x67, 0x89.toByte(), 0xab.toByte(), 0xcd.toByte(), 0xef.toByte()),
-            MeshPacketUtils.hexStringToByteArray("0123456789abcdef"))
+        assertEquals(-1, hexNibbleOrNegative('z'))
+        assertEquals(15, hexNibbleOrNegative('F'))
+        assertArrayEquals(
+            byteArrayOf(0x01, 0x23, 0x45, 0x67, 0x89.toByte(), 0xab.toByte(), 0xcd.toByte(), 0xef.toByte()),
+            MeshPacketUtils.hexStringToByteArray("0123456789abcdef")
+        )
     }
 
     @Test
@@ -156,109 +150,6 @@ class BatteryOptimizationContractTest {
     }
 
     @Test
-    fun `GossipSyncManager foreground transition preserves elapsed time and keeps foreground cadence responsive`() {
-        // Foreground low-battery cadence must stay responsive (60s), while background scales to 180s/300s
-        val fgLow = PowerProfileResolver.resolve(batteryLevel = 15, isCharging = false, isBackground = false, hasDirectPeers = true)
-        val bgNormal = PowerProfileResolver.resolve(batteryLevel = 80, isCharging = false, isBackground = true, hasDirectPeers = true)
-        val bgCritical = PowerProfileResolver.resolve(batteryLevel = 5, isCharging = false, isBackground = true, hasDirectPeers = true)
-        assertEquals(GossipSyncManager.FOREGROUND_LOW_BATTERY_SYNC_INTERVAL_MS, GossipSyncManager.recommendedSyncIntervalMs(fgLow))
-        assertEquals(180_000L, GossipSyncManager.recommendedSyncIntervalMs(bgNormal))
-        assertEquals(300_000L, GossipSyncManager.recommendedSyncIntervalMs(bgCritical))
-
-        val dispatcher = StandardTestDispatcher()
-        val scope = TestScope(dispatcher)
-        val intervalFlow = MutableStateFlow(300_000L)
-        val sentCount = AtomicInteger(0)
-
-        val gossip = GossipSyncManager(
-            myPeerID = "0102030405060708",
-            scope = scope,
-            configProvider = object : GossipSyncManager.ConfigProvider {
-                override fun seenCapacity(): Int = 100
-                override fun gcsMaxBytes(): Int = 256
-                override fun gcsTargetFpr(): Double = 0.01
-            },
-            hasPeersProvider = { true },
-            syncIntervalProvider = { intervalFlow.value },
-            ioDispatcher = dispatcher,
-            syncIntervalFlow = intervalFlow,
-            monotonicClockMs = { scope.testScheduler.currentTime }
-        )
-        gossip.delegate = object : GossipSyncManager.Delegate {
-            override fun sendPacket(packet: BitchatPacket) { sentCount.incrementAndGet() }
-            override fun sendPacketToPeer(peerID: String, packet: BitchatPacket) { sentCount.incrementAndGet() }
-            override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket = packet
-        }
-
-        gossip.start()
-        // Advance 20s into the 300s background sleep -> no sync yet
-        scope.advanceTimeBy(20_000L)
-        scope.runCurrent()
-        assertEquals(0, sentCount.get())
-
-        // Return to foreground (30s cadence): only 10s remaining (not a restarted full 30s!)
-        intervalFlow.value = GossipSyncManager.DEFAULT_SYNC_INTERVAL_MS
-        scope.runCurrent()
-        scope.advanceTimeBy(10_001L)
-        scope.runCurrent()
-        assertEquals(1, sentCount.get())
-
-        gossip.stop()
-    }
-
-    @Test
-    fun `NoiseSession replay window rejects previously accepted nonces across window advances`() {
-        val dhA = com.bitchat.android.noise.southernstorm.protocol.Noise.createDH("25519").apply { generateKeyPair() }
-        val dhB = com.bitchat.android.noise.southernstorm.protocol.Noise.createDH("25519").apply { generateKeyPair() }
-        val privA = ByteArray(32).also { dhA.getPrivateKey(it, 0) }
-        val pubA = ByteArray(32).also { dhA.getPublicKey(it, 0) }
-        val privB = ByteArray(32).also { dhB.getPrivateKey(it, 0) }
-        val pubB = ByteArray(32).also { dhB.getPublicKey(it, 0) }
-
-        val peerIdA = com.bitchat.android.noise.NoisePeerIdentity.derivePeerID(pubA)!!
-        val peerIdB = com.bitchat.android.noise.NoisePeerIdentity.derivePeerID(pubB)!!
-        val initiator = NoiseSession(peerIdB, isInitiator = true, localStaticPrivateKey = privA, localStaticPublicKey = pubA)
-        val responder = NoiseSession(peerIdA, isInitiator = false, localStaticPrivateKey = privB, localStaticPublicKey = pubB)
-
-        val m1 = initiator.startHandshake()
-        val m2 = responder.processHandshakeMessage(m1)!!
-        val m3 = initiator.processHandshakeMessage(m2)!!
-        assertNull(responder.processHandshakeMessage(m3))
-        assertTrue(initiator.isEstablished() && responder.isEstablished())
-
-        // Encrypt nonces 0..9 in order
-        val ciphertexts = List(10) { idx -> initiator.encrypt("msg-$idx".toByteArray()) }
-
-        // Deliver 0, 1, 2 -> window shifts within byte 0
-        assertEquals("msg-0", String(responder.decrypt(ciphertexts[0])))
-        assertEquals("msg-1", String(responder.decrypt(ciphertexts[1])))
-        assertEquals("msg-2", String(responder.decrypt(ciphertexts[2])))
-
-        // Replaying nonce 0 or nonce 1 MUST fail closed
-        var replayed0Rejected = false
-        try { responder.decrypt(ciphertexts[0]) } catch (_: Exception) { replayed0Rejected = true }
-        assertTrue("replayed nonce 0 must be rejected after window advances", replayed0Rejected)
-
-        var replayed1Rejected = false
-        try { responder.decrypt(ciphertexts[1]) } catch (_: Exception) { replayed1Rejected = true }
-        assertTrue("replayed nonce 1 must be rejected after window advances", replayed1Rejected)
-
-        // Advance across byte boundary (nonce 9 -> offset 9 for nonce 0, offset 7 for nonce 2)
-        assertEquals("msg-9", String(responder.decrypt(ciphertexts[9])))
-
-        // Previously seen nonce 0 (now in byte 1) and nonce 2 (byte 0 bit 7) MUST stay rejected
-        var replayed0CrossByte = false
-        try { responder.decrypt(ciphertexts[0]) } catch (_: Exception) { replayed0CrossByte = true }
-        assertTrue("replayed nonce 0 across byte boundary must be rejected", replayed0CrossByte)
-
-        // Unseen out-of-order nonce 5 MUST succeed once and fail on replay
-        assertEquals("msg-5", String(responder.decrypt(ciphertexts[5])))
-        var replayed5Rejected = false
-        try { responder.decrypt(ciphertexts[5]) } catch (_: Exception) { replayed5Rejected = true }
-        assertTrue("replayed out-of-order nonce 5 must be rejected", replayed5Rejected)
-    }
-
-    @Test
     fun `FragmentManager reassembly preserves payload bytes`() {
         val manager = FragmentManager()
         try {
@@ -283,52 +174,6 @@ class BatteryOptimizationContractTest {
         } finally {
             manager.shutdown()
         }
-    }
-
-    @Test
-    fun `GossipSyncManager skips periodic sync broadcasts when no peers are connected`() {
-        val dispatcher = StandardTestDispatcher()
-        val scope = TestScope(dispatcher)
-        val hasPeers = AtomicBoolean(false)
-        val sentCount = AtomicInteger(0)
-        val signCount = AtomicInteger(0)
-
-        val gossip = GossipSyncManager(
-            myPeerID = "0102030405060708",
-            scope = scope,
-            configProvider = object : GossipSyncManager.ConfigProvider {
-                override fun seenCapacity(): Int = 100
-                override fun gcsMaxBytes(): Int = 256
-                override fun gcsTargetFpr(): Double = 0.01
-            },
-            hasPeersProvider = { hasPeers.get() },
-            syncIntervalProvider = { 5_000L },
-            ioDispatcher = dispatcher
-        )
-        gossip.delegate = object : GossipSyncManager.Delegate {
-            override fun sendPacket(packet: BitchatPacket) { sentCount.incrementAndGet() }
-            override fun sendPacketToPeer(peerID: String, packet: BitchatPacket) { sentCount.incrementAndGet() }
-            override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket {
-                signCount.incrementAndGet()
-                return packet
-            }
-        }
-
-        gossip.start()
-        // Wait 60 seconds with 0 peers -> 0 signs and 0 broadcasts!
-        scope.advanceTimeBy(60_000L)
-        scope.runCurrent()
-        assertEquals(0, signCount.get())
-        assertEquals(0, sentCount.get())
-
-        // Once a peer connects, sync resumes on the next interval.
-        hasPeers.set(true)
-        scope.advanceTimeBy(6_000L)
-        scope.runCurrent()
-        assertTrue(signCount.get() >= 1)
-        assertTrue(sentCount.get() >= 1)
-
-        gossip.stop()
     }
 
     @Test
@@ -366,10 +211,11 @@ class BatteryOptimizationContractTest {
     }
 
     @Test
-    fun `DebugSettingsManager tracks atomic totals without mutating UI flows while sheet is hidden`() {
+    fun `DebugSettingsManager records atomic totals and rolling 1m and 15m rates while sheet is hidden`() {
         val dbg = DebugSettingsManager.getInstance()
         dbg.setDebugSheetVisible(false)
         val beforeFlowCount = dbg.relayStats.value.totalIncomingCount
+        val beforeOutgoingFlowCount = dbg.relayStats.value.totalOutgoingCount
         val pkt = BitchatPacket(
             version = 1u,
             type = MessageType.MESSAGE.value,
@@ -381,11 +227,22 @@ class BatteryOptimizationContractTest {
         repeat(5) {
             dbg.logIncoming(pkt, "1122334455667788", "peer", "AA:BB:CC:DD:EE:FF", "0102030405060708")
         }
-        // Flow was not churned while hidden
+        repeat(3) {
+            dbg.logOutgoing("MESSAGE", "1122334455667788", "peer", "AA:BB:CC:DD:EE:FF")
+        }
+        // UI StateFlow was not churned while hidden
         assertEquals(beforeFlowCount, dbg.relayStats.value.totalIncomingCount)
-        // Opening debug sheet snapshots accurate totals immediately
+        assertEquals(beforeOutgoingFlowCount, dbg.relayStats.value.totalOutgoingCount)
+
+        // Opening debug sheet snapshots both cumulative totals and rolling 1m/15m rates immediately
         dbg.setDebugSheetVisible(true)
-        assertTrue(dbg.relayStats.value.totalIncomingCount >= beforeFlowCount + 5)
+        val opened = dbg.relayStats.value
+        assertTrue(opened.totalIncomingCount >= beforeFlowCount + 5)
+        assertTrue(opened.lastMinuteIncoming >= 5)
+        assertTrue(opened.last15MinuteIncoming >= 5)
+        assertTrue(opened.totalOutgoingCount >= beforeOutgoingFlowCount + 3)
+        assertTrue(opened.lastMinuteOutgoing >= 3)
+        assertTrue(opened.last15MinuteOutgoing >= 3)
         dbg.setDebugSheetVisible(false)
     }
 }

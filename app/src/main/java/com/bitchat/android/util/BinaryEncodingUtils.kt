@@ -13,13 +13,6 @@ import java.util.*
 
 fun ByteArray.hexEncodedString(): String = toHexString()
 
-private fun hexNibble(c: Char): Int = when (c) {
-    in '0'..'9' -> c.code - '0'.code
-    in 'a'..'f' -> c.code - 'a'.code + 10
-    in 'A'..'F' -> c.code - 'A'.code + 10
-    else -> -1
-}
-
 fun String.dataFromHexString(): ByteArray? {
     // Match iOS Data(hexString:): trim, optional 0x/0X prefix, reject odd length.
     var start = 0
@@ -42,8 +35,8 @@ fun String.dataFromHexString(): ByteArray? {
     var i = 0
     var pos = start
     while (i < len) {
-        val hi = hexNibble(this[pos])
-        val lo = hexNibble(this[pos + 1])
+        val hi = hexNibbleOrNegative(this[pos])
+        val lo = hexNibbleOrNegative(this[pos + 1])
         if (hi < 0 || lo < 0) return null
         data[i] = ((hi shl 4) or lo).toByte()
         i++

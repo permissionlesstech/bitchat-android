@@ -21,10 +21,24 @@ import kotlinx.coroutines.launch
  * Transport delivery is best-effort and retryable, while local read state drives unread UI.
  * Limits to last MAX_IDS entries per set to avoid memory bloat.
  */
-class SeenMessageStore private constructor(private val context: Context) {
+class SeenMessageStore internal constructor(
+    private val context: Context,
+    private val persistScope: CoroutineScope,
+    private val persistDelayMs: Long = DEFAULT_PERSIST_DELAY_MS,
+    private val payloadSerializer: ((Any) -> String)? = null
+) {
+    private constructor(context: Context) : this(
+        context = context,
+        persistScope = CoroutineScope(Dispatchers.IO.limitedParallelism(1) + SupervisorJob()),
+        persistDelayMs = DEFAULT_PERSIST_DELAY_MS,
+        payloadSerializer = null
+    )
+
     companion object {
         private const val TAG = "SeenMessageStore"
         private const val STORAGE_KEY = "seen_message_store_v1"
+        private const val DEFAULT_PERSIST_DELAY_MS = 500L
+        private const val MAX_SYNC_CLEAR_RETRIES = 3
         private const val MAX_IDS = com.bitchat.android.util.AppConstants.Services.SEEN_MESSAGE_MAX_IDS
 
         // The constructor always receives applicationContext, so process lifetime is intentional.
@@ -39,11 +53,10 @@ class SeenMessageStore private constructor(private val context: Context) {
 
     private val gson = Gson()
     private val secure = SecureIdentityStateManager(context)
-    private val persistDispatcher = Dispatchers.IO.limitedParallelism(1)
-    private var persistScope = CoroutineScope(persistDispatcher + SupervisorJob())
     private val persistLock = Any()
     private var pendingPersistJob: Job? = null
     private var mutationGeneration: Long = 0L
+    private var destructiveGeneration: Long = 0L
     private var persistedGeneration: Long = 0L
 
     private val delivered = LinkedHashSet<String>()
@@ -91,6 +104,7 @@ class SeenMessageStore private constructor(private val context: Context) {
                 readReceiptsSent.removeAll(ids)
             if (modified) {
                 mutationGeneration++
+                destructiveGeneration++
                 pendingPersistJob?.cancel()
                 pendingPersistJob = null
             }
@@ -99,13 +113,19 @@ class SeenMessageStore private constructor(private val context: Context) {
         if (!changed) return
         // Enqueue immediate serialized IO write so UI conversation deletion never blocks the main thread.
         persistScope.launch {
-            persistLatest()
+            persistOnce()
+            synchronized(this@SeenMessageStore) {
+                if (persistedGeneration < mutationGeneration) {
+                    schedulePersistLocked()
+                }
+            }
         }
     }
 
     fun clear() {
         synchronized(this) {
             mutationGeneration++
+            destructiveGeneration++
             pendingPersistJob?.cancel()
             pendingPersistJob = null
             delivered.clear()
@@ -113,22 +133,24 @@ class SeenMessageStore private constructor(private val context: Context) {
             readReceiptsSent.clear()
         }
         // Panic wipe must commit synchronously before returning, with JSON serialized outside persistLock.
-        persistLatest()
+        repeat(MAX_SYNC_CLEAR_RETRIES) {
+            if (persistOnce()) return
+        }
     }
 
     /**
-     * Bounded-latency batching: never cancel/restart an active 500 ms timer, so continuous
+     * Bounded-latency batching: never cancel/restart an active timer, so continuous
      * mutations cannot starve persistence indefinitely.
      */
     private fun schedulePersistLocked() {
         if (pendingPersistJob?.isActive == true) return
         pendingPersistJob = persistScope.launch {
-            delay(500L)
-            persistLatest()
-            // If more mutations arrived while persistLatest() ran, schedule one follow-up flush.
+            delay(persistDelayMs)
+            persistOnce()
+            // If more mutations arrived while persistOnce() ran, schedule one follow-up flush.
             synchronized(this@SeenMessageStore) {
                 pendingPersistJob = null
-                if (persistedGeneration != mutationGeneration) {
+                if (persistedGeneration < mutationGeneration) {
                     schedulePersistLocked()
                 }
             }
@@ -166,57 +188,36 @@ class SeenMessageStore private constructor(private val context: Context) {
     }
 
     /**
-     * Write only if no newer mutation, removal, or panic clear has occurred since [targetGeneration].
-     * JSON serialization happens outside [persistLock] so callers never stall behind serialization.
+     * Perform a single snapshot + serialize + persist pass without unbounded retry churn.
+     *
+     * Concurrent additive mutations during serialization are safe to persist incrementally (the
+     * next bounded batch persists newer IDs). Only destructive mutations (`remove`/`clear`) bump
+     * [destructiveGeneration] and abort an older snapshot so deleted/wiped IDs are never
+     * resurrected on disk.
      */
-    internal fun persistIfCurrent(targetGeneration: Long) {
-        try {
-            val payload = synchronized(this) {
-                if (mutationGeneration != targetGeneration) return
-                snapshotLocked()
+    private fun persistOnce(): Boolean {
+        return try {
+            val (gen, destructiveGen, payload) = synchronized(this) {
+                Triple(mutationGeneration, destructiveGeneration, snapshotLocked())
             }
-            val json = gson.toJson(payload)
+            val json = payloadSerializer?.invoke(payload) ?: gson.toJson(payload)
             synchronized(persistLock) {
-                synchronized(this) {
-                    if (mutationGeneration != targetGeneration) return
-                }
-                secure.storeSecureValue(STORAGE_KEY, json)
-                synchronized(this) {
-                    if (mutationGeneration == targetGeneration) {
-                        persistedGeneration = targetGeneration
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to persist SeenMessageStore: ${e.message}")
-        }
-    }
-
-    private fun persistLatest() {
-        try {
-            while (true) {
-                val (gen, payload) = synchronized(this) {
-                    mutationGeneration to snapshotLocked()
-                }
-                val json = gson.toJson(payload)
-                val committed = synchronized(persistLock) {
-                    val stillLatest = synchronized(this) { mutationGeneration == gen }
-                    if (!stillLatest) {
-                        false
-                    } else {
-                        secure.storeSecureValue(STORAGE_KEY, json)
-                        synchronized(this) {
-                            if (mutationGeneration == gen) {
-                                persistedGeneration = gen
-                            }
+                val safeToCommit = synchronized(this) { destructiveGeneration == destructiveGen }
+                if (!safeToCommit) {
+                    false
+                } else {
+                    secure.storeSecureValue(STORAGE_KEY, json)
+                    synchronized(this) {
+                        if (destructiveGeneration == destructiveGen && gen > persistedGeneration) {
+                            persistedGeneration = gen
                         }
-                        true
                     }
+                    true
                 }
-                if (committed) return
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to persist SeenMessageStore: ${e.message}")
+            false
         }
     }
 

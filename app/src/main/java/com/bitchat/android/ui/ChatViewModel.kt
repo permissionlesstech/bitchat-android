@@ -1238,7 +1238,8 @@ class ChatViewModel(
 
     /**
      * Initialize session state monitoring for reactive UI updates.
-     * Pauses completely while the app is in the background or when no peers are connected,
+     * Pauses completely while the app is in the background (unless an unsent QR verification
+     * challenge is waiting for a Noise handshake to finish) or when no peers are connected,
      * eliminating unnecessary main-thread wakeups and EncryptedSharedPreferences reads.
      */
     private fun initializeSessionStateMonitoring() {
@@ -1252,11 +1253,15 @@ class ChatViewModel(
                 .map { it.isNotEmpty() }
                 .distinctUntilChanged()
 
-            combine(isBackgroundFlow, hasPeersFlow) { isBackground, hasPeers ->
-                !isBackground to hasPeers
-            }.distinctUntilChanged().collectLatest { (isForeground, hasPeers) ->
-                if (!isForeground) return@collectLatest
-                // Sync once on foreground entry or peer-count transition (including clearing empty maps).
+            combine(
+                isBackgroundFlow,
+                hasPeersFlow,
+                verificationHandler.hasUnsentPendingVerifications
+            ) { isBackground, hasPeers, hasUnsentVerification ->
+                Triple(!isBackground, hasPeers, hasUnsentVerification)
+            }.distinctUntilChanged().collectLatest { (isForeground, hasPeers, hasUnsentVerification) ->
+                if (!isForeground && !hasUnsentVerification) return@collectLatest
+                // Sync once on foreground entry, peer-count transition, or pending QR verification.
                 updateReactiveStates()
                 if (!hasPeers) return@collectLatest
                 while (true) {
@@ -1302,9 +1307,10 @@ class ChatViewModel(
                 peerID, fingerprint, info?.noisePublicKey?.hexEncodedString(), info?.nickname
             )
         }
-        if (identitiesToCache.isNotEmpty() &&
-            (identitiesToCache != lastCachedPeerIdentities || cacheGeneration != lastCachedPeerGeneration)
-        ) {
+        if (identitiesToCache.isEmpty()) {
+            lastCachedPeerIdentities = null
+            lastCachedPeerGeneration = cacheGeneration
+        } else if (identitiesToCache != lastCachedPeerIdentities || cacheGeneration != lastCachedPeerGeneration) {
             withContext(Dispatchers.IO) {
                 identityManager.cachePeerIdentities(identitiesToCache, cacheGeneration)
             }
@@ -1532,6 +1538,8 @@ class ChatViewModel(
 
         // Stop all message admission before wiping storage. The AppStateStore gate also rejects
         // any transport callback already in flight until the fresh identity is ready.
+        lastCachedPeerIdentities = null
+        lastCachedPeerGeneration = -1L
         clearAllMeshServiceData()
         val conversationsCleared =
             com.bitchat.android.services.AppStateStore
