@@ -1234,6 +1234,7 @@ phone is deferred and out of scope for this refactor. (2026-11-26)
 | P11-02 | `FileShareDispatcher`, a stateful `object` that nothing dispatched through, was still installed by `ChatScreen`. | Deleted, with its `LaunchedEffect` and its allowlist entry. |
 | P11-06 | Three process-wide reasons in `IdentityScopeRulesTest` were wrong. `DebugSettingsManager` and `DebugPreferenceManager` both said "the wipe list must cover its buffers": a panic cleanup empties the first one's buffers, and the second holds none. `WearNotificationCoordinator`'s said only "system notifications", though it keeps unread message previews. | Each says what the class holds: the debug toggles and limits, which are no peer or identity data; the buffers of peer IDs, nicknames and device addresses that `DebugBuffersPanicCleanup` empties; and the watch's unread previews, which no panic reaches because the watch has no panic. |
 | P11-13 | `MeshIdentityBindings` had a `@CurrentIdentity` bridge for `PrivateMessageArrivalOrder` that nothing took. | Deleted; the stores inside the scope take it directly. |
+| — | `/msg` typed in an open private chat moved the selection to the new peer while the screen stayed on the old chat, so the new peer's messages counted as read and further commands in that screen were refused. | `MessageSender.sendToConversation` reports the new selection and the screen replaces itself with that chat (upstream moves its sheet). `PrivateConversationSendRobolectricTest` fails against a sender that does not report it. |
 | — | Nothing pinned that the panic's relay release only unsubscribes. | `GeohashSessionSendTest` and `NostrBackgroundRuntimeReleaseTest` check that `panicReleaseRelays` and `releaseSubscriptions` make no subscribe call, even after ten minutes of virtual time. The runtime's test fails against a release that subscribes again. |
 
 Also closed in this section's cleanup of section 5: the smells `MessageRouter`'s unscoped
@@ -1278,6 +1279,9 @@ which are listed in "Closed after 10c-3".
 | (D) A panic taking 1.0 to 2.9 s on an emulator, against about 0.4 s in 10c-2b, is accepted. It is measured on a real phone later. (2026-11-26) | The split by stage (10c-3) shows no single cause, and emulator storage says little about real flash. | The bulk-media change now. | If the real phone is slow, the conversation store's clear and the blank frame are the first stages to look at. |
 | (D) The real-device checks are the developer's, at the end of the refactor. (2026-11-26) | They need two physical phones, a throwaway install and a watch. | Running them per phase. | Listed in section 5, "Owed before handover". |
 
-Tests: JVM 1761 with 0 failures (3 skipped), lint and both assembles green. Device suites were
-not run in this phase; the last run, at the end of 10c-3, was app 104, chat 6, settings 5,
-location 4, share 3.
+Tests: JVM 1763 with 0 failures (3 skipped), lint, both assembles and `clientRewriteContractTest`
+green, run twice. Device, on an emulator after a fresh install: app 104, chat 6, settings 5,
+location 4, share 3. Then the same suites again over the data that run left, reinstalled in
+place: app 104, chat 6, settings 5, location 4, share 3, all passing. Mesh Lab on two
+emulators passed 14/14; the earlier flaky runs had a stale third bitchat build running its own
+mesh on one image, and every flaked scenario passed alone.
