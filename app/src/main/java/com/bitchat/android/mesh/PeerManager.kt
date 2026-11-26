@@ -81,7 +81,9 @@ data class PeerInfo(
  * Now includes centralized peer fingerprint management via PeerFingerprintManager singleton
  * and support for signed announcement verification
  */
-class PeerManager {
+class PeerManager(
+    cleanupDispatcher: CoroutineDispatcher = Dispatchers.IO
+) {
     
     companion object {
         private const val TAG = "PeerManager"
@@ -107,9 +109,10 @@ class PeerManager {
     // Callback to check if a peer is directly connected (injected by BluetoothMeshService)
     var isPeerDirectlyConnected: ((String) -> Boolean)? = null
 
-    // Coroutines
-    private val managerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    
+    // Coroutines (initialize cleanupWakeup BEFORE init launches startPeriodicCleanup)
+    private val managerScope = CoroutineScope(cleanupDispatcher + SupervisorJob())
+    private val cleanupWakeup = Channel<Unit>(Channel.CONFLATED)
+
     init {
         startPeriodicCleanup()
     }
@@ -538,8 +541,6 @@ class PeerManager {
         notifyPeerListUpdate()
     }
     
-    private val cleanupWakeup = Channel<Unit>(Channel.CONFLATED)
-
     /**
      * Demand-driven cleanup of stale peers: sleeps with zero wakeups while no peers exist.
      */

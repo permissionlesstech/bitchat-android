@@ -22,6 +22,8 @@ import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.ConcurrentHashMap
@@ -127,7 +129,10 @@ class MeshCore(
             },
             syncIntervalProvider = {
                 GossipSyncManager.recommendedSyncIntervalMs(PowerManager.getInstance(context).profile.value)
-            }
+            },
+            syncIntervalFlow = PowerManager.getInstance(context).profile
+                .map { GossipSyncManager.recommendedSyncIntervalMs(it) }
+                .distinctUntilChanged()
         )
     private val ownsGossipManager: Boolean = sharedGossipManager == null
 

@@ -8,7 +8,6 @@ use arti_client::config::TorClientConfigBuilder;
 use tor_rtcompat::PreferredRuntime;
 
 use std::sync::{Arc, Mutex, Once};
-use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::path::PathBuf;
 use std::time::Duration;
 use anyhow::Result;
@@ -32,20 +31,30 @@ static LOG_CALLBACK: Mutex<Option<GlobalRef>> = Mutex::new(None);
 /// Handle to SOCKS server task (for graceful shutdown)
 static SOCKS_TASK: Mutex<Option<tokio::task::JoinHandle<()>>> = Mutex::new(None);
 
-/// Handle to delayed soft-dormant task (re-enters DormantMode::Soft after background SOCKS activity)
-static DORMANT_TIMER_TASK: Mutex<Option<tokio::task::JoinHandle<()>>> = Mutex::new(None);
+/// Serialized dormant-mode state preventing TOCTOU races between foreground wake
+/// (`setDormant(false)`), background sleep (`setDormant(true)`), `startSocksProxy`,
+/// `stop`, and the delayed background re-dormant timer.
+struct DormantState {
+    requested: bool,
+    in_flight_connects: usize,
+    active_streams: usize,
+    activity_epoch: u64,
+    timer: Option<tokio::task::JoinHandle<()>>,
+}
 
-/// Whether the host app currently wants Arti in soft-dormant mode (backgrounded or stopped)
-static DORMANT_REQUESTED: AtomicBool = AtomicBool::new(false);
+impl DormantState {
+    const fn new() -> Self {
+        Self {
+            requested: false,
+            in_flight_connects: 0,
+            active_streams: 0,
+            activity_epoch: 0,
+            timer: None,
+        }
+    }
+}
 
-/// Number of SOCKS5 connections currently running `client.connect(...)`
-static IN_FLIGHT_CONNECTS: AtomicUsize = AtomicUsize::new(0);
-
-/// Number of currently open SOCKS5 streams
-static ACTIVE_SOCKS_STREAMS: AtomicUsize = AtomicUsize::new(0);
-
-/// Monotonic counter bumped on SOCKS connect/close activity to debounce re-dormancy
-static SOCKS_ACTIVITY_EPOCH: AtomicU64 = AtomicU64::new(0);
+static DORMANT_STATE: Mutex<DormantState> = Mutex::new(DormantState::new());
 
 /// Grace period after background SOCKS connect activity before returning to DormantMode::Soft
 const RE_DORMANT_IDLE_DELAY: Duration = Duration::from_secs(15);
@@ -97,12 +106,6 @@ macro_rules! log_error {
 // Dormant Mode Helpers
 // ============================================================================
 
-fn cancel_dormant_timer() {
-    if let Some(handle) = DORMANT_TIMER_TASK.lock().unwrap().take() {
-        handle.abort();
-    }
-}
-
 fn apply_dormant_mode_now(mode: DormantMode) -> bool {
     let client_opt = ARTI_CLIENT.lock().unwrap().as_ref().map(Arc::clone);
     if let Some(client) = client_opt {
@@ -115,16 +118,19 @@ fn apply_dormant_mode_now(mode: DormantMode) -> bool {
 
 /// Schedule a debounced return to `DormantMode::Soft` when backgrounded.
 ///
-/// Upstream `arti-client` automatically wakes `DormantMode::Soft` back to `DormantMode::Normal`
-/// whenever `client.connect(...)` is invoked. Re-applying `DormantMode::Soft` once in-flight
-/// connects finish and remain quiet for `RE_DORMANT_IDLE_DELAY` prevents a single background
-/// reconnect from leaving Arti's periodic circuit/directory/padding tasks running indefinitely.
-fn schedule_re_dormant_if_requested() {
-    if !DORMANT_REQUESTED.load(Ordering::SeqCst) {
+/// Must be called while holding `DORMANT_STATE`. Upstream `arti-client` automatically wakes
+/// `DormantMode::Soft` back to `DormantMode::Normal` whenever `client.connect(...)` runs;
+/// re-checking and applying `DormantMode::Soft` under `DORMANT_STATE` guarantees a foreground
+/// wake (`setDormant(false)`) can never be overwritten by a racing background timer.
+fn schedule_re_dormant_locked(state: &mut DormantState) {
+    if !state.requested {
         return;
     }
-    let epoch = SOCKS_ACTIVITY_EPOCH.fetch_add(1, Ordering::SeqCst) + 1;
-    cancel_dormant_timer();
+    state.activity_epoch = state.activity_epoch.wrapping_add(1);
+    let epoch = state.activity_epoch;
+    if let Some(handle) = state.timer.take() {
+        handle.abort();
+    }
 
     let handle = {
         let runtime_guard = TOKIO_RUNTIME.lock().unwrap();
@@ -134,37 +140,50 @@ fn schedule_re_dormant_if_requested() {
 
         runtime.spawn(async move {
             tokio::time::sleep(RE_DORMANT_IDLE_DELAY).await;
-            if DORMANT_REQUESTED.load(Ordering::SeqCst)
-                && IN_FLIGHT_CONNECTS.load(Ordering::SeqCst) == 0
-                && SOCKS_ACTIVITY_EPOCH.load(Ordering::SeqCst) == epoch
-            {
-                if apply_dormant_mode_now(DormantMode::Soft) {
-                    log_info!(
-                        "Arti re-entered DormantMode::Soft after background SOCKS settle (active_streams={})",
-                        ACTIVE_SOCKS_STREAMS.load(Ordering::SeqCst)
-                    );
+            let applied_streams = {
+                let mut state = DORMANT_STATE.lock().unwrap();
+                if state.requested
+                    && state.in_flight_connects == 0
+                    && state.activity_epoch == epoch
+                {
+                    state.timer = None;
+                    if apply_dormant_mode_now(DormantMode::Soft) {
+                        Some(state.active_streams)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
                 }
+            };
+            if let Some(streams) = applied_streams {
+                log_info!(
+                    "Arti re-entered DormantMode::Soft after background SOCKS settle (active_streams={})",
+                    streams
+                );
             }
         })
     };
 
-    *DORMANT_TIMER_TASK.lock().unwrap() = Some(handle);
+    state.timer = Some(handle);
 }
 
 struct ActiveStreamGuard;
 
 impl ActiveStreamGuard {
     fn new() -> Self {
-        ACTIVE_SOCKS_STREAMS.fetch_add(1, Ordering::SeqCst);
+        let mut state = DORMANT_STATE.lock().unwrap();
+        state.active_streams += 1;
         Self
     }
 }
 
 impl Drop for ActiveStreamGuard {
     fn drop(&mut self) {
-        let prev = ACTIVE_SOCKS_STREAMS.fetch_sub(1, Ordering::SeqCst);
-        if prev == 1 && DORMANT_REQUESTED.load(Ordering::SeqCst) {
-            schedule_re_dormant_if_requested();
+        let mut state = DORMANT_STATE.lock().unwrap();
+        state.active_streams = state.active_streams.saturating_sub(1);
+        if state.active_streams == 0 && state.requested && state.in_flight_connects == 0 {
+            schedule_re_dormant_locked(&mut state);
         }
     }
 }
@@ -173,18 +192,22 @@ struct InFlightConnectGuard;
 
 impl InFlightConnectGuard {
     fn new() -> Self {
-        IN_FLIGHT_CONNECTS.fetch_add(1, Ordering::SeqCst);
-        SOCKS_ACTIVITY_EPOCH.fetch_add(1, Ordering::SeqCst);
-        cancel_dormant_timer();
+        let mut state = DORMANT_STATE.lock().unwrap();
+        state.in_flight_connects += 1;
+        state.activity_epoch = state.activity_epoch.wrapping_add(1);
+        if let Some(handle) = state.timer.take() {
+            handle.abort();
+        }
         Self
     }
 }
 
 impl Drop for InFlightConnectGuard {
     fn drop(&mut self) {
-        let prev = IN_FLIGHT_CONNECTS.fetch_sub(1, Ordering::SeqCst);
-        if prev == 1 && DORMANT_REQUESTED.load(Ordering::SeqCst) {
-            schedule_re_dormant_if_requested();
+        let mut state = DORMANT_STATE.lock().unwrap();
+        state.in_flight_connects = state.in_flight_connects.saturating_sub(1);
+        if state.in_flight_connects == 0 && state.requested {
+            schedule_re_dormant_locked(&mut state);
         }
     }
 }
@@ -351,9 +374,15 @@ pub extern "C" fn Java_org_torproject_arti_ArtiNative_startSocksProxy(
     drop(client_guard);
 
     // Ensure client wakes from any prior stop()/dormant state while starting SOCKS proxy
-    DORMANT_REQUESTED.store(false, Ordering::SeqCst);
-    cancel_dormant_timer();
-    client.set_dormant(DormantMode::Normal);
+    {
+        let mut state = DORMANT_STATE.lock().unwrap();
+        state.requested = false;
+        state.activity_epoch = state.activity_epoch.wrapping_add(1);
+        if let Some(handle) = state.timer.take() {
+            handle.abort();
+        }
+        client.set_dormant(DormantMode::Normal);
+    }
 
     let runtime_guard = TOKIO_RUNTIME.lock().unwrap();
     let runtime = match runtime_guard.as_ref() {
@@ -565,29 +594,41 @@ pub extern "C" fn Java_org_torproject_arti_ArtiNative_setDormant(
     dormant: jboolean,
 ) -> jint {
     let want_dormant = dormant != 0;
-    DORMANT_REQUESTED.store(want_dormant, Ordering::SeqCst);
-    cancel_dormant_timer();
-
-    if !want_dormant {
-        if apply_dormant_mode_now(DormantMode::Normal) {
-            log_info!("Arti dormant mode set to Normal");
-            0
-        } else {
-            -1
+    let (rc, log_msg) = {
+        let mut state = DORMANT_STATE.lock().unwrap();
+        state.requested = want_dormant;
+        state.activity_epoch = state.activity_epoch.wrapping_add(1);
+        if let Some(handle) = state.timer.take() {
+            handle.abort();
         }
-    } else if IN_FLIGHT_CONNECTS.load(Ordering::SeqCst) > 0 {
-        // Let active Tor connects finish before transitioning to soft-dormant mode.
-        schedule_re_dormant_if_requested();
-        0
-    } else if apply_dormant_mode_now(DormantMode::Soft) {
-        log_info!(
-            "Arti dormant mode set to Soft (active_streams={})",
-            ACTIVE_SOCKS_STREAMS.load(Ordering::SeqCst)
-        );
-        0
-    } else {
-        -1
+
+        if !want_dormant {
+            if apply_dormant_mode_now(DormantMode::Normal) {
+                (0, Some("Arti dormant mode set to Normal".to_string()))
+            } else {
+                (-1, None)
+            }
+        } else if state.in_flight_connects > 0 {
+            // Let active Tor connects finish before transitioning to soft-dormant mode.
+            schedule_re_dormant_locked(&mut state);
+            (0, None)
+        } else if apply_dormant_mode_now(DormantMode::Soft) {
+            (
+                0,
+                Some(format!(
+                    "Arti dormant mode set to Soft (active_streams={})",
+                    state.active_streams
+                )),
+            )
+        } else {
+            (-1, None)
+        }
+    };
+
+    if let Some(msg) = log_msg {
+        log_info!("{}", msg);
     }
+    rc
 }
 
 /// Stop Arti and cleanup
@@ -599,19 +640,24 @@ pub extern "C" fn Java_org_torproject_arti_ArtiNative_stop(
     log_info!("AMEx: state changed to Stopping");
     log_info!("Stopping Arti...");
 
-    // Cancel any pending re-dormant timer and put the resident TorClient to sleep
-    DORMANT_REQUESTED.store(true, Ordering::SeqCst);
-    cancel_dormant_timer();
-
     // Abort SOCKS proxy task (releases the port)
     if let Some(handle) = SOCKS_TASK.lock().unwrap().take() {
         log_info!("Aborting SOCKS server task");
         handle.abort();
     }
 
-    // Put the resident TorClient into DormantMode::Soft so it does not keep burning CPU
-    // on background directory/circuit/padding tasks while Tor is stopped.
-    if apply_dormant_mode_now(DormantMode::Soft) {
+    // Cancel any pending re-dormant timer and put the resident TorClient into DormantMode::Soft
+    // atomically under DORMANT_STATE so it does not keep burning CPU while Tor is stopped.
+    let slept = {
+        let mut state = DORMANT_STATE.lock().unwrap();
+        state.requested = true;
+        state.activity_epoch = state.activity_epoch.wrapping_add(1);
+        if let Some(handle) = state.timer.take() {
+            handle.abort();
+        }
+        apply_dormant_mode_now(DormantMode::Soft)
+    };
+    if slept {
         log_info!("Resident Arti client set to DormantMode::Soft on stop");
     }
 

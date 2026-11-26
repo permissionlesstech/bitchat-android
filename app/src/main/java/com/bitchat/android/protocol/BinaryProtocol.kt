@@ -159,35 +159,12 @@ data class BitchatPacket(
         fun fromBinaryData(data: ByteArray): BitchatPacket? {
             return BinaryProtocol.decode(data)
         }
-        
-        private fun hexNibble(c: Char): Int = when (c) {
-            in '0'..'9' -> c.code - '0'.code
-            in 'a'..'f' -> c.code - 'a'.code + 10
-            in 'A'..'F' -> c.code - 'A'.code + 10
-            else -> -1
-        }
 
         /**
          * Convert hex string peer ID to binary data (8 bytes) - exactly same as iOS
          */
-        private fun hexStringToByteArray(hexString: String): ByteArray {
-            val result = ByteArray(8)
-            val len = hexString.length
-            var pos = 0
-            var index = 0
-
-            while (pos + 1 < len && index < 8) {
-                val hi = hexNibble(hexString[pos])
-                val lo = hexNibble(hexString[pos + 1])
-                if (hi >= 0 && lo >= 0) {
-                    result[index] = ((hi shl 4) or lo).toByte()
-                }
-                pos += 2
-                index++
-            }
-
-            return result
-        }
+        private fun hexStringToByteArray(hexString: String): ByteArray =
+            com.bitchat.android.mesh.MeshPacketUtils.hexStringToByteArray(hexString)
     }
 
     override fun equals(other: Any?): Boolean {

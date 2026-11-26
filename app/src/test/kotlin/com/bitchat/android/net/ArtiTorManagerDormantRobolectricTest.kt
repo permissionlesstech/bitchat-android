@@ -158,4 +158,41 @@ class ArtiTorManagerDormantRobolectricTest {
         runCurrent()
         assertEquals(listOf(true), dormantCalls)
     }
+
+    @Test
+    fun `foreground wake racing with background timer always leaves Arti in normal mode`() = runTest {
+        val isBackground = MutableStateFlow(false)
+        val dormantCalls = mutableListOf<Boolean>()
+        var capturedListener: ArtiLogListener? = null
+        val proxy = mock<ArtiProxy>()
+        doAnswer { inv ->
+            dormantCalls += inv.getArgument<Boolean>(0)
+            Unit
+        }.whenever(proxy).setDormant(any())
+
+        val manager = ArtiTorManager(
+            appScope = backgroundScope,
+            proxyFactory = { _, _, listener ->
+                capturedListener = listener
+                proxy
+            },
+            backgroundStateProvider = { isBackground },
+            backgroundDormantDelayMs = 15_000L
+        )
+        manager.init(application)
+        advanceTimeBy(10_000L)
+        runCurrent()
+        capturedListener?.onLogLine("We have found that guard [scrubbed] is usable.")
+        runCurrent()
+
+        // Background until exact timer boundary, then foreground immediately
+        isBackground.value = true
+        runCurrent()
+        advanceTimeBy(15_000L)
+        isBackground.value = false
+        runCurrent()
+
+        // Final dormant state must be Normal (either never entered Soft, or ended with false)
+        assertTrue(dormantCalls.isEmpty() || !dormantCalls.last())
+    }
 }

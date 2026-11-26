@@ -67,6 +67,7 @@ internal class NostrBackgroundEventProcessor(
 
     private val prefs = application.applicationContext.getSharedPreferences("bitchat_prefs", Context.MODE_PRIVATE)
     @Volatile private var blockListsDirty = false
+    @Volatile private var loadedBlockListGeneration = DataManager.blockListGeneration()
     private val prefsChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == null || key.contains("blocked", ignoreCase = true)) {
             blockListsDirty = true
@@ -121,8 +122,10 @@ internal class NostrBackgroundEventProcessor(
     }
 
     private fun refreshBlockLists() {
-        if (!blockListsDirty) return
+        val currentGeneration = DataManager.blockListGeneration()
+        if (!blockListsDirty && currentGeneration == loadedBlockListGeneration) return
         blockListsDirty = false
+        loadedBlockListGeneration = currentGeneration
         dataManager.loadBlockedUsers()
         dataManager.loadGeohashBlockedUsers()
     }

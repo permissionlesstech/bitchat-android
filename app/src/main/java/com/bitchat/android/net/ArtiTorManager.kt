@@ -114,6 +114,7 @@ class ArtiTorManager internal constructor(
     private var bindRetryAttempts = 0
     private var inactivityJob: Job? = null
     private var retryJob: Job? = null
+    private val dormantLock = Any()
     private var dormantJob: Job? = null
     private val restartInFlight = AtomicBoolean(false)
     private var currentApplication: Application? = null
@@ -205,23 +206,35 @@ class ArtiTorManager internal constructor(
     }
 
     internal fun onAppBackgroundStateChanged(inBackground: Boolean) {
-        isAppInBackground = inBackground
-        syncDormantMode()
+        synchronized(dormantLock) {
+            isAppInBackground = inBackground
+            syncDormantModeLocked()
+        }
     }
 
     private fun cancelDormantTimer() {
-        dormantJob?.cancel()
-        dormantJob = null
+        synchronized(dormantLock) {
+            dormantJob?.cancel()
+            dormantJob = null
+            artiDormantApplied = false
+        }
     }
 
     /**
      * Keep Arti in `DormantMode::Normal` while foregrounded or bootstrapping, and transition to
      * `DormantMode::Soft` after [backgroundDormantDelayMs] once backgrounded and fully running.
-     * Any new SOCKS connection wakes Arti automatically inside `arti-client`, and the native
-     * wrapper schedules a return to `DormantMode::Soft` once background connects settle.
+     * All state checks and `proxy.setDormant(...)` calls are serialized under [dormantLock] so a
+     * delayed background timer cannot apply `Soft` after a foreground wake has applied `Normal`.
      */
     private fun syncDormantMode() {
-        cancelDormantTimer()
+        synchronized(dormantLock) {
+            syncDormantModeLocked()
+        }
+    }
+
+    private fun syncDormantModeLocked() {
+        dormantJob?.cancel()
+        dormantJob = null
 
         val proxy = artiProxy ?: return
         if (!isAppInBackground) {
@@ -236,15 +249,18 @@ class ArtiTorManager internal constructor(
             return
         }
 
-        dormantJob = appScope.launch {
+        val scheduledJob = appScope.launch {
             if (backgroundDormantDelayMs > 0L) {
                 delay(backgroundDormantDelayMs)
             }
-            if (isAppInBackground && isProxyEnabled() && !artiDormantApplied) {
-                artiDormantApplied = true
-                artiProxy?.setDormant(true)
+            synchronized(dormantLock) {
+                if (isAppInBackground && isProxyEnabled() && !artiDormantApplied) {
+                    artiDormantApplied = true
+                    artiProxy?.setDormant(true)
+                }
             }
         }
+        dormantJob = scheduledJob
     }
 
     fun currentSocksAddress(): InetSocketAddress? = socksAddr
@@ -352,7 +368,6 @@ class ArtiTorManager internal constructor(
             }
 
             cancelDormantTimer()
-            artiDormantApplied = false
             proxy.start()
             lastLogTime.set(System.currentTimeMillis())
 
@@ -438,7 +453,6 @@ class ArtiTorManager internal constructor(
     private fun stopArtiInternal() {
         try {
             cancelDormantTimer()
-            artiDormantApplied = false
             val proxy = artiProxy
             if (proxy != null) {
                 try {
@@ -474,6 +488,14 @@ class ArtiTorManager internal constructor(
         stopArtiAndWait()
         delay(RESTART_DELAY_MS)
         startArti(application, useDelay = false)
+        appScope.launch {
+            waitUntilBootstrapped()
+            if (_statusFlow.value.running && desiredMode == TorMode.ON) {
+                socksAddr = InetSocketAddress("127.0.0.1", currentSocksPort)
+                Log.i(TAG, "Tor restarted: proxy ready on $socksAddr; resetting network connections")
+                resetNetworkConnections()
+            }
+        }
     }
 
     /**

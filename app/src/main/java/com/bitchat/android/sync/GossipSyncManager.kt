@@ -10,6 +10,9 @@ import com.bitchat.android.protocol.SpecialRecipients
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.sync.Mutex
@@ -25,7 +28,8 @@ class GossipSyncManager(
     private val configProvider: ConfigProvider,
     private val hasPeersProvider: () -> Boolean = { true },
     private val syncIntervalProvider: () -> Long = { DEFAULT_SYNC_INTERVAL_MS },
-    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val syncIntervalFlow: Flow<Long>? = null
 ) {
     interface Delegate {
         fun sendPacket(packet: BitchatPacket)
@@ -89,15 +93,31 @@ class GossipSyncManager(
     fun start() {
         periodicJob?.cancel()
         periodicJob = scope.launch(ioDispatcher) {
-            while (isActive) {
-                try {
-                    val intervalMs = syncIntervalProvider().coerceAtLeast(1_000L)
-                    delay(intervalMs)
-                    if (hasPeersProvider()) {
-                        sendRequestSync()
+            val intervalFlow = syncIntervalFlow
+            if (intervalFlow != null) {
+                intervalFlow.distinctUntilChanged().collectLatest { rawIntervalMs ->
+                    val intervalMs = rawIntervalMs.coerceAtLeast(1_000L)
+                    while (isActive) {
+                        try {
+                            delay(intervalMs)
+                            if (hasPeersProvider()) {
+                                sendRequestSync()
+                            }
+                        } catch (e: CancellationException) { throw e }
+                        catch (e: Exception) { Log.e(TAG, "Periodic sync error: ${e.message}") }
                     }
-                } catch (e: CancellationException) { throw e }
-                catch (e: Exception) { Log.e(TAG, "Periodic sync error: ${e.message}") }
+                }
+            } else {
+                while (isActive) {
+                    try {
+                        val intervalMs = syncIntervalProvider().coerceAtLeast(1_000L)
+                        delay(intervalMs)
+                        if (hasPeersProvider()) {
+                            sendRequestSync()
+                        }
+                    } catch (e: CancellationException) { throw e }
+                    catch (e: Exception) { Log.e(TAG, "Periodic sync error: ${e.message}") }
+                }
             }
         }
 

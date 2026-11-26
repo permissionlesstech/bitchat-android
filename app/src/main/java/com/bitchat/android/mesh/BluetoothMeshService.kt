@@ -20,6 +20,8 @@ import com.bitchat.android.util.toHexString
 import com.bitchat.android.services.VerificationService
 import com.bitchat.android.service.TransportBridgeService
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.channels.Channel
 import java.util.*
 import kotlin.math.sign
@@ -174,7 +176,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             },
             syncIntervalProvider = {
                 GossipSyncManager.recommendedSyncIntervalMs(appPowerManager.profile.value)
-            }
+            },
+            syncIntervalFlow = appPowerManager.profile
+                .map { GossipSyncManager.recommendedSyncIntervalMs(it) }
+                .distinctUntilChanged()
         )
 
         com.bitchat.android.service.MeshServiceHolder.setGossipManager(gossipSyncManager) { packet ->

@@ -421,7 +421,7 @@ class BluetoothGattClientManager(
                 )
             } catch (_: Exception) { }
         }
-        
+
         // Power-aware RSSI filtering
         if (rssi < powerManager.getRSSIThreshold()) {
             return
