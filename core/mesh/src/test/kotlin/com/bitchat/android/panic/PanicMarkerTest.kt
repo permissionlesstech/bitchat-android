@@ -3,6 +3,7 @@ package com.bitchat.android.panic
 import android.content.Context
 import android.os.Build
 import androidx.test.core.app.ApplicationProvider
+import java.io.File
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -25,6 +26,20 @@ class PanicMarkerTest {
 
         PanicMarker(context).clear()
         assertFalse(PanicMarker(context).pending)
+    }
+
+    @Test
+    fun aMarkerThatCannotBeDeletedIsNotCleared() {
+        // A non-empty directory in the marker's place: the delete fails.
+        val file = File(context.cacheDir, "undeletable/${PanicMarker.NAME}")
+        File(file, "child").apply { parentFile!!.mkdirs(); writeBytes(byteArrayOf(1)) }
+        val marker = PanicMarker(file)
+
+        assertFalse(marker.clear())
+        assertTrue(marker.pending)
+
+        file.deleteRecursively()
+        assertTrue(marker.clear())
     }
 
     @Test
