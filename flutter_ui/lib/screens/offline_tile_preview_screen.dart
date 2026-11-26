@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../services/location_service.dart';
 import '../services/offline_public_facility_service.dart';
@@ -466,6 +467,121 @@ class _OfflineTilePreviewScreenState extends State<OfflineTilePreviewScreen> {
     );
   }
 
+  Future<void> _showDataSources() async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('資料來源與授權'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _dataSourceItem(
+                  title: '離線底圖',
+                  details:
+                      '內政部國土測繪中心電子地圖資料供應服務。'
+                      '正式再散布條件及產品署名要求尚待確認。',
+                  uri: Uri.parse(
+                    'https://maps.nlsc.gov.tw/MbIndex_qryPage.action?fun=8',
+                  ),
+                ),
+                _dataSourceItem(
+                  title: '防空避難所',
+                  details:
+                      '警政署防空疏散避難設施資料，由 kiang/npa.gov.tw 彙整。'
+                      'GeoJSON 最近資料更新 commit：2025-06-19。'
+                      'MIT 僅適用於該專案程式碼；原始資料授權尚未確認。',
+                  uri: Uri.parse('https://github.com/kiang/npa.gov.tw'),
+                ),
+                _dataSourceItem(
+                  title: '警察局',
+                  details:
+                      '警政署資料集 #5958，政府資料開放授權條款第 1 版。'
+                      '來源頁 metadata 更新日期：2026-11-06；'
+                      '來源檔 PoliceAddress1_1151106.csv。',
+                  uri: Uri.parse('https://data.gov.tw/dataset/5958'),
+                ),
+                _dataSourceItem(
+                  title: '消防局',
+                  details:
+                      '消防署資料集 #5969，政府資料開放授權條款第 1 版。'
+                      '來源頁 metadata 更新日期：2025-12-16；'
+                      '提供檔案於 2026-11-17 下載。',
+                  uri: Uri.parse('https://data.gov.tw/dataset/5969'),
+                ),
+                _dataSourceItem(
+                  title: '公車站',
+                  details:
+                      '交通部 TDX GIS-T，使用條款要求標示原資料提供機關。'
+                      '提供的快照日期為 2026-10-01，但檔案 Updatetime '
+                      '為 2026-10-28 至 2026-10-30，日期尚待確認。'
+                      '本機檔案於 2026-11-17 下載。',
+                  uri: Uri.parse('https://tdx.transportdata.tw/'),
+                ),
+                _dataSourceItem(
+                  title: '醫療機構',
+                  details:
+                      '衛福部資料集 #15393，政府資料開放授權條款第 1 版。'
+                      'ODS 版本日期 2025-12-31，來源頁 metadata 更新日期 '
+                      '2025-08-29。資料沒有經緯度，無法產生可靠標記，'
+                      '因此地圖不顯示醫院。',
+                  uri: Uri.parse('https://data.gov.tw/dataset/15393'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('關閉'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _dataSourceItem({
+    required String title,
+    required String details,
+    required Uri uri,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text(details),
+          TextButton.icon(
+            onPressed: () => _openDataSource(uri),
+            icon: const Icon(Icons.open_in_new_rounded, size: 16),
+            label: const Text('開啟來源'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openDataSource(Uri uri) async {
+    try {
+      if (await launchUrl(uri, mode: LaunchMode.externalApplication)) return;
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('無法開啟資料來源：$error')));
+      return;
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('無法開啟資料來源連結')));
+  }
+
   Widget _buildControls() {
     final shelters = _searchedShelters;
     return Positioned(
@@ -510,7 +626,7 @@ class _OfflineTilePreviewScreenState extends State<OfflineTilePreviewScreen> {
                 key: const ValueKey('public-facility-search'),
                 onChanged: _onSearchChanged,
                 decoration: InputDecoration(
-                  labelText: '搜尋附近避難所、醫院、消防局或警察局',
+                  labelText: '搜尋附近避難所、消防局、警察局、車站或公車站',
                   hintText: '輸入避難所或公共設施名稱',
                   prefixIcon: const Icon(Icons.search_rounded),
                   suffixIcon: _searchQuery.isEmpty
@@ -574,6 +690,15 @@ class _OfflineTilePreviewScreenState extends State<OfflineTilePreviewScreen> {
                     ),
                   ),
                 ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  key: const ValueKey('offline-map-data-sources'),
+                  onPressed: _showDataSources,
+                  icon: const Icon(Icons.info_outline_rounded, size: 18),
+                  label: const Text('資料來源與授權'),
+                ),
+              ),
             ],
           ),
         ),
