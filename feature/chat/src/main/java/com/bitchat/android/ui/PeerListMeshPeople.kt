@@ -108,7 +108,13 @@ private fun PeerItem(
     // Get consistent peer color (iOS-compatible)
     val palette = LocalBitchatPalette.current
     val assignedColor = colorForPeer(row.colorKey, palette)
-    val baseColor = if (isMe) palette.accentOrange else assignedColor
+    // Offline peers lose their identity colour so they read as inactive at a glance.
+    val isOffline = !row.isConnected && !isMe
+    val baseColor = when {
+        isMe -> palette.accentOrange
+        isOffline -> palette.textTertiary
+        else -> assignedColor
+    }
 
     Row(
         modifier = Modifier
@@ -123,6 +129,7 @@ private fun PeerItem(
             isFavorite = row.isFavorite,
             theyFavoritedUs = row.theyFavoritedUs,
             isVerified = row.isVerified,
+            isOffline = isOffline,
             badge = {
                 when {
                     row.isConnected -> Icon(
@@ -142,7 +149,7 @@ private fun PeerItem(
                         painter = painterResource(R.drawable.ic_spec_globe),
                         contentDescription = stringResource(R.string.cd_reachable_via_nostr),
                         modifier = Modifier.size(13.dp),
-                        tint = palette.accentPurple
+                        tint = palette.textTertiary
                     )
 
                     else -> Icon(

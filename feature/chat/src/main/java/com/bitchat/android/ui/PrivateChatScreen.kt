@@ -142,6 +142,7 @@ fun PrivateChatScreen(
                         messageText = androidx.compose.ui.text.input.TextFieldValue("")
                         forceScrollToBottom = !forceScrollToBottom
                     }
+                    PrivateChatEvent.Close -> onBack()
                 }
             }
 

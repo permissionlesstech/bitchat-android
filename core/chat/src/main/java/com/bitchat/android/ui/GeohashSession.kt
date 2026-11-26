@@ -165,10 +165,14 @@ class GeohashSession(
      * identity: the subscriptions this session, the identity's background runtime and the location
      * notes hold there, and the manager's caches and connections. The rest of this session dies with
      * it, and what it stored goes with the panic's wipe of the sandbox.
+     *
+     * Relays stay offline afterwards, and nothing here subscribes again: the identity being wiped
+     * must not be asked for once more. The next identity's start-up reconnects, after the wipe has
+     * confirmed.
      */
     fun panicReleaseRelays() {
         subscriptionManager.unsubscribeAllOwned()
-        nostrBackgroundRuntime.resetSubscriptions()
+        nostrBackgroundRuntime.releaseSubscriptions()
         try { relayManagerSource.get().clearAllOnPanic() } catch (_: Exception) {}
         try { locationNotesManagerSource.get().stop() } catch (_: Exception) {}
     }

@@ -54,7 +54,6 @@ import kotlin.random.Random
  * - PeerManager: Peer lifecycle management
  * - FragmentManager: Message fragmentation and reassembly  
  * - SecurityManager: Security, duplicate detection, encryption
- * - StoreForwardManager: Offline message caching
  * - MessageHandler: Message type processing and relay logic
  * - BluetoothConnectionManager: BLE connections and GATT operations
  * - PacketProcessor: Incoming packet routing
@@ -163,7 +162,6 @@ class BluetoothMeshService @AssistedInject constructor(
         )
     }
     private val securityManager = SecurityManager(encryptionService, myPeerID)
-    private val storeForwardManager = StoreForwardManager()
     private val messageHandler = MessageHandler(
         myPeerID,
         context.applicationContext,
@@ -365,13 +363,10 @@ class BluetoothMeshService @AssistedInject constructor(
                     authenticatedRemoteStaticKey,
                     authenticatedSessionToken
                 )
-                // Send announcement and cached messages after key exchange
+                // Send announcement after key exchange
                 serviceScope.launch {
                     delay(100)
                     sendAnnouncementToPeer(peerID)
-                    
-                    delay(1000)
-                    storeForwardManager.sendCachedMessages(peerID)
                 }
             }
             
@@ -397,21 +392,6 @@ class BluetoothMeshService @AssistedInject constructor(
 
             override fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? =
                 authenticatedPeerState.persistedSigningKeyFor(noisePublicKey)
-        }
-        
-        // StoreForwardManager delegates
-        storeForwardManager.delegate = object : StoreForwardManagerDelegate {
-            override fun isFavorite(peerID: String): Boolean {
-                return delegate?.isFavorite(peerID) ?: false
-            }
-            
-            override fun isPeerOnline(peerID: String): Boolean {
-                return peerManager.isPeerActive(peerID)
-            }
-            
-            override fun sendPacket(packet: BitchatPacket) {
-                broadcastRoutedPacket(RoutedPacket(packet))
-            }
         }
         
         // MessageHandler delegates
@@ -710,10 +690,6 @@ class BluetoothMeshService @AssistedInject constructor(
                 this@BluetoothMeshService.sendAnnouncementToPeer(peerID)
             }
             
-            override fun sendCachedMessages(peerID: String) {
-                storeForwardManager.sendCachedMessages(peerID)
-            }
-            
             override fun relayPacket(routed: RoutedPacket) {
                 broadcastRoutedPacket(routed)
             }
@@ -906,7 +882,6 @@ class BluetoothMeshService @AssistedInject constructor(
             peerManager.shutdown()
             fragmentManager.shutdown()
             securityManager.shutdown()
-            storeForwardManager.shutdown()
             messageHandler.shutdown()
             packetProcessor.shutdown()
             
@@ -1536,8 +1511,6 @@ class BluetoothMeshService @AssistedInject constructor(
             appendLine()
             appendLine(securityManager.getDebugInfo())
             appendLine()
-            appendLine(storeForwardManager.getDebugInfo())
-            appendLine()
             appendLine(messageHandler.getDebugInfo())
             appendLine()
             appendLine(packetProcessor.getDebugInfo())
@@ -1642,7 +1615,6 @@ class BluetoothMeshService @AssistedInject constructor(
 
             // Clear all managers
             fragmentManager.clearAllFragments()
-            storeForwardManager.clearAllCache()
             securityManager.clearAllData()
             peerManager.clearAllPeers()
             peerManager.clearAllFingerprints()

@@ -667,7 +667,6 @@ private fun WearScreenContent(
         )
         is WearScreen.TextInput -> {
             val mesh = meshHolder.peek()
-            val sendScope = androidx.compose.runtime.rememberCoroutineScope()
             val recipient = screen.peerID?.let { peerID ->
                 mesh?.getPeerNickname(peerID) ?: peerID.take(8)
             }
@@ -680,7 +679,12 @@ private fun WearScreenContent(
                             sendPublicMessage(appStateStore, m, m.nickname, text)
                         } else {
                             val nick = m.getPeerNickname(screen.peerID) ?: screen.peerID
-                            sendPrivateMessage(appStateStore, m, m.nickname, screen.peerID, nick, text, sendScope)
+                            // The mesh's scope, not the screen's: this screen closes right after.
+                            sendPrivateMessage(
+                                appStateStore, m, m.nickname, screen.peerID, nick, text,
+                                scope = m.serviceScope,
+                                isRunning = m::isRunning,
+                            )
                         }
                     }
                     onBack()

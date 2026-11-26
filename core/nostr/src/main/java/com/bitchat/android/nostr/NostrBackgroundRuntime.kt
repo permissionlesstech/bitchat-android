@@ -102,17 +102,13 @@ class NostrBackgroundRuntime @Inject constructor(
         startPresenceScheduler()
     }
 
-    fun resetSubscriptions() {
+    /**
+     * Releases what this identity subscribed on the relay manager, and subscribes nothing again. A
+     * panic calls it before the wipe, so nothing of the identity being wiped is asked for again.
+     */
+    fun releaseSubscriptions() {
         if (!initialized) return
         subscriptions.unsubscribeAllOwned()
-        scope.launch {
-            // Let CLOSE frames be queued before replacing the deterministic IDs.
-            delay(100)
-            subscribeAccountDm()
-            activeGeohash?.let { geohash ->
-                subscribeSelectedGeohash(geohash, activeGeohashLiveToken)
-            }
-        }
     }
 
     fun ensureConversationDm(geohash: String) {

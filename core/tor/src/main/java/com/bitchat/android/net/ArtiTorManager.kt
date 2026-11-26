@@ -25,6 +25,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.CompletableDeferred
 
 import java.net.InetSocketAddress
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
@@ -40,11 +41,27 @@ import dagger.Lazy
  * Based on the original TorManager implementation.
  */
 @Singleton
-class ArtiTorManager @Inject constructor(
+class ArtiTorManager internal constructor(
     // Lazy: OkHttpProvider reads this manager, and this manager resets it synchronously.
     private val okHttp: Lazy<OkHttpProvider>,
     private val torPreferences: TorPreferenceManager,
+    private val appScope: CoroutineScope,
+    private val proxyFactory: (Application, Int, ArtiLogListener) -> ArtiProxy,
 ) {
+    @Inject
+    constructor(okHttp: Lazy<OkHttpProvider>, torPreferences: TorPreferenceManager) : this(
+        okHttp,
+        torPreferences,
+        CoroutineScope(Dispatchers.IO + SupervisorJob()),
+        { application, socksPort, logListener ->
+            ArtiProxy.Builder(application)
+                .setSocksPort(socksPort)
+                .setDnsPort(socksPort + 1)
+                .setLogListener(logListener)
+                .build()
+        },
+    )
+
     enum class TorState {
         OFF,
         STARTING,
@@ -64,14 +81,12 @@ class ArtiTorManager @Inject constructor(
 
     companion object {
         private const val TAG = "ArtiTorManager"
-        private const val DEFAULT_SOCKS_PORT: Int = 9060
-        private const val RESTART_DELAY_MS: Long = 2_000L
-        private const val INACTIVITY_TIMEOUT_MS: Long = 5_000L
-        private const val MAX_RETRY_ATTEMPTS: Int = 5
-        private const val STOP_TIMEOUT_MS: Long = 7_000L
+        internal const val DEFAULT_SOCKS_PORT: Int = 9060
+        internal const val RESTART_DELAY_MS: Long = 2_000L
+        internal const val INACTIVITY_TIMEOUT_MS: Long = 5_000L
+        internal const val MAX_RETRY_ATTEMPTS: Int = 5
+        internal const val STOP_TIMEOUT_MS: Long = 7_000L
     }
-
-    private val appScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     @Volatile
     private var initialized = false
@@ -79,6 +94,8 @@ class ArtiTorManager @Inject constructor(
     private var socksAddr: InetSocketAddress? = null
     @Volatile
     private var artiProxy: ArtiProxy? = null
+    @Volatile
+    private var artiProxyPort: Int = DEFAULT_SOCKS_PORT
     @Volatile
     private var lastMode: TorMode = TorMode.OFF
     private val applyMutex = Mutex()
@@ -94,6 +111,7 @@ class ArtiTorManager @Inject constructor(
     private var bindRetryAttempts = 0
     private var inactivityJob: Job? = null
     private var retryJob: Job? = null
+    private val restartInFlight = AtomicBoolean(false)
     private var currentApplication: Application? = null
 
     private enum class LifecycleState { STOPPED, STARTING, RUNNING, STOPPING }
@@ -131,6 +149,17 @@ class ArtiTorManager @Inject constructor(
 
     private val stateChangeDeferred = AtomicReference<CompletableDeferred<TorState>?>(null)
 
+    private val artiLogListener = ArtiLogListener { logLine ->
+        val text = logLine ?: return@ArtiLogListener
+        val s = text
+        lastLogTime.set(System.currentTimeMillis())
+        _statusFlow.update { it.copy(lastLogLine = s) }
+        handleArtiLogLine(s)
+        if (_statusFlow.value.bootstrapPercent < 100) {
+            armBootstrapInactivityWatchdog()
+        }
+    }
+
     fun isProxyEnabled(): Boolean {
         val s = _statusFlow.value
         return s.mode != TorMode.OFF && s.running && s.bootstrapPercent >= 100 &&
@@ -145,22 +174,7 @@ class ArtiTorManager @Inject constructor(
             currentApplication = application
             torPreferences.init(application)
 
-            val logListener = ArtiLogListener { logLine ->
-                val text = logLine ?: return@ArtiLogListener
-                val s = text
-                lastLogTime.set(System.currentTimeMillis())
-                _statusFlow.update { it.copy(lastLogLine = s) }
-                handleArtiLogLine(s)
-                if (_statusFlow.value.bootstrapPercent < 100) {
-                    armBootstrapInactivityWatchdog()
-                }
-            }
-
-            artiProxy = ArtiProxy.Builder(application)
-                .setSocksPort(currentSocksPort)
-                .setDnsPort(currentSocksPort + 1)
-                .setLogListener(logListener)
-                .build()
+            artiProxy = buildArtiProxy(application)
 
             val savedMode = torPreferences.get(application)
             if (savedMode == TorMode.ON) {
@@ -284,7 +298,7 @@ class ArtiTorManager @Inject constructor(
                 delay(RESTART_DELAY_MS)
             }
 
-            val proxy = artiProxy ?: run {
+            val proxy = proxyForCurrentPort(application) ?: run {
                 Log.e(TAG, "ArtiProxy not initialized! This should not happen.")
                 _statusFlow.update { it.copy(state = TorState.ERROR) }
                 return
@@ -329,6 +343,23 @@ class ArtiTorManager @Inject constructor(
                 scheduleRetry(application)
             }
         }
+    }
+
+    private fun buildArtiProxy(application: Application): ArtiProxy {
+        val port = currentSocksPort
+        return proxyFactory(application, port, artiLogListener).also { artiProxyPort = port }
+    }
+
+    /**
+     * ArtiProxy fixes its ports at construction, so it must be rebuilt whenever
+     * [currentSocksPort] moves or Tor would bind a different port than [socksAddr].
+     * Call only after the previous proxy has been stopped.
+     */
+    private fun proxyForCurrentPort(application: Application): ArtiProxy? {
+        if (artiProxy != null && artiProxyPort != currentSocksPort) {
+            artiProxy = buildArtiProxy(application)
+        }
+        return artiProxy
     }
 
     private fun isBindError(exception: Exception): Boolean {
@@ -391,6 +422,30 @@ class ArtiTorManager @Inject constructor(
         startArti(application, useDelay = false)
     }
 
+    /**
+     * Runs an automatic restart in its own coroutine. The watchdog and retry jobs request restarts,
+     * and stopping Arti cancels both jobs, so a restart running inside either would cancel itself.
+     * Holding [applyMutex] serializes the restart with mode changes, so turning Tor off always
+     * ends with Arti stopped.
+     */
+    private fun launchRestart(application: Application) {
+        if (!restartInFlight.compareAndSet(false, true)) return
+        appScope.launch {
+            try {
+                applyMutex.withLock {
+                    if (
+                        desiredMode == TorMode.ON &&
+                        (lifecycleState == LifecycleState.STARTING || lifecycleState == LifecycleState.RUNNING)
+                    ) {
+                        restartArti(application)
+                    }
+                }
+            } finally {
+                restartInFlight.set(false)
+            }
+        }
+    }
+
     private fun startInactivityMonitoring() {
         armBootstrapInactivityWatchdog()
     }
@@ -415,7 +470,7 @@ class ArtiTorManager @Inject constructor(
                 lifecycleState == LifecycleState.RUNNING
             ) {
                 Log.w(TAG, "Bootstrap inactivity detected (${timeSinceLastActivity}ms), restarting Arti")
-                currentApplication?.let { restartArti(it) }
+                currentApplication?.let { launchRestart(it) }
             }
         }
     }
@@ -435,7 +490,7 @@ class ArtiTorManager @Inject constructor(
                 delay(delayMs)
                 val currentMode = _statusFlow.value.mode
                 if (currentMode == TorMode.ON) {
-                    restartArti(application)
+                    launchRestart(application)
                 }
             }
         } else {

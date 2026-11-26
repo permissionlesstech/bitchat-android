@@ -3,6 +3,7 @@ package com.bitchat.android.ui.globe
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableDoubleStateOf
@@ -209,9 +210,12 @@ class GlobeState(
     /**
      * Whether − can widen the view. Level 1 spans a range of zooms (the opening rotation lands
      * well inside it), so it can still pull back to the whole globe without changing precision.
+     * Derived so that the picker chrome reading it recomposes when the answer flips, not on
+     * every frame of a pinch or flight.
      */
-    val canZoomOut: Boolean
-        get() = precision > 1 || zoom > GlobeMath.MIN_ZOOM * (1f + WHOLE_GLOBE_ZOOM_TOLERANCE)
+    val canZoomOut: Boolean by derivedStateOf {
+        precision > 1 || zoom > GlobeMath.MIN_ZOOM * (1f + WHOLE_GLOBE_ZOOM_TOLERANCE)
+    }
 
     /** The − button: one level coarser, or the whole globe when already at level 1. */
     fun zoomOut() {

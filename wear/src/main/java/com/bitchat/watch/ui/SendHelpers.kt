@@ -35,6 +35,10 @@ internal fun <M> sendPublicMessage(
  * DM send with honest delivery state. MeshCore drops pre-handshake content (it only kicks
  * off the Noise handshake), so when no session exists we must not echo "Sent": the echo
  * stays "Sending" while a retry loop waits for the session and completes the send.
+ *
+ * The retry loop runs in [scope], which callers pass as the mesh service's scope because the
+ * caller's screen usually closes right after sending; it ends with the 15 s deadline or when
+ * [isRunning] turns false.
  */
 internal fun <M> sendPrivateMessage(
     appStateStore: AppStateStore,
@@ -43,7 +47,9 @@ internal fun <M> sendPrivateMessage(
     peerID: String,
     recipientNickname: String,
     content: String,
-    scope: CoroutineScope
+    scope: CoroutineScope,
+    isRunning: () -> Boolean = { true },
+    nowMs: () -> Long = System::currentTimeMillis
 ) where M : MeshMessaging, M : MeshPeers {
     val established = mesh.hasEstablishedSession(peerID)
     val messageID = java.util.UUID.randomUUID().toString()
@@ -51,20 +57,9 @@ internal fun <M> sendPrivateMessage(
         mesh.sendPrivateMessage(content, peerID, recipientNickname, messageID)
     } else {
         mesh.initiateNoiseHandshake(peerID)
-        scope.launch {
-            val deadline = System.currentTimeMillis() + 15_000
-            while (System.currentTimeMillis() < deadline) {
-                if (mesh.hasEstablishedSession(peerID)) {
-                    mesh.sendPrivateMessage(content, peerID, recipientNickname, messageID)
-                    appStateStore.updatePrivateMessageStatus(messageID, DeliveryStatus.Sent)
-                    return@launch
-                }
-                delay(400)
-            }
-            // Session never came up: the echo honestly stays "Sending" (AppStateStore
-            // refuses status downgrades, so it cannot be marked Failed from here).
-        }
     }
+    // Store the echo before the retry loop starts: the loop can finish on another thread at
+    // once, and a status update for a message that is not stored yet is lost.
     appStateStore.addPrivateMessage(
         peerID,
         BitchatMessage(
@@ -78,6 +73,20 @@ internal fun <M> sendPrivateMessage(
             deliveryStatus = if (established) DeliveryStatus.Sent else DeliveryStatus.Sending
         )
     )
+    if (established) return
+    scope.launch {
+        val deadline = nowMs() + 15_000
+        while (isRunning() && nowMs() < deadline) {
+            if (mesh.hasEstablishedSession(peerID)) {
+                mesh.sendPrivateMessage(content, peerID, recipientNickname, messageID)
+                appStateStore.updatePrivateMessageStatus(messageID, DeliveryStatus.Sent)
+                return@launch
+            }
+            delay(400)
+        }
+        // Session never came up: the echo honestly stays "Sending" (AppStateStore
+        // refuses status downgrades, so it cannot be marked Failed from here).
+    }
 }
 
 /**

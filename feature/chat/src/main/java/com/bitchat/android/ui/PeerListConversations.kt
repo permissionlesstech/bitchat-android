@@ -487,7 +487,9 @@ private fun ConversationRow(
             stringResource(R.string.offline_reachable_via_nostr)
         ConversationPresence.NotInMesh -> stringResource(R.string.offline_not_in_mesh)
     }
-    val assignedColor = colorForPeer(row.colorKey, palette)
+    // Offline peers lose their identity colour so they read as inactive at a glance.
+    val isOffline = row.presence != ConversationPresence.Connected
+    val assignedColor = if (isOffline) palette.textTertiary else colorForPeer(row.colorKey, palette)
     val baseNameRaw = row.baseName
     val suffix = row.suffix
     // The UI clock: recomputed every minute while the row is composed.
@@ -560,6 +562,7 @@ private fun ConversationRow(
             isFavorite = row.isFavorite,
             theyFavoritedUs = row.theyFavoritedUs,
             isVerified = row.isVerified,
+            isOffline = isOffline,
             badge = {
                 when (row.presence) {
                     ConversationPresence.Connected -> Icon(
@@ -581,7 +584,7 @@ private fun ConversationRow(
                             R.string.offline_reachable_via_nostr
                         ),
                         modifier = Modifier.size(13.dp),
-                        tint = palette.accentPurple
+                        tint = palette.textTertiary
                     )
 
                     ConversationPresence.NotInMesh -> Icon(

@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 import androidx.annotation.VisibleForTesting
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Provider
 
@@ -53,6 +54,9 @@ class WifiAwareController @Inject constructor(
     private var starting = false
     private val restartInFlight = AtomicBoolean(false)
     private val restartRequested = AtomicBoolean(false)
+    // Monotonic. A deadline rather than a delay, so a request coalesced into a running loop
+    // still holds that loop back; the latest deadline requested wins.
+    private val restartNotBeforeMs = AtomicLong(Long.MIN_VALUE)
     private var awareReceiver: android.content.BroadcastReceiver? = null
 
     /** Set once, under [lifecycleLock], when the identity ends; nothing starts or registers after it. */
@@ -290,7 +294,8 @@ class WifiAwareController @Inject constructor(
             // publishes anyway — resurrecting NAN while the hotspot owns the radio.
             // Ordering holds because acquireHotspotLease() increments before calling
             // stop(): either we see the flag here, or stop() sees our published service.
-            val published = publishStarted(startedService)
+            val outcome = publishStarted(startedService, reusableService)
+            val published = outcome == PublishOutcome.PUBLISHED
 
             if (published) {
                 try { meshServiceHolder.unifiedMeshService?.refreshDelegates() } catch (_: Exception) { }
@@ -299,7 +304,7 @@ class WifiAwareController @Inject constructor(
             } else {
                 // stopServices() can block, so keep it out of the lock.
                 val heldForHotspot = heldForHotspot()
-                if (heldForHotspot || reusableService == null || synchronized(lifecycleLock) { closed }) {
+                if (outcome != PublishOutcome.RETAINED) {
                     try { startedService.stopServices() } catch (_: Exception) { }
                 }
                 if (heldForHotspot) {
@@ -331,21 +336,41 @@ class WifiAwareController @Inject constructor(
         try { debugSettingsManager.get().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware stopped")) } catch (_: Exception) {}
     }
 
+    /** What [publishStarted] did with a started service. */
+    internal enum class PublishOutcome {
+        PUBLISHED,
+        /** Not published, but kept as the service for the next attempt; not to be stopped. */
+        RETAINED,
+        /** Not published and not kept; the caller stops it. */
+        ABANDONED,
+    }
+
     /**
      * Publishes [startedService] if nothing has claimed the radio and the controller is still
-     * open, under the lock [stop] and [close] take. Returns whether it was published.
+     * open, under the lock [stop] and [close] take. [reusableService] is the instance this
+     * attempt resumed, if any.
      */
-    internal fun publishStarted(startedService: WifiAwareMeshService): Boolean =
+    internal fun publishStarted(
+        startedService: WifiAwareMeshService,
+        reusableService: WifiAwareMeshService? = null,
+    ): PublishOutcome =
         synchronized(lifecycleLock) {
-            val canPublish = !closed && !heldForHotspot() && startedService.isRunning()
+            // stop() withdraws an instance by clearing `service`. A reused instance it took
+            // during this attempt is being torn down and must not be published again.
+            val withdrawn = reusableService != null && service !== reusableService
+            val canPublish = !closed && !heldForHotspot() && !withdrawn && startedService.isRunning()
             if (canPublish) {
                 service = startedService
                 _running.value = true
+                PublishOutcome.PUBLISHED
             } else {
-                if (service === startedService) service = null
+                if ((closed || heldForHotspot()) && service === startedService) service = null
                 _running.value = false
+                // A reused instance can defer its start while recovery cleanup finishes.
+                // Keep it for the next attempt: it was never shut down, so replacing it
+                // would orphan it next to a second instance.
+                if (service === startedService) PublishOutcome.RETAINED else PublishOutcome.ABANDONED
             }
-            canPublish
         }
 
     internal fun onServiceStopped(stoppedService: WifiAwareMeshService) {
@@ -354,6 +379,21 @@ class WifiAwareController @Inject constructor(
             service = null
             _running.value = false
             try { appStateStore.clearTransportPeers("WIFI") } catch (_: Exception) { }
+            clearDebugSnapshot()
+        }
+    }
+
+    /**
+     * Records that the published service lost its sessions but was not shut down.
+     *
+     * Unlike [onServiceStopped] this keeps the reference: the instance still owns its scope
+     * and core, and [startIfPossible] resumes it. Clearing [running] is what lets
+     * [restartIfStillEnabled] act.
+     */
+    internal fun onServiceInterrupted(interruptedService: WifiAwareMeshService) {
+        synchronized(lifecycleLock) {
+            if (service !== interruptedService) return
+            _running.value = false
             clearDebugSnapshot()
         }
     }
@@ -370,6 +410,9 @@ class WifiAwareController @Inject constructor(
         // burning attempts against the hold — would otherwise be dropped, and the old
         // loop would exhaust MAX_RESTART_ATTEMPTS without ever seeing the cleared hold,
         // leaving Aware down despite the user's setting.
+        restartNotBeforeMs.accumulateAndGet(monotonicNowMs() + delayMs) { current, requested ->
+            maxOf(current, requested)
+        }
         restartRequested.set(true)
 
         if (!restartInFlight.compareAndSet(false, true)) {
@@ -378,13 +421,16 @@ class WifiAwareController @Inject constructor(
         }
         scope.launch {
             try {
-                if (delayMs > 0L) delay(delayMs)
+                awaitRestartDeadline()
                 do {
                     // Consume the request before working, so anything arriving during
                     // the attempts below schedules another pass.
                     restartRequested.set(false)
                     var attempt = 0
                     while (_enabled.value && !_running.value && attempt < MAX_RESTART_ATTEMPTS) {
+                        // A failure answered during the previous attempt may have moved this.
+                        awaitRestartDeadline()
+                        if (!_enabled.value || _running.value) break
                         val ctx = appContext
                         if (ctx != null && !refreshSupportStatus(ctx).supported) break
                         startIfPossible()
@@ -403,6 +449,20 @@ class WifiAwareController @Inject constructor(
             if (restartRequested.get() && _enabled.value && !_running.value) {
                 restartIfStillEnabled()
             }
+        }
+    }
+
+    private fun monotonicNowMs(): Long = System.nanoTime() / 1_000_000L
+
+    /** Re-reads the deadline after each wait, since a coalesced request can extend it. */
+    private suspend fun awaitRestartDeadline() {
+        while (true) {
+            val remainingMs = restartNotBeforeMs.get().let { deadline ->
+                val now = monotonicNowMs()
+                if (deadline <= now) 0L else deadline - now
+            }
+            if (remainingMs == 0L) return
+            delay(remainingMs)
         }
     }
 

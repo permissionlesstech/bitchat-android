@@ -84,7 +84,8 @@ class WearMeshService @Inject constructor(
     private val permissionManager = BluetoothPermissionManager(context, requireLocation = false)
 
     override val myPeerID: String = encryptionService.getIdentityFingerprint().take(16)
-    private val serviceScope = CoroutineScope(ioDispatcher + SupervisorJob())
+    // Internal so a DM's session wait outlives the input screen that started it.
+    internal val serviceScope = CoroutineScope(ioDispatcher + SupervisorJob())
 
     private val bleTransport = BleTransport()
     private val meshCore: MeshCore

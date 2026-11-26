@@ -591,6 +591,32 @@ class PanicClearTest {
         verify(session.messages).addSystemMessage(incomplete)
     }
 
+    // Upstream's panic reconnect (1e3515dd, c1b2e1be): relays must not come back before the wipe is
+    // confirmed, and must come back after it. The release leaves them offline
+    // (NostrRelayManagerPanicReconnectRobolectricTest), and the next identity's start-up is what
+    // connects them again, so it must follow a confirmed wipe and never run after one that failed.
+    @Test
+    fun `relays are released before the wipe and reconnect only through a start-up after it confirms`() {
+        panic.run()
+
+        val released = log.indexOf("session0.geohash.panicReleaseRelays")
+        val wiped = log.indexOf("sandbox wiped (marker set)")
+        val started = log.indexOf("identity started")
+        assertTrue("released before the identity ends", released in 0 until log.indexOf("identity ended"))
+        assertTrue("the start-up that reconnects follows the confirmed wipe", wiped in 0 until started)
+    }
+
+    @Test
+    fun `relays stay down after a wipe that cannot confirm`() {
+        wipeResult = WipeResult(leftovers = listOf("files/synthetic"), aliasesLeft = 0)
+
+        panic.run()
+
+        assertTrue(log.contains("session0.geohash.panicReleaseRelays"))
+        assertFalse("no start-up, so nothing reconnects in this process", log.contains("identity started"))
+        assertEquals(1, restarts)
+    }
+
     @Test
     fun `the nickname reaches the new session's storage and state before the mesh announces with it`() {
         panic.run()

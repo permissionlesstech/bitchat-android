@@ -145,7 +145,9 @@ class PrivateChatViewModel @AssistedInject constructor(
             conversationID.collect { id ->
                 if (id != started) {
                     started = id
-                    privateChatSession.start(id)
+                    // A chat that cannot start (a blocked peer) has nothing to offer, and
+                    // the reason is posted to the timeline behind it: close this screen.
+                    if (!privateChatSession.start(id)) _events.send(PrivateChatEvent.Close)
                 }
             }
         }
@@ -160,7 +162,12 @@ class PrivateChatViewModel @AssistedInject constructor(
         when (action) {
             is PrivateChatAction.ComposerTextChanged ->
                 conversationListPreferences.saveComposerDraft(conversation, action.text)
-            is PrivateChatAction.Send -> messageSender.send(action.content) { accepted ->
+            // Addressed to this conversation, never to whatever chat is selected now.
+            is PrivateChatAction.Send -> messageSender.sendToConversation(
+                conversation,
+                action.content,
+                onRefusedBlocked = { viewModelScope.launch { _events.send(PrivateChatEvent.Close) } },
+            ) { accepted ->
                 if (accepted) {
                     conversationListPreferences.saveComposerDraft(conversation, "")
                     viewModelScope.launch { _events.send(PrivateChatEvent.MessageSent) }

@@ -8,10 +8,12 @@ import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.services.ContactIdentityResolver
 import com.bitchat.android.services.TestMeshStores
 import javax.inject.Provider
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertFalse
+import junit.framework.TestCase.assertNull
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
@@ -21,7 +23,10 @@ import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mockito
+import org.mockito.kotlin.any
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
 import java.util.Date
@@ -162,16 +167,7 @@ class CommandProcessorTest {
       state = chatState,
       messageManager = messageManager,
       channelManager = channelManager,
-      privateChatManager = PrivateChatManager(
-        state = chatState,
-        messageManager = messageManager,
-        dataManager = DataManager(context = context),
-        noiseSessionDelegate = mock<NoiseSessionDelegate>(),
-        contactDirectory = stores.contactDirectory,
-        appStateStore = stores.appStateStore,
-        favorites = Provider { stores.favorites },
-        peerFingerprints = PeerFingerprintManager(),
-      ),
+      privateChatManager = privateChatManager(DataManager(context = context)),
       routePrivateMessage = { _, content, recipient, _, _ -> routed += content to recipient }
     )
 
@@ -185,6 +181,84 @@ class CommandProcessorTest {
     assertEquals(listOf("hello there" to peerID), routed)
     Mockito.verify(meshService, Mockito.never())
       .sendPrivateMessage(Mockito.anyString(), Mockito.anyString(), Mockito.anyString(), Mockito.anyString())
+  }
+
+  // Upstream also opens its private chat sheet here. On this branch the main chat shows the
+  // conversation /msg selects (ChatScreen's visible private peer), so the selection is what the
+  // person sees and what the composer sends to.
+  @Test
+  fun `msg command presents the conversation it selects for private sending`() {
+    val peerID = "0102030405060708"
+    whenever(meshService.getPeerNicknames()).thenReturn(mapOf(peerID to "alice"))
+
+    processMessageCommand("/msg alice")
+
+    assertEquals(peerID, chatState.getSelectedPrivateChatPeerValue())
+  }
+
+  @Test
+  fun `msg command with text sends privately and presents the conversation`() {
+    val peerID = "0102030405060708"
+    whenever(meshService.getPeerNicknames()).thenReturn(mapOf(peerID to "alice"))
+    whenever(meshService.myPeerID).thenReturn("self")
+
+    processMessageCommand("/msg alice hello there")
+
+    verify(meshService).sendPrivateMessage(eq("hello there"), eq(peerID), eq("alice"), any())
+    assertEquals(peerID, chatState.getSelectedPrivateChatPeerValue())
+  }
+
+  @Test
+  fun `msg command from an open private chat moves the selection to the new recipient`() {
+    val alice = "0102030405060708"
+    val bob = "1112131415161718"
+    whenever(meshService.getPeerNicknames()).thenReturn(mapOf(alice to "alice", bob to "bob"))
+    chatState.setSelectedPrivateChatPeer(alice)
+
+    processMessageCommand("/msg bob")
+
+    assertEquals(bob, chatState.getSelectedPrivateChatPeerValue())
+  }
+
+  @Test
+  fun `msg command to a blocked peer neither selects nor presents the conversation`() {
+    val blockedPeerID =
+      ContactIdentityResolver.contactConversationIdForNoiseKey(ByteArray(32) { 9 })
+    whenever(meshService.getPeerNicknames()).thenReturn(mapOf(blockedPeerID to "mallory"))
+    val dataManager = DataManager(context = context)
+    dataManager.addBlockedUser(
+      ContactIdentityResolver.fingerprintFromContactConversationId(blockedPeerID)!!
+    )
+    commandProcessor = CommandProcessor(
+      state = chatState,
+      messageManager = messageManager,
+      channelManager = channelManager,
+      privateChatManager = privateChatManager(dataManager),
+    )
+
+    processMessageCommand("/msg mallory")
+
+    assertNull(chatState.getSelectedPrivateChatPeerValue())
+  }
+
+  private fun privateChatManager(dataManager: DataManager) = PrivateChatManager(
+    state = chatState,
+    messageManager = messageManager,
+    dataManager = dataManager,
+    noiseSessionDelegate = mock<NoiseSessionDelegate>(),
+    contactDirectory = stores.contactDirectory,
+    appStateStore = stores.appStateStore,
+    favorites = Provider { stores.favorites },
+    peerFingerprints = PeerFingerprintManager(),
+  )
+
+  private fun processMessageCommand(command: String) {
+    commandProcessor.processCommand(
+      command = command,
+      meshService = meshService,
+      myPeerID = "self",
+      onSendMessage = { _, _, _ -> }
+    )
   }
 
   @Test

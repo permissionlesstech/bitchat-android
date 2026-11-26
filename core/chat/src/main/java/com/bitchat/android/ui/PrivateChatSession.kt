@@ -25,7 +25,8 @@ class PrivateChatSession @Inject constructor(
     private val contactDirectory: ContactDirectory,
 ) {
 
-    suspend fun start(peerID: String) {
+    /** Returns false when the chat could not start, as for a blocked peer. */
+    suspend fun start(peerID: String): Boolean {
         // For geohash conversation keys, ensure DM subscription is active
         if (peerID.startsWith("nostr_")) {
             geohashSession.ensureGeohashDMSubscriptionForConversation(peerID)
@@ -56,6 +57,7 @@ class PrivateChatSession @Inject constructor(
             // Clear notifications for this sender since user is now viewing the chat
             notificationManager.clearNotificationsForSender(conversationID)
         }
+        return success
     }
 
     fun end() {

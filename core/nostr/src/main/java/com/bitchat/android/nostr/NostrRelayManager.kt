@@ -763,23 +763,43 @@ class NostrRelayManager @Inject constructor(
     }
 
     /**
-     * Clear all subscription tracking, deduplication cache, message queue, and connections for panic mode.
+     * Clear all subscription tracking, deduplication cache, message queue, and connections for panic
+     * mode, and leave the manager offline on the default relays.
+     *
+     * It never reconnects, and leaves connectivity undesired, so nothing during the wipe (a route
+     * change, a late subscription, a relay request from the ending session) can bring relays back.
+     * The panic's next identity reconnects when its start-up connects, and that start runs only once
+     * the wipe has confirmed; a wipe that cannot confirm restarts the process instead. Upstream's
+     * `reconnect` flag and its withheld retry are therefore not needed here.
      */
     fun clearAllOnPanic() {
         try {
-            val wasConnected = desiredConnected.get()
             clearAllSubscriptions()
             clearDeduplicationCache()
             disconnect()
-            if (wasConnected) {
-                desiredConnected.set(true)
-            }
+            forgetSessionRelays()
             Log.w(TAG, "🚨 Cleared NostrRelayManager subscriptions, cache, and connections for panic mode")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to clear NostrRelayManager on panic: ${e.message}")
         }
     }
-    
+
+    /**
+     * Drop every relay the wiped session added. Geohash-selected relays are chosen by proximity,
+     * so reconnecting to them would tie the fresh identity to the previous session's locations.
+     */
+    private fun forgetSessionRelays() {
+        liveGeohashTokens.clear()
+        liveLocationRelayTokens.clear()
+        nonLiveRelayUrls.retainAll(DEFAULT_RELAYS.toSet())
+        synchronized(relaysList) {
+            relaysList.clear()
+            relaysList.addAll(DEFAULT_RELAYS.map { Relay(it) })
+        }
+        updateRelaysList()
+        updateConnectionStatus()
+    }
+
     /**
      * Get detailed status for all relays
      */

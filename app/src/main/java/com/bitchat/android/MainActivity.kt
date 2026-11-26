@@ -35,6 +35,7 @@ import com.bitchat.android.ui.GeohashSession
 import com.bitchat.android.ui.VerificationHandler
 import com.bitchat.android.ui.OrientationAwareActivity
 import com.bitchat.android.ui.theme.BitchatTheme
+import com.bitchat.android.service.ForegroundServiceStartRetry
 import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.wifiaware.WifiAwareController
 import androidx.navigation3.runtime.NavKey
@@ -64,7 +65,8 @@ import kotlinx.serialization.builtins.ListSerializer
 @AndroidEntryPoint
 class MainActivity : OrientationAwareActivity() {
 
-    private var pendingMeshForegroundServiceStart = false
+    // Made in onCreate; it retries a refused or early start at the next Activity start.
+    private var foregroundServiceStart: ForegroundServiceStartRetry? = null
 
     // Held by ActivityRetainedComponent, so the back stack outlives configuration
     // changes without being rebuilt here.
@@ -190,6 +192,9 @@ class MainActivity : OrientationAwareActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         intentHandled = savedInstanceState?.getBoolean(STATE_INTENT_HANDLED) ?: false
+        foregroundServiceStart = ForegroundServiceStartRetry(lifecycle) {
+            com.bitchat.android.service.MeshForegroundService.start(applicationContext)
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             this.setRecentsScreenshotEnabled(false)
         }
@@ -441,19 +446,7 @@ class MainActivity : OrientationAwareActivity() {
     }
 
     private fun startMeshForegroundServiceBestEffort() {
-        if (!lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
-            pendingMeshForegroundServiceStart = true
-            Log.i("MainActivity", "Deferring foreground mesh service start until activity is started")
-            return
-        }
-
-        try {
-            com.bitchat.android.service.MeshForegroundService.start(applicationContext)
-            pendingMeshForegroundServiceStart = false
-        } catch (e: Exception) {
-            pendingMeshForegroundServiceStart = true
-            Log.w("MainActivity", "Unable to start foreground mesh service; will retry when activity is started", e)
-        }
+        foregroundServiceStart?.request()
     }
     
     // Init's Activity part, once per init that ended in READY.
@@ -499,13 +492,6 @@ class MainActivity : OrientationAwareActivity() {
         outState.putBoolean(STATE_INTENT_HANDLED, intentHandled)
     }
 
-    override fun onStart() {
-        super.onStart()
-        if (pendingMeshForegroundServiceStart) {
-            startMeshForegroundServiceBestEffort()
-        }
-    }
-    
     override fun onResume() {
         super.onResume()
         // Revoke stale live-location work before any resumed UI can use cached channels.

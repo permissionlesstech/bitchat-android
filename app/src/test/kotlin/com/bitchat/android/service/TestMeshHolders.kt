@@ -31,14 +31,15 @@ fun testMeshServiceHolder(teardown: IdentityTeardown = IdentityTeardown()): Mesh
     teardown = teardown,
 )
 
-/** A fresh [WifiAwareController] per test that never builds a Wi-Fi Aware mesh. */
+/** A fresh [WifiAwareController] per test that builds a Wi-Fi Aware mesh only through [newMesh]. */
 fun testWifiAwareController(
     meshServiceHolder: MeshServiceHolder = testMeshServiceHolder(),
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     appStateStore: AppStateStore = TestMeshStores(mock()).appStateStore,
     teardown: IdentityTeardown = IdentityTeardown(),
+    newMesh: Provider<WifiAwareMeshService> = Provider { error("tests never start Wi-Fi Aware") },
 ): WifiAwareController = WifiAwareController(
-    newMesh = Provider<WifiAwareMeshService> { error("tests never start Wi-Fi Aware") },
+    newMesh = newMesh,
     meshServiceHolder = meshServiceHolder,
     debugSettingsManager = Lazy(lazy { DebugSettingsManager(DebugPreferenceManager()) }::value),
     appStateStore = appStateStore,

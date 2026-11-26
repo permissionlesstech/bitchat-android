@@ -3,6 +3,7 @@ package com.bitchat.android.wifiaware
 import android.content.Context
 import com.bitchat.android.identity.scope.IdentityTeardown
 import com.bitchat.android.service.testWifiAwareController
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -21,7 +22,7 @@ class WifiAwareControllerTeardownTest {
 
     @Test
     fun `an open controller publishes a started service`() {
-        assertTrue(controller.publishStarted(runningService()))
+        assertEquals(WifiAwareController.PublishOutcome.PUBLISHED, controller.publishStarted(runningService()))
         assertTrue(controller.running.value)
     }
 
@@ -36,7 +37,7 @@ class WifiAwareControllerTeardownTest {
         }
         started.startServices()
 
-        assertFalse(controller.publishStarted(started))
+        assertEquals(WifiAwareController.PublishOutcome.ABANDONED, controller.publishStarted(started))
         assertFalse(controller.running.value)
     }
 

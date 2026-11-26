@@ -10,7 +10,7 @@ import com.bitchat.android.noise.NoiseSession.NoiseSessionState
  * Records what the Wear helpers ask of the mesh roles, in order, and answers the peer questions
  * from fields a test sets.
  */
-internal class FakeWearMesh(
+internal open class FakeWearMesh(
     override val myPeerID: String = "aaaa0000aaaa0000",
 ) : MeshMessaging, MeshPeers {
 

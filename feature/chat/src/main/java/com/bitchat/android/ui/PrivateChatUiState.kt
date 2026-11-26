@@ -41,6 +41,8 @@ sealed interface PrivateChatAction {
 sealed interface PrivateChatEvent {
     /** A sent message was accepted: clear the composer and scroll to the bottom. */
     data object MessageSent : PrivateChatEvent
+    /** The chat cannot go on (its peer is blocked): leave the screen. */
+    data object Close : PrivateChatEvent
 }
 
 /** The session's values a private conversation is derived from. */
