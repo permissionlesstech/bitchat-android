@@ -114,7 +114,7 @@ kept out of the refactor so it changes no behaviour it did not have to. Details 
 | Identity lifetime (10c-2b) | Nothing could end an identity. Panic cleared each class by hand and swapped only the mesh | An identity can end. Its scope is cancelled and each class's teardown runs. The chat session has its own scope inside it. The app, screens and services follow the new identity without a restart |
 | Unit and device tests (10c-2b) | JVM 1496; device app 79 | JVM 1626; device app 102 |
 | Panic wipe (10c-3) | A hand-written list of clears; a wipe that could not confirm kept running on the old storage | The sandbox is wiped by location; a wipe that cannot confirm restarts the process and is finished at the next launch |
-| Unit and device tests (10c-3) | JVM 1626; device app 102 | JVM 1684; device app 103 (the full gate rerun on the final code) |
+| Unit and device tests (10c-3) | JVM 1626; device app 102 | JVM 1685; device app 104 (the full gate on the final code, after the 10c-3 follow-ups) |
 | Module rules | Unwritten | `FeatureDependencyRulesTest` fails when a feature depends on another feature, an `:api` module grows dependencies, or `:core:tor` gains one |
 | Watch crypto | Tink 1.8.0 | Tink 1.23.0, the phone's version |
 | Watch theme | Its own copy of the palette, peer-color hash and fonts | The shared `:core:designsystem` base |
