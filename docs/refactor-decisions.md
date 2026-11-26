@@ -1163,6 +1163,23 @@ After the review fixes, the full gate on the final code: JVM 1684 with 0 failure
 
 Owed: a panic on a real phone, on a throwaway install, which is the developer's to run; Mesh Lab on two physical phones; the watch.
 
+#### Upstream sync after Phase 10c-3 (2026-11-26)
+
+Merged upstream to `f6bfceac` (30 commits). Every behaviour fix is kept; where the refactor had moved or rebuilt the code, it was ported:
+
+| Upstream change | Where it went |
+|---|---|
+| Panic reconnects Nostr relays, but only after a confirmed wipe (#1040: `1e3515dd`, `c1b2e1be`) | `NostrRelayManager.clearAllOnPanic()` now leaves relays offline (connectivity undesired) and on the default relays only (upstream's `forgetSessionRelays`). The reconnect is the next identity's start-up (`NostrBackgroundRuntime.initialize` connects), which `PanicClear` runs only after the sandbox wipe confirmed; a wipe that cannot confirm restarts the process instead. So upstream's `reconnect` flag and its withheld-retry flag are not needed. `GeohashSession.panicReleaseRelays` calls the new `NostrBackgroundRuntime.releaseSubscriptions()`, which only unsubscribes; the old `resetSubscriptions()` re-subscribed the identity being wiped and is gone. |
+| Private chat text goes to its own chat or is refused (#1043) | `MessageSender.sendToConversation`, used by `PrivateChatViewModel`. A chat that cannot start, or whose peer is blocked, closes its screen (`PrivateChatEvent.Close`). |
+| `/msg` opens the private chat sheet | Not taken: the main chat already shows the conversation `/msg` selects, so the selection is never hidden. Upstream's tests kept, asserting the selection. |
+| Wear DM send survives the input screen closing (#1036) | The helper stays generic over the mesh roles; the caller passes the mesh's scope and `isRunning`. |
+| Foreground service retries and Wi-Fi Aware recovery (#1007), Wi-Fi Aware restart after an unexpected stop and the coalesced cooldown (#1044) | `MainActivity` delegates to `ForegroundServiceStartRetry` (a lifecycle observer, so the retry runs once the lifecycle reads STARTED). `WifiAwareController.publishStarted` returns a `PublishOutcome`, so a reused instance that deferred its start is kept, not stopped. |
+| Tor port rebuild and self-cancelling restarts (#1039, #1048) | `ArtiTorManager` keeps its injected constructor and gains an internal one taking the scope and proxy factory, for the tests. |
+| Store-and-forward manager removed | Removed: the refactor had only moved it. |
+| BLE scan recovery, offline peers greyed, globe detail while dragging, Play target API check, relay data | Merged as is (the globe in `:feature:location`). The conversation swipe fix was already on this branch, keyed on `settledValue`; upstream's `onDismiss` version was not added on top. |
+
+Tests: upstream's tests were ported to this branch's classes, beside their subjects. The two `MainActivity` Robolectric tests became `ForegroundServiceStartRetryTest`, because the app's JVM tests do not build Hilt entry points; for the same reason `MeshForegroundServiceStartupTest` sets the injected fields by hand and drops upstream's `onCreate` check. The relay test fails against the old `clearAllOnPanic`. `PanicClearTest` gains the order upstream's intent needs: relays released before the identity ends, the reconnecting start-up only after a confirmed wipe, none after one that failed.
+
 ### Phase 11: Wear shares UI with the phone (not started)
 
 Planned scope: Wear shares UI with the phone beyond the design system base that Phase 8 added.
