@@ -49,11 +49,11 @@ class IdentityScopeRulesTest {
         "AppShutdownCoordinator" to "device and process state",
         "MeshServicePreferences" to "device and process state",
         "DeviceReadiness" to "reads the device and stored onboarding choices; no identity data",
-        "DebugSettingsManager" to "debug settings; the wipe list must cover its buffers",
-        "DebugPreferenceManager" to "debug settings; the wipe list must cover its buffers",
+        "DebugSettingsManager" to "debug toggles and limits; its buffers of peer IDs, nicknames and device addresses are emptied by DebugBuffersPanicCleanup",
+        "DebugPreferenceManager" to "stores the debug toggles and connection limits; holds no peer or identity data",
         "SpamFilterPreferences" to "settings only",
         "PoWPreferenceManager" to "settings only",
-        "WearNotificationCoordinator" to "system notifications",
+        "WearNotificationCoordinator" to "the watch's notifications; keeps unread message previews, but the watch has no panic and its identity never ends",
     )
 
     /**
