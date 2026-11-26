@@ -1,7 +1,12 @@
 package com.bitchat.android.nostr
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.util.Log
 import com.bitchat.android.geohash.LiveLocationPrivacyGate
+import com.bitchat.android.net.ArtiTorManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,6 +40,14 @@ class NostrRelayManager internal constructor(
         
         private const val TAG = "NostrRelayManager"
         private const val MAX_QUEUED_EVENTS = 500
+        // Only reset exponential reconnect backoff if a relay stayed connected at least this long.
+        // Prevents flapping relays that accept WebSocket upgrade and immediately close from
+        // spinning at INITIAL_BACKOFF_INTERVAL_MS (1s) forever through Tor.
+        private const val STABLE_CONNECTION_RESET_MS = 30_000L
+        // When the app is in the background and at least one other relay is already healthy,
+        // throttle persistently failing relays so dead endpoints stop waking Tor/TLS every 5m.
+        private const val BACKGROUND_DEAD_RELAY_BACKOFF_MS = 15 * 60_000L
+        private const val BACKGROUND_DEAD_RELAY_MIN_ATTEMPTS = 4
         const val OWNER_LEGACY = "legacy"
         const val OWNER_BACKGROUND = "background"
         
@@ -43,6 +56,7 @@ class NostrRelayManager internal constructor(
          */
         fun getInstance(context: android.content.Context): NostrRelayManager {
             shared.appContext = context.applicationContext
+            shared.ensureNetworkCallbackRegistered()
             return shared
         }
 
@@ -131,6 +145,80 @@ class NostrRelayManager internal constructor(
     private val powerManager: com.bitchat.android.mesh.PowerManager?
         get() = appContext?.let { com.bitchat.android.mesh.PowerManager.getInstance(it) }
     @Volatile private var appContext: android.content.Context? = null
+
+    // Network connectivity awareness: pause reconnect churn when offline and heal immediately on return.
+    private val networkAvailable = AtomicBoolean(true)
+    private val networkCallbackRegistered = AtomicBoolean(false)
+    private var connectivityCallback: ConnectivityManager.NetworkCallback? = null
+
+    private fun ensureNetworkCallbackRegistered() {
+        val ctx = appContext ?: return
+        if (!networkCallbackRegistered.compareAndSet(false, true)) return
+        try {
+            val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: run {
+                networkCallbackRegistered.set(false)
+                return
+            }
+            val activeCaps = cm.getNetworkCapabilities(cm.activeNetwork)
+            networkAvailable.set(
+                activeCaps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) ?: true
+            )
+            val callback = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    val wasOffline = !networkAvailable.getAndSet(true)
+                    if (desiredConnected.get() && wasOffline) {
+                        Log.i(TAG, "Network restored; reconnecting disconnected Nostr relays")
+                        reconnectDisconnectedRelays(resetBackoff = true)
+                    }
+                }
+
+                override fun onLost(network: Network) {
+                    val caps = try { cm.getNetworkCapabilities(cm.activeNetwork) } catch (_: Exception) { null }
+                    val stillOnline = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+                    if (!stillOnline) {
+                        networkAvailable.set(false)
+                        // Pause reconnect timers while completely offline to avoid burning Tor/CPU.
+                        reconnectJobs.values.forEach(Job::cancel)
+                        reconnectJobs.clear()
+                    }
+                }
+            }
+            cm.registerDefaultNetworkCallback(callback)
+            connectivityCallback = callback
+        } catch (e: Exception) {
+            networkCallbackRegistered.set(false)
+            networkAvailable.set(true)
+        }
+    }
+
+    private fun reconnectDisconnectedRelays(resetBackoff: Boolean) {
+        if (!desiredConnected.get()) return
+        val snapshot = synchronized(relaysList) {
+            if (resetBackoff) {
+                relaysList.forEach { relay ->
+                    if (!relay.isConnected) {
+                        relay.reconnectAttempts = 0
+                        relay.nextReconnectTime = null
+                    }
+                }
+            }
+            relaysList.map { it.url }
+        }
+        scope.launch {
+            snapshot.forEach { url ->
+                if (!desiredConnected.get()) return@launch
+                if (!connections.containsKey(url)) {
+                    launch {
+                        val liveToken = liveLocationRelayTokens[url]
+                            ?.takeIf { url !in nonLiveRelayUrls }
+                        if (liveToken == null || LiveLocationPrivacyGate.accepts(liveToken)) {
+                            connectToRelay(url, liveToken)
+                        }
+                    }
+                }
+            }
+        }
+    }
     
     // WebSocket factory, resolved per connection (via provider to honor Tor)
     private val httpClient: WebSocket.Factory
@@ -388,12 +476,16 @@ class NostrRelayManager internal constructor(
     ) {
         if (!isNetworkActionAllowed(liveLocationToken)) return
         // Ensure relays are tracked for UI/status
-        relayUrls.forEach { url ->
-            if (relaysList.none { it.url == url }) {
-                relaysList.add(Relay(url))
+        var addedAny = false
+        synchronized(relaysList) {
+            relayUrls.forEach { url ->
+                if (relaysList.none { it.url == url }) {
+                    relaysList.add(Relay(url))
+                    addedAny = true
+                }
             }
         }
-        updateRelaysList()
+        if (addedAny) updateRelaysList()
 
         if (!desiredConnected.get()) return
         val job = scope.launch {
@@ -444,14 +536,16 @@ class NostrRelayManager internal constructor(
      */
     fun connect() {
         desiredConnected.set(true)
-        Log.i(TAG, "Connecting to ${relaysList.size} Nostr relays")
+        ensureNetworkCallbackRegistered()
+        val relayUrls = synchronized(relaysList) { relaysList.map { it.url } }
+        Log.i(TAG, "Connecting to ${relayUrls.size} Nostr relays")
         scope.launch {
-            relaysList.forEach { relay ->
+            relayUrls.forEach { url ->
                 launch {
-                    val liveToken = liveLocationRelayTokens[relay.url]
-                        ?.takeIf { relay.url !in nonLiveRelayUrls }
+                    val liveToken = liveLocationRelayTokens[url]
+                        ?.takeIf { url !in nonLiveRelayUrls }
                     if (liveToken == null || LiveLocationPrivacyGate.accepts(liveToken)) {
-                        connectToRelay(relay.url, liveToken)
+                        connectToRelay(url, liveToken)
                     }
                 }
             }
@@ -483,9 +577,11 @@ class NostrRelayManager internal constructor(
 
         // Preserve logical subscriptions for controlled resets, but forget per-socket state.
         subscriptions.clear()
-        relaysList.forEach {
-            it.isConnected = false
-            it.nextReconnectTime = null
+        synchronized(relaysList) {
+            relaysList.forEach {
+                it.isConnected = false
+                it.nextReconnectTime = null
+            }
         }
         updateRelaysList()
         updateConnectionStatus()
@@ -774,7 +870,7 @@ class NostrRelayManager internal constructor(
      * Get detailed status for all relays
      */
     fun getRelayStatuses(): List<Relay> {
-        return relaysList.toList()
+        return synchronized(relaysList) { relaysList.toList() }
     }
     
     /**
@@ -880,6 +976,7 @@ class NostrRelayManager internal constructor(
 
     private fun validateAndRepairSubscriptions() {
         try {
+            if (activeSubscriptions.isEmpty() || connections.isEmpty()) return
             val report = validateSubscriptionConsistency()
             if (report.isConsistent || report.connectedRelayCount == 0) return
 
@@ -917,12 +1014,25 @@ class NostrRelayManager internal constructor(
         liveLocationToken: Long? = null
     ) {
         if (!desiredConnected.get()) return
+        if (!networkAvailable.get()) return
         val connectionToken = liveLocationToken
             ?.takeIf { urlString !in nonLiveRelayUrls }
         if (!isNetworkActionAllowed(connectionToken)) return
         // Skip if we already have a connection
         if (connections.containsKey(urlString)) {
             return
+        }
+
+        // When Tor mode is enabled but Arti is still bootstrapping, wait for the SOCKS route
+        // instead of hammering an unbound localhost port and triggering failing reconnect storms.
+        val tor = ArtiTorManager.getInstance()
+        if (tor.currentSocksAddress() != null && !tor.isProxyEnabled()) {
+            val ready = tor.awaitSelectedRoute(30_000L)
+            if (!ready || !desiredConnected.get() || !networkAvailable.get() ||
+                !isNetworkActionAllowed(connectionToken) || connections.containsKey(urlString)
+            ) {
+                return
+            }
         }
 
         try {
@@ -968,11 +1078,12 @@ class NostrRelayManager internal constructor(
                 success = webSocket.send(message)
             }
             if (success) {
-                // Update relay stats
-                relaysList.find { it.url == relayUrl }?.let { relay ->
-                    relay.messagesSent += 1
+                // Update relay stats without copying and re-emitting _relays on every event
+                synchronized(relaysList) {
+                    relaysList.find { it.url == relayUrl }?.let { relay ->
+                        relay.messagesSent += 1
+                    }
                 }
-                updateRelaysList()
                 true
             } else {
                 Log.e(TAG, "Failed to send event: WebSocket send failed")
@@ -996,11 +1107,12 @@ class NostrRelayManager internal constructor(
             
             when (response) {
                 is NostrResponse.Event -> {
-                    // Update relay stats
-                    relaysList.find { it.url == relayUrl }?.let { relay ->
-                        relay.messagesReceived += 1
+                    // Update relay stats without copying and re-emitting _relays on every event
+                    synchronized(relaysList) {
+                        relaysList.find { it.url == relayUrl }?.let { relay ->
+                            relay.messagesReceived += 1
+                        }
                     }
-                    updateRelaysList()
                     
                     // CLIENT-SIDE FILTER ENFORCEMENT: Ensure this event matches the subscription's filter
                     val subscriptionInfo = activeSubscriptions[response.subscriptionId]
@@ -1091,8 +1203,21 @@ class NostrRelayManager internal constructor(
         val connectionToken = liveLocationToken
             ?.takeIf { relayUrl !in nonLiveRelayUrls }
 
+        val now = System.currentTimeMillis()
+        // Only treat a connection as stable if it was ACTUALLY open right before this disconnect
+        // AND stayed open for at least STABLE_CONNECTION_RESET_MS. A relay that never opened
+        // (or closed quickly) must continue backing off instead of resetting from an older timestamp.
+        val wasStable = synchronized(relaysList) {
+            val relay = relaysList.find { it.url == relayUrl }
+            relay != null &&
+                relay.isConnected &&
+                relay.lastConnectedAt != null &&
+                (now - relay.lastConnectedAt!!) >= STABLE_CONNECTION_RESET_MS
+        }
+
         updateRelayStatus(relayUrl, false, error)
         if (!desiredConnected.get() ||
+            !networkAvailable.get() ||
             !isNetworkActionAllowed(connectionToken)
         ) return
 
@@ -1100,18 +1225,26 @@ class NostrRelayManager internal constructor(
         // failure: "unable to resolve host" is what this device reports when it
         // simply has no network, so treating it as permanent turns a walk
         // through a tunnel into a dead relay layer for the rest of the process.
-        val relay = relaysList.find { it.url == relayUrl } ?: return
-        relay.reconnectAttempts = RelayReconnectPolicy.nextAttempt(relay.reconnectAttempts)
-        val backoffInterval = RelayReconnectPolicy.backoffMs(relay.reconnectAttempts)
-
-        relay.nextReconnectTime = System.currentTimeMillis() + backoffInterval
+        val backoffInterval = synchronized(relaysList) {
+            val relay = relaysList.find { it.url == relayUrl } ?: return
+            val previousAttempts = if (wasStable) 0 else relay.reconnectAttempts
+            relay.reconnectAttempts = RelayReconnectPolicy.nextAttempt(previousAttempts)
+            var delayMs = RelayReconnectPolicy.backoffMs(relay.reconnectAttempts)
+            val isBackground = powerManager?.profile?.value?.isBackground == true
+            if (isBackground && _isConnected.value && relay.reconnectAttempts >= BACKGROUND_DEAD_RELAY_MIN_ATTEMPTS) {
+                delayMs = maxOf(delayMs, BACKGROUND_DEAD_RELAY_BACKOFF_MS)
+            }
+            relay.nextReconnectTime = now + delayMs
+            delayMs
+        }
         
-        Log.d(TAG, "Scheduling Nostr relay reconnection")
+        Log.d(TAG, "Scheduling Nostr relay reconnection in ${backoffInterval}ms")
         
         reconnectJobs.remove(relayUrl)?.cancel()
         val reconnectJob = scope.launch {
             delay(backoffInterval)
             if (desiredConnected.get() &&
+                networkAvailable.get() &&
                 isNetworkActionAllowed(connectionToken)
             ) {
                 connectToRelay(relayUrl, connectionToken)
@@ -1124,17 +1257,18 @@ class NostrRelayManager internal constructor(
     }
     
     private fun updateRelayStatus(url: String, isConnected: Boolean, error: Throwable? = null) {
-        val relay = relaysList.find { it.url == url } ?: return
-        
-        relay.isConnected = isConnected
-        relay.lastError = error
-        
-        if (isConnected) {
-            relay.lastConnectedAt = System.currentTimeMillis()
-            relay.reconnectAttempts = 0
-            relay.nextReconnectTime = null
-        } else {
-            relay.lastDisconnectedAt = System.currentTimeMillis()
+        synchronized(relaysList) {
+            val relay = relaysList.find { it.url == url } ?: return
+            
+            relay.isConnected = isConnected
+            relay.lastError = error
+            
+            if (isConnected) {
+                relay.lastConnectedAt = System.currentTimeMillis()
+                relay.nextReconnectTime = null
+            } else {
+                relay.lastDisconnectedAt = System.currentTimeMillis()
+            }
         }
         
         updateRelaysList()
@@ -1142,11 +1276,11 @@ class NostrRelayManager internal constructor(
     }
     
     private fun updateRelaysList() {
-        _relays.value = relaysList.toList()
+        _relays.value = synchronized(relaysList) { relaysList.toList() }
     }
     
     private fun updateConnectionStatus() {
-        val connected = relaysList.any { it.isConnected }
+        val connected = synchronized(relaysList) { relaysList.any { it.isConnected } }
         _isConnected.value = connected
     }
     

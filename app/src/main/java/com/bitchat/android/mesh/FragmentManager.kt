@@ -6,6 +6,7 @@ import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.MessagePadding
 import com.bitchat.android.model.FragmentPayload
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -42,6 +43,7 @@ class FragmentManager {
     
     // Coroutines
     private val managerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val cleanupWakeup = Channel<Unit>(Channel.CONFLATED)
     
     init {
         startPeriodicCleanup()
@@ -66,17 +68,10 @@ class FragmentManager {
                 Log.w(TAG, "Rejecting invalid outbound fragment limit: $maxFragments")
                 return emptyList()
             }
-            val encoded = packet.toBinaryData()
-            if (encoded == null) {
+            // Fragment the unpadded frame directly; each fragment is encoded/padded independently.
+            val fullData = packet.toBinaryData(padding = false)
+            if (fullData == null) {
                 Log.e(TAG, "Failed to encode packet to binary data")
-                return emptyList()
-            }
-
-            // Fragment the unpadded frame; each fragment will be encoded (and padded) independently - iOS fix
-            val fullData = try {
-                MessagePadding.unpad(encoded)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to unpad data: ${e.message}", e)
                 return emptyList()
             }
 
@@ -281,18 +276,27 @@ class FragmentManager {
                 fragmentMap[fragmentPayload.index] = fragmentPayload.data
                 fragmentCumulativeSize[fragmentIDString] = newSize
                 globalBufferedBytes += delta
+                if (isNewSet) {
+                    cleanupWakeup.trySend(Unit)
+                }
 
                 val expectedTotal = fragmentMetadata[fragmentIDString]?.second ?: fragmentPayload.total
                 if (fragmentMap.size == expectedTotal) {
-                    // iOS reassembly logic: for i in 0..<total { if let fragment = fragments[i] { reassembled.append(fragment) } }
-                    val reassembledData = mutableListOf<Byte>()
+                    // Reassemble directly into a single ByteArray without per-byte boxing
+                    var totalSize = 0
+                    for (i in 0 until expectedTotal) {
+                        fragmentMap[i]?.let { totalSize += it.size }
+                    }
+                    val reassembledData = ByteArray(totalSize)
+                    var offset = 0
                     for (i in 0 until expectedTotal) {
                         fragmentMap[i]?.let { data ->
-                            reassembledData.addAll(data.asIterable())
+                            System.arraycopy(data, 0, reassembledData, offset, data.size)
+                            offset += data.size
                         }
                     }
 
-                    val originalPacket = BitchatPacket.fromBinaryData(reassembledData.toByteArray())
+                    val originalPacket = BitchatPacket.fromBinaryData(reassembledData)
                     if (originalPacket != null) {
                         removeFragmentSetLocked(fragmentIDString)
 
@@ -377,11 +381,15 @@ class FragmentManager {
     }
     
     /**
-     * Start periodic cleanup of old fragments - matches iOS maintenance timer
+     * Demand-driven cleanup of old fragments: suspends with zero wakeups while idle.
      */
     private fun startPeriodicCleanup() {
         managerScope.launch {
             while (isActive) {
+                if (fragmentMetadata.isEmpty()) {
+                    cleanupWakeup.receive()
+                    continue
+                }
                 delay(CLEANUP_INTERVAL)
                 cleanupOldFragments()
             }

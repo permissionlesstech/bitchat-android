@@ -2,16 +2,20 @@ package com.bitchat.android.net
 
 import android.app.Application
 import android.util.Log
+import com.bitchat.android.mesh.PowerManager
 import com.bitchat.android.util.AppConstants
 import info.guardianproject.arti.ArtiLogListener
 import info.guardianproject.arti.ArtiProxy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -43,7 +47,13 @@ class ArtiTorManager internal constructor(
                 .setDnsPort(socksPort + 1)
                 .setLogListener(logListener)
                 .build()
-        }
+        },
+    private val backgroundStateProvider: (Application) -> Flow<Boolean> = { application ->
+        PowerManager.getInstance(application).profile
+            .map { it.isBackground }
+            .distinctUntilChanged()
+    },
+    private val backgroundDormantDelayMs: Long = BACKGROUND_DORMANT_DELAY_MS
 ) {
     enum class TorState {
         OFF,
@@ -69,6 +79,7 @@ class ArtiTorManager internal constructor(
         private const val INACTIVITY_TIMEOUT_MS = AppConstants.Tor.INACTIVITY_TIMEOUT_MS
         private const val MAX_RETRY_ATTEMPTS = AppConstants.Tor.MAX_RETRY_ATTEMPTS
         private const val STOP_TIMEOUT_MS = AppConstants.Tor.STOP_TIMEOUT_MS
+        internal const val BACKGROUND_DORMANT_DELAY_MS = 15_000L
 
         @Volatile
         private var INSTANCE: ArtiTorManager? = null
@@ -103,8 +114,13 @@ class ArtiTorManager internal constructor(
     private var bindRetryAttempts = 0
     private var inactivityJob: Job? = null
     private var retryJob: Job? = null
+    private var dormantJob: Job? = null
     private val restartInFlight = AtomicBoolean(false)
     private var currentApplication: Application? = null
+    @Volatile
+    private var isAppInBackground = false
+    @Volatile
+    private var artiDormantApplied = false
 
     private enum class LifecycleState { STOPPED, STARTING, RUNNING, STOPPING }
 
@@ -129,9 +145,15 @@ class ArtiTorManager internal constructor(
         val text = logLine ?: return@ArtiLogListener
         val s = text
         lastLogTime.set(System.currentTimeMillis())
-        _statusFlow.update { it.copy(lastLogLine = s) }
-        handleArtiLogLine(s)
-        if (_statusFlow.value.bootstrapPercent < 100) {
+        val current = _statusFlow.value
+        val alreadyRunning = current.state == TorState.RUNNING && current.bootstrapPercent >= 100
+        // Avoid allocating TorStatus copies and emitting StateFlow updates on every SOCKS log
+        // line once Tor is healthy and no UI (e.g. AboutSheet) is actively observing statusFlow.
+        if (!alreadyRunning || _statusFlow.subscriptionCount.value > 0) {
+            _statusFlow.update { it.copy(lastLogLine = s) }
+        }
+        handleArtiLogLine(s, alreadyRunning)
+        if (!alreadyRunning) {
             armBootstrapInactivityWatchdog()
         }
     }
@@ -172,6 +194,55 @@ class ArtiTorManager internal constructor(
                 TorPreferenceManager.modeFlow.collect { mode ->
                     applyMode(application, mode)
                 }
+            }
+
+            appScope.launch {
+                backgroundStateProvider(application).collect { inBackground ->
+                    onAppBackgroundStateChanged(inBackground)
+                }
+            }
+        }
+    }
+
+    internal fun onAppBackgroundStateChanged(inBackground: Boolean) {
+        isAppInBackground = inBackground
+        syncDormantMode()
+    }
+
+    private fun cancelDormantTimer() {
+        dormantJob?.cancel()
+        dormantJob = null
+    }
+
+    /**
+     * Keep Arti in `DormantMode::Normal` while foregrounded or bootstrapping, and transition to
+     * `DormantMode::Soft` after [backgroundDormantDelayMs] once backgrounded and fully running.
+     * Any new SOCKS connection wakes Arti automatically inside `arti-client`, and the native
+     * wrapper schedules a return to `DormantMode::Soft` once background connects settle.
+     */
+    private fun syncDormantMode() {
+        cancelDormantTimer()
+
+        val proxy = artiProxy ?: return
+        if (!isAppInBackground) {
+            if (artiDormantApplied) {
+                artiDormantApplied = false
+                proxy.setDormant(false)
+            }
+            return
+        }
+
+        if (!isProxyEnabled() || artiDormantApplied) {
+            return
+        }
+
+        dormantJob = appScope.launch {
+            if (backgroundDormantDelayMs > 0L) {
+                delay(backgroundDormantDelayMs)
+            }
+            if (isAppInBackground && isProxyEnabled() && !artiDormantApplied) {
+                artiDormantApplied = true
+                artiProxy?.setDormant(true)
             }
         }
     }
@@ -280,6 +351,8 @@ class ArtiTorManager internal constructor(
                 return
             }
 
+            cancelDormantTimer()
+            artiDormantApplied = false
             proxy.start()
             lastLogTime.set(System.currentTimeMillis())
 
@@ -364,6 +437,8 @@ class ArtiTorManager internal constructor(
 
     private fun stopArtiInternal() {
         try {
+            cancelDormantTimer()
+            artiDormantApplied = false
             val proxy = artiProxy
             if (proxy != null) {
                 try {
@@ -497,9 +572,15 @@ class ArtiTorManager internal constructor(
         }
     }
 
-    private fun handleArtiLogLine(s: String) {
-        val currentState = _statusFlow.value.state
+    private fun handleArtiLogLine(s: String, alreadyRunning: Boolean = false) {
         val currentLifecycle = lifecycleState
+        if (alreadyRunning && currentLifecycle == LifecycleState.RUNNING) {
+            // Fast path when steady-state RUNNING: only check for fatal lock errors.
+            if (s.contains("Another process has the lock on our state files", ignoreCase = true)) {
+                _statusFlow.update { it.copy(state = TorState.ERROR) }
+            }
+            return
+        }
 
         when {
             s.contains("AMEx: state changed to Initialized", ignoreCase = true) -> {
@@ -549,6 +630,7 @@ class ArtiTorManager internal constructor(
                 }
                 stopInactivityMonitoring()
                 completeWaitersIf(TorState.RUNNING)
+                syncDormantMode()
             }
 
             s.contains("AMEx: state changed to Stopping", ignoreCase = true) -> {

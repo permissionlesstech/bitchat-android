@@ -20,6 +20,10 @@ data class NostrEvent(
 ) {
     
     companion object {
+        private val defaultGson = Gson()
+        private val compactGson = GsonBuilder().disableHtmlEscaping().create()
+        private val sha256ThreadLocal = ThreadLocal.withInitial { MessageDigest.getInstance("SHA-256") }
+
         /**
          * Create from JSON dictionary
          */
@@ -44,8 +48,7 @@ data class NostrEvent(
          */
         fun fromJsonString(jsonString: String): NostrEvent? {
             return try {
-                val gson = Gson()
-                gson.fromJson(jsonString, NostrEvent::class.java)
+                defaultGson.fromJson(jsonString, NostrEvent::class.java)
             } catch (e: Exception) {
                 null
             }
@@ -131,16 +134,16 @@ data class NostrEvent(
         )
         
         // Convert to JSON without escaping slashes (compact format)
-        val gson = GsonBuilder().disableHtmlEscaping().create()
-        val jsonString = gson.toJson(serialized)
+        val jsonString = compactGson.toJson(serialized)
         
         // SHA256 hash of the JSON string
-        val digest = MessageDigest.getInstance("SHA-256")
+        val digest = sha256ThreadLocal.get()!!
+        digest.reset()
         val jsonBytes = jsonString.toByteArray(Charsets.UTF_8)
         val hash = digest.digest(jsonBytes)
         
         // Convert to hex
-        val hexId = hash.joinToString("") { "%02x".format(it) }
+        val hexId = hash.toHexString()
         
         return Pair(hexId, hash)
     }
@@ -161,8 +164,7 @@ data class NostrEvent(
      * Convert to JSON string
      */
     fun toJsonString(): String {
-        val gson = Gson()
-        return gson.toJson(this)
+        return defaultGson.toJson(this)
     }
     
     /**
@@ -218,14 +220,41 @@ object NostrKind {
     const val GEOHASH_PRESENCE = 20001 // For geohash presence heartbeat
 }
 
+private val NOSTR_HEX_CHARS = charArrayOf(
+    '0', '1', '2', '3', '4', '5', '6', '7',
+    '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
+)
+
+private fun nostrHexNibble(c: Char): Int = when (c) {
+    in '0'..'9' -> c.code - '0'.code
+    in 'a'..'f' -> c.code - 'a'.code + 10
+    in 'A'..'F' -> c.code - 'A'.code + 10
+    else -> throw NumberFormatException("Invalid hex char: $c")
+}
+
 /**
  * Extension functions for hex encoding/decoding
  */
 fun String.hexToByteArray(): ByteArray {
     check(length % 2 == 0) { "Must have an even length" }
-    return chunked(2)
-        .map { it.toInt(16).toByte() }
-        .toByteArray()
+    val out = ByteArray(length ushr 1)
+    var i = 0
+    var pos = 0
+    while (pos < length) {
+        out[i++] = ((nostrHexNibble(this[pos]) shl 4) or nostrHexNibble(this[pos + 1])).toByte()
+        pos += 2
+    }
+    return out
 }
 
-fun ByteArray.toHexString(): String = joinToString("") { "%02x".format(it) }
+fun ByteArray.toHexString(): String {
+    if (isEmpty()) return ""
+    val out = CharArray(size * 2)
+    var j = 0
+    for (b in this) {
+        val v = b.toInt() and 0xFF
+        out[j++] = NOSTR_HEX_CHARS[v ushr 4]
+        out[j++] = NOSTR_HEX_CHARS[v and 0x0F]
+    }
+    return String(out)
+}

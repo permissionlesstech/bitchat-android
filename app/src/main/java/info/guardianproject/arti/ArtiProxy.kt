@@ -91,6 +91,32 @@ class ArtiProxy private constructor(
     }
 
     /**
+     * Toggle Arti's soft-dormant power-saving mode.
+     *
+     * Entering soft-dormant mode suspends Arti's background periodic tasks (preemptive circuit
+     * building, directory refreshes, channel keepalive padding) while leaving the SOCKS listener
+     * ready to wake automatically on the next connection.
+     */
+    fun setDormant(dormant: Boolean) {
+        if (!isRunning) {
+            return
+        }
+
+        try {
+            val result = ArtiNative.setDormant(dormant)
+            if (result != 0) {
+                Log.w(TAG, "setDormant($dormant) returned error code: $result")
+            } else {
+                Log.d(TAG, "Arti dormant mode set to ${if (dormant) "Soft" else "Normal"}")
+            }
+        } catch (e: UnsatisfiedLinkError) {
+            Log.w(TAG, "Native setDormant unavailable: ${e.message}")
+        } catch (e: Exception) {
+            Log.w(TAG, "Error setting Arti dormant mode: ${e.message}")
+        }
+    }
+
+    /**
      * Stop the Arti Tor proxy.
      *
      * This method gracefully shuts down the Tor client and SOCKS proxy.

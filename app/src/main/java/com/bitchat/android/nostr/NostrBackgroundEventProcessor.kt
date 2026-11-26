@@ -1,6 +1,8 @@
 package com.bitchat.android.nostr
 
 import android.app.Application
+import android.content.Context
+import android.content.SharedPreferences
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.ui.ChatState
@@ -63,7 +65,16 @@ internal class NostrBackgroundEventProcessor(
         dataManager = dataManager
     )
 
+    private val prefs = application.applicationContext.getSharedPreferences("bitchat_prefs", Context.MODE_PRIVATE)
+    @Volatile private var blockListsDirty = false
+    private val prefsChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == null || key.contains("blocked", ignoreCase = true)) {
+            blockListsDirty = true
+        }
+    }
+
     init {
+        prefs.registerOnSharedPreferenceChangeListener(prefsChangeListener)
         // Keep the headless state aligned with messages sent or received through other transports.
         // This preserves duplicate detection and focused-conversation behavior without retaining UI.
         scope.launch {
@@ -110,6 +121,8 @@ internal class NostrBackgroundEventProcessor(
     }
 
     private fun refreshBlockLists() {
+        if (!blockListsDirty) return
+        blockListsDirty = false
         dataManager.loadBlockedUsers()
         dataManager.loadGeohashBlockedUsers()
     }

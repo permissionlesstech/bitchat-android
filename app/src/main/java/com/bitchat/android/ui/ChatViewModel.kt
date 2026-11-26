@@ -12,8 +12,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Job
@@ -1230,14 +1233,36 @@ class ChatViewModel(
         return try { mesh.getSessionState(peerID) } catch (_: Exception) { NoiseSession.NoiseSessionState.Uninitialized }
     }
     
+    private var lastCachedPeerIdentities: List<SecureIdentityStateManager.CachedPeerIdentity>? = null
+    private var lastCachedPeerGeneration: Long = -1L
+
     /**
-     * Initialize session state monitoring for reactive UI updates
+     * Initialize session state monitoring for reactive UI updates.
+     * Pauses completely while the app is in the background or when no peers are connected,
+     * eliminating unnecessary main-thread wakeups and EncryptedSharedPreferences reads.
      */
     private fun initializeSessionStateMonitoring() {
         viewModelScope.launch {
-            while (true) {
-                delay(1000) // Check session states every second
+            val isBackgroundFlow = com.bitchat.android.mesh.PowerManager
+                .getInstance(getApplication())
+                .profile
+                .map { it.isBackground }
+                .distinctUntilChanged()
+            val hasPeersFlow = state.connectedPeers
+                .map { it.isNotEmpty() }
+                .distinctUntilChanged()
+
+            combine(isBackgroundFlow, hasPeersFlow) { isBackground, hasPeers ->
+                !isBackground to hasPeers
+            }.distinctUntilChanged().collectLatest { (isForeground, hasPeers) ->
+                if (!isForeground) return@collectLatest
+                // Sync once on foreground entry or peer-count transition (including clearing empty maps).
                 updateReactiveStates()
+                if (!hasPeers) return@collectLatest
+                while (true) {
+                    delay(2000)
+                    updateReactiveStates()
+                }
             }
         }
     }
@@ -1252,10 +1277,12 @@ class ChatViewModel(
         
         // Update session states
         val prevStates = state.getPeerSessionStatesValue()
-        val sessionStates = currentPeers.associateWith { peerID ->
+        val sessionStates = if (currentPeers.isEmpty()) emptyMap() else currentPeers.associateWith { peerID ->
             sessionStateForPeer(peerID).toString()
         }
-        state.setPeerSessionStates(sessionStates)
+        if (sessionStates != prevStates) {
+            state.setPeerSessionStates(sessionStates)
+        }
         // Detect new established sessions and flush router outbox for them and their noiseHex aliases
         sessionStates.forEach { (peerID, newState) ->
             val old = prevStates[peerID]
@@ -1269,13 +1296,20 @@ class ChatViewModel(
         val cacheGeneration = identityManager.cacheGeneration()
         val fingerprints = privateChatManager.getAllPeerFingerprints()
         state.setPeerFingerprints(fingerprints)
-        withContext(Dispatchers.IO) {
-            identityManager.cachePeerIdentities(fingerprints.map { (peerID, fingerprint) ->
-                val info = try { mesh.getPeerInfo(peerID) } catch (_: Exception) { null }
-                SecureIdentityStateManager.CachedPeerIdentity(
-                    peerID, fingerprint, info?.noisePublicKey?.hexEncodedString(), info?.nickname
-                )
-            }, cacheGeneration)
+        val identitiesToCache = fingerprints.map { (peerID, fingerprint) ->
+            val info = try { mesh.getPeerInfo(peerID) } catch (_: Exception) { null }
+            SecureIdentityStateManager.CachedPeerIdentity(
+                peerID, fingerprint, info?.noisePublicKey?.hexEncodedString(), info?.nickname
+            )
+        }
+        if (identitiesToCache.isNotEmpty() &&
+            (identitiesToCache != lastCachedPeerIdentities || cacheGeneration != lastCachedPeerGeneration)
+        ) {
+            withContext(Dispatchers.IO) {
+                identityManager.cachePeerIdentities(identitiesToCache, cacheGeneration)
+            }
+            lastCachedPeerIdentities = identitiesToCache
+            lastCachedPeerGeneration = cacheGeneration
         }
 
         state.setPeerNicknames(mesh.getPeerNicknames())
@@ -1284,7 +1318,7 @@ class ChatViewModel(
 
         // Update directness per peer (driven by PeerManager state)
         try {
-            val directMap = state.getConnectedPeersValue().associateWith { pid ->
+            val directMap = if (currentPeers.isEmpty()) emptyMap() else currentPeers.associateWith { pid ->
                 mesh.getPeerInfo(pid)?.isDirectConnection == true
             }
             state.setPeerDirect(directMap)

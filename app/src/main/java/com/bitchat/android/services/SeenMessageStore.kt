@@ -6,6 +6,12 @@ import android.util.Log
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Persistent store for message IDs we've already acknowledged as delivered, read locally, or
@@ -33,10 +39,12 @@ class SeenMessageStore private constructor(private val context: Context) {
 
     private val gson = Gson()
     private val secure = SecureIdentityStateManager(context)
+    private val persistScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var pendingPersistJob: Job? = null
 
-    private val delivered = LinkedHashSet<String>(MAX_IDS)
-    private val locallyRead = LinkedHashSet<String>(MAX_IDS)
-    private val readReceiptsSent = LinkedHashSet<String>(MAX_IDS)
+    private val delivered = LinkedHashSet<String>()
+    private val locallyRead = LinkedHashSet<String>()
+    private val readReceiptsSent = LinkedHashSet<String>()
 
     init { load() }
 
@@ -45,43 +53,55 @@ class SeenMessageStore private constructor(private val context: Context) {
     @Synchronized fun hasReadReceiptBeenSent(id: String) = readReceiptsSent.contains(id)
 
     @Synchronized fun markDelivered(id: String) {
-        if (delivered.remove(id)) delivered.add(id) else {
-            delivered.add(id)
-            trim(delivered)
-        }
-        persist()
+        if (delivered.contains(id)) return
+        delivered.add(id)
+        trim(delivered)
+        schedulePersist()
     }
 
     @Synchronized fun markReadLocally(id: String) {
-        if (locallyRead.remove(id)) locallyRead.add(id) else {
+        val added = if (locallyRead.contains(id)) false else {
             locallyRead.add(id)
             trim(locallyRead)
+            true
         }
         AppStateStore.markPrivateMessageRead(id)
-        persist()
+        if (added) schedulePersist()
     }
 
     @Synchronized fun markReadReceiptSent(id: String) {
-        if (readReceiptsSent.remove(id)) readReceiptsSent.add(id) else {
-            readReceiptsSent.add(id)
-            trim(readReceiptsSent)
-        }
-        persist()
+        if (readReceiptsSent.contains(id)) return
+        readReceiptsSent.add(id)
+        trim(readReceiptsSent)
+        schedulePersist()
     }
 
     @Synchronized fun remove(ids: Set<String>) {
         if (ids.isEmpty()) return
-        delivered.removeAll(ids)
-        locallyRead.removeAll(ids)
-        readReceiptsSent.removeAll(ids)
-        persist()
+        val changed = delivered.removeAll(ids) or
+            locallyRead.removeAll(ids) or
+            readReceiptsSent.removeAll(ids)
+        if (!changed) return
+        pendingPersistJob?.cancel()
+        pendingPersistJob = null
+        persistNow()
     }
 
     @Synchronized fun clear() {
+        pendingPersistJob?.cancel()
+        pendingPersistJob = null
         delivered.clear()
         locallyRead.clear()
         readReceiptsSent.clear()
-        persist()
+        persistNow()
+    }
+
+    private fun schedulePersist() {
+        pendingPersistJob?.cancel()
+        pendingPersistJob = persistScope.launch {
+            delay(500L)
+            persistNow()
+        }
     }
 
     private fun trim(set: LinkedHashSet<String>) {
@@ -114,13 +134,15 @@ class SeenMessageStore private constructor(private val context: Context) {
         }
     }
 
-    @Synchronized private fun persist() {
+    private fun persistNow() {
         try {
-            val payload = StorePayload(
-                delivered = delivered.toList(),
-                locallyRead = locallyRead.toList(),
-                readReceiptsSent = readReceiptsSent.toList()
-            )
+            val payload = synchronized(this) {
+                StorePayload(
+                    delivered = delivered.toList(),
+                    locallyRead = locallyRead.toList(),
+                    readReceiptsSent = readReceiptsSent.toList()
+                )
+            }
             val json = gson.toJson(payload)
             secure.storeSecureValue(STORAGE_KEY, json)
         } catch (e: Exception) {

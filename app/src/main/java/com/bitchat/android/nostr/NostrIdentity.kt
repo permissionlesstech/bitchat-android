@@ -102,30 +102,38 @@ object NostrIdentityBridge {
     
     // Cache for derived geohash identities to avoid repeated crypto operations
     private val geohashIdentityCache = ConcurrentHashMap<String, NostrIdentity>()
+    @Volatile
+    private var cachedCurrentIdentity: NostrIdentity? = null
+    private val identityLock = Any()
     
     /**
      * Get or create the current Nostr identity
      */
     fun getCurrentNostrIdentity(context: Context): NostrIdentity? {
-        val stateManager = SecureIdentityStateManager(context)
-        
-        // Try to load existing Nostr private key
-        val existingKey = loadNostrPrivateKey(stateManager)
-        if (existingKey != null) {
-            return try {
-                NostrIdentity.fromPrivateKey(existingKey)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to create identity from stored key: ${e.message}")
-                null
+        cachedCurrentIdentity?.let { return it }
+        synchronized(identityLock) {
+            cachedCurrentIdentity?.let { return it }
+            val stateManager = SecureIdentityStateManager(context)
+            
+            // Try to load existing Nostr private key
+            val existingKey = loadNostrPrivateKey(stateManager)
+            if (existingKey != null) {
+                return try {
+                    NostrIdentity.fromPrivateKey(existingKey).also { cachedCurrentIdentity = it }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to create identity from stored key: ${e.message}")
+                    null
+                }
             }
+            
+            // Generate new identity
+            val newIdentity = NostrIdentity.generate()
+            saveNostrPrivateKey(stateManager, newIdentity.privateKeyHex)
+            cachedCurrentIdentity = newIdentity
+            
+            Log.i(TAG, "Created new Nostr identity: ${newIdentity.getShortNpub()}")
+            return newIdentity
         }
-        
-        // Generate new identity
-        val newIdentity = NostrIdentity.generate()
-        saveNostrPrivateKey(stateManager, newIdentity.privateKeyHex)
-        
-        Log.i(TAG, "Created new Nostr identity: ${newIdentity.getShortNpub()}")
-        return newIdentity
     }
     
     /**
@@ -209,8 +217,11 @@ object NostrIdentityBridge {
     fun clearAllAssociations(context: Context): Boolean {
         val stateManager = SecureIdentityStateManager(context)
         
-        // Clear cache first
-        geohashIdentityCache.clear()
+        // Clear caches first
+        synchronized(identityLock) {
+            cachedCurrentIdentity = null
+            geohashIdentityCache.clear()
+        }
         
         // Clear Nostr private key using public methods instead of reflection
         return try {
@@ -287,13 +298,9 @@ object NostrIdentityBridge {
 }
 
 // Extension functions for data conversion
-private fun String.hexToByteArrayLocal(): ByteArray {
-    return chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-}
+private fun String.hexToByteArrayLocal(): ByteArray = this.hexToByteArray()
 
-private fun ByteArray.toHexStringLocal(): String {
-    return joinToString("") { "%02x".format(it) }
-}
+private fun ByteArray.toHexStringLocal(): String = this.toHexString()
 
 private fun UInt.toLittleEndianBytes(): ByteArray {
     val bytes = ByteArray(4)

@@ -116,7 +116,19 @@ class MeshCore(
     private val directPeers = ConcurrentHashMap.newKeySet<String>()
 
     val gossipSyncManager: GossipSyncManager =
-        sharedGossipManager ?: GossipSyncManager(myPeerID = myPeerID, scope = scope, configProvider = gossipConfigProvider)
+        sharedGossipManager ?: GossipSyncManager(
+            myPeerID = myPeerID,
+            scope = scope,
+            configProvider = gossipConfigProvider,
+            hasPeersProvider = {
+                peerManager.getActivePeerCount() > 0 ||
+                    directPeers.isNotEmpty() ||
+                    com.bitchat.android.services.AppStateStore.directPeers.value.isNotEmpty()
+            },
+            syncIntervalProvider = {
+                GossipSyncManager.recommendedSyncIntervalMs(PowerManager.getInstance(context).profile.value)
+            }
+        )
     private val ownsGossipManager: Boolean = sharedGossipManager == null
 
     var delegate: MeshDelegate? = null
@@ -442,12 +454,12 @@ class MeshCore(
                 return SpecialRecipients.BROADCAST
             }
 
-            override fun handleNoiseHandshake(routed: RoutedPacket): Boolean {
-                return runBlocking { securityManager.handleNoiseHandshake(routed) }
+            override suspend fun handleNoiseHandshake(routed: RoutedPacket): Boolean {
+                return securityManager.handleNoiseHandshake(routed)
             }
 
-            override fun handleNoiseEncrypted(routed: RoutedPacket): Boolean {
-                return runBlocking { messageHandler.handleNoiseEncrypted(routed) }
+            override suspend fun handleNoiseEncrypted(routed: RoutedPacket): Boolean {
+                return messageHandler.handleNoiseEncrypted(routed)
             }
 
             override suspend fun handleAnnounce(routed: RoutedPacket): Boolean {

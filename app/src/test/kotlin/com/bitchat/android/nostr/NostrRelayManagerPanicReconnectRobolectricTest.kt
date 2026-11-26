@@ -119,6 +119,38 @@ class NostrRelayManagerPanicReconnectRobolectricTest {
     }
 
     @Test
+    fun `flapping relay that opens and closes immediately escalates reconnect backoff`() {
+        manager.connect()
+        dispatcher.scheduler.runCurrent()
+
+        val firstRelayUrl = NostrRelayManager.defaultRelays().first()
+        val fakeResponse = okhttp3.Response.Builder()
+            .request(Request.Builder().url(firstRelayUrl.replace("wss://", "https://")).build())
+            .protocol(okhttp3.Protocol.HTTP_1_1)
+            .code(101)
+            .message("Switching Protocols")
+            .build()
+
+        // Simulate 4 rapid open->close flaps (never stable >= 30s)
+        repeat(4) { expectedAttempt ->
+            val socketAndListener = factory.openedWithListeners.last { it.first.url == firstRelayUrl }
+            socketAndListener.second.onOpen(socketAndListener.first, fakeResponse)
+            socketAndListener.second.onClosed(socketAndListener.first, 1000, "immediate close")
+            val relay = manager.getRelayStatuses().first { it.url == firstRelayUrl }
+            assertEquals(expectedAttempt + 1, relay.reconnectAttempts)
+            val delayMs = RelayReconnectPolicy.backoffMs(expectedAttempt + 1)
+            dispatcher.scheduler.advanceTimeBy(delayMs + 1)
+            dispatcher.scheduler.runCurrent()
+        }
+
+        // Subsequent connection failures (never opening again) must continue escalating even past 30s.
+        val socketAndListener = factory.openedWithListeners.last { it.first.url == firstRelayUrl }
+        socketAndListener.second.onFailure(socketAndListener.first, RuntimeException("connect failed"), null)
+        val relayAfterFail = manager.getRelayStatuses().first { it.url == firstRelayUrl }
+        assertEquals(5, relayAfterFail.reconnectAttempts)
+    }
+
+    @Test
     fun `panic wipe leaves a manager that was never connected offline`() {
         manager.clearAllOnPanic(reconnect = true)
         dispatcher.scheduler.runCurrent()
@@ -142,16 +174,21 @@ class NostrRelayManagerPanicReconnectRobolectricTest {
 
     private class FakeWebSocketFactory : WebSocket.Factory {
         val openedSinceReset = mutableListOf<FakeWebSocket>()
+        val openedWithListeners = mutableListOf<Pair<FakeWebSocket, WebSocketListener>>()
 
         @Volatile
         var acceptSends = true
 
         fun reset() {
             openedSinceReset.clear()
+            openedWithListeners.clear()
         }
 
         override fun newWebSocket(request: Request, listener: WebSocketListener): WebSocket =
-            FakeWebSocket(request, this).also(openedSinceReset::add)
+            FakeWebSocket(request, this).also { ws ->
+                openedSinceReset.add(ws)
+                openedWithListeners.add(ws to listener)
+            }
     }
 
     private class FakeWebSocket(
