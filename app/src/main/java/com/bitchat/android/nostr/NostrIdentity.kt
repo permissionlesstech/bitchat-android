@@ -105,7 +105,6 @@ object NostrIdentityBridge {
     @Volatile
     private var cachedCurrentIdentity: NostrIdentity? = null
     private val identityLock = Any()
-    private var wipeGeneration: Long = 0L
 
     /**
      * Get or create the current Nostr identity
@@ -145,56 +144,45 @@ object NostrIdentityBridge {
      * Cached for UI responsiveness.
      */
     fun deriveIdentity(forGeohash: String, context: Context): NostrIdentity {
-        // Check cache first for immediate response
+        // Lock-free fast path on cache hit
         geohashIdentityCache[forGeohash]?.let { cachedIdentity ->
             return cachedIdentity
         }
 
-        val gen = synchronized(identityLock) {
-            geohashIdentityCache[forGeohash]?.let { return it }
-            wipeGeneration
-        }
-
-        val stateManager = SecureIdentityStateManager(context)
-        val seed = getOrCreateDeviceSeed(stateManager)
-
-        val geohashBytes = forGeohash.toByteArray(Charsets.UTF_8)
-
-        // Try a few iterations to ensure a valid key can be formed (exactly like iOS)
-        for (i in 0 until 10) {
-            val candidateKey = candidateKey(seed, geohashBytes, i.toUInt())
-            val candidateKeyHex = candidateKey.toHexStringLocal()
-
-            if (NostrCrypto.isValidPrivateKey(candidateKeyHex)) {
-                val identity = NostrIdentity.fromPrivateKey(candidateKeyHex)
-
-                // Only populate cache if no panic wipe occurred while deriving.
-                synchronized(identityLock) {
-                    if (wipeGeneration == gen) {
-                        geohashIdentityCache[forGeohash] = identity
-                    }
-                }
-
-                Log.d(TAG, "Derived geohash identity")
-                return identity
-            }
-        }
-
-        // As a final fallback, hash the seed+msg and try again (exactly like iOS)
-        val combined = seed + geohashBytes
-        val digest = MessageDigest.getInstance("SHA-256")
-        val fallbackKey = digest.digest(combined)
-
-        val fallbackIdentity = NostrIdentity.fromPrivateKey(fallbackKey.toHexStringLocal())
-
+        // Serialize cold derivation with clearAllAssociations under identityLock so a panic wipe
+        // cannot race between reading the device seed and returning/caching a pre-wipe identity.
         synchronized(identityLock) {
-            if (wipeGeneration == gen) {
-                geohashIdentityCache[forGeohash] = fallbackIdentity
-            }
-        }
+            geohashIdentityCache[forGeohash]?.let { return it }
 
-        Log.d(TAG, "Used fallback geohash identity derivation")
-        return fallbackIdentity
+            val stateManager = SecureIdentityStateManager(context)
+            val seed = getOrCreateDeviceSeed(stateManager)
+
+            val geohashBytes = forGeohash.toByteArray(Charsets.UTF_8)
+
+            // Try a few iterations to ensure a valid key can be formed (exactly like iOS)
+            for (i in 0 until 10) {
+                val candidateKey = candidateKey(seed, geohashBytes, i.toUInt())
+                val candidateKeyHex = candidateKey.toHexStringLocal()
+
+                if (NostrCrypto.isValidPrivateKey(candidateKeyHex)) {
+                    val identity = NostrIdentity.fromPrivateKey(candidateKeyHex)
+                    geohashIdentityCache[forGeohash] = identity
+                    Log.d(TAG, "Derived geohash identity")
+                    return identity
+                }
+            }
+
+            // As a final fallback, hash the seed+msg and try again (exactly like iOS)
+            val combined = seed + geohashBytes
+            val digest = MessageDigest.getInstance("SHA-256")
+            val fallbackKey = digest.digest(combined)
+
+            val fallbackIdentity = NostrIdentity.fromPrivateKey(fallbackKey.toHexStringLocal())
+            geohashIdentityCache[forGeohash] = fallbackIdentity
+
+            Log.d(TAG, "Used fallback geohash identity derivation")
+            return fallbackIdentity
+        }
     }
     
     /**
@@ -233,7 +221,6 @@ object NostrIdentityBridge {
         // concurrent getCurrentNostrIdentity/deriveIdentity call cannot cache a key that the
         // wipe immediately deletes from storage.
         return synchronized(identityLock) {
-            wipeGeneration++
             cachedCurrentIdentity = null
             geohashIdentityCache.clear()
 

@@ -1,4 +1,4 @@
-74f0a047b52fd4ce80a26ce3473820a6394a50985b59f9a648e010d5c4055926  app/src/main/jniLibs/arm64-v8a/libarti_android.so
-0ec10398e2b0cbd59f1fb4237c4351991e8e6b608ef89360a6e2e21124fe7497  app/src/main/jniLibs/armeabi-v7a/libarti_android.so
-d844af842afd139d13977a2ce97200f6b6519e3a122d7cfc292130fab59395bf  app/src/main/jniLibs/x86/libarti_android.so
-a43b70a82949fbc3bf3e291da460d4cbd8eccb35b9baf3df1f4f8c3a28d0edb2  app/src/main/jniLibs/x86_64/libarti_android.so
+01f889df8c89ad2461ce2312390823581d964990de5454a3c15f9cd8718db999  app/src/main/jniLibs/arm64-v8a/libarti_android.so
+6db8e3756ad4c946c4ce1d8e724e56fdcbdaecf9c3393b1cd93b8b09605f999f  app/src/main/jniLibs/armeabi-v7a/libarti_android.so
+1b49c290fcd1959a99f7326076a5e83167a3a8e86f1482a70d61db416eb9f3b7  app/src/main/jniLibs/x86/libarti_android.so
+dae9ddc46634e1686f320e787883603e5211f83daf0642dfc9ce0b2d2e1ee0fe  app/src/main/jniLibs/x86_64/libarti_android.so

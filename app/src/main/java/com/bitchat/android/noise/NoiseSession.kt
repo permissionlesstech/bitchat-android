@@ -81,9 +81,12 @@ class NoiseSession(
                         val sourceByteIndex = i - byteShift
                         var newByte = 0
                         if (sourceByteIndex >= 0) {
-                            newByte = (replayWindow[sourceByteIndex].toInt() and 0xFF) ushr bitShift
+                            // Bit index (offset = highestReceivedNonce - nonce) increases as
+                            // highestReceivedNonce advances, so older seen bits shift LEFT toward
+                            // higher bit/byte offsets and carry from lower bytes.
+                            newByte = (replayWindow[sourceByteIndex].toInt() and 0xFF) shl bitShift
                             if (sourceByteIndex > 0 && bitShift != 0) {
-                                newByte = newByte or ((replayWindow[sourceByteIndex - 1].toInt() and 0xFF) shl (8 - bitShift))
+                                newByte = newByte or ((replayWindow[sourceByteIndex - 1].toInt() and 0xFF) ushr (8 - bitShift))
                             }
                         }
                         replayWindow[i] = (newByte and 0xFF).toByte()

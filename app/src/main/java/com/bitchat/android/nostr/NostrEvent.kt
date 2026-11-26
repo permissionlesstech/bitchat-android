@@ -1,5 +1,6 @@
 package com.bitchat.android.nostr
 
+import com.bitchat.android.util.toHexString as utilToHexString
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.annotations.SerializedName
@@ -220,11 +221,6 @@ object NostrKind {
     const val GEOHASH_PRESENCE = 20001 // For geohash presence heartbeat
 }
 
-private val NOSTR_HEX_CHARS = charArrayOf(
-    '0', '1', '2', '3', '4', '5', '6', '7',
-    '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
-)
-
 private fun nostrHexNibble(c: Char): Int = when (c) {
     in '0'..'9' -> c.code - '0'.code
     in 'a'..'f' -> c.code - 'a'.code + 10
@@ -247,14 +243,4 @@ fun String.hexToByteArray(): ByteArray {
     return out
 }
 
-fun ByteArray.toHexString(): String {
-    if (isEmpty()) return ""
-    val out = CharArray(size * 2)
-    var j = 0
-    for (b in this) {
-        val v = b.toInt() and 0xFF
-        out[j++] = NOSTR_HEX_CHARS[v ushr 4]
-        out[j++] = NOSTR_HEX_CHARS[v and 0x0F]
-    }
-    return String(out)
-}
+fun ByteArray.toHexString(): String = utilToHexString()

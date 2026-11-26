@@ -2,97 +2,113 @@ package com.bitchat.android.services
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.nostr.NostrBackgroundEventProcessor
 import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.ui.DataManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class BatteryRegressionFixesRobolectricTest {
 
     private val app: Application = ApplicationProvider.getApplicationContext()
 
     @Test
-    fun `SeenMessageStore stale debounced flush cannot resurrect IDs after remove or clear`() {
+    fun `SeenMessageStore stale flush cannot resurrect IDs after remove or clear and burst mutations do not starve persistence`() {
+        val dispatcher = StandardTestDispatcher()
+        val testScope = TestScope(dispatcher)
         val store = SeenMessageStore.getInstance(app)
-        store.clear()
-
-        store.markDelivered("msg-alpha")
-        store.markReadLocally("msg-beta")
-        // Capture generation right after marking
-        val genField = SeenMessageStore::class.java.getDeclaredField("mutationGeneration")
+        val scopeField = SeenMessageStore::class.java.getDeclaredField("persistScope")
             .apply { isAccessible = true }
-        val staleGen = genField.getLong(store)
+        val originalScope = scopeField.get(store)
+        scopeField.set(store, testScope)
 
-        // Panic clear wipes memory and disk synchronously
-        store.clear()
-        // Simulate an in-flight debounced flush waking up with the pre-clear generation
-        store.persistIfCurrent(staleGen)
+        try {
+            store.clear()
 
-        // Re-load from disk into the same store and verify wiped IDs did NOT come back
-        val loadMethod = SeenMessageStore::class.java.getDeclaredMethod("load")
-            .apply { isAccessible = true }
-        loadMethod.invoke(store)
+            // Continuous mutations every 200ms (< 500ms window) must STILL flush within ~500ms (no starvation)
+            store.markReadReceiptSent("receipt-early")
+            testScope.advanceTimeBy(200L); testScope.runCurrent()
+            store.markDelivered("msg-200")
+            testScope.advanceTimeBy(200L); testScope.runCurrent()
+            store.markDelivered("msg-400")
+            testScope.advanceTimeBy(200L); testScope.runCurrent() // 600ms elapsed -> first 500ms batch MUST have persisted
 
-        assertFalse(store.hasDelivered("msg-alpha"))
-        assertFalse(store.hasBeenReadLocally("msg-beta"))
+            val rawJson = SecureIdentityStateManager(app).getSecureValue("seen_message_store_v1")
+            assertNotNull("early mutation must persist despite continuous updates", rawJson)
+            assertTrue("early sent-receipt ID must be persisted during burst", rawJson!!.contains("receipt-early"))
 
-        // Also verify remove() invalidates pending debounced flush generation
-        store.markDelivered("msg-gamma")
-        val staleAfterGamma = genField.getLong(store)
-        store.remove(setOf("msg-gamma"))
-        store.persistIfCurrent(staleAfterGamma)
-        loadMethod.invoke(store)
-        assertFalse(store.hasDelivered("msg-gamma"))
+            // Capture generation before panic clear
+            val genField = SeenMessageStore::class.java.getDeclaredField("mutationGeneration")
+                .apply { isAccessible = true }
+            val staleGen = genField.getLong(store)
+
+            store.clear()
+            // Simulate an in-flight stale flush waking up with pre-clear generation
+            store.persistIfCurrent(staleGen)
+
+            val postClearJson = SecureIdentityStateManager(app).getSecureValue("seen_message_store_v1")!!
+            assertFalse("cleared IDs must not reappear in storage", postClearJson.contains("receipt-early"))
+            assertFalse("cleared IDs must not reappear in storage", postClearJson.contains("msg-200"))
+
+            // Verify remove() persists asynchronously on persistScope and rejects stale generation
+            store.markDelivered("msg-gamma")
+            val staleAfterGamma = genField.getLong(store)
+            store.remove(setOf("msg-gamma"))
+            testScope.runCurrent()
+            store.persistIfCurrent(staleAfterGamma)
+
+            val postRemoveJson = SecureIdentityStateManager(app).getSecureValue("seen_message_store_v1")!!
+            assertFalse("removed ID must stay deleted in storage", postRemoveJson.contains("msg-gamma"))
+        } finally {
+            scopeField.set(store, originalScope)
+            store.clear()
+        }
     }
 
     @Test
-    fun `NostrIdentityBridge concurrent lookup and panic wipe keep cache and disk consistent`() {
+    fun `NostrIdentityBridge wipe clears independent storage and re-derives a fresh geohash identity`() {
         NostrIdentityBridge.clearAllAssociations(app)
-        val pool = Executors.newFixedThreadPool(4)
         try {
-            repeat(10) {
-                val start = CountDownLatch(1)
-                val done = CountDownLatch(2)
-                pool.submit {
-                    start.await()
-                    NostrIdentityBridge.getCurrentNostrIdentity(app)
-                    done.countDown()
-                }
-                pool.submit {
-                    start.await()
-                    NostrIdentityBridge.clearAllAssociations(app)
-                    done.countDown()
-                }
-                start.countDown()
-                assertTrue(done.await(5, TimeUnit.SECONDS))
+            val secure = SecureIdentityStateManager(app)
+            val beforeAccount = NostrIdentityBridge.getCurrentNostrIdentity(app)!!
+            val beforeGeo = NostrIdentityBridge.deriveIdentity("u4pruydq", app)
 
-                // After concurrent race settles, cached identity (if any) must match disk!
-                val cachedField = NostrIdentityBridge::class.java.getDeclaredField("cachedCurrentIdentity")
-                    .apply { isAccessible = true }
-                val cached = cachedField.get(NostrIdentityBridge)
-                val persisted = NostrIdentityBridge.getCurrentNostrIdentity(app)
-                assertNotNull(persisted)
-                if (cached != null) {
-                    assertEquals(cached, persisted)
-                }
-            }
+            // Verify persisted directly in SecureIdentityStateManager (independent of cache)
+            assertEquals(beforeAccount.privateKeyHex, secure.getSecureValue("nostr_private_key"))
+            assertNotNull(secure.getSecureValue("nostr_device_seed"))
+
+            assertTrue(NostrIdentityBridge.clearAllAssociations(app))
+
+            // Storage must be wiped immediately and cache must be empty
+            assertNull(secure.getSecureValue("nostr_private_key"))
+            assertNull(secure.getSecureValue("nostr_device_seed"))
+
+            val afterAccount = NostrIdentityBridge.getCurrentNostrIdentity(app)!!
+            val afterGeo = NostrIdentityBridge.deriveIdentity("u4pruydq", app)
+            assertNotEquals(beforeAccount.privateKeyHex, afterAccount.privateKeyHex)
+            assertNotEquals(beforeGeo.privateKeyHex, afterGeo.privateKeyHex)
+            assertEquals(afterAccount.privateKeyHex, secure.getSecureValue("nostr_private_key"))
         } finally {
-            pool.shutdownNow()
             NostrIdentityBridge.clearAllAssociations(app)
         }
     }

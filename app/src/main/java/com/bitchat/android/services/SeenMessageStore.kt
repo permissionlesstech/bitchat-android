@@ -39,10 +39,12 @@ class SeenMessageStore private constructor(private val context: Context) {
 
     private val gson = Gson()
     private val secure = SecureIdentityStateManager(context)
-    private val persistScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val persistDispatcher = Dispatchers.IO.limitedParallelism(1)
+    private var persistScope = CoroutineScope(persistDispatcher + SupervisorJob())
     private val persistLock = Any()
     private var pendingPersistJob: Job? = null
     private var mutationGeneration: Long = 0L
+    private var persistedGeneration: Long = 0L
 
     private val delivered = LinkedHashSet<String>()
     private val locallyRead = LinkedHashSet<String>()
@@ -58,26 +60,27 @@ class SeenMessageStore private constructor(private val context: Context) {
         if (delivered.contains(id)) return
         delivered.add(id)
         trim(delivered)
-        val gen = ++mutationGeneration
-        schedulePersist(gen)
+        mutationGeneration++
+        schedulePersistLocked()
     }
 
     @Synchronized fun markReadLocally(id: String) {
-        val gen = if (locallyRead.contains(id)) null else {
+        val added = if (locallyRead.contains(id)) false else {
             locallyRead.add(id)
             trim(locallyRead)
-            ++mutationGeneration
+            mutationGeneration++
+            true
         }
         AppStateStore.markPrivateMessageRead(id)
-        if (gen != null) schedulePersist(gen)
+        if (added) schedulePersistLocked()
     }
 
     @Synchronized fun markReadReceiptSent(id: String) {
         if (readReceiptsSent.contains(id)) return
         readReceiptsSent.add(id)
         trim(readReceiptsSent)
-        val gen = ++mutationGeneration
-        schedulePersist(gen)
+        mutationGeneration++
+        schedulePersistLocked()
     }
 
     fun remove(ids: Set<String>) {
@@ -94,7 +97,10 @@ class SeenMessageStore private constructor(private val context: Context) {
             modified
         }
         if (!changed) return
-        persistLatest()
+        // Enqueue immediate serialized IO write so UI conversation deletion never blocks the main thread.
+        persistScope.launch {
+            persistLatest()
+        }
     }
 
     fun clear() {
@@ -106,14 +112,26 @@ class SeenMessageStore private constructor(private val context: Context) {
             locallyRead.clear()
             readReceiptsSent.clear()
         }
+        // Panic wipe must commit synchronously before returning, with JSON serialized outside persistLock.
         persistLatest()
     }
 
-    private fun schedulePersist(targetGeneration: Long) {
-        pendingPersistJob?.cancel()
+    /**
+     * Bounded-latency batching: never cancel/restart an active 500 ms timer, so continuous
+     * mutations cannot starve persistence indefinitely.
+     */
+    private fun schedulePersistLocked() {
+        if (pendingPersistJob?.isActive == true) return
         pendingPersistJob = persistScope.launch {
             delay(500L)
-            persistIfCurrent(targetGeneration)
+            persistLatest()
+            // If more mutations arrived while persistLatest() ran, schedule one follow-up flush.
+            synchronized(this@SeenMessageStore) {
+                pendingPersistJob = null
+                if (persistedGeneration != mutationGeneration) {
+                    schedulePersistLocked()
+                }
+            }
         }
     }
 
@@ -149,18 +167,25 @@ class SeenMessageStore private constructor(private val context: Context) {
 
     /**
      * Write only if no newer mutation, removal, or panic clear has occurred since [targetGeneration].
-     * Lock ordering is strictly `persistLock -> this` so synchronous [remove]/[clear] flushes
-     * can never deadlock or be overwritten by an older debounced snapshot.
+     * JSON serialization happens outside [persistLock] so callers never stall behind serialization.
      */
     internal fun persistIfCurrent(targetGeneration: Long) {
         try {
+            val payload = synchronized(this) {
+                if (mutationGeneration != targetGeneration) return
+                snapshotLocked()
+            }
+            val json = gson.toJson(payload)
             synchronized(persistLock) {
-                val payload = synchronized(this) {
+                synchronized(this) {
                     if (mutationGeneration != targetGeneration) return
-                    snapshotLocked()
                 }
-                val json = gson.toJson(payload)
                 secure.storeSecureValue(STORAGE_KEY, json)
+                synchronized(this) {
+                    if (mutationGeneration == targetGeneration) {
+                        persistedGeneration = targetGeneration
+                    }
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to persist SeenMessageStore: ${e.message}")
@@ -169,10 +194,26 @@ class SeenMessageStore private constructor(private val context: Context) {
 
     private fun persistLatest() {
         try {
-            synchronized(persistLock) {
-                val payload = synchronized(this) { snapshotLocked() }
+            while (true) {
+                val (gen, payload) = synchronized(this) {
+                    mutationGeneration to snapshotLocked()
+                }
                 val json = gson.toJson(payload)
-                secure.storeSecureValue(STORAGE_KEY, json)
+                val committed = synchronized(persistLock) {
+                    val stillLatest = synchronized(this) { mutationGeneration == gen }
+                    if (!stillLatest) {
+                        false
+                    } else {
+                        secure.storeSecureValue(STORAGE_KEY, json)
+                        synchronized(this) {
+                            if (mutationGeneration == gen) {
+                                persistedGeneration = gen
+                            }
+                        }
+                        true
+                    }
+                }
+                if (committed) return
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to persist SeenMessageStore: ${e.message}")

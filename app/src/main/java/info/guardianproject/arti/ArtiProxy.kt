@@ -74,10 +74,17 @@ class ArtiProxy private constructor(
                     isRunning = true
                     Log.i(TAG, "Arti started successfully")
                 }
-                -1 -> throw ArtiException("Arti client not initialized")
-                -2 -> throw ArtiException("Tokio runtime not initialized")
-                -3 -> throw ArtiException("Failed to bind SOCKS proxy to port $socksPort (port already in use)")
-                else -> throw ArtiException("Failed to start SOCKS proxy: error code $startResult")
+                else -> {
+                    // Put the already-initialized resident TorClient into DormantMode::Soft so a
+                    // failed startup / exhausted bind retry never leaves background Tor tasks awake.
+                    runCatching { ArtiNative.stop() }
+                    when (startResult) {
+                        -1 -> throw ArtiException("Arti client not initialized")
+                        -2 -> throw ArtiException("Tokio runtime not initialized")
+                        -3 -> throw ArtiException("Failed to bind SOCKS proxy to port $socksPort (port already in use)")
+                        else -> throw ArtiException("Failed to start SOCKS proxy: error code $startResult")
+                    }
+                }
             }
 
         } catch (e: Exception) {

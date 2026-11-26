@@ -36,20 +36,24 @@ static SOCKS_TASK: Mutex<Option<tokio::task::JoinHandle<()>>> = Mutex::new(None)
 /// `stop`, and the delayed background re-dormant timer.
 struct DormantState {
     requested: bool,
+    socks_running: bool,
     in_flight_connects: usize,
     active_streams: usize,
     activity_epoch: u64,
     timer: Option<tokio::task::JoinHandle<()>>,
+    socks_shutdown_tx: Option<tokio::sync::watch::Sender<bool>>,
 }
 
 impl DormantState {
     const fn new() -> Self {
         Self {
             requested: false,
+            socks_running: false,
             in_flight_connects: 0,
             active_streams: 0,
             activity_epoch: 0,
             timer: None,
+            socks_shutdown_tx: None,
         }
     }
 }
@@ -191,14 +195,20 @@ impl Drop for ActiveStreamGuard {
 struct InFlightConnectGuard;
 
 impl InFlightConnectGuard {
-    fn new() -> Self {
+    /// Register an in-flight `client.connect(...)` only if the SOCKS server is still active.
+    /// Returns `None` if `stop()` has already stopped the proxy, preventing a delayed handshake
+    /// from waking the resident `TorClient` out of `DormantMode::Soft`.
+    fn try_new() -> Option<Self> {
         let mut state = DORMANT_STATE.lock().unwrap();
+        if !state.socks_running {
+            return None;
+        }
         state.in_flight_connects += 1;
         state.activity_epoch = state.activity_epoch.wrapping_add(1);
         if let Some(handle) = state.timer.take() {
             handle.abort();
         }
-        Self
+        Some(Self)
     }
 }
 
@@ -206,8 +216,13 @@ impl Drop for InFlightConnectGuard {
     fn drop(&mut self) {
         let mut state = DORMANT_STATE.lock().unwrap();
         state.in_flight_connects = state.in_flight_connects.saturating_sub(1);
-        if state.in_flight_connects == 0 && state.requested {
-            schedule_re_dormant_locked(&mut state);
+        if state.in_flight_connects == 0 {
+            if !state.socks_running {
+                // Proxy was stopped while this connect was in flight; immediately re-apply Soft.
+                let _ = apply_dormant_mode_now(DormantMode::Soft);
+            } else if state.requested {
+                schedule_re_dormant_locked(&mut state);
+            }
         }
     }
 }
@@ -357,10 +372,17 @@ pub extern "C" fn Java_org_torproject_arti_ArtiNative_startSocksProxy(
     log_info!("AMEx: state changed to Starting");
     log_info!("Starting SOCKS proxy on port {}", port);
 
-    // Stop any existing SOCKS server first
+    // Stop any existing SOCKS server and active handlers first
     if let Some(handle) = SOCKS_TASK.lock().unwrap().take() {
         log_info!("Aborting previous SOCKS server task");
         handle.abort();
+    }
+    {
+        let mut state = DORMANT_STATE.lock().unwrap();
+        state.socks_running = false;
+        if let Some(tx) = state.socks_shutdown_tx.take() {
+            let _ = tx.send(true);
+        }
     }
 
     let client_guard = ARTI_CLIENT.lock().unwrap();
@@ -373,17 +395,6 @@ pub extern "C" fn Java_org_torproject_arti_ArtiNative_startSocksProxy(
     };
     drop(client_guard);
 
-    // Ensure client wakes from any prior stop()/dormant state while starting SOCKS proxy
-    {
-        let mut state = DORMANT_STATE.lock().unwrap();
-        state.requested = false;
-        state.activity_epoch = state.activity_epoch.wrapping_add(1);
-        if let Some(handle) = state.timer.take() {
-            handle.abort();
-        }
-        client.set_dormant(DormantMode::Normal);
-    }
-
     let runtime_guard = TOKIO_RUNTIME.lock().unwrap();
     let runtime = match runtime_guard.as_ref() {
         Some(rt) => rt,
@@ -393,7 +404,7 @@ pub extern "C" fn Java_org_torproject_arti_ArtiNative_startSocksProxy(
         }
     };
 
-    // Try to bind IMMEDIATELY to detect port conflicts before returning
+    // Try to bind IMMEDIATELY before waking TorClient so bind failures leave client dormant.
     let addr = format!("127.0.0.1:{}", port);
 
     // Use block_on to synchronously attempt binding
@@ -408,9 +419,31 @@ pub extern "C" fn Java_org_torproject_arti_ArtiNative_startSocksProxy(
         }
         Err(e) => {
             log_error!("Failed to bind SOCKS proxy to {}: {:?}", addr, e);
+            let mut state = DORMANT_STATE.lock().unwrap();
+            state.requested = true;
+            state.socks_running = false;
+            state.activity_epoch = state.activity_epoch.wrapping_add(1);
+            if let Some(handle) = state.timer.take() {
+                handle.abort();
+            }
+            client.set_dormant(DormantMode::Soft);
             return -3;
         }
     };
+
+    // Bind succeeded: mark proxy running, install shutdown channel, and wake TorClient to Normal.
+    let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+    {
+        let mut state = DORMANT_STATE.lock().unwrap();
+        state.requested = false;
+        state.socks_running = true;
+        state.socks_shutdown_tx = Some(shutdown_tx);
+        state.activity_epoch = state.activity_epoch.wrapping_add(1);
+        if let Some(handle) = state.timer.take() {
+            handle.abort();
+        }
+        client.set_dormant(DormantMode::Normal);
+    }
 
     // Now spawn the background task with the already-bound listener
     let handle = runtime.spawn(async move {
@@ -428,10 +461,18 @@ pub extern "C" fn Java_org_torproject_arti_ArtiNative_startSocksProxy(
                 Ok((stream, peer_addr)) => {
                     log_info!("SOCKS connection from: {}", peer_addr);
                     let client_clone = Arc::clone(&client);
+                    let mut conn_shutdown_rx = shutdown_rx.clone();
 
                     tokio::spawn(async move {
-                        if let Err(e) = handle_socks_connection(stream, client_clone).await {
-                            log_error!("SOCKS connection error: {:?}", e);
+                        tokio::select! {
+                            res = handle_socks_connection(stream, client_clone) => {
+                                if let Err(e) = res {
+                                    log_error!("SOCKS connection error: {:?}", e);
+                                }
+                            }
+                            _ = conn_shutdown_rx.changed() => {
+                                log_info!("SOCKS connection aborted on proxy stop");
+                            }
                         }
                     });
                 }
@@ -538,7 +579,10 @@ async fn handle_socks_connection(
     // when this guard drops, if background dormancy is still requested, we schedule a debounced
     // return to DormantMode::Soft once all in-flight connects finish).
     let tor_stream = {
-        let _connect_guard = InFlightConnectGuard::new();
+        let Some(_connect_guard) = InFlightConnectGuard::try_new() else {
+            let _ = stream.write_all(&[0x05, 0x05, 0x00, 0x01, 0, 0, 0, 0, 0, 0]).await;
+            return Err(anyhow::anyhow!("SOCKS proxy stopped before connect"));
+        };
         match client.connect((target_host.as_str(), target_port)).await {
             Ok(s) => s,
             Err(e) => {
@@ -646,12 +690,16 @@ pub extern "C" fn Java_org_torproject_arti_ArtiNative_stop(
         handle.abort();
     }
 
-    // Cancel any pending re-dormant timer and put the resident TorClient into DormantMode::Soft
-    // atomically under DORMANT_STATE so it does not keep burning CPU while Tor is stopped.
+    // Stop accepted SOCKS handlers, cancel any pending re-dormant timer, and put the resident
+    // TorClient into DormantMode::Soft atomically under DORMANT_STATE.
     let slept = {
         let mut state = DORMANT_STATE.lock().unwrap();
+        state.socks_running = false;
         state.requested = true;
         state.activity_epoch = state.activity_epoch.wrapping_add(1);
+        if let Some(tx) = state.socks_shutdown_tx.take() {
+            let _ = tx.send(true);
+        }
         if let Some(handle) = state.timer.take() {
             handle.abort();
         }

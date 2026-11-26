@@ -11,6 +11,8 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -194,5 +196,36 @@ class ArtiTorManagerDormantRobolectricTest {
 
         // Final dormant state must be Normal (either never entered Soft, or ended with false)
         assertTrue(dormantCalls.isEmpty() || !dormantCalls.last())
+    }
+
+    @Test
+    fun `applying TorMode OFF while post-bootstrap waiter finishes never republishes SOCKS address`() = runTest {
+        val isBackground = MutableStateFlow(false)
+        var capturedListener: ArtiLogListener? = null
+        val proxy = mock<ArtiProxy>()
+
+        val manager = ArtiTorManager(
+            appScope = backgroundScope,
+            proxyFactory = { _, _, listener ->
+                capturedListener = listener
+                proxy
+            },
+            backgroundStateProvider = { isBackground },
+            backgroundDormantDelayMs = 15_000L
+        )
+        manager.init(application)
+        advanceTimeBy(10_000L)
+        runCurrent()
+
+        // Complete bootstrap (wakes post-bootstrap reset coroutine), then immediately turn Tor OFF
+        capturedListener?.onLogLine("We have found that guard [scrubbed] is usable.")
+        manager.applyMode(application, TorMode.OFF)
+        advanceTimeBy(10_000L)
+        runCurrent()
+
+        assertEquals(TorMode.OFF, manager.statusFlow.value.mode)
+        assertEquals(ArtiTorManager.TorState.OFF, manager.statusFlow.value.state)
+        assertNull("OFF must keep socksAddr null even when bootstrap waiter runs concurrently", manager.currentSocksAddress())
+        assertFalse(manager.isProxyEnabled())
     }
 }

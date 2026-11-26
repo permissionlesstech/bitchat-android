@@ -54,7 +54,6 @@ class BluetoothPacketBroadcaster(
         private const val MAX_PENDING_SENDS_PER_LINK = 256
         private const val MAX_PENDING_BYTES_PER_LINK = 1_048_576
         private const val SEND_RETRY_DELAY_MS = 15L
-        private const val MAX_START_RETRIES = 20
         private const val MAX_START_RETRY_DELAY_MS = 250L
         private const val MAX_CALLBACK_RETRIES = 3
     }
@@ -590,9 +589,16 @@ class BluetoothPacketBroadcaster(
         if (!accepted) rejectStart(key)
     }
 
+    private fun isLinkStillConnected(key: SendKey): Boolean = when (key.direction) {
+        SendDirection.CLIENT_WRITE -> connectionTracker.getDeviceConnection(key.deviceAddress) != null
+        SendDirection.SERVER_NOTIFICATION ->
+            connectionTracker.getDeviceConnection(key.deviceAddress) != null ||
+                connectionTracker.getSubscribedDevices().any { it.address == key.deviceAddress }
+    }
+
     private fun rejectStart(key: SendKey): Boolean {
+        val linkAlive = isLinkStillConnected(key)
         var nextDelayMs = SEND_RETRY_DELAY_MS
-        var startNextImmediately = false
         val schedule = synchronized(sendLock) {
             val state = sendStates[key] ?: return false
             state.inFlight = false
@@ -600,33 +606,25 @@ class BluetoothPacketBroadcaster(
                 sendStates.remove(key)
                 return false
             }
+            if (!linkAlive) {
+                Log.d(TAG, "BLE ${key.direction} link disconnected; clearing ${state.pending.size} pending sends")
+                sendStates.remove(key)
+                return false
+            }
             head.startRetries++
-            if (head.startRetries > MAX_START_RETRIES) {
-                Log.w(TAG, "BLE ${key.direction} start rejected ${head.startRetries} times; dropping packet")
-                state.pending.removeFirst()
-                state.pendingBytes -= head.data.size
-                if (state.pending.isEmpty()) {
-                    sendStates.remove(key)
-                    return false
-                }
-                if (!state.retryScheduled) {
-                    state.inFlight = true
-                    startNextImmediately = true
-                }
-                false
-            } else if (state.retryScheduled) {
+            if (state.retryScheduled) {
                 false
             } else {
-                // Bounded exponential backoff (15ms -> 30ms -> 60ms -> 120ms -> 250ms)
+                // Bounded exponential backoff (15ms -> 30ms -> 60ms -> 120ms -> 250ms) so transient
+                // GATT busy never spins CPU and accepted file transfers are never silently dropped
+                // while the link remains connected.
                 val shift = (head.startRetries - 1).coerceAtMost(4)
                 nextDelayMs = (SEND_RETRY_DELAY_MS shl shift).coerceAtMost(MAX_START_RETRY_DELAY_MS)
                 state.retryScheduled = true
                 true
             }
         }
-        if (startNextImmediately) {
-            startHead(key)
-        } else if (schedule) {
+        if (schedule) {
             connectionScope.launch {
                 delay(nextDelayMs)
                 val retry = synchronized(sendLock) {

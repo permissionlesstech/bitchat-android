@@ -6,6 +6,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import okhttp3.Request
 import okhttp3.WebSocket
@@ -264,6 +265,85 @@ class NostrRelayManagerPanicReconnectRobolectricTest {
         assertEquals(
             NostrRelayManager.defaultRelays().toSet(),
             factory.openedSinceReset.map { it.url }.toSet()
+        )
+    }
+
+    @Test
+    fun `background dead-relay throttle does not defer a subscription sole target and foregrounding recovers throttled relays`() {
+        val isBackground = MutableStateFlow(true)
+        val bgManager = NostrRelayManager(
+            webSocketFactory = { factory },
+            scope = scope,
+            monotonicClockMs = { fakeMonoMs.get() },
+            awaitTorRoute = { true },
+            backgroundStateFlow = isBackground
+        )
+        bgManager.connect()
+        dispatcher.scheduler.runCurrent()
+
+        val defaultRelays = NostrRelayManager.defaultRelays()
+        val healthyUrl = defaultRelays[0]
+        val deadDefaultUrl = defaultRelays[1]
+        val soleTargetUrl = "wss://sole-target.example"
+
+        // Mark one default relay healthy so _isConnected == true
+        val okResponse = okhttp3.Response.Builder()
+            .request(Request.Builder().url(healthyUrl.replace("wss://", "https://")).build())
+            .protocol(okhttp3.Protocol.HTTP_1_1)
+            .code(101)
+            .message("Switching Protocols")
+            .build()
+        val healthyPair = factory.openedWithListeners.last { it.first.url == healthyUrl }
+        val relaysBeforeOpen = bgManager.relays.value
+        healthyPair.second.onOpen(healthyPair.first, okResponse)
+        // Verify immutable snapshot emission (R2-SD5): new status list differs from previous snapshot
+        assertFalse(relaysBeforeOpen.first { it.url == healthyUrl }.isConnected)
+        assertTrue(bgManager.relays.value.first { it.url == healthyUrl }.isConnected)
+
+        // Connect soleTargetUrl and subscribe exclusively to it
+        bgManager.connectToRelays(listOf(soleTargetUrl))
+        dispatcher.scheduler.runCurrent()
+        bgManager.subscribe(
+            filter = NostrFilter(kinds = listOf(NostrKind.TEXT_NOTE)),
+            id = "sole-sub",
+            handler = {},
+            targetRelayUrls = listOf(soleTargetUrl)
+        )
+
+        // Fail both soleTargetUrl and deadDefaultUrl 4 times while backgrounded
+        repeat(4) { attempt ->
+            val solePair = factory.openedWithListeners.last { it.first.url == soleTargetUrl }
+            solePair.second.onFailure(solePair.first, RuntimeException("fail"), null)
+            val deadPair = factory.openedWithListeners.last { it.first.url == deadDefaultUrl }
+            deadPair.second.onFailure(deadPair.first, RuntimeException("fail"), null)
+
+            if (attempt < 3) {
+                dispatcher.scheduler.advanceTimeBy(RelayReconnectPolicy.backoffMs(attempt + 1) + 1)
+                dispatcher.scheduler.runCurrent()
+            }
+        }
+
+        // At attempt 4: soleTargetUrl MUST NOT be throttled to 15m (normal backoff is 8s),
+        // whereas deadDefaultUrl (which has healthyUrl serving general subscriptions) IS throttled to 15m!
+        factory.reset()
+        dispatcher.scheduler.advanceTimeBy(RelayReconnectPolicy.backoffMs(4) + 1)
+        dispatcher.scheduler.runCurrent()
+        assertTrue(
+            "sole subscription target must reconnect on normal backoff even in background",
+            factory.openedSinceReset.any { it.url == soleTargetUrl }
+        )
+        assertFalse(
+            "unrelated dead default relay should remain throttled in background",
+            factory.openedSinceReset.any { it.url == deadDefaultUrl }
+        )
+
+        // Returning to foreground immediately recovers the background-throttled relay
+        factory.reset()
+        isBackground.value = false
+        dispatcher.scheduler.runCurrent()
+        assertTrue(
+            "foregrounding must immediately reconnect background-throttled relays",
+            factory.openedSinceReset.any { it.url == deadDefaultUrl }
         )
     }
 

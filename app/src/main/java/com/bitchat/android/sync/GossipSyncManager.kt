@@ -29,7 +29,8 @@ class GossipSyncManager(
     private val hasPeersProvider: () -> Boolean = { true },
     private val syncIntervalProvider: () -> Long = { DEFAULT_SYNC_INTERVAL_MS },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val syncIntervalFlow: Flow<Long>? = null
+    private val syncIntervalFlow: Flow<Long>? = null,
+    private val monotonicClockMs: () -> Long = { System.nanoTime() / 1_000_000L }
 ) {
     interface Delegate {
         fun sendPacket(packet: BitchatPacket)
@@ -46,12 +47,19 @@ class GossipSyncManager(
     companion object {
         private const val TAG = "GossipSyncManager"
         const val DEFAULT_SYNC_INTERVAL_MS: Long = 30_000L
+        const val FOREGROUND_LOW_BATTERY_SYNC_INTERVAL_MS: Long = 60_000L
 
+        /**
+         * Keep foreground missed-message recovery responsive (30 s default; 60 s under
+         * foreground low-battery modes) and reserve 120–300 s scaling for background operation.
+         */
         fun recommendedSyncIntervalMs(profile: PowerManager.RuntimePerformanceProfile): Long =
             when {
-                profile.mode == PowerManager.PowerMode.ULTRA_LOW_POWER -> 300_000L
-                profile.mode == PowerManager.PowerMode.POWER_SAVER -> 180_000L
+                profile.isBackground && profile.mode == PowerManager.PowerMode.ULTRA_LOW_POWER -> 300_000L
+                profile.isBackground && profile.mode == PowerManager.PowerMode.POWER_SAVER -> 180_000L
                 profile.isBackground -> 120_000L
+                profile.mode == PowerManager.PowerMode.POWER_SAVER ||
+                    profile.mode == PowerManager.PowerMode.ULTRA_LOW_POWER -> FOREGROUND_LOW_BATTERY_SYNC_INTERVAL_MS
                 else -> DEFAULT_SYNC_INTERVAL_MS
             }
     }
@@ -92,6 +100,7 @@ class GossipSyncManager(
 
     fun start() {
         periodicJob?.cancel()
+        var lastTickMonoMs = monotonicClockMs()
         periodicJob = scope.launch(ioDispatcher) {
             val intervalFlow = syncIntervalFlow
             if (intervalFlow != null) {
@@ -99,7 +108,14 @@ class GossipSyncManager(
                     val intervalMs = rawIntervalMs.coerceAtLeast(1_000L)
                     while (isActive) {
                         try {
-                            delay(intervalMs)
+                            // Preserve elapsed time across profile changes instead of restarting
+                            // the full timer when returning to the foreground.
+                            val elapsedMs = (monotonicClockMs() - lastTickMonoMs).coerceAtLeast(0L)
+                            val remainingMs = (intervalMs - elapsedMs).coerceAtLeast(0L)
+                            if (remainingMs > 0L) {
+                                delay(remainingMs)
+                            }
+                            lastTickMonoMs = monotonicClockMs()
                             if (hasPeersProvider()) {
                                 sendRequestSync()
                             }
@@ -112,6 +128,7 @@ class GossipSyncManager(
                     try {
                         val intervalMs = syncIntervalProvider().coerceAtLeast(1_000L)
                         delay(intervalMs)
+                        lastTickMonoMs = monotonicClockMs()
                         if (hasPeersProvider()) {
                             sendRequestSync()
                         }

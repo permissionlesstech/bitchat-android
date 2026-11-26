@@ -338,18 +338,34 @@ class ArtiTorManager internal constructor(
                         socksAddr = InetSocketAddress("127.0.0.1", currentSocksPort)
                         resetNetworkConnections()
                         startArti(application, useDelay = false)
-                        appScope.launch {
-                            waitUntilBootstrapped()
-                            if (_statusFlow.value.running && desiredMode == TorMode.ON) {
-                                socksAddr = InetSocketAddress("127.0.0.1", currentSocksPort)
-                                Log.i(TAG, "Tor ON: proxy set to ${socksAddr}")
-                                resetNetworkConnections()
-                            }
-                        }
+                        launchPostBootstrapNetworkReset("Tor ON")
                     }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to apply Arti mode: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Wait for Tor bootstrap to reach RUNNING, then republish [socksAddr] and reset clients
+     * strictly under [applyMutex] so a concurrent `applyMode(TorMode.OFF)` can never be
+     * overwritten by a finishing startup or automatic restart.
+     */
+    private fun launchPostBootstrapNetworkReset(reason: String) {
+        appScope.launch {
+            waitUntilBootstrapped()
+            applyMutex.withLock {
+                if (
+                    desiredMode == TorMode.ON &&
+                    lifecycleState == LifecycleState.RUNNING &&
+                    _statusFlow.value.running &&
+                    _statusFlow.value.state == TorState.RUNNING
+                ) {
+                    socksAddr = InetSocketAddress("127.0.0.1", currentSocksPort)
+                    Log.i(TAG, "$reason: proxy set to $socksAddr")
+                    resetNetworkConnections()
+                }
             }
         }
     }
@@ -488,14 +504,7 @@ class ArtiTorManager internal constructor(
         stopArtiAndWait()
         delay(RESTART_DELAY_MS)
         startArti(application, useDelay = false)
-        appScope.launch {
-            waitUntilBootstrapped()
-            if (_statusFlow.value.running && desiredMode == TorMode.ON) {
-                socksAddr = InetSocketAddress("127.0.0.1", currentSocksPort)
-                Log.i(TAG, "Tor restarted: proxy ready on $socksAddr; resetting network connections")
-                resetNetworkConnections()
-            }
-        }
+        launchPostBootstrapNetworkReset("Tor restarted")
     }
 
     /**

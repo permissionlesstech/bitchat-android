@@ -1,5 +1,6 @@
 package com.bitchat.android.mesh
 
+import com.bitchat.android.noise.NoiseSession
 import com.bitchat.android.protocol.BinaryProtocol
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.CompressionUtil
@@ -46,7 +47,7 @@ class BatteryOptimizationContractTest {
     }
 
     @Test
-    fun `zero-alloc compression entropy check matches threshold behavior`() {
+    fun `compression entropy check matches threshold behavior`() {
         // Too small
         assertFalse(CompressionUtil.shouldCompress(ByteArray(50) { 0x41 }))
         // Highly repetitive -> should compress
@@ -62,12 +63,25 @@ class BatteryOptimizationContractTest {
     }
 
     @Test
-    fun `single-allocation BinaryProtocol encode round-trips v1 and v2 routed packets`() {
+    fun `BinaryProtocol encode round-trips v1 and v2 routed packets`() {
         val sender = byteArrayOf(1, 2, 3, 4, 5, 6, 7, 8)
         val recipient = byteArrayOf(9, 10, 11, 12, 13, 14, 15, 16)
         val hop = byteArrayOf(21, 22, 23, 24, 25, 26, 27, 28)
         val sig = ByteArray(64) { (it * 3).toByte() }
         val payload = "hello mesh optimization test ".repeat(10).toByteArray()
+
+        val v1 = BitchatPacket(
+            version = 1u,
+            type = MessageType.MESSAGE.value,
+            senderID = sender,
+            recipientID = recipient,
+            timestamp = 1_700_000_000_000uL,
+            payload = payload,
+            signature = sig,
+            ttl = 7u
+        )
+        assertEquals(v1, BinaryProtocol.decode(BinaryProtocol.encode(v1, padding = true)!!))
+        assertEquals(v1, BinaryProtocol.decode(BinaryProtocol.encode(v1, padding = false)!!))
 
         val v2 = BitchatPacket(
             version = 2u,
@@ -142,7 +156,15 @@ class BatteryOptimizationContractTest {
     }
 
     @Test
-    fun `GossipSyncManager foreground transition cancels long background delay immediately`() {
+    fun `GossipSyncManager foreground transition preserves elapsed time and keeps foreground cadence responsive`() {
+        // Foreground low-battery cadence must stay responsive (60s), while background scales to 180s/300s
+        val fgLow = PowerProfileResolver.resolve(batteryLevel = 15, isCharging = false, isBackground = false, hasDirectPeers = true)
+        val bgNormal = PowerProfileResolver.resolve(batteryLevel = 80, isCharging = false, isBackground = true, hasDirectPeers = true)
+        val bgCritical = PowerProfileResolver.resolve(batteryLevel = 5, isCharging = false, isBackground = true, hasDirectPeers = true)
+        assertEquals(GossipSyncManager.FOREGROUND_LOW_BATTERY_SYNC_INTERVAL_MS, GossipSyncManager.recommendedSyncIntervalMs(fgLow))
+        assertEquals(180_000L, GossipSyncManager.recommendedSyncIntervalMs(bgNormal))
+        assertEquals(300_000L, GossipSyncManager.recommendedSyncIntervalMs(bgCritical))
+
         val dispatcher = StandardTestDispatcher()
         val scope = TestScope(dispatcher)
         val intervalFlow = MutableStateFlow(300_000L)
@@ -159,7 +181,8 @@ class BatteryOptimizationContractTest {
             hasPeersProvider = { true },
             syncIntervalProvider = { intervalFlow.value },
             ioDispatcher = dispatcher,
-            syncIntervalFlow = intervalFlow
+            syncIntervalFlow = intervalFlow,
+            monotonicClockMs = { scope.testScheduler.currentTime }
         )
         gossip.delegate = object : GossipSyncManager.Delegate {
             override fun sendPacket(packet: BitchatPacket) { sentCount.incrementAndGet() }
@@ -168,15 +191,15 @@ class BatteryOptimizationContractTest {
         }
 
         gossip.start()
-        // Advance 10s into the 300s background sleep -> no sync yet
-        scope.advanceTimeBy(10_000L)
+        // Advance 20s into the 300s background sleep -> no sync yet
+        scope.advanceTimeBy(20_000L)
         scope.runCurrent()
         assertEquals(0, sentCount.get())
 
-        // Return to foreground -> switches immediately to 30s cadence without waiting out remaining 290s
+        // Return to foreground (30s cadence): only 10s remaining (not a restarted full 30s!)
         intervalFlow.value = GossipSyncManager.DEFAULT_SYNC_INTERVAL_MS
         scope.runCurrent()
-        scope.advanceTimeBy(GossipSyncManager.DEFAULT_SYNC_INTERVAL_MS + 1)
+        scope.advanceTimeBy(10_001L)
         scope.runCurrent()
         assertEquals(1, sentCount.get())
 
@@ -184,7 +207,59 @@ class BatteryOptimizationContractTest {
     }
 
     @Test
-    fun `FragmentManager zero-boxing reassembly preserves payload bytes`() {
+    fun `NoiseSession replay window rejects previously accepted nonces across window advances`() {
+        val dhA = com.bitchat.android.noise.southernstorm.protocol.Noise.createDH("25519").apply { generateKeyPair() }
+        val dhB = com.bitchat.android.noise.southernstorm.protocol.Noise.createDH("25519").apply { generateKeyPair() }
+        val privA = ByteArray(32).also { dhA.getPrivateKey(it, 0) }
+        val pubA = ByteArray(32).also { dhA.getPublicKey(it, 0) }
+        val privB = ByteArray(32).also { dhB.getPrivateKey(it, 0) }
+        val pubB = ByteArray(32).also { dhB.getPublicKey(it, 0) }
+
+        val peerIdA = com.bitchat.android.noise.NoisePeerIdentity.derivePeerID(pubA)!!
+        val peerIdB = com.bitchat.android.noise.NoisePeerIdentity.derivePeerID(pubB)!!
+        val initiator = NoiseSession(peerIdB, isInitiator = true, localStaticPrivateKey = privA, localStaticPublicKey = pubA)
+        val responder = NoiseSession(peerIdA, isInitiator = false, localStaticPrivateKey = privB, localStaticPublicKey = pubB)
+
+        val m1 = initiator.startHandshake()
+        val m2 = responder.processHandshakeMessage(m1)!!
+        val m3 = initiator.processHandshakeMessage(m2)!!
+        assertNull(responder.processHandshakeMessage(m3))
+        assertTrue(initiator.isEstablished() && responder.isEstablished())
+
+        // Encrypt nonces 0..9 in order
+        val ciphertexts = List(10) { idx -> initiator.encrypt("msg-$idx".toByteArray()) }
+
+        // Deliver 0, 1, 2 -> window shifts within byte 0
+        assertEquals("msg-0", String(responder.decrypt(ciphertexts[0])))
+        assertEquals("msg-1", String(responder.decrypt(ciphertexts[1])))
+        assertEquals("msg-2", String(responder.decrypt(ciphertexts[2])))
+
+        // Replaying nonce 0 or nonce 1 MUST fail closed
+        var replayed0Rejected = false
+        try { responder.decrypt(ciphertexts[0]) } catch (_: Exception) { replayed0Rejected = true }
+        assertTrue("replayed nonce 0 must be rejected after window advances", replayed0Rejected)
+
+        var replayed1Rejected = false
+        try { responder.decrypt(ciphertexts[1]) } catch (_: Exception) { replayed1Rejected = true }
+        assertTrue("replayed nonce 1 must be rejected after window advances", replayed1Rejected)
+
+        // Advance across byte boundary (nonce 9 -> offset 9 for nonce 0, offset 7 for nonce 2)
+        assertEquals("msg-9", String(responder.decrypt(ciphertexts[9])))
+
+        // Previously seen nonce 0 (now in byte 1) and nonce 2 (byte 0 bit 7) MUST stay rejected
+        var replayed0CrossByte = false
+        try { responder.decrypt(ciphertexts[0]) } catch (_: Exception) { replayed0CrossByte = true }
+        assertTrue("replayed nonce 0 across byte boundary must be rejected", replayed0CrossByte)
+
+        // Unseen out-of-order nonce 5 MUST succeed once and fail on replay
+        assertEquals("msg-5", String(responder.decrypt(ciphertexts[5])))
+        var replayed5Rejected = false
+        try { responder.decrypt(ciphertexts[5]) } catch (_: Exception) { replayed5Rejected = true }
+        assertTrue("replayed out-of-order nonce 5 must be rejected", replayed5Rejected)
+    }
+
+    @Test
+    fun `FragmentManager reassembly preserves payload bytes`() {
         val manager = FragmentManager()
         try {
             val largePayload = ByteArray(2500) { (it * 31).toByte() }

@@ -35,7 +35,8 @@ class NostrRelayManager internal constructor(
         } else {
             true
         }
-    }
+    },
+    private val backgroundStateFlow: StateFlow<Boolean>? = null
 ) {
 
     private constructor() : this(
@@ -66,6 +67,7 @@ class NostrRelayManager internal constructor(
         fun getInstance(context: android.content.Context): NostrRelayManager {
             shared.appContext = context.applicationContext
             shared.ensureNetworkCallbackRegistered()
+            shared.ensureBackgroundObserverRegistered()
             return shared
         }
 
@@ -159,7 +161,30 @@ class NostrRelayManager internal constructor(
     // Network connectivity awareness: pause reconnect churn when offline and heal immediately on return.
     private val networkAvailable = AtomicBoolean(true)
     private val networkCallbackRegistered = AtomicBoolean(false)
+    private val backgroundObserverStarted = AtomicBoolean(false)
     private var connectivityCallback: ConnectivityManager.NetworkCallback? = null
+
+    private fun isAppBackgrounded(): Boolean =
+        backgroundStateFlow?.value ?: (powerManager?.profile?.value?.isBackground == true)
+
+    private fun ensureBackgroundObserverRegistered() {
+        val bgFlow = backgroundStateFlow
+            ?: powerManager?.profile?.map { it.isBackground }?.distinctUntilChanged()
+            ?: return
+        if (!backgroundObserverStarted.compareAndSet(false, true)) return
+        scope.launch {
+            var wasBackground = isAppBackgrounded()
+            bgFlow.collect { nowBackground ->
+                if (wasBackground && !nowBackground && desiredConnected.get() && networkAvailable.get()) {
+                    // Cancel long background backoff timers and recover disconnected relays immediately on foregrounding.
+                    reconnectJobs.values.forEach(Job::cancel)
+                    reconnectJobs.clear()
+                    reconnectDisconnectedRelays(resetBackoff = true)
+                }
+                wasBackground = nowBackground
+            }
+        }
+    }
 
     private fun ensureNetworkCallbackRegistered() {
         val ctx = appContext ?: return
@@ -555,9 +580,12 @@ class NostrRelayManager internal constructor(
             )
             relaysList.addAll(defaultRelayUrls.map { Relay(it) })
             nonLiveRelayUrls.addAll(defaultRelayUrls)
-            _relays.value = relaysList.toList()
+            _relays.value = relaysList.map { it.copy() }
             updateConnectionStatus()
             LiveLocationPrivacyGate.addRevocationListener(::revokeLiveLocationAccess)
+            if (backgroundStateFlow != null) {
+                ensureBackgroundObserverRegistered()
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize NostrRelayManager: ${e.message}", e)
             // Initialize with empty list as fallback
@@ -1278,8 +1306,11 @@ class NostrRelayManager internal constructor(
             val previousAttempts = if (wasStable) 0 else relay.reconnectAttempts
             relay.reconnectAttempts = RelayReconnectPolicy.nextAttempt(previousAttempts)
             var delayMs = RelayReconnectPolicy.backoffMs(relay.reconnectAttempts)
-            val isBackground = powerManager?.profile?.value?.isBackground == true
-            if (isBackground && _isConnected.value && relay.reconnectAttempts >= BACKGROUND_DEAD_RELAY_MIN_ATTEMPTS) {
+            val isBackground = isAppBackgrounded()
+            if (isBackground &&
+                relay.reconnectAttempts >= BACKGROUND_DEAD_RELAY_MIN_ATTEMPTS &&
+                hasHealthyAlternativeForRelayLocked(relayUrl)
+            ) {
                 delayMs = maxOf(delayMs, BACKGROUND_DEAD_RELAY_BACKOFF_MS)
             }
             relay.nextReconnectTime = nowWall + delayMs
@@ -1331,8 +1362,28 @@ class NostrRelayManager internal constructor(
         updateConnectionStatus()
     }
     
+    /**
+     * Caller holds `synchronized(relaysList)`. Returns true only when another connected relay
+     * already serves every active subscription that targets [relayUrl], so background dead-relay
+     * throttling never defers a subscription's sole relay for 15 minutes.
+     */
+    private fun hasHealthyAlternativeForRelayLocked(relayUrl: String): Boolean {
+        val connectedUrls = relaysList.filter { it.isConnected && it.url != relayUrl }
+            .mapTo(HashSet()) { it.url }
+        if (connectedUrls.isEmpty()) return false
+        for (sub in activeSubscriptions.values) {
+            val targets = sub.targetRelayUrls
+            if (targets != null && relayUrl in targets) {
+                if (targets.none { it != relayUrl && it in connectedUrls }) {
+                    return false
+                }
+            }
+        }
+        return true
+    }
+
     private fun updateRelaysList() {
-        _relays.value = synchronized(relaysList) { relaysList.toList() }
+        _relays.value = synchronized(relaysList) { relaysList.map { it.copy() } }
     }
     
     private fun updateConnectionStatus() {
