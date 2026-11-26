@@ -4,9 +4,8 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Base64
 import android.util.Log
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.noise.NoiseEncryptionService
 import com.bitchat.android.noise.NoiseHandshakeProcessingResult
@@ -66,18 +65,8 @@ open class EncryptionService(
     }
 
     private fun setUpEncryptedPrefs() {
-        val masterKey = MasterKey.Builder(context, MasterKey.DEFAULT_MASTER_KEY_ALIAS)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-
-        // Create encrypted shared preferences
-        prefs = EncryptedSharedPreferences.create(
-            context,
-            SECURE_PREFS_NAME,
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
+        // Same master key as the identity's storage, so built under the same lock.
+        prefs = SecureIdentityStateManager.openEncryptedPreferences(context, SECURE_PREFS_NAME)
     }
 
     /**

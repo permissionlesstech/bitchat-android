@@ -84,6 +84,29 @@ class SecureIdentityStateManager {
             fenceEarlierInstances()
             block()
         }
+
+        /**
+         * Opens the encrypted preferences [name] under the app's master key, waiting out a panic's
+         * wipe. The master key is loaded or generated inside the lock as well as the keyset: the
+         * wipe deletes it, and two generators that do not exclude each other can then create it,
+         * androidx's when the master key is built and Tink's when a keyset is built with none
+         * there. A master key built before the wipe and a keyset built after it let both run at
+         * once, and the later key replaced the one the keyset was just encrypted under, so the
+         * storage never opened again (AEADBadTagException).
+         */
+        internal fun openEncryptedPreferences(context: Context, name: String): SharedPreferences =
+            storageLock.read {
+                val masterKey = MasterKey.Builder(context, MasterKey.DEFAULT_MASTER_KEY_ALIAS)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build()
+                EncryptedSharedPreferences.create(
+                    context,
+                    name,
+                    masterKey,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                )
+            }
     }
 
     private val prefs: SharedPreferences
@@ -94,22 +117,7 @@ class SecureIdentityStateManager {
         privateMediaPinsEpochAtCreation = synchronized(privateMediaPinsLock) {
             privateMediaPinsEpoch
         }
-        // Create master key for encryption
-        val masterKey = MasterKey.Builder(context, MasterKey.DEFAULT_MASTER_KEY_ALIAS)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        
-        // Create encrypted shared preferences. Building them writes a keyset under the master
-        // key, so it waits out a panic's wipe rather than racing it.
-        prefs = GatedPreferences(storageLock.read {
-            EncryptedSharedPreferences.create(
-                context,
-                PREFS_NAME,
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
-        })
+        prefs = GatedPreferences(openEncryptedPreferences(context, PREFS_NAME))
     }
 
     /** Test-only storage injection; production always uses encrypted prefs. */
