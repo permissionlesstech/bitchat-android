@@ -6,8 +6,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * A panic wipes the sandbox by location, but a notification, a shortcut, a clipboard clip or a
- * scheduled job lives in the system. Each main source file that reaches one of those APIs is
+ * A panic wipes the sandbox by location, but a notification, a shortcut, a clipboard clip, a
+ * scheduled job or a persisted URI grant lives in the system. Each main source file that reaches one of those APIs is
  * listed here with the `PanicCleanup` that covers it, or the reason none is needed, so a new use
  * cannot arrive without someone deciding what panic does about it. Comments and string literals
  * are dropped before the scan.
@@ -43,6 +43,15 @@ class PanicSystemSideRulesTest {
             val found = violations(listOf(Src("app/src/main/java/x/Uses$api.kt", "import android.x.$api\nclass A { val m: $api? = null }")), emptyMap())
             assertEquals("$api is not caught", 1, found.size)
         }
+    }
+
+    @Test
+    fun aPersistedUriGrantIsASystemSideUse() {
+        val src = Src(
+            "feature/chat/src/main/java/x/Picker.kt",
+            "fun keep(c: Context, u: Uri) { c.contentResolver.takePersistableUriPermission(u, 1) }",
+        )
+        assertEquals(listOf("${src.path} uses takePersistableUriPermission"), violations(listOf(src), emptyMap()))
     }
 
     @Test
@@ -101,6 +110,7 @@ class PanicSystemSideRulesTest {
         val SYSTEM_SIDE_APIS = listOf(
             "NotificationManager", "NotificationManagerCompat", "ShortcutManager", "ShortcutManagerCompat",
             "WorkManager", "AlarmManager", "MediaStore", "ClipboardManager", "LocalClipboardManager", "JobScheduler",
+            "takePersistableUriPermission",
         )
 
         val SYSTEM_SIDE_ALLOWLIST: Map<String, String> = mapOf(

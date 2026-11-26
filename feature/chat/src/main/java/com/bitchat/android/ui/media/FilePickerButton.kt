@@ -30,8 +30,8 @@ fun FilePickerButton(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null) {
-            // Persist temporary read permission so we can copy
-            try { context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) {}
+            // The picker's grant lasts long enough for this copy. A persisted grant would be
+            // kept by the system outside the sandbox and outlive a panic.
             val path = FileUtils.copyFileForSending(context, uri)
             if (!path.isNullOrBlank()) onFileReady(path)
         }
