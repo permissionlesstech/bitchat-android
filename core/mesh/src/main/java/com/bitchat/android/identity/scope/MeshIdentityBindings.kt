@@ -9,7 +9,6 @@ import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.ContactDirectory
-import com.bitchat.android.services.PrivateMessageArrivalOrder
 import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.services.VerificationService
 import com.bitchat.android.services.meshgraph.MeshGraphService
@@ -40,7 +39,6 @@ interface MeshIdentityEntryPoint {
     fun appStateStore(): AppStateStore
     fun contactDirectory(): ContactDirectory
     fun favorites(): FavoritesPersistenceService
-    fun arrivalOrder(): PrivateMessageArrivalOrder
     fun geohashAliases(): GeohashAliasRegistry
 }
 
@@ -110,11 +108,6 @@ object MeshIdentityBindings {
     @CurrentIdentity
     fun favorites(holder: IdentityHolder): FavoritesPersistenceService =
         holder.entryPoint<MeshIdentityEntryPoint>().favorites()
-
-    @Provides
-    @CurrentIdentity
-    fun arrivalOrder(holder: IdentityHolder): PrivateMessageArrivalOrder =
-        holder.entryPoint<MeshIdentityEntryPoint>().arrivalOrder()
 
     @Provides
     @CurrentIdentity
