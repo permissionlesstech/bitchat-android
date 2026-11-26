@@ -41,7 +41,10 @@ class LiveVoiceVisibilityTest {
         assertFalse(meshVisible())
     }
 
-    /** A chat begun with /msg is not read while only the list shows. */
+    /**
+     * A private chat that chat claimed while the chat opened or left over it is
+     * not read once only the list shows.
+     */
     @Test
     fun aMsgChatInChatIsNotVisibleOnceChatLeaves() {
         visibility.claimDirectMessage(chat, peerA)

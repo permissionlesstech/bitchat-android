@@ -5,8 +5,8 @@ package com.bitchat.android.ui
  *
  * Sheets and screens are back-stack entries and pop themselves. What remains
  * is state the chat screen shows in place: the join-password dialog, a channel,
- * and a private chat started with /msg, which selects a conversation without
- * opening its screen.
+ * and a private chat selection whose screen has not opened yet or has just been
+ * popped.
  */
 enum class BackAction {
     DismissPasswordPrompt,

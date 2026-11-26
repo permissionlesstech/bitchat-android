@@ -128,7 +128,7 @@ Found here and fixed upstream since, merged into this branch:
 | Panic wipe (10c-3) | A hand-written list of clears; a wipe that could not confirm kept running on the old storage | The sandbox is wiped by location; a wipe that cannot confirm restarts the process and is finished at the next launch |
 | Unit and device tests (10c-3) | JVM 1626; device app 102 | JVM 1685; device app 104 (the full gate on the final code, after the 10c-3 follow-ups) |
 | Encrypted storage after a panic (10c-3 follow-up) | A manager started while a panic held the storage lock built the master key outside it, so after the wipe two key generators could race and leave the new identity's encrypted storage unreadable on every launch (a bug of this branch only, seen on test emulators) | The master key is built inside the storage lock with its keyset, through one helper that `EncryptionService` uses too. `PanicContractTest` starts a manager inside a real wipe and fails if a key exists before the panic lets go |
-| Unit tests (upstream sync and Phase 11 audit) | JVM 1685 | JVM 1761 (3 skipped): upstream's new tests ported beside their subjects, and the audit's |
+| Unit and device tests (upstream sync and Phase 11 audit) | JVM 1685; device app 104 | JVM 1770 (3 skipped): upstream's new tests ported beside their subjects, and the audit's and the Codex fixes'; device app 106 |
 | Module rules | Unwritten | `FeatureDependencyRulesTest` fails when a feature depends on another feature, an `:api` module grows dependencies, or `:core:tor` gains one |
 | Watch crypto | Tink 1.8.0 | Tink 1.23.0, the phone's version |
 | Watch theme | Its own copy of the palette, peer-color hash and fonts | The shared `:core:designsystem` base |

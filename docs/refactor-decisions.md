@@ -158,8 +158,8 @@ Facts only where the sources measured them.
   every setting enabled.
 - **Panic time.** 1.0 to 2.9 s on an emulator, against about 0.4 s in 10c-2b. The developer
   accepted it; it is to be measured on a real phone later.
-- **Tests.** 1761 JVM tests (3 skipped) across the phone, the core modules, the features and
-  Wear, after the Phase 11 audit. 122 device tests: 104 in `:app`, 6 in `:feature:chat`, 5 in
+- **Tests.** 1770 JVM tests (3 skipped) across the phone, the core modules, the features and
+  Wear, after the Phase 11 audit and the Codex fixes. 124 device tests: 106 in `:app`, 6 in `:feature:chat`, 5 in
   `:feature:settings`, 4 in `:feature:location`, 3 in `:feature:share`.
 
 ## 3. Decisions, by phase
@@ -1237,8 +1237,8 @@ phone is deferred and out of scope for this refactor. (2026-11-26)
 | P11-13 | `MeshIdentityBindings` had a `@CurrentIdentity` bridge for `PrivateMessageArrivalOrder` that nothing took. | Deleted; the stores inside the scope take it directly. |
 | — | `/msg` typed in an open private chat moved the selection to the new peer while the screen stayed on the old chat, so the new peer's messages counted as read and further commands in that screen were refused. | `MessageSender.sendToConversation` reports the new selection and the screen replaces itself with that chat (upstream moves its sheet). `PrivateConversationSendRobolectricTest` fails against a sender that does not report it. |
 | — | Nothing pinned that the panic's relay release only unsubscribes. | `GeohashSessionSendTest` and `NostrBackgroundRuntimeReleaseTest` check that `panicReleaseRelays` and `releaseSubscriptions` make no subscribe call, even after ten minutes of virtual time. The runtime's test fails against a release that subscribes again. |
-| — | `/msg` typed in the main chat selected the peer but opened nothing, and the main composer still sent to the selection: what looked like a public message went privately to a peer the screen did not show, and the replies were not visible (Codex review on PR #972). | The main composer sends to what the main chat shows (`MessageSender.send` has no private path) and keeps no private draft, and the chat screen opens the chat `/msg` selected. `PrivateConversationSendRobolectricTest` fails against a sender that sends main-chat text to the selection. |
-| — | Private media is sent only from the private chat, but the one-shot consent to send it unencrypted to an older peer was asked only by the chat screen, which is not composed under the private chat. The send waited with no prompt until the user went back (since Phase 7.5; Codex review on PR #972). | One `LegacyPrivateMediaConsentDialog`. `PrivateChatViewModel` offers the request for its own conversation and approves or cancels it through `MediaSendingManager`, as `ChatViewModel` does. The chat screen asks only for a request whose chat is neither open nor still leaving, so a request is never stranded and never asked twice. `PrivateChatLegacyMediaConsentTest`. |
+| — | `/msg` typed in the main chat selected the peer but opened nothing, and the main composer still sent to the selection: what looked like a public message went privately to a peer the screen did not show, and the replies were not visible (Codex review on PR #972). | The main composer sends to what the main chat shows (`MessageSender.send` has no private path) and keeps no private draft, and the chat screen opens the chat `/msg` selected. `PrivateConversationSendRobolectricTest` fails against a sender that sends main-chat text to the selection, and `PrivateChatDestinationTest` opens the chat from `/msg` on a device. Commands typed in the main chat still act on the selection, which only a private chat that is open or leaving holds. |
+| — | Private media is sent only from the private chat, but the one-shot consent to send it unencrypted to an older peer was asked only by the chat screen, which is not composed under the private chat. The send waited with no prompt until the user went back (since Phase 7.5; Codex review on PR #972). | One `LegacyPrivateMediaConsentDialog`. `PrivateChatViewModel` offers the request for its own conversation and approves or cancels it through `MediaSendingManager`, as `ChatViewModel` does. The chat screen asks only for a request whose chat is neither open nor still leaving, so a request is never asked twice. One raised after the user left that chat for the peer list or another chat waits, unsent, until the main chat is shown again. `PrivateChatLegacyMediaConsentTest`, and `PrivateChatDestinationTest` on a device. |
 
 Also closed in this section's cleanup of section 5: the smells `MessageRouter`'s unscoped
 `Provider` (10c-2a-2b), `GeohashSession`'s never-cancelled scope (10c-2b) and the `object`
@@ -1282,9 +1282,11 @@ which are listed in "Closed after 10c-3".
 | (D) A panic taking 1.0 to 2.9 s on an emulator, against about 0.4 s in 10c-2b, is accepted. It is measured on a real phone later. (2026-11-26) | The split by stage (10c-3) shows no single cause, and emulator storage says little about real flash. | The bulk-media change now. | If the real phone is slow, the conversation store's clear and the blank frame are the first stages to look at. |
 | (D) The real-device checks are the developer's, at the end of the refactor. (2026-11-26) | They need two physical phones, a throwaway install and a watch. | Running them per phase. | Listed in section 5, "Owed before handover". |
 
-Tests: JVM 1763 with 0 failures (3 skipped), lint, both assembles and `clientRewriteContractTest`
-green, run twice. Device, on an emulator after a fresh install: app 104, chat 6, settings 5,
-location 4, share 3. Then the same suites again over the data that run left, reinstalled in
+Tests: JVM 1770 with 0 failures (3 skipped), lint, both assembles and `clientRewriteContractTest`
+green after the two Codex fixes, and on an emulator after a fresh install: app 106, chat 6,
+settings 5, location 4, share 3, all passing. Before those fixes: JVM 1763, run twice.
+Device, on an emulator after a fresh install: app 104, chat 6, settings 5, location 4, share 3.
+Then the same suites again over the data that run left, reinstalled in
 place: app 104, chat 6, settings 5, location 4, share 3, all passing. Mesh Lab on two
 emulators passed 14/14; the earlier flaky runs had a stale third bitchat build running its own
 mesh on one image, and every flaked scenario passed alone.

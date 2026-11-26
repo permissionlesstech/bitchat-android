@@ -45,9 +45,11 @@ class MessageSender @Inject constructor(
 
     /**
      * Sends [content] typed into the main chat, to what the main chat shows: the geohash
-     * location channel, the open mesh channel or the public mesh. Never to the selected
-     * private chat, which only its own screen shows; that text goes through
-     * [sendToConversation]. [onAccepted] reports whether it was taken, so the composer knows
+     * location channel, the open mesh channel or the public mesh. Text never goes to the
+     * selected private chat, which only its own screen shows; that text goes through
+     * [sendToConversation]. Commands still act on the selection (`/hug`, `/slap`, `/pay`,
+     * `/clear`), which only a private chat that is open or leaving holds. [onAccepted]
+     * reports whether it was taken, so the composer knows
      * to clear. [onSelectedOther] runs when a command (`/msg`) selected a different private
      * chat, which the caller must open so the selection is never hidden.
      */

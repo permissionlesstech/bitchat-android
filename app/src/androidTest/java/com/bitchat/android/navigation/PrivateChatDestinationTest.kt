@@ -10,11 +10,17 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.bitchat.android.MainActivity
 import com.bitchat.android.AppPhase
 import com.bitchat.android.R
+import com.bitchat.android.di.ChatSessionEntryPoint
+import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.mesh.PrivateMediaPreparation
+import com.bitchat.android.model.BitchatFilePacket
+import com.bitchat.android.ui.entryPoint
 import com.bitchat.android.testhook.TestHookDependencies
 import dagger.hilt.android.EntryPointAccessors
 import com.bitchat.android.features.voice.LiveVoiceScope
@@ -46,6 +52,7 @@ class PrivateChatDestinationTest {
     companion object {
         private const val PEER_A = "0123456789abcdef"
         private const val PEER_B = "fedcba9876543210"
+        private const val PEER_A_NICKNAME = "synthetic-peer-a"
 
         @JvmStatic
         @BeforeClass
@@ -399,6 +406,83 @@ class PrivateChatDestinationTest {
 
         assertTrue("composer bottom $composerBottom is under the keyboard top $imeTop", gap >= 0f)
         assertTrue("composer bottom $composerBottom is $gap px above the keyboard top $imeTop", gap <= maxGap)
+    }
+
+    /**
+     * `/msg` typed in the main chat selects a peer, and the main chat shows no
+     * private chat, so that chat must open on its own screen. Left hidden, the
+     * selection would take the replies out of sight.
+     */
+    @Test
+    fun msgTypedInTheMainChatOpensThatChat() {
+        rule.awaitChat()
+        replaceMesh { mesh ->
+            object : MeshService by mesh {
+                override fun getPeerNicknames(): Map<String, String> = mapOf(PEER_A to PEER_A_NICKNAME)
+            }
+        }
+
+        // The header's nickname is editable too; the composer is the field that starts empty.
+        rule.onNode(hasSetTextAction() and hasText("")).performTextInput("/msg $PEER_A_NICKNAME")
+        rule.onNode(hasSetTextAction() and hasText("/msg $PEER_A_NICKNAME")).performImeAction()
+
+        rule.waitUntil(timeoutMillis = 5_000) { rule.topOfStack() == PrivateChatRoute(PEER_A) }
+        awaitSelection(PEER_A)
+        assertEquals(listOf(ChatRoute, PrivateChatRoute(PEER_A)), rule.backStack())
+    }
+
+    /**
+     * Media sent from a private chat to an older peer asks there, once, before
+     * it may go without the private-media encryption. Chat, which also asks,
+     * is not composed under the private chat.
+     */
+    @Test
+    fun legacyMediaConsentIsAskedOnceInThePrivateChat() {
+        rule.awaitChat()
+        replaceMesh { mesh ->
+            object : MeshService by mesh {
+                override fun prepareFilePrivate(
+                    recipientPeerID: String,
+                    file: BitchatFilePacket,
+                    transferId: String,
+                    allowLegacyFallback: Boolean,
+                ): PrivateMediaPreparation = PrivateMediaPreparation.RequiresLegacyConsent("synthetic warning")
+            }
+        }
+        openPrivateChat(PEER_A)
+        awaitPrivateChatScreen()
+        awaitSelection(PEER_A)
+        val image = java.io.File.createTempFile("synthetic", ".jpg", rule.activity.cacheDir)
+        try {
+            image.writeBytes(ByteArray(16))
+            rule.runOnUiThread {
+                session().chatSessionHolder().entryPoint<ChatSessionEntryPoint>().composerMedia()
+                    .sendImageNote(PEER_A, null, image.absolutePath)
+            }
+
+            val title = rule.activity.getString(
+                com.bitchat.android.feature.chat.R.string.private_media_legacy_title
+            )
+            rule.waitUntil(timeoutMillis = 5_000) {
+                rule.onAllNodesWithText(title).fetchSemanticsNodes().isNotEmpty()
+            }
+            rule.waitForIdle()
+            assertEquals(1, rule.onAllNodesWithText(title).fetchSemanticsNodes().size)
+
+            rule.onNodeWithText(rule.activity.getString(android.R.string.cancel)).performClick()
+            rule.waitUntil(timeoutMillis = 5_000) {
+                rule.onAllNodesWithText(title).fetchSemanticsNodes().isEmpty()
+            }
+        } finally {
+            image.delete()
+        }
+    }
+
+    private fun replaceMesh(replacement: (MeshService) -> MeshService) {
+        rule.runOnUiThread {
+            val mesh = session().sessionMesh().unified
+            session().sessionMesh().replace(replacement(mesh))
+        }
     }
 
     private fun awaitPrivateChatScreen() {

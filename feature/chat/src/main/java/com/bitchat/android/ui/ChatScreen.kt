@@ -479,7 +479,8 @@ fun ChatScreen(
 
     // The private chat a request is for asks for it itself. This copy asks only for a request
     // whose chat is neither open nor still leaving (the selection names a popped chat until it
-    // ends), so the request is never stranded and never shown twice.
+    // ends), so it is never shown twice. A request raised after the user left that chat for
+    // another screen waits, unsent, until this one is shown again.
     dialogs.legacyPrivateMediaConsent
         ?.takeUnless { request ->
             visiblePrivatePeer != null &&
