@@ -477,32 +477,22 @@ fun ChatScreen(
         )
     }
 
-    dialogs.legacyPrivateMediaConsent?.let { request ->
-        AlertDialog(
-            onDismissRequest = { onAction(ChatAction.CancelLegacyPrivateMedia(request.requestId)) },
-            title = { Text(stringResource(com.bitchat.android.feature.chat.R.string.private_media_legacy_title)) },
-            text = {
-                Text(
-                    stringResource(
-                        com.bitchat.android.feature.chat.R.string.private_media_legacy_body,
-                        request.fileName,
-                        request.recipientNickname,
-                        request.warning
-                    )
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { onAction(ChatAction.ApproveLegacyPrivateMedia(request.requestId)) }) {
-                    Text(stringResource(com.bitchat.android.feature.chat.R.string.private_media_legacy_send_once))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { onAction(ChatAction.CancelLegacyPrivateMedia(request.requestId)) }) {
-                    Text(stringResource(android.R.string.cancel))
-                }
-            }
-        )
-    }
+    // The private chat a request is for asks for it itself. This copy asks only for a request
+    // whose chat is neither open nor still leaving (the selection names a popped chat until it
+    // ends), so the request is never stranded and never shown twice.
+    dialogs.legacyPrivateMediaConsent
+        ?.takeUnless { request ->
+            visiblePrivatePeer != null &&
+                dependencies.contactDirectory().canonicalConversationId(request.conversationID)
+                    .equals(visiblePrivatePeer, ignoreCase = true)
+        }
+        ?.let { request ->
+            LegacyPrivateMediaConsentDialog(
+                request = request,
+                onApprove = { onAction(ChatAction.ApproveLegacyPrivateMedia(request.requestId)) },
+                onCancel = { onAction(ChatAction.CancelLegacyPrivateMedia(request.requestId)) },
+            )
+        }
 }
 
 @Composable
