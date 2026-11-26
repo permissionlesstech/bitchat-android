@@ -153,26 +153,6 @@ class GeohashBookmarksStore @Inject constructor(
         } catch (_: Exception) {}
     }
 
-    // MARK: - Destructive Reset
-
-    fun clearAll() {
-        try {
-            membership.clear()
-            _bookmarks.value = emptyList()
-            _bookmarkNames.value = emptyMap()
-            prefs.edit()
-                .remove(STORE_KEY)
-                .remove(NAMES_STORE_KEY)
-                .apply()
-            // Clear any in-flight resolutions to avoid repopulating
-            resolving.clear()
-            Log.i(TAG, "Cleared all geohash bookmarks and names")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to clear geohash bookmarks")
-        }
-    }
-
-
     // MARK: - Friendly Name Resolution
 
     fun resolveNameIfNeeded(geohash: String) {

@@ -1038,9 +1038,6 @@ class MeshCore(
         try { gossipSyncManager.clear() } catch (_: Exception) { }
     }
 
-    fun clearAllEncryptionData(): Boolean =
-        encryptionService.clearPersistentIdentity()
-
     private fun applyRouteIfAvailable(packet: BitchatPacket): BitchatPacket {
         return try {
             val recipient = packet.recipientID

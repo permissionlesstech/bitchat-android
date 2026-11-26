@@ -1149,19 +1149,27 @@ After the review fixes, the full gate on the final code: JVM 1684 with 0 failure
 
 #### Follow-ups for 10c-3
 
-- A new identity's encrypted preferences can still fail to decrypt their keyset after a panic (`AEADBadTagException`), seen once in the full device suite and then on every run over the data that run left, on the base commit too. Not root-caused.
 - Plain-preferences writes from old-session work after the rebuild are not proven absent (the same class as `NostrDirectMessageHandler` writing favourites after a wipe).
 - Secondary external volumes, `obbDir` and device-protected storage are not wiped. The app writes none of them today.
-- `PanicMarker` does not fsync its directory, and `clear()` ignores the delete result.
 - The marker is set again just after the holder's lock is released, so a read in that window can build an identity before the process restarts. The next launch wipes again.
 - `NotificationManager`'s `liveManagers` stays a static companion.
 - An earlier session's geohash send can still publish during a wipe.
-- Dead clear methods (`clearAllEncryptionData` and the like) are left in place.
-- The start-up order rule checks the wipe comes before `super.onCreate()`, not that it is the first statement.
 - Test quality: some keep-list key checks are weak for generic names; the clipboard check passes on an unreadable clip; `MeshSingletonIdentityTest`'s name over-claims; one contract seeding failure was not root-caused.
 - Panic takes 1.0 to 2.9 s on an emulator, against about 0.4 s in 10c-2b. The split by stage is above; the developer decides.
 
 Owed: a panic on a real phone, on a throwaway install, which is the developer's to run; Mesh Lab on two physical phones; the watch.
+
+#### Closed after 10c-3
+
+- **The `AEADBadTagException` after a panic.** The wipe deletes the master key that every encrypted preferences file shares, and two generators can then create it: androidx's `MasterKey.Builder`, under its own lock, and Tink's, under another, when a keyset is built with no key there. A manager built its master key before taking the storage lock, so one started while a panic held the lock had the old key, waited, and after the wipe built its keyset through Tink's generator while another thread was in androidx's. The later key replaced the one the keyset had just been encrypted under, and that storage failed on every later launch until a reinstall. The master key is now built inside the storage lock with the keyset, through one helper that `EncryptionService` uses too; until now it took no lock at all.
+  - Evidence on an emulator: a probe that held the lock, started a manager, deleted the file and the key, then started a second manager broke the storage in 3 of 100 rounds (7 of 100 threw, `KeyPermanentlyInvalidatedException` or `AEADBadTagException`), the same stack as the gate's crash. On the fix: 0 of 300.
+  - Test: `PanicContractTest.aManagerStartedDuringTheWipeBuildsNoKeyUntilThePanicLetsGo` starts a manager inside a real panic's wipe and checks no master key exists until the panic lets go. Before the fix it failed (the key was there); it passes on the fix.
+  - Only this branch had the bug: before 10c-3 nothing deleted the master key while the app ran. A device that already holds the broken pair stays broken until a panic or a reinstall; none outside test emulators does.
+- `PanicMarker.set()` syncs the directory too, and `clear()` returns whether the marker is gone; the panic logs a failed clear, and a marker left in place keeps failing closed.
+- The clear methods with no caller anywhere, tests and debug sources included, are removed. Kept because a test calls them: `clearPersistentIdentity`, `clearIdentityData`, `FileUtils.clearAllMedia`, `ConversationListPreferences.clearAll`. Kept because removing it takes a listener callback with three implementations along: `clearAllFavorites`.
+- The start-up order rule requires the wipe as the first statement of `onCreate`, with block and trailing comments stripped.
+
+Gate on the final code: JVM 1685 with 0 failures (3 skipped), lint and both assembles green. Device, on a fresh install: app 104, chat 6, settings 5, location 4, share 3. Then the same suites again over the data that run left, with no reinstall, which is how the crash used to come back: app 104, chat 6, settings 5, location 4, share 3, all passing.
 
 #### Upstream sync after Phase 10c-3 (2026-11-26)
 

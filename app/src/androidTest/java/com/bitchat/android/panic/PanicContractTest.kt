@@ -8,9 +8,11 @@ import android.content.Context
 import android.os.Process
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.core.app.NotificationCompat
+import androidx.security.crypto.MasterKey
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.bitchat.android.MainActivity
 import com.bitchat.android.R
+import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.identity.scope.IdentityLifetimeEntryPoint
 import com.bitchat.android.identity.scope.entryPoint
 import com.bitchat.android.model.BitchatMessage
@@ -23,8 +25,11 @@ import com.bitchat.android.testhook.SandboxWipeObserver
 import com.bitchat.android.ui.debug.DebugMessage
 import java.io.File
 import java.security.KeyStore
+import java.util.Collections
 import java.util.Date
+import java.util.concurrent.locks.ReentrantReadWriteLock
 import java.util.UUID
+import kotlin.concurrent.thread
 import kotlinx.coroutines.isActive
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -156,6 +161,57 @@ class PanicContractTest {
 
         val completed = rule.activity.getString(R.string.system_panic_completed)
         assertTrue(graph().appStateStore().publicMessages.value.any { it.content == completed })
+    }
+
+    /**
+     * A manager that starts building while the panic holds the identity's storage builds nothing,
+     * its master key included, until the panic lets go. Built before the wipe ends and finished
+     * after it, the master key and the keyset were made by two key generators that do not exclude
+     * each other, and the next identity's keyset was left under a key that no longer existed: an
+     * AEADBadTagException on every later launch.
+     */
+    @Test
+    fun aManagerStartedDuringTheWipeBuildsNoKeyUntilThePanicLetsGo() {
+        rule.awaitChat()
+        // Read once: the rule's activity waits for the main thread, which the wipe holds.
+        val app = context
+        val holder = graph().identityHolder()
+        val storage = SecureIdentityStateManager::class.java.getDeclaredField("storageLock")
+            .apply { isAccessible = true }.get(null) as ReentrantReadWriteLock
+        val failures = Collections.synchronizedList(mutableListOf<Throwable>())
+        var manager: Thread? = null
+        var waited = false
+        var masterKeyWhileHeld: Boolean? = null
+        SandboxWipeObserver.afterWipe = {
+            val started = thread(name = "manager-during-the-wipe") {
+                try {
+                    SecureIdentityStateManager(app)
+                } catch (e: Throwable) {
+                    failures += e
+                }
+            }
+            manager = started
+            val deadline = System.currentTimeMillis() + 5_000
+            while (!storage.hasQueuedThread(started) && started.isAlive && System.currentTimeMillis() < deadline) {
+                Thread.sleep(1)
+            }
+            waited = storage.hasQueuedThread(started)
+            masterKeyWhileHeld = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+                .containsAlias(MasterKey.DEFAULT_MASTER_KEY_ALIAS)
+        }
+
+        val before = holder.generation.value
+        rule.runOnUiThread { session().panicClear().run() }
+        rule.waitUntil(timeoutMillis = 15_000) {
+            holder.generation.value == before + 1 && !session().panicClear().inProgress
+        }
+        manager!!.join(10_000)
+
+        assertTrue("the manager waited for the panic", waited)
+        assertEquals("no master key is built while the panic holds the storage", false, masterKeyWhileHeld)
+        assertEquals(emptyList<Throwable>(), failures)
+        // The storage opens again under the key the next identity built.
+        SecureIdentityStateManager(app)
     }
 
     /** Synthetic data across the identity and the sandbox, and outside it. */

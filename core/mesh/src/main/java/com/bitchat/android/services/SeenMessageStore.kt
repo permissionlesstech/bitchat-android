@@ -74,13 +74,6 @@ class SeenMessageStore @Inject constructor(
         persist()
     }
 
-    @Synchronized fun clear() {
-        delivered.clear()
-        locallyRead.clear()
-        readReceiptsSent.clear()
-        persist()
-    }
-
     private fun trim(set: LinkedHashSet<String>) {
         if (set.size <= MAX_IDS) return
         val it = set.iterator()

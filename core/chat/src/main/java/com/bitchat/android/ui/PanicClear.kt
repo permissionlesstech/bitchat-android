@@ -274,7 +274,9 @@ class PanicClear @Inject constructor(
         val confirmed = result?.confirmed == true
         if (confirmed) {
             Log.w(TAG, "Sandbox wiped")
-            marker.clear()
+            // A marker left in place keeps the identity from building, so the panic restarts and
+            // the next launch wipes again.
+            if (!marker.clear()) Log.e(TAG, "Could not clear the panic marker")
         } else {
             // Counts only: the paths themselves are what the wipe was meant to remove.
             if (result != null) Log.e(TAG, "Sandbox wipe left ${result.leftovers.size} paths and ${result.aliasesLeft} keys")
