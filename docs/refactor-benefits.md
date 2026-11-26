@@ -186,9 +186,9 @@ in the decision log).
 - `/clear`, and switching to an empty conversation, lose the message list's fade (10c-2b).
 - A panic takes 1.0 to 2.9 s on an emulator (eight measured panics), against about 0.4 s before
   10c-3, with no ANR. The wipe itself is 0.06 to 0.58 s of that; the split by stage is in the
-  decision log. The developer accepted it, to be measured on a real phone later. A wipe that
+  decision log. The developer accepted it. On a real phone a panic took 0.79 s, the wipe 30 ms of it. A wipe that
   cannot confirm restarts the app (10c-3).
 - Owed before handover: the real-device checks, which the developer runs at the end (Mesh Lab on
-  two Android phones, a panic on a throwaway install, the watch, voice notes and the Phase 9
-  fresh-install checklist), the container reproducible build and the handover screenshots
+  two Android phones, the watch, voice notes and the rest of the Phase 9 checklist; a real-phone
+  panic and the first-launch checks passed on 2026-11-27), the container reproducible build and the handover screenshots
   (section 5 of `refactor-decisions.md`).

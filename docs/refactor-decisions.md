@@ -103,7 +103,7 @@ Panic (Phase 10c; 10c-1 and 10c-2a changed no behaviour):
   name and the last peer-alert time reset.
 - A wipe that cannot confirm restarts the app (the splash shows), and the next launch finishes
   it. This should never happen on a working phone.
-- Panic takes longer: 1.0 to 2.9 s on an emulator, against about 0.4 s before 10c-3.
+- Panic takes longer: 0.8 s on a real phone (1.0 to 2.9 s on an emulator), against about 0.4 s on an emulator before 10c-3.
 
 ### What contributors will notice
 
@@ -157,7 +157,7 @@ Facts only where the sources measured them.
   run per phase. Fork CI is blocked for now: GitHub answers "Actions has been disabled" with
   every setting enabled.
 - **Panic time.** 1.0 to 2.9 s on an emulator, against about 0.4 s in 10c-2b. The developer
-  accepted it; it is to be measured on a real phone later.
+  accepted it. On a real phone it took 0.79 s, of which the wipe was 30 ms.
 - **Tests.** 1770 JVM tests (3 skipped) across the phone, the core modules, the features and
   Wear, after the Phase 11 audit and the Codex fixes. 124 device tests: 106 in `:app`, 6 in `:feature:chat`, 5 in
   `:feature:settings`, 4 in `:feature:location`, 3 in `:feature:share`.
@@ -592,16 +592,12 @@ The real-device checks are the developer's, run once at the end:
   delegate wiring, the send path and the transport files. Phase 8 moved Tor. Phase 9 moved app
   startup and where the mesh delegate attaches and detaches. Phase 10c moved every mesh class
   into the identity scope.
-- **A panic on a real phone, on a throwaway install**, never on a phone holding a real identity.
-  Phases 10c-2b and 10c-3 checked it on emulators only. This is also where the panic's time is
-  measured on real flash.
 - **The watch on a device**, including the visual check of Phase 8's design system change.
 - **Voice notes** between real phones.
-- **Phase 9 phone run, fresh install, from the spec's checklist:** no chat flash before the
-  permission explanation (F8); declining the battery dialog stays on the step (F7); Bluetooth
-  off and on in chat restores the open chat and reopens nothing (F1); rotating during startup
-  shows no error (F2); a DM sent from a second device while the app is in the background
-  arrives as a notification (F9); the onboarding screens' insets.
+- **The rest of the Phase 9 phone run:** Bluetooth off and on in chat restores the open chat and
+  reopens nothing (F1); a DM sent from a second device while the app is in the background
+  arrives as a notification (F9); the onboarding screens' insets. F8, F7 and recreation during
+  startup passed on a real phone (see "Real-phone checks" in Phase 11).
 - **Manual checks on a real device:** a public message, the peer list, the user sheet, and the
   geohash picker and globe. These are blocked on the emulator by the rule against using
   location data.
@@ -1275,11 +1271,26 @@ which are listed in "Closed after 10c-3".
 - **P11-16:** `ScreenTransitions.DURATION_MS` repeats `BitchatMotion.EMPHASIZED_MS` (240),
   because `:core:navigation` cannot see the theme.
 
+#### Real-phone checks (2026-11-27)
+
+On one Android phone, with the developer's go-ahead to wipe its install, on 7e8e3f68. The Codex fixes that followed change neither panic, storage nor startup.
+
+| Check | Result |
+|---|---|
+| Install over the previous refactor build | Peer ID, fingerprint, Noise key and nickname unchanged; the same 30 preference, database and file entries. Only Tor's directory cache shrank. |
+| Recreation (font scale) in chat | The window was recreated; no crash. |
+| Panic from the header | 0.79 s in total, in the same process and Activity. Screen blank at 145 ms; wipe 30 ms with 0 leftovers and 0 Keystore keys; a new peer ID, fingerprint, Noise key and nickname. What stayed matches the keep-list (settings, Tor state, relay list, the public release APK). No crash or `AEADBadTagException`. |
+| Fresh install, first launch (F8) | Launcher, splash, then the permission explanation; no frame of chat (screen recording at 5 frames a second). |
+| Declining the system battery dialog (F7) | Stays on the battery step; the app stays optimized. |
+| Recreation during onboarding | Stays on the same step, no error. |
+
+The stage split on the phone: identity ended 165 ms in, sandbox wiped by 195 ms, the next identity started by 536 ms and the new mesh built by 758 ms. Most of the time is the new identity, not the wipe.
+
 #### Decisions
 
 | Decision | Why | Alternatives rejected | Cost / what to watch |
 |---|---|---|---|
-| (D) A panic taking 1.0 to 2.9 s on an emulator, against about 0.4 s in 10c-2b, is accepted. It is measured on a real phone later. (2026-11-26) | The split by stage (10c-3) shows no single cause, and emulator storage says little about real flash. | The bulk-media change now. | If the real phone is slow, the conversation store's clear and the blank frame are the first stages to look at. |
+| (D) A panic taking 1.0 to 2.9 s on an emulator, against about 0.4 s in 10c-2b, is accepted. On a real phone it took 0.79 s (2026-11-27). (2026-11-26) | The split by stage (10c-3) shows no single cause, and emulator storage says little about real flash. | The bulk-media change now. | If the real phone is slow, the conversation store's clear and the blank frame are the first stages to look at. |
 | (D) The real-device checks are the developer's, at the end of the refactor. (2026-11-26) | They need two physical phones, a throwaway install and a watch. | Running them per phase. | Listed in section 5, "Owed before handover". |
 
 Tests: JVM 1770 with 0 failures (3 skipped), lint, both assembles and `clientRewriteContractTest`
