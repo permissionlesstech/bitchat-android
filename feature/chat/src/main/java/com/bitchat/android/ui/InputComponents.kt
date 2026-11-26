@@ -3,8 +3,6 @@ package com.bitchat.android.ui
 import android.view.HapticFeedbackConstants
 import androidx.compose.ui.platform.LocalContext
 import com.bitchat.android.ui.theme.BitchatFontFamily
-// [Goose] TODO: Replace inline file attachment stub with FilePickerButton abstraction that dispatches via FileShareDispatcher
-
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*

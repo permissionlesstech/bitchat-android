@@ -2,10 +2,6 @@ package com.bitchat.android.ui
 
 import android.os.Build
 import com.bitchat.android.ui.theme.BitchatFontFamily
-// [Goose] Bridge file share events to ViewModel via dispatcher is installed in ChatScreen composition
-
-// [Goose] Installing FileShareDispatcher handler in ChatScreen to forward file sends to ViewModel
-
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
@@ -325,13 +321,6 @@ fun ChatScreen(
             }
 
             // Input area - overlays the bottom of the conversation
-        // Bridge file share from lower-level input to ViewModel
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        com.bitchat.android.ui.events.FileShareDispatcher.setHandler { peer, channel, path ->
-            onAction(ChatAction.SendFileNote(peer, channel, path))
-        }
-    }
-
     ChatInputSection(
         modifier = Modifier
             .align(Alignment.BottomCenter)

@@ -90,7 +90,6 @@ class IdentityScopeRulesTest {
         "NotificationManager.Companion" to "identity: registry of live managers; chat-session lifetime",
         "ChatUiModeManager" to "process: display preference flow",
         "ThemePreferenceManager" to "process: display preference flow",
-        "FileShareDispatcher" to "process: the foreground screen's share handler; holds no identity data",
         "LandData" to "process: decoded static globe geometry cache",
         "ReadinessOverride" to "process: debug-only readiness override",
         "SandboxWipeObserver" to "process: debug-only test hook",
