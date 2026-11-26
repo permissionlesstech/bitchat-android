@@ -34,12 +34,14 @@ import kotlinx.coroutines.launch
  *
  * [routeConversationID] is the id the route was opened with. The ViewModel
  * starts the chat and ends it when the entry leaves the stack, and follows
- * the conversation as it resolves to a contact.
+ * the conversation as it resolves to a contact. [onOpenPrivateChat] replaces
+ * this chat with another, when `/msg` typed here selects one.
  */
 @Composable
 fun PrivateChatScreen(
     routeConversationID: String,
     onShowSecurityVerification: (conversationID: String) -> Unit,
+    onOpenPrivateChat: (conversationID: String) -> Unit,
     onBack: () -> Unit
 ) {
     val viewModel = hiltViewModel<PrivateChatViewModel, PrivateChatViewModel.Factory>(
@@ -143,6 +145,7 @@ fun PrivateChatScreen(
                         forceScrollToBottom = !forceScrollToBottom
                     }
                     PrivateChatEvent.Close -> onBack()
+                    is PrivateChatEvent.OpenConversation -> onOpenPrivateChat(event.conversationID)
                 }
             }
 

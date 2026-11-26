@@ -81,6 +81,7 @@ object ChatEntriesModule {
                 onShowSecurityVerification = { conversationID ->
                     navigator.goTo(SecurityVerificationRoute(conversationID))
                 },
+                onOpenPrivateChat = { conversationID -> navigator.openPrivateChat(conversationID) },
                 onBack = { navigator.popTo(route, inclusive = true) },
             )
         }

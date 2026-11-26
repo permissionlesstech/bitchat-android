@@ -128,11 +128,14 @@ class MessageSender @Inject constructor(
      * path and never uses a different selected chat: the selection lags the screen while a chat
      * starts on IO, and is never set for a blocked peer. The message reaches this conversation
      * or is refused. [onRefusedBlocked] runs when it was refused because the peer is blocked.
+     * [onSelectedOther] runs when a command (`/msg`) selected a different conversation, which
+     * the caller must present so the selection is never hidden behind this chat.
      */
     fun sendToConversation(
         conversationID: String,
         content: String,
         onRefusedBlocked: () -> Unit = {},
+        onSelectedOther: (conversationID: String) -> Unit = {},
         onAccepted: (Boolean) -> Unit = {},
     ) {
         if (content.isEmpty()) {
@@ -145,6 +148,10 @@ class MessageSender @Inject constructor(
             val selectedPeer = state.getSelectedPrivateChatPeerValue()
             if (selectedPeer != null && isSameConversation(selectedPeer, conversationID)) {
                 send(content, onAccepted)
+                val selectedNow = state.getSelectedPrivateChatPeerValue()
+                if (selectedNow != null && !isSameConversation(selectedNow, conversationID)) {
+                    onSelectedOther(selectedNow)
+                }
             } else {
                 onAccepted(false)
             }

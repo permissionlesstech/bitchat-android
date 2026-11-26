@@ -43,6 +43,8 @@ sealed interface PrivateChatEvent {
     data object MessageSent : PrivateChatEvent
     /** The chat cannot go on (its peer is blocked): leave the screen. */
     data object Close : PrivateChatEvent
+    /** A command (`/msg`) selected [conversationID]: show it in place of this chat. */
+    data class OpenConversation(val conversationID: String) : PrivateChatEvent
 }
 
 /** The session's values a private conversation is derived from. */

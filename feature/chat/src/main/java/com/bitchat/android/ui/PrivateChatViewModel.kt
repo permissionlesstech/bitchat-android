@@ -167,6 +167,9 @@ class PrivateChatViewModel @AssistedInject constructor(
                 conversation,
                 action.content,
                 onRefusedBlocked = { viewModelScope.launch { _events.send(PrivateChatEvent.Close) } },
+                onSelectedOther = { selected ->
+                    viewModelScope.launch { _events.send(PrivateChatEvent.OpenConversation(selected)) }
+                },
             ) { accepted ->
                 if (accepted) {
                     conversationListPreferences.saveComposerDraft(conversation, "")

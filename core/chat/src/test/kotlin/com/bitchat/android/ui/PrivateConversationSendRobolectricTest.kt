@@ -139,6 +139,36 @@ class PrivateConversationSendRobolectricTest {
     }
 
     @Test
+    fun `msg typed in an open chat reports the conversation it selected`() {
+        whenever(mesh.getPeerNicknames()).thenReturn(mapOf(otherPeerID to "bob"))
+        assertTrue(privateChatManager.startPrivateChat(previousPeerID, mesh))
+        val selectedOther = mutableListOf<String>()
+
+        sender.sendToConversation(
+            previousPeerID,
+            "/msg bob",
+            onSelectedOther = { selectedOther += it },
+        )
+
+        assertEquals(otherPeerID, state.getSelectedPrivateChatPeerValue())
+        assertEquals(listOf(otherPeerID), selectedOther)
+    }
+
+    @Test
+    fun `a command that keeps this chat selected reports no other conversation`() {
+        assertTrue(privateChatManager.startPrivateChat(previousPeerID, mesh))
+        val selectedOther = mutableListOf<String>()
+
+        sender.sendToConversation(
+            previousPeerID,
+            "/clear",
+            onSelectedOther = { selectedOther += it },
+        )
+
+        assertEquals(emptyList<String>(), selectedOther)
+    }
+
+    @Test
     fun `chat text goes to its own peer before the chat has started`() {
         sender.sendToConversation(otherPeerID, "draft sent early")
 
