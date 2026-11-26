@@ -62,10 +62,13 @@ data class DialogState(
 
 /** Everything the chat screen asks of its ViewModel. */
 sealed interface ChatAction {
-    /** The composer changed; saves the draft of [conversationID] and refreshes suggestions. */
-    data class ComposerTextChanged(val text: String, val conversationID: String?) : ChatAction
-    /** Sends [content]; [ChatEvent.MessageSent] follows once it is accepted. */
-    data class Send(val content: String, val conversationID: String?) : ChatAction
+    /** The composer changed; refreshes suggestions. The public timelines keep no draft. */
+    data class ComposerTextChanged(val text: String) : ChatAction
+    /**
+     * Sends [content] to what the main chat shows; [ChatEvent.MessageSent] follows once it is
+     * accepted, and [ChatEvent.OpenPrivateChat] when a command (`/msg`) selected a private chat.
+     */
+    data class Send(val content: String) : ChatAction
     /** [ChatEvent.ReplaceComposerText] follows with the completed command. */
     data class SelectCommandSuggestion(val suggestion: CommandSuggestion) : ChatAction
     /** [ChatEvent.ReplaceComposerText] follows with [currentText] completed to the mention. */
@@ -93,6 +96,8 @@ sealed interface ChatEvent {
     data object MessageSent : ChatEvent
     /** Replace the composer's text, with the cursor at its end. */
     data class ReplaceComposerText(val text: String) : ChatEvent
+    /** A command (`/msg`) selected [conversationID]: open its private chat. */
+    data class OpenPrivateChat(val conversationID: String) : ChatEvent
 }
 
 internal const val MESH_CONVERSATION_KEY = "mesh"

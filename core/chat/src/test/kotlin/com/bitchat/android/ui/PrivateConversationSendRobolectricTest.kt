@@ -24,6 +24,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.isNull
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -35,6 +37,7 @@ import org.robolectric.RuntimeEnvironment
  * Text typed into a private chat is addressed to that chat's peer. It must reach that peer or be
  * refused, whatever the selected private chat happens to be at that moment (upstream's
  * PrivateChatSheetSendRobolectricTest, on this branch's MessageSender and PrivateChatSession).
+ * Text typed into the main chat goes to what the main chat shows, never to the selected chat.
  */
 @RunWith(RobolectricTestRunner::class)
 class PrivateConversationSendRobolectricTest {
@@ -164,6 +167,52 @@ class PrivateConversationSendRobolectricTest {
             "/clear",
             onSelectedOther = { selectedOther += it },
         )
+
+        assertEquals(emptyList<String>(), selectedOther)
+    }
+
+    @Test
+    fun `main chat text after msg goes to the public mesh, not the chat msg selected`() {
+        whenever(mesh.getPeerNicknames()).thenReturn(mapOf(otherPeerID to "bob"))
+        sender.send("/msg bob")
+        assertEquals(otherPeerID, state.getSelectedPrivateChatPeerValue())
+        var accepted: Boolean? = null
+
+        sender.send("synthetic public text") { accepted = it }
+
+        assertEquals(true, accepted)
+        verify(mesh).sendMessage(eq("synthetic public text"), any(), isNull())
+        assertTrue(state.messages.value.any { it.content == "synthetic public text" })
+        assertEquals(emptyList<String>(), sentTextIn(otherPeerID))
+    }
+
+    @Test
+    fun `msg typed in the main chat reports the conversation it selected`() {
+        whenever(mesh.getPeerNicknames()).thenReturn(mapOf(otherPeerID to "bob"))
+        val selectedOther = mutableListOf<String>()
+
+        sender.send("/msg bob", onSelectedOther = { selectedOther += it })
+
+        assertEquals(listOf(otherPeerID), selectedOther)
+    }
+
+    @Test
+    fun `msg with text typed in the main chat still sends it privately`() {
+        whenever(mesh.getPeerNicknames()).thenReturn(mapOf(otherPeerID to "bob"))
+        val selectedOther = mutableListOf<String>()
+
+        sender.send("/msg bob synthetic hello", onSelectedOther = { selectedOther += it })
+
+        verify(mesh).sendPrivateMessage(eq("synthetic hello"), eq(otherPeerID), eq("bob"), any())
+        verify(mesh, never()).sendMessage(any(), any(), anyOrNull())
+        assertEquals(listOf(otherPeerID), selectedOther)
+    }
+
+    @Test
+    fun `a main chat command that selects no chat reports none`() {
+        val selectedOther = mutableListOf<String>()
+
+        sender.send("/w", onSelectedOther = { selectedOther += it })
 
         assertEquals(emptyList<String>(), selectedOther)
     }

@@ -54,6 +54,7 @@ object ChatEntriesModule {
                 },
                 onShowLocationChannels = { navigator.goTo(LocationChannelsRoute) },
                 onShowPeerList = { navigator.goTo(MeshPeerListRoute) },
+                onOpenPrivateChat = { conversationID -> navigator.openPrivateChat(conversationID) },
                 openPrivateChatID = navigator.backStack
                     .lastOrNull { it is PrivateChatRoute }
                     ?.let { (it as PrivateChatRoute).conversationID },

@@ -102,10 +102,9 @@ class CommandProcessor(
                 val success = privateChatManager.startPrivateChat(peerID, meshService)
                 
                 if (success) {
-                    // The selected peer routes composer sends, so the selection must be shown.
-                    // Typed in the main chat, the main chat shows it; typed in a private chat,
-                    // MessageSender.sendToConversation reports it and that screen opens it
-                    // (upstream moves its private chat sheet here).
+                    // The selection must be shown: a private chat appears only on its own
+                    // screen. MessageSender reports the new selection and the screen /msg was
+                    // typed in opens that chat (upstream opens its private chat sheet here).
                     if (parts.size > 2) {
                         val messageContent = parts.drop(2).joinToString(" ")
                         val recipientNickname = getPeerNickname(peerID, meshService)

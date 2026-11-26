@@ -15,12 +15,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /**
- * Sends what the user typed, wherever the session is pointed: a command, a
- * private message, a geohash channel over Nostr, a mesh channel, or the
- * public mesh.
+ * Sends what the user typed: from the main chat ([send]) a command, a geohash
+ * channel over Nostr, a mesh channel or the public mesh; from a private chat
+ * ([sendToConversation]) a command or a message to that chat.
  *
- * Moved out of ChatViewModel unchanged, so every composer sends the same
- * way. The destination is read from ChatState at the moment of sending, not
+ * Moved out of ChatViewModel, so every composer sends the same way. The main
+ * chat's destination is read from ChatState at the moment of sending, not
  * passed in.
  */
 @ChatSessionScoped
@@ -44,11 +44,16 @@ class MessageSender @Inject constructor(
     private val mesh get() = sessionMesh.unified
 
     /**
-     * Sends [content]. [onAccepted] reports whether it was taken, so the
-     * composer knows to clear; a private message reports once it is stored.
+     * Sends [content] typed into the main chat, to what the main chat shows: the geohash
+     * location channel, the open mesh channel or the public mesh. Never to the selected
+     * private chat, which only its own screen shows; that text goes through
+     * [sendToConversation]. [onAccepted] reports whether it was taken, so the composer knows
+     * to clear. [onSelectedOther] runs when a command (`/msg`) selected a different private
+     * chat, which the caller must open so the selection is never hidden.
      */
     fun send(
         content: String,
+        onSelectedOther: (conversationID: String) -> Unit = {},
         onAccepted: (Boolean) -> Unit = {}
     ) {
         if (content.isEmpty()) {
@@ -59,6 +64,7 @@ class MessageSender @Inject constructor(
         // Check for commands
         if (content.startsWith("/")) {
             val selectedLocationForCommand = state.selectedLocationChannel.value
+            val selectedBefore = state.getSelectedPrivateChatPeerValue()
             commandProcessor.processCommand(content, mesh, mesh.myPeerID, { messageContent, mentions, channel ->
                 if (selectedLocationForCommand is com.bitchat.android.geohash.ChannelID.Location) {
                     // Route command-generated public messages via Nostr in geohash channels
@@ -75,50 +81,52 @@ class MessageSender @Inject constructor(
                 }
             })
             onAccepted(true)
+            val selectedNow = state.getSelectedPrivateChatPeerValue()
+            if (
+                selectedNow != null &&
+                (selectedBefore == null || !isSameConversation(selectedNow, selectedBefore))
+            ) {
+                onSelectedOther(selectedNow)
+            }
             return
         }
         
         val mentions = messageManager.parseMentions(content, mesh.getPeerNicknames().values.toSet(), state.getNicknameValue())
-        val selectedPeer = state.getSelectedPrivateChatPeerValue()
         val currentChannelValue = state.getCurrentChannelValue()
-        
-        if (selectedPeer != null) {
-            sendPrivateConversationMessage(selectedPeer, content, onAccepted)
+
+        // Check if we're in a location channel
+        val selectedLocationChannel = state.selectedLocationChannel.value
+        if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location) {
+            // Send to geohash channel via Nostr ephemeral event
+            geohashSession.sendGeohashMessage(content, selectedLocationChannel.channel, mesh.myPeerID, state.getNicknameValue())
         } else {
-            // Check if we're in a location channel
-            val selectedLocationChannel = state.selectedLocationChannel.value
-            if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location) {
-                // Send to geohash channel via Nostr ephemeral event
-                geohashSession.sendGeohashMessage(content, selectedLocationChannel.channel, mesh.myPeerID, state.getNicknameValue())
-            } else {
-                // Send public/channel message via mesh
-                if (currentChannelValue != null &&
-                    channelManager.refuseSendIfPasswordProtected(currentChannelValue)
-                ) {
-                    onAccepted(false)
-                    return
-                }
-
-                val message = BitchatMessage(
-                    sender = state.getNicknameValue() ?: mesh.myPeerID,
-                    content = content,
-                    timestamp = Date(),
-                    isRelay = false,
-                    senderPeerID = mesh.myPeerID,
-                    mentions = if (mentions.isNotEmpty()) mentions else null,
-                    channel = currentChannelValue
-                )
-
-                if (currentChannelValue != null) {
-                    channelManager.addChannelMessage(currentChannelValue, message, mesh.myPeerID)
-                    mesh.sendMessage(content, mentions, currentChannelValue)
-                } else {
-                    messageManager.addMessage(message)
-                    mesh.sendMessage(content, mentions, null)
-                }
+            // Send public/channel message via mesh
+            if (currentChannelValue != null &&
+                channelManager.refuseSendIfPasswordProtected(currentChannelValue)
+            ) {
+                onAccepted(false)
+                return
             }
-            onAccepted(true)
+
+            val message = BitchatMessage(
+                sender = state.getNicknameValue() ?: mesh.myPeerID,
+                content = content,
+                timestamp = Date(),
+                isRelay = false,
+                senderPeerID = mesh.myPeerID,
+                mentions = if (mentions.isNotEmpty()) mentions else null,
+                channel = currentChannelValue
+            )
+
+            if (currentChannelValue != null) {
+                channelManager.addChannelMessage(currentChannelValue, message, mesh.myPeerID)
+                mesh.sendMessage(content, mentions, currentChannelValue)
+            } else {
+                messageManager.addMessage(message)
+                mesh.sendMessage(content, mentions, null)
+            }
         }
+        onAccepted(true)
     }
 
     /**
@@ -147,11 +155,7 @@ class MessageSender @Inject constructor(
             // Commands act on the selected chat, so they wait until that is this chat.
             val selectedPeer = state.getSelectedPrivateChatPeerValue()
             if (selectedPeer != null && isSameConversation(selectedPeer, conversationID)) {
-                send(content, onAccepted)
-                val selectedNow = state.getSelectedPrivateChatPeerValue()
-                if (selectedNow != null && !isSameConversation(selectedNow, conversationID)) {
-                    onSelectedOther(selectedNow)
-                }
+                send(content, onSelectedOther, onAccepted)
             } else {
                 onAccepted(false)
             }

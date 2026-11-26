@@ -183,9 +183,8 @@ class CommandProcessorTest {
       .sendPrivateMessage(Mockito.anyString(), Mockito.anyString(), Mockito.anyString(), Mockito.anyString())
   }
 
-  // Upstream also opens its private chat sheet here. On this branch the main chat shows the
-  // conversation /msg selects (ChatScreen's visible private peer), so the selection is what the
-  // person sees and what the composer sends to.
+  // Upstream also opens its private chat sheet here. On this branch MessageSender reports the
+  // selection and the screen /msg was typed in opens that chat (PrivateConversationSendRobolectricTest).
   @Test
   fun `msg command presents the conversation it selects for private sending`() {
     val peerID = "0102030405060708"

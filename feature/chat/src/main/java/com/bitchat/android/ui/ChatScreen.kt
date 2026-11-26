@@ -57,6 +57,9 @@ fun ChatScreen(
     onShowChatUser: (nickname: String, messageId: String) -> Unit,
     onShowLocationChannels: () -> Unit,
     onShowPeerList: () -> Unit,
+    // Opens the private chat a command (`/msg`) typed here selected: this screen
+    // shows no private chat, so the selection would otherwise be hidden.
+    onOpenPrivateChat: (conversationID: String) -> Unit,
     // The private chat shown over this screen, if any. It comes from the back
     // stack, and covers the moment between opening the chat and the ViewModel
     // selecting it, when the selection is still empty.
@@ -79,7 +82,9 @@ fun ChatScreen(
     val currentChannel = timeline.currentChannel
     val selectedLocationChannel = timeline.selectedLocationChannel
 
-    var messageText by rememberComposerText(selectedPrivatePeer, viewModel::conversationDraft)
+    // The public timelines' composer: never keyed by the selected private chat, which this
+    // screen does not show, so its text is neither filed as nor loaded from a private draft.
+    var messageText by rememberComposerText(conversation = null, storedDraft = { "" })
     // Triple-tapping the logo asks first: the same logo opens App Info on a
     // single tap, so a fumbled tap must never be able to wipe the device.
     var showPanicConfirmation by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
@@ -101,6 +106,7 @@ fun ChatScreen(
                     selection = TextRange(event.text.length)
                 )
             }
+            is ChatEvent.OpenPrivateChat -> onOpenPrivateChat(event.conversationID)
         }
     }
     val context = LocalContext.current
@@ -119,7 +125,7 @@ fun ChatScreen(
         .firstOrNull { it.level == GeohashChannelLevel.BUILDING }
         ?.geohash
     // The open chat wins over the selection, which trails it until the chat has
-    // started and may still name a chat begun with /msg. Keyed on the selection
+    // started, and names it until a popped chat has ended. Keyed on the selection
     // too, so the id is canonicalized again as the conversation resolves.
     val visiblePrivatePeer = remember(openPrivateChatID, selectedPrivatePeer) {
         openPrivateChatID?.let(dependencies.contactDirectory()::canonicalConversationId) ?: selectedPrivatePeer
@@ -130,8 +136,8 @@ fun ChatScreen(
             visiblePrivatePeer == null
 
     // What live voice treats as on screen while this screen is composed: the
-    // mesh timeline or a chat begun with /msg; a channel claims nothing. The
-    // private chat screen claims for itself. Chat leaves composition under a
+    // mesh timeline or the private chat opening or leaving over it; a channel
+    // claims nothing. The private chat screen claims for itself. Chat leaves composition under a
     // full screen (peer list, notes, About...) and releases its claim then, so
     // nothing it showed stays live there; under a sheet it stays composed and
     // keeps it. A release drops only this screen's claim, so a private chat
@@ -330,11 +336,11 @@ fun ChatScreen(
         messageText = messageText,
         onMessageTextChange = { newText: TextFieldValue ->
             messageText = newText
-            onAction(ChatAction.ComposerTextChanged(newText.text, selectedPrivatePeer))
+            onAction(ChatAction.ComposerTextChanged(newText.text))
         },
         onSend = {
             if (messageText.text.trim().isNotEmpty()) {
-                onAction(ChatAction.Send(messageText.text.trim(), selectedPrivatePeer))
+                onAction(ChatAction.Send(messageText.text.trim()))
             }
         },
         onSendVoiceNote = { peer, onionOrChannel, path ->

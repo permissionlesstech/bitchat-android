@@ -12,7 +12,6 @@ import com.bitchat.android.navigation.Navigator
 import com.bitchat.android.navigation.openPrivateChat
 import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.identity.scope.CurrentIdentity
-import com.bitchat.android.services.ConversationListPreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import javax.inject.Provider
@@ -36,7 +35,6 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     @CurrentSession private val sessionMesh: ChatSessionMesh,
-    @CurrentIdentity private val conversationListPreferences: ConversationListPreferences,
     // The unread shortcut opens a private chat from here rather than from a
     // screen, because it has to pick the conversation first.
     private val navigator: Navigator,
@@ -154,23 +152,22 @@ class ChatViewModel @Inject constructor(
     val meshService: MeshService
         get() = mesh
 
-    /** The saved composer draft of [conversationID], read when the composer is created. */
-    fun conversationDraft(conversationID: String?): String =
-        conversationListPreferences.composerDraft(conversationID, contactDirectory)
-
     fun createVoiceRecorder(toPeerIDOrNull: String?, channelOrNull: String?): VoiceRecorder =
         composerMedia.createVoiceRecorder(toPeerIDOrNull, channelOrNull)
 
     fun onAction(action: ChatAction) {
         when (action) {
             is ChatAction.ComposerTextChanged -> {
-                conversationListPreferences.saveComposerDraft(action.conversationID, action.text)
                 commandProcessor.updateCommandSuggestions(action.text)
                 commandProcessor.updateMentionSuggestions(action.text, mesh)
             }
-            is ChatAction.Send -> messageSender.send(action.content) { accepted ->
+            // The main chat shows no private chat, so one that /msg selects opens on its own
+            // screen, after the composer has cleared.
+            is ChatAction.Send -> messageSender.send(
+                action.content,
+                onSelectedOther = { selected -> emit(ChatEvent.OpenPrivateChat(selected)) },
+            ) { accepted ->
                 if (accepted) {
-                    conversationListPreferences.saveComposerDraft(action.conversationID, "")
                     // Clearing the field in code does not report a text change,
                     // so the popups have to be dismissed here.
                     commandProcessor.clearSuggestions()
