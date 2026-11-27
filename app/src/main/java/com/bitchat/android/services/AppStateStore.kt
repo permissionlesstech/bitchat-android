@@ -859,12 +859,13 @@ object AppStateStore {
         }
     }
 
-    private fun appendPublicMessage(messages: List<BitchatMessage>, message: BitchatMessage) =
-        buildList(minOf(MAX_PUBLIC_TIMELINE_MESSAGES, messages.size + 1)) {
-            val start = (messages.size - MAX_PUBLIC_TIMELINE_MESSAGES + 1).coerceAtLeast(0)
-            for (index in start until messages.size) add(messages[index])
-            add(message)
-        }
+    private fun appendPublicMessage(messages: List<BitchatMessage>, message: BitchatMessage): List<BitchatMessage> {
+        // Insert by source packet timestamp so a store-forwarded/gossip-synced backlog is interleaved
+        // chronologically instead of appended in receive order, then keep the most recent N.
+        val ordered = com.bitchat.android.util.MessageOrdering.withMessageInserted(messages, message)
+        if (ordered.size <= MAX_PUBLIC_TIMELINE_MESSAGES) return ordered
+        return ordered.subList(ordered.size - MAX_PUBLIC_TIMELINE_MESSAGES, ordered.size).toList()
+    }
 
     private fun appendToPublicTimeline(message: BitchatMessage) {
         val messages = _publicMessages.value
