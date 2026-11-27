@@ -312,6 +312,7 @@ fun MessageInput(
     onSend: () -> Unit,
     onSendVoiceNote: (String?, String?, String) -> Unit,
     onSendImageNote: (String?, String?, String) -> Unit,
+    onSendPickedImages: (String?, String?, List<android.net.Uri>) -> Unit,
     onSendFileNote: (String?, String?, String) -> Unit,
     selectedPrivatePeer: String?,
     currentChannel: String?,
@@ -603,6 +604,13 @@ fun MessageInput(
                                             latestSelectedPeer.value,
                                             latestChannel.value,
                                             outPath
+                                        )
+                                    },
+                                    onImagesPicked = { uris ->
+                                        onSendPickedImages(
+                                            latestSelectedPeer.value,
+                                            latestChannel.value,
+                                            uris
                                         )
                                     }
                                 )
