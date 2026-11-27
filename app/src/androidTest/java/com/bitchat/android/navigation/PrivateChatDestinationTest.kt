@@ -261,7 +261,8 @@ class PrivateChatDestinationTest {
         openPrivateChat(PEER_B)
         awaitSelection(PEER_B)
 
-        rule.runOnUiThread { session().privateChatSession().end(PEER_A) }
+        // A route that does not own the chat on screen, as the replaced one no longer does.
+        rule.runOnUiThread { session().privateChatSession().end(owner = Any()) }
 
         assertEquals(PEER_B, selection())
     }

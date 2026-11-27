@@ -186,23 +186,37 @@ class PrivateConversationSendRobolectricTest {
 
     @Test
     fun `a chat closed after join left it gives up notification focus`() {
-        assertTrue(privateChatManager.startPrivateChat(previousPeerID, mesh))
+        val route = Any()
+        assertTrue(runBlocking { privateChatSession.start(previousPeerID, route) })
         sender.sendToConversation(previousPeerID, "/join #synthetic")
 
-        privateChatSession.end(previousPeerID)
+        privateChatSession.end(route)
 
         verify(notifications).setCurrentPrivateChatPeer(null)
     }
 
     @Test
     fun `a chat closed after another was opened leaves that chat's focus alone`() {
-        assertTrue(privateChatManager.startPrivateChat(previousPeerID, mesh))
-        assertTrue(privateChatManager.startPrivateChat(otherPeerID, mesh))
+        val replaced = Any()
+        assertTrue(runBlocking { privateChatSession.start(previousPeerID, replaced) })
+        assertTrue(runBlocking { privateChatSession.start(otherPeerID, Any()) })
 
-        privateChatSession.end(previousPeerID)
+        privateChatSession.end(replaced)
 
         verify(notifications, never()).setCurrentPrivateChatPeer(null)
         assertEquals(otherPeerID, state.getSelectedPrivateChatPeerValue())
+    }
+
+    @Test
+    fun `a route closed after the same chat reopened in another leaves it open`() {
+        val replaced = Any()
+        assertTrue(runBlocking { privateChatSession.start(previousPeerID, replaced) })
+        assertTrue(runBlocking { privateChatSession.start(previousPeerID, Any()) })
+
+        privateChatSession.end(replaced)
+
+        verify(notifications, never()).setCurrentPrivateChatPeer(null)
+        assertEquals(previousPeerID, state.getSelectedPrivateChatPeerValue())
     }
 
     @Test
@@ -300,7 +314,7 @@ class PrivateConversationSendRobolectricTest {
 
     @Test
     fun `a chat that cannot start reports it and selects nothing`() = runBlocking {
-        val started = privateChatSession.start(blockedPeerID)
+        val started = privateChatSession.start(blockedPeerID, Any())
 
         assertFalse(started)
         assertNull(state.getSelectedPrivateChatPeerValue())

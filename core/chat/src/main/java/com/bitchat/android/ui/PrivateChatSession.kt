@@ -24,9 +24,18 @@ class PrivateChatSession @Inject constructor(
     private val appStateStore: AppStateStore,
     private val contactDirectory: ContactDirectory,
 ) {
+    // The route that started the chat on screen, and that chat. Read and written on the main thread.
+    private var owner: Any? = null
+    private var ownedConversation: String? = null
 
-    /** Returns false when the chat could not start, as for a blocked peer. */
-    suspend fun start(peerID: String): Boolean {
+    /**
+     * Starts the chat with [peerID] for [owner], the route showing it, which alone may end it with
+     * [end], from now on. Returns false when the chat could not start, as for a blocked peer.
+     */
+    suspend fun start(peerID: String, owner: Any): Boolean {
+        // Claimed before the chat loads: the route this one replaces can be disposed while it
+        // loads, and its end must not undo the selection this start makes.
+        this.owner = owner
         // For geohash conversation keys, ensure DM subscription is active
         if (peerID.startsWith("nostr_")) {
             geohashSession.ensureGeohashDMSubscriptionForConversation(peerID)
@@ -51,6 +60,8 @@ class PrivateChatSession @Inject constructor(
                 unreadAliases = unreadAliases
             )
         }
+        // Even when it failed: the route then closes, and its end lets go of what was selected.
+        if (owner === this.owner) ownedConversation = conversationID
         if (success) {
             // Notify notification manager about current private chat
             notificationManager.setCurrentPrivateChatPeer(conversationID)
@@ -63,6 +74,8 @@ class PrivateChatSession @Inject constructor(
     fun end() = endConversation(state.getSelectedPrivateChatPeerValue())
 
     private fun endConversation(conversationID: String?) {
+        owner = null
+        ownedConversation = null
         privateChatManager.endPrivateChat()
         if (conversationID != null) {
             appStateStore.releasePrivateConversationHistory(conversationID)
@@ -79,25 +92,15 @@ class PrivateChatSession @Inject constructor(
     }
 
     /**
-     * Ends the chat with [conversationID], unless a different one has been
-     * selected since.
+     * Ends the chat [owner] started, unless another route has started a chat since.
      *
-     * A private chat route calls this as it leaves. Opening one chat from
-     * another can select the new one before the old route is disposed, and
-     * that late call must not end the chat now on screen. A command such as `/join` can instead
-     * have left private chat before the route goes; with nothing selected, the route still ends
-     * its own chat, or the departed peer would keep notification focus and its history.
+     * A private chat route calls this as it leaves. Opening a chat from another, or the same
+     * conversation again under its contact ID, starts it for the new route before the old one is
+     * disposed, and that late call must not end the chat now on screen. A command such as `/join`
+     * can instead have left private chat before the route goes; the route still owns its chat
+     * then and ends it, or the departed peer would keep notification focus and its history.
      */
-    fun end(conversationID: String) {
-        val selected = state.getSelectedPrivateChatPeerValue()
-            ?: return endConversation(contactDirectory.canonicalConversationId(conversationID))
-        if (
-            contactDirectory.canonicalConversationId(selected).equals(
-                contactDirectory.canonicalConversationId(conversationID),
-                ignoreCase = true
-            )
-        ) {
-            end()
-        }
+    fun end(owner: Any) {
+        if (owner === this.owner) endConversation(ownedConversation)
     }
 }

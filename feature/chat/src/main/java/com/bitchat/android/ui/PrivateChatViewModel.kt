@@ -147,14 +147,14 @@ class PrivateChatViewModel @AssistedInject constructor(
                     started = id
                     // A chat that cannot start (a blocked peer) has nothing to offer, and
                     // the reason is posted to the timeline behind it: close this screen.
-                    if (!privateChatSession.start(id)) _events.send(PrivateChatEvent.Close)
+                    if (!privateChatSession.start(id, owner = this@PrivateChatViewModel)) _events.send(PrivateChatEvent.Close)
                 }
             }
         }
     }
 
     override fun onCleared() {
-        privateChatSession.end(routeConversationID)
+        privateChatSession.end(owner = this)
     }
 
     fun onAction(action: PrivateChatAction) {
