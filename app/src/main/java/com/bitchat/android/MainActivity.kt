@@ -1,6 +1,5 @@
 package com.bitchat.android
 
-import com.bitchat.android.panic.PanicMarker
 import com.bitchat.android.panic.StartupWipe
 import android.content.Intent
 import android.os.Build
@@ -162,10 +161,6 @@ class MainActivity : OrientationAwareActivity() {
     @Inject
     lateinit var chatSessionHolder: com.bitchat.android.ui.ChatSessionHolder
 
-    // Says whether a panic is running, so state saved during one is not taken as the next identity's.
-    @Inject
-    lateinit var panicRunner: com.bitchat.android.ui.PanicRunner
-
     @Inject
     @CurrentSession
     lateinit var chatBackUnwinder: Provider<ChatBackUnwinder>
@@ -197,7 +192,9 @@ class MainActivity : OrientationAwareActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // State saved before a panic whose wipe this launch finished names the ended identity.
+        // State saved before a panic may name the ended identity. After any panic the next Activity
+        // starts without saved state, once: no save can be shown to be the new identity's, since the
+        // screens move to it in composition, after the session has.
         val restored = savedInstanceState.takeUnless { StartupWipe.takeStaleSavedScreens(this) }
         super.onCreate(restored)
         intentHandled = restored?.getBoolean(STATE_INTENT_HANDLED) ?: false
@@ -505,15 +502,6 @@ class MainActivity : OrientationAwareActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putBoolean(STATE_INTENT_HANDLED, intentHandled)
-        // State saved once a panic is over and the screens follow the next session supersedes
-        // what was saved before it, so the next launch may restore it.
-        if (
-            !panicRunner.isRunning &&
-            screenViewModels.generation >= chatSessionHolder.generation.value &&
-            !PanicMarker(this).pending
-        ) {
-            StartupWipe.takeStaleSavedScreens(this)
-        }
     }
 
     override fun onResume() {
@@ -586,6 +574,8 @@ class MainActivity : OrientationAwareActivity() {
                 
                 if (geohash != null) {
                     Log.d("MainActivity", "Opening geohash chat from notification")
+                    // The channel shows in the chat screen, so unwind to it from whatever is open.
+                    navigator.popTo(ChatRoute)
                     
                     // Switch to the geohash channel - create appropriate geohash channel level
                     val level = when (geohash.length) {

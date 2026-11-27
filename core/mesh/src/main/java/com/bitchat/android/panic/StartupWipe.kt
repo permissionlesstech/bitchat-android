@@ -63,9 +63,9 @@ object StartupWipe {
      * the launch.
      */
     /**
-     * True once after a panic, for the first Activity, which then starts with no saved state:
-     * state saved before the panic names the ended identity's screens. The panic and the startup
-     * wipe set it; an Activity that saves state after the panic also takes it.
+     * True once after a panic, for the next Activity created, which then starts with no saved
+     * state: state saved before the panic names the ended identity's screens. The panic and the
+     * startup wipe set it.
      */
     fun takeStaleSavedScreens(context: Context): Boolean {
         val stale = PanicMarker.savedScreensStale(context)

@@ -42,9 +42,8 @@ class PanicMarker(private val file: File) {
 
         /**
          * Says the system may still hold an Activity's state saved before a panic's wipe. Written
-         * by the panic and by the startup wipe, and taken by the first Activity, which then starts
-         * with no saved state, or by an Activity saving state after the panic. Durable, because the
-         * process may die before either happens.
+         * by the panic and by the startup wipe, and taken by the next Activity created, which then
+         * starts with no saved state. Durable, because the process may die before that.
          */
         fun savedScreensStale(context: Context) = PanicMarker(File(context.noBackupFilesDir, SAVED_SCREENS_STALE))
     }

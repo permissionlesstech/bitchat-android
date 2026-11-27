@@ -51,6 +51,8 @@ class PrivateChatDestinationTest {
 
     companion object {
         private const val PEER_A = "0123456789abcdef"
+        // Synthetic: a cell over open ocean, not anyone's location.
+        private const val SYNTHETIC_GEOHASH = "s00000"
         private const val PEER_B = "fedcba9876543210"
         private const val PEER_A_NICKNAME = "synthetic-peer-a"
         private const val LOCKED_CHANNEL = "#synthetic-locked"
@@ -316,6 +318,28 @@ class PrivateChatDestinationTest {
         rule.waitUntil(timeoutMillis = 5_000) {
             rule.onAllNodesWithText(startHandshake).fetchSemanticsNodes().isNotEmpty()
         }
+    }
+
+    /** A geohash notification shows its channel, which is the chat screen, over whatever was open. */
+    @Test
+    fun aGeohashNotificationShowsTheChatOverAnOpenPrivateChat() {
+        rule.awaitChat()
+        openPrivateChat(PEER_A)
+        awaitPrivateChatScreen()
+        val intent = Intent(rule.activity, MainActivity::class.java)
+            .putExtra(NotificationManager.EXTRA_OPEN_GEOHASH_CHAT, true)
+            .putExtra(NotificationManager.EXTRA_GEOHASH, SYNTHETIC_GEOHASH)
+
+        // As in the private notification test below: what the platform does for singleTop.
+        rule.runOnUiThread {
+            val launchIntent = rule.activity.intent
+            InstrumentationRegistry.getInstrumentation()
+                .callActivityOnNewIntent(rule.activity, intent)
+            rule.activity.intent = launchIntent
+        }
+
+        rule.waitUntil(timeoutMillis = 5_000) { rule.topOfStack() == ChatRoute }
+        assertEquals(listOf(ChatRoute), rule.backStack())
     }
 
     /** Closing a chat opened from a notification lands on the conversation list. */
