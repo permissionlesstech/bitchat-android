@@ -55,6 +55,7 @@ class PrivateConversationSendRobolectricTest {
     private lateinit var privateChatManager: PrivateChatManager
     private lateinit var privateChatSession: PrivateChatSession
     private val notifications = mock<NotificationManager>()
+    private val geohashSession = mock<GeohashSession>()
     private lateinit var sender: MessageSender
 
     @Before
@@ -87,7 +88,6 @@ class PrivateConversationSendRobolectricTest {
             favorites = Provider { stores.favorites },
             peerFingerprints = fingerprints,
         )
-        val geohashSession = mock<GeohashSession>()
         val sessionMesh = ChatSessionMesh(mesh)
         val router = mock<MessageRouter>()
         sender = MessageSender(
@@ -205,6 +205,21 @@ class PrivateConversationSendRobolectricTest {
 
         verify(notifications, never()).setCurrentPrivateChatPeer(null)
         assertEquals(otherPeerID, state.getSelectedPrivateChatPeerValue())
+    }
+
+    @Test
+    fun `a start that another route took over selects nothing`() {
+        val departing = "nostr_0123456789abcdef"
+        // The departing route's start is still under way when the replacing route starts its chat.
+        whenever(geohashSession.ensureGeohashDMSubscriptionForConversation(departing)).then {
+            assertTrue(runBlocking { privateChatSession.start(otherPeerID, Any()) })
+            Unit
+        }
+
+        assertTrue(runBlocking { privateChatSession.start(departing, Any()) })
+
+        assertEquals(otherPeerID, state.getSelectedPrivateChatPeerValue())
+        verify(notifications, never()).setCurrentPrivateChatPeer(departing)
     }
 
     @Test
