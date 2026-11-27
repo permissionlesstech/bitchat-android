@@ -1170,7 +1170,7 @@ internal fun selectedLocationChannelOutsideNearby(
     }
 }
 
-private fun validateGeohash(geohash: String): Boolean {
+internal fun validateGeohash(geohash: String): Boolean {
     if (geohash.isEmpty() || geohash.length > 12) return false
     val allowed = "0123456789bcdefghjkmnpqrstuvwxyz".toSet()
     return geohash.all { it in allowed }

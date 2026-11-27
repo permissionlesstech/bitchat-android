@@ -44,6 +44,7 @@ import com.bitchat.android.onboarding.PermissionManager
 import com.bitchat.android.ui.ChatScreen
 import com.bitchat.android.ui.ChatViewModel
 import com.bitchat.android.ui.OrientationAwareActivity
+import com.bitchat.android.ui.channelForGeohashLink
 import com.bitchat.android.ui.theme.BitchatTheme
 import com.bitchat.android.wifiaware.WifiAwareController
 import com.bitchat.android.nostr.PoWPreferenceManager
@@ -714,6 +715,7 @@ class MainActivity : OrientationAwareActivity() {
                 // Handle any notification intent
                 handleNotificationIntent(intent)
                 handleVerificationIntent(intent)
+                handleGeohashLinkIntent(intent)
 
                 // Small delay to ensure mesh service is fully initialized
                 delay(500)
@@ -743,6 +745,7 @@ class MainActivity : OrientationAwareActivity() {
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             handleNotificationIntent(intent)
             handleVerificationIntent(intent)
+            handleGeohashLinkIntent(intent)
         }
     }
 
@@ -848,6 +851,16 @@ class MainActivity : OrientationAwareActivity() {
                 }
             }
         }
+    }
+
+    private fun handleGeohashLinkIntent(intent: Intent) {
+        val channel = intent.data?.let(::channelForGeohashLink) ?: return
+
+        // A joined channel stays on screen otherwise, while messages go to the location channel.
+        chatViewModel.exitCurrentChannel()
+        chatViewModel.selectLocationChannel(com.bitchat.android.geohash.ChannelID.Location(channel))
+        chatViewModel.setCurrentGeohash(channel.geohash)
+        chatViewModel.clearNotificationsForGeohash(channel.geohash)
     }
 
     private fun handleVerificationIntent(intent: Intent) {
