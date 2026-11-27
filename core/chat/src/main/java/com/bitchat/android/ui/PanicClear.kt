@@ -115,6 +115,9 @@ class PanicClear @Inject constructor(
             // 0. Before anything else, so a process death from here on finishes the wipe at the next launch.
             val markerSet = try {
                 marker.set()
+                // The system may save this Activity's state before the wipe and keep it past the
+                // process; the Activity clears this mark once it saves state of the next identity.
+                PanicMarker.savedScreensStale(context).set()
                 true
             } catch (e: Exception) {
                 Log.e(TAG, "Could not write the panic marker: ${e.javaClass.simpleName}")

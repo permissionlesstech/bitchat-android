@@ -279,6 +279,14 @@ class PanicClearTest {
     }
 
     @Test
+    fun `a panic marks the Activity's saved state stale for the next launch`() {
+        panic.run()
+
+        // The system may have saved the Activity before the wipe and keep it past this process.
+        assertTrue(com.bitchat.android.panic.StartupWipe.takeStaleSavedScreens(application))
+    }
+
+    @Test
     fun `steps keep the design's order`() {
         panic.run()
 

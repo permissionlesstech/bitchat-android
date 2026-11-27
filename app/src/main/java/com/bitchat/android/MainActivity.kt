@@ -1,5 +1,6 @@
 package com.bitchat.android
 
+import com.bitchat.android.panic.PanicMarker
 import com.bitchat.android.panic.StartupWipe
 import android.content.Intent
 import android.os.Build
@@ -160,6 +161,10 @@ class MainActivity : OrientationAwareActivity() {
     // lifecycle takes a listener. Its first read could otherwise come from a mesh callback.
     @Inject
     lateinit var chatSessionHolder: com.bitchat.android.ui.ChatSessionHolder
+
+    // Says whether a panic is running, so state saved during one is not taken as the next identity's.
+    @Inject
+    lateinit var panicRunner: com.bitchat.android.ui.PanicRunner
 
     @Inject
     @CurrentSession
@@ -500,6 +505,15 @@ class MainActivity : OrientationAwareActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putBoolean(STATE_INTENT_HANDLED, intentHandled)
+        // State saved once a panic is over and the screens follow the next session supersedes
+        // what was saved before it, so the next launch may restore it.
+        if (
+            !panicRunner.isRunning &&
+            screenViewModels.generation >= chatSessionHolder.generation.value &&
+            !PanicMarker(this).pending
+        ) {
+            StartupWipe.takeStaleSavedScreens(this)
+        }
     }
 
     override fun onResume() {
