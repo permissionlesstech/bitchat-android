@@ -60,12 +60,16 @@ class OkHttpProvider @Inject constructor(private val tor: ArtiTorManager) {
     fun webSocketClient(): OkHttpClient {
         wsClientRef.get()?.let { return it }
         return synchronized(clientLock) {
-            wsClientRef.get() ?: baseBuilderForCurrentProxy().first
-                .connectTimeout(10, TimeUnit.SECONDS)
-                .readTimeout(0, TimeUnit.SECONDS)
-                .writeTimeout(10, TimeUnit.SECONDS)
-                .build()
-                .also(wsClientRef::set)
+            wsClientRef.get() ?: run {
+                val (builder, route) = baseBuilderForCurrentProxy()
+                val connectTimeoutSec = if (route == Route.TOR) 20L else 10L
+                builder
+                    .connectTimeout(connectTimeoutSec, TimeUnit.SECONDS)
+                    .readTimeout(0, TimeUnit.SECONDS)
+                    .writeTimeout(10, TimeUnit.SECONDS)
+                    .build()
+                    .also(wsClientRef::set)
+            }
         }
     }
 

@@ -65,6 +65,7 @@ class PanicContractTest {
         private const val CLIP = "synthetic copied text"
         private const val DEBUG_ENTRY = "synthetic debug entry"
         private const val BOOKMARK = "s000"
+        private val VERIFIED = "ab".repeat(32)
 
         /**
          * Top-level entries the wipe leaves to the system: `lib` links to the installed native
@@ -103,6 +104,9 @@ class PanicContractTest {
         val holder = graph().identityHolder()
         val oldScope = holder.entryPoint<IdentityLifetimeEntryPoint>().scope()
         seed()
+        // Held across the panic, as a holder that outlives the identity would hold it.
+        val builtBeforeTheWipe = SecureIdentityStateManager(context)
+        assertTrue(builtBeforeTheWipe.isVerifiedFingerprint(VERIFIED))
 
         var leftovers: List<String>? = null
         var aliases: List<String>? = null
@@ -139,6 +143,9 @@ class PanicContractTest {
         assertNull(graph().appStateStore().privateMessages.value[PEER])
         assertTrue(holder.entryPoint<NostrIdentityEntryPoint>().geohashBookmarksStore().bookmarks.value.isEmpty())
         assertTrue(graph().favorites().getOurFavorites().isEmpty())
+        // A manager built after the wipe opens storage again rather than the ended identity's.
+        assertFalse(SecureIdentityStateManager(context).isVerifiedFingerprint(VERIFIED))
+        assertFalse(builtBeforeTheWipe.isVerifiedFingerprint(VERIFIED))
 
         // Every system-side cleanup ran.
         val active = context.getSystemService(NotificationManager::class.java).activeNotifications
@@ -227,6 +234,9 @@ class PanicContractTest {
         graph().appStateStore().addPrivateMessage(PEER, message)
         graph().favorites().updateFavoriteStatus(ByteArray(32) { 0x5A }, "synthetic", true)
         assertTrue(graph().favorites().getOurFavorites().isNotEmpty())
+        // Read back through the storage shared by every identity manager, so its cache holds it.
+        SecureIdentityStateManager(context).setVerifiedFingerprint(VERIFIED, true)
+        assertTrue(SecureIdentityStateManager(context).isVerifiedFingerprint(VERIFIED))
         // Written as the bookmark store writes it, with its name, so nothing looks the name up.
         assertTrue(
             context.getSharedPreferences("geohash_prefs", Context.MODE_PRIVATE).edit()

@@ -36,6 +36,7 @@ class NostrRelayRouteChangeTest {
             override fun httpClient() = error("not called")
             override fun webSocketClient() = this@NostrRelayRouteChangeTest.webSocketClient
             override val routeChanges = this@NostrRelayRouteChangeTest.routeChanges
+            override suspend fun awaitRoute(timeoutMs: Long) = true
         }
     )
 

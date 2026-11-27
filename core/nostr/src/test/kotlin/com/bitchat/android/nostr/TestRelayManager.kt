@@ -9,6 +9,7 @@ import com.bitchat.android.services.TestMeshStores
 import dagger.Lazy
 import javax.inject.Provider
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 
@@ -17,6 +18,7 @@ internal object NoHttpClients : NostrHttpClients {
     override fun httpClient() = error("no HTTP in this test")
     override fun webSocketClient() = error("no relay sockets in this test")
     override val routeChanges = emptyFlow<Unit>()
+    override suspend fun awaitRoute(timeoutMs: Long) = true
 }
 
 /** A relay manager of the test's own, so nothing carries over between tests. Needs Robolectric. */
@@ -24,6 +26,8 @@ internal fun newRelayManager(
     clients: NostrHttpClients = NoHttpClients,
     dispatcher: CoroutineDispatcher = UnconfinedTestDispatcher(),
     deduplicator: Provider<NostrEventDeduplicator> = NostrEventDeduplicator().let { shared -> Provider { shared } },
+    monotonicClockMs: () -> Long = { System.nanoTime() / 1_000_000L },
+    backgroundState: StateFlow<Boolean>? = null,
 ): NostrRelayManager {
     val powerManager by lazy {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
@@ -39,5 +43,7 @@ internal fun newRelayManager(
         eventDeduplicator = deduplicator,
         ioDispatcher = dispatcher,
         powerManagerSource = Lazy { powerManager },
+        monotonicClockMs = monotonicClockMs,
+        backgroundStateOverride = backgroundState,
     )
 }

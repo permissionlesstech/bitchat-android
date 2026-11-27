@@ -9,6 +9,8 @@ class DebugBuffersClearTest {
 
     @Test
     fun `clearing the buffers empties the messages, scan results, devices and Wi-Fi Aware peers`() {
+        // Scan results are kept only while the debug sheet is open.
+        settings.setDebugSheetVisible(true)
         settings.addDebugMessage(DebugMessage.SystemMessage("synthetic peer-a joined"))
         settings.addScanResult(DebugScanResult("synthetic-name", "00:00:00:00:00:01", -40, "peer-a"))
         settings.updateConnectedDevices(
@@ -17,6 +19,7 @@ class DebugBuffersClearTest {
         settings.updateWifiAwareDiscovered(mapOf("peer-a" to "synthetic-name"))
         settings.updateWifiAwareConnected(mapOf("peer-a" to "192.0.2.1"))
         assertEquals(1, settings.debugMessages.value.size)
+        assertEquals(1, settings.scanResults.value.size)
 
         settings.clearBuffers()
 

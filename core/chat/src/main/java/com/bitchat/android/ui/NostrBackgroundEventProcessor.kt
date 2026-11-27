@@ -1,6 +1,8 @@
 package com.bitchat.android.ui
 
 import android.app.Application
+import android.content.Context
+import android.content.SharedPreferences
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.model.DeliveryStatus
@@ -21,8 +23,10 @@ import com.bitchat.android.services.ContactDirectory
 import com.bitchat.android.services.SeenMessageStore
 import com.bitchat.android.spam.SpamFilter
 import javax.inject.Provider
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 /**
@@ -47,12 +51,14 @@ class NostrBackgroundEventProcessor(
     private val nostrIdentity: NostrIdentityBridge,
     private val spamFilter: SpamFilter,
     seenMessageStore: SeenMessageStore,
+    processingDispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(1),
+    signatureVerificationDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : NostrBackgroundEvents {
     // Every object here belongs to one identity. Its handlers stop with its scope, but one already
     // past its last suspension finishes, and that must reach this identity's objects and no later one.
     private val identityFavorites = Provider { favorites }
     private val scope = CoroutineScope(
-        parentScope.coroutineContext + Dispatchers.IO.limitedParallelism(1)
+        parentScope.coroutineContext + processingDispatcher
     )
     private val state = ChatState(scope, appStateStore)
     private val dataManager = DataManager(application.applicationContext).apply {
@@ -89,6 +95,7 @@ class NostrBackgroundEventProcessor(
         geohashAliases = geohashAliases,
         nostrIdentity = nostrIdentity,
         spamFilter = spamFilter,
+        signatureVerificationDispatcher = signatureVerificationDispatcher,
     )
     private val directMessageHandler = NostrDirectMessageHandler(
         application = application,
@@ -105,7 +112,24 @@ class NostrBackgroundEventProcessor(
         favorites = identityFavorites,
     )
 
+    // Reload the block lists only when they changed, not on every event. A save through any
+    // DataManager bumps the generation; the listener also catches writes that bypass DataManager.
+    // This cache lives and dies with this identity's processor, so a panic, which ends the
+    // identity, never carries it over: the next identity's processor loads the wiped lists afresh.
+    private val prefs = application.applicationContext.getSharedPreferences("bitchat_prefs", Context.MODE_PRIVATE)
+    @Volatile private var blockListsDirty = false
+    @Volatile private var loadedBlockListGeneration = DataManager.blockListGeneration()
+    private val prefsChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == null || key.contains("blocked", ignoreCase = true)) {
+            blockListsDirty = true
+        }
+    }
+
     init {
+        prefs.registerOnSharedPreferenceChangeListener(prefsChangeListener)
+        parentScope.coroutineContext[Job]?.invokeOnCompletion {
+            prefs.unregisterOnSharedPreferenceChangeListener(prefsChangeListener)
+        }
         // Keep the headless state aligned with messages sent or received through other transports.
         // This preserves duplicate detection and focused-conversation behavior without retaining UI.
         scope.launch {
@@ -152,6 +176,10 @@ class NostrBackgroundEventProcessor(
     }
 
     private fun refreshBlockLists() {
+        val currentGeneration = DataManager.blockListGeneration()
+        if (!blockListsDirty && currentGeneration == loadedBlockListGeneration) return
+        blockListsDirty = false
+        loadedBlockListGeneration = currentGeneration
         dataManager.loadBlockedUsers()
         dataManager.loadGeohashBlockedUsers()
     }

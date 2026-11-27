@@ -11,6 +11,7 @@ import com.bitchat.android.di.ChatSessionTeardown
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.mesh.PowerManager
 import com.bitchat.android.noise.NoiseSession
 import com.bitchat.android.nostr.NostrTransport
 import com.bitchat.android.services.ContactDirectory
@@ -24,15 +25,17 @@ import javax.inject.Provider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
  * Starts the chat session and tears it down: loads the saved state, hydrates
- * [ChatState] from the identity's stores, and runs the once-a-second
- * peer-state poll that flushes the router outbox when a Noise session
+ * [ChatState] from the identity's stores, and runs the peer-state poll that flushes the router outbox when a Noise session
  * establishes.
  *
  * Moved out of ChatViewModel unchanged and in the same order. It lives in the
@@ -67,6 +70,7 @@ class ChatSessionStartup @Inject constructor(
     private val contactDirectory: ContactDirectory,
     private val transferProgress: TransferProgressManager,
     private val favorites: FavoritesPersistenceService,
+    private val powerManager: PowerManager,
 ) {
 
     private companion object {
@@ -258,14 +262,41 @@ class ChatSessionStartup @Inject constructor(
         return try { mesh.getSessionState(peerID) } catch (_: Exception) { NoiseSession.NoiseSessionState.Uninitialized }
     }
 
+    // What the poll last wrote to the identity cache, so an unchanged set is not written again.
+    // Session-scoped: a panic ends the session, so the next one starts with nothing cached.
+    private var lastCachedPeerIdentities: List<SecureIdentityStateManager.CachedPeerIdentity>? = null
+    private var lastCachedPeerGeneration: Long = -1L
+
     /**
-     * Initialize session state monitoring for reactive UI updates
+     * Initialize session state monitoring for reactive UI updates.
+     * Pauses completely while the app is in the background (unless an unsent QR verification
+     * challenge is waiting for a Noise handshake to finish) or when no peers are connected,
+     * eliminating unnecessary main-thread wakeups and EncryptedSharedPreferences reads.
      */
     private fun initializeSessionStateMonitoring() {
         scope.launch {
-            while (true) {
-                delay(1000) // Check session states every second
+            val isBackgroundFlow = powerManager.profile
+                .map { it.isBackground }
+                .distinctUntilChanged()
+            val hasPeersFlow = state.connectedPeers
+                .map { it.isNotEmpty() }
+                .distinctUntilChanged()
+
+            combine(
+                isBackgroundFlow,
+                hasPeersFlow,
+                verificationHandler.hasUnsentPendingVerifications
+            ) { isBackground, hasPeers, hasUnsentVerification ->
+                Triple(!isBackground, hasPeers, hasUnsentVerification)
+            }.distinctUntilChanged().collectLatest { (isForeground, hasPeers, hasUnsentVerification) ->
+                if (!isForeground && !hasUnsentVerification) return@collectLatest
+                // Sync once on foreground entry, peer-count transition, or pending QR verification.
                 updateReactiveStates()
+                if (!hasPeers) return@collectLatest
+                while (true) {
+                    delay(2000)
+                    updateReactiveStates()
+                }
             }
         }
     }
@@ -278,10 +309,12 @@ class ChatSessionStartup @Inject constructor(
 
         // Update session states
         val prevStates = state.getPeerSessionStatesValue()
-        val sessionStates = currentPeers.associateWith { peerID ->
+        val sessionStates = if (currentPeers.isEmpty()) emptyMap() else currentPeers.associateWith { peerID ->
             sessionStateForPeer(peerID).toString()
         }
-        state.setPeerSessionStates(sessionStates)
+        if (sessionStates != prevStates) {
+            state.setPeerSessionStates(sessionStates)
+        }
         // Detect new established sessions and flush router outbox for them and their noiseHex aliases
         sessionStates.forEach { (peerID, newState) ->
             val old = prevStates[peerID]
@@ -294,13 +327,21 @@ class ChatSessionStartup @Inject constructor(
         val cacheGeneration = identityManager.cacheGeneration()
         val fingerprints = privateChatManager.getAllPeerFingerprints()
         state.setPeerFingerprints(fingerprints)
-        withContext(Dispatchers.IO) {
-            identityManager.cachePeerIdentities(fingerprints.map { (peerID, fingerprint) ->
-                val info = try { mesh.getPeerInfo(peerID) } catch (_: Exception) { null }
-                SecureIdentityStateManager.CachedPeerIdentity(
-                    peerID, fingerprint, info?.noisePublicKey?.hexEncodedString(), info?.nickname
-                )
-            }, cacheGeneration)
+        val identitiesToCache = fingerprints.map { (peerID, fingerprint) ->
+            val info = try { mesh.getPeerInfo(peerID) } catch (_: Exception) { null }
+            SecureIdentityStateManager.CachedPeerIdentity(
+                peerID, fingerprint, info?.noisePublicKey?.hexEncodedString(), info?.nickname
+            )
+        }
+        if (identitiesToCache.isEmpty()) {
+            lastCachedPeerIdentities = null
+            lastCachedPeerGeneration = cacheGeneration
+        } else if (identitiesToCache != lastCachedPeerIdentities || cacheGeneration != lastCachedPeerGeneration) {
+            withContext(Dispatchers.IO) {
+                identityManager.cachePeerIdentities(identitiesToCache, cacheGeneration)
+            }
+            lastCachedPeerIdentities = identitiesToCache
+            lastCachedPeerGeneration = cacheGeneration
         }
 
         state.setPeerNicknames(mesh.getPeerNicknames())
@@ -309,7 +350,7 @@ class ChatSessionStartup @Inject constructor(
 
         // Update directness per peer (driven by PeerManager state)
         try {
-            val directMap = state.getConnectedPeersValue().associateWith { pid ->
+            val directMap = if (currentPeers.isEmpty()) emptyMap() else currentPeers.associateWith { pid ->
                 mesh.getPeerInfo(pid)?.isDirectConnection == true
             }
             state.setPeerDirect(directMap)

@@ -46,6 +46,7 @@ class IdentityScopeRulesTest {
         "RelayDirectory" to "sockets and relay list; identity subscriptions belong to their owners",
         "LiveLocationPrivacyGate" to "consent gate; panic turns location off",
         "PowerManager" to "device and process state",
+        "TorAppBackground" to "device and process state: whether the app is in the background",
         "AppShutdownCoordinator" to "device and process state",
         "MeshServicePreferences" to "device and process state",
         "DeviceReadiness" to "reads the device and stored onboarding choices; no identity data",
@@ -86,7 +87,9 @@ class IdentityScopeRulesTest {
      * an identity's data are marked identity: they are still to be moved into the scope.
      */
     private val statefulObjects: Map<String, String> = mapOf(
-        "SecureIdentityStateManager.Companion" to "process: the epoch a panic advances before its wipe, so no manager built earlier writes into the wiped storage",
+        "SecureIdentityStateManager.Companion" to "process: the epoch a panic advances before its wipe, so no manager built earlier writes into the wiped storage; the storage every manager shares, which the sandbox wipe drops",
+        "DataManager.Companion" to "process: a counter of block-list changes, no list or key in it",
+        "NostrCrypto" to "process: BIP-340 tag hashes of constant tag names",
         "NotificationManager.Companion" to "identity: registry of live managers; chat-session lifetime",
         "ChatUiModeManager" to "process: display preference flow",
         "ThemePreferenceManager" to "process: display preference flow",

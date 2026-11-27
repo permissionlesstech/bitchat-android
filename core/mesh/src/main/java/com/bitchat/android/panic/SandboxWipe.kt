@@ -1,6 +1,7 @@
 package com.bitchat.android.panic
 
 import android.content.Context
+import com.bitchat.android.identity.SecureIdentityStateManager
 import java.io.File
 import java.nio.file.Files
 import java.security.KeyStore
@@ -50,10 +51,16 @@ class SandboxWipe(
 
     fun run(): WipeResult {
         prefsFailures.clear()
-        wipePreferences()
-        wipeDatabases()
-        roots().forEach { (_, root, kept) -> deleteChildren(root, "", kept) }
-        deleteKeystoreAliases()
+        try {
+            wipePreferences()
+            wipeDatabases()
+            roots().forEach { (_, root, kept) -> deleteChildren(root, "", kept) }
+            deleteKeystoreAliases()
+        } finally {
+            // The identity storage opened before the wipe holds the deleted keyset and the ended
+            // identity's state; the next manager opens it again.
+            SecureIdentityStateManager.dropSharedStorage()
+        }
         return WipeResult(
             leftovers = findLeftovers(),
             aliasesLeft = try {

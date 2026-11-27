@@ -1,5 +1,6 @@
 package com.bitchat.android.noise
 
+import com.bitchat.android.util.toHexString
 import java.security.MessageDigest
 
 /**
@@ -13,18 +14,21 @@ object NoisePeerIdentity {
     const val STATIC_PUBLIC_KEY_SIZE = 32
     const val WIRE_PEER_ID_LENGTH = 16
 
-    private val wirePeerIDPattern = Regex("^[0-9a-f]{$WIRE_PEER_ID_LENGTH}$")
+    private val sha256ThreadLocal = ThreadLocal.withInitial { MessageDigest.getInstance("SHA-256") }
 
     fun derivePeerID(staticPublicKey: ByteArray): String? {
         if (staticPublicKey.size != STATIC_PUBLIC_KEY_SIZE) return null
-        return MessageDigest.getInstance("SHA-256")
-            .digest(staticPublicKey)
-            .take(8)
-            .joinToString("") { "%02x".format(it) }
+        val md = sha256ThreadLocal.get()!!
+        md.reset()
+        return md.digest(staticPublicKey).toHexString(8)
     }
 
     fun matchesClaimedPeerID(claimedPeerID: String, staticPublicKey: ByteArray): Boolean {
-        if (!wirePeerIDPattern.matches(claimedPeerID)) return false
+        if (claimedPeerID.length != WIRE_PEER_ID_LENGTH) return false
+        for (i in 0 until WIRE_PEER_ID_LENGTH) {
+            val c = claimedPeerID[i]
+            if (c !in '0'..'9' && c !in 'a'..'f') return false
+        }
         return derivePeerID(staticPublicKey) == claimedPeerID
     }
 }

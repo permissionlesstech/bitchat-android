@@ -301,8 +301,20 @@ class MessageHandler(
             return AnnounceHandlingResult.Rejected
         }
         
-        val announcement = AnnouncementIdentityValidator.verify(packet, peerID) { signature, data, key ->
-            delegate?.verifyEd25519Signature(signature, data, key) ?: false
+        val cached = packet.cachedVerifiedAnnouncement
+        val announcement = if (
+            cached != null &&
+            cached.peerID == peerID &&
+            cached.payloadRef === packet.payload &&
+            cached.signatureRef === packet.signature &&
+            cached.senderIDRef === packet.senderID &&
+            cached.announcement is com.bitchat.android.model.IdentityAnnouncement
+        ) {
+            cached.announcement
+        } else {
+            AnnouncementIdentityValidator.verify(packet, peerID) { signature, data, key ->
+                delegate?.verifyEd25519Signature(signature, data, key) ?: false
+            }
         }
         if (announcement == null) {
             Log.w(TAG, "Rejecting malformed, unbound, or invalidly signed ANNOUNCE from ${peerID.take(8)}")

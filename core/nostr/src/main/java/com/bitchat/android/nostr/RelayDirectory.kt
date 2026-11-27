@@ -76,14 +76,9 @@ class RelayDirectory @Inject constructor(
 
                 initialized = true
 
-                // Trigger an immediate fetch if the data is stale (older than 24h)
-                ioScope.launch {
-                    if (isStale(application)) {
-                        fetchAndMaybeSwap(application)
-                    }
-                }
-
-                // Start periodic staleness check every minute
+                // Single refresh coroutine: checks immediately if stale, then sleeps until the
+                // next 24h boundary (or backs off exponentially on failure) instead of polling
+                // every minute.
                 startPeriodicRefresh(application)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to initialize RelayDirectory: ${e.message}")
@@ -137,42 +132,65 @@ class RelayDirectory @Inject constructor(
     private fun getDownloadedFile(application: Application): File =
         File(application.filesDir, DOWNLOADED_FILE)
 
-    private fun isStale(application: Application): Boolean {
+    private fun remainingUntilStaleMs(application: Application): Long {
         val last = getPrefs(application).getLong(KEY_LAST_UPDATE_MS, 0L)
-        val now = System.currentTimeMillis()
-        return now - last >= ONE_DAY_MS
+        val elapsed = System.currentTimeMillis() - last
+        return (ONE_DAY_MS - elapsed).coerceAtLeast(0L)
     }
 
     private fun startPeriodicRefresh(application: Application) {
         ioScope.launch {
+            var consecutiveFailures = 0
             while (true) {
-                try {
-                    if (isStale(application)) {
-                        fetchAndMaybeSwap(application)
-                    }
+                val waitBeforeCheck = remainingUntilStaleMs(application)
+                if (waitBeforeCheck > 0L) {
+                    delay(waitBeforeCheck)
+                }
+
+                val ok = try {
+                    // Wait for Tor route if Tor is enabled and still bootstrapping.
+                    httpClients.awaitRoute(30_000L)
+                    fetchAndMaybeSwap(application)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.w(TAG, "Periodic refresh encountered an error: ${e.message}")
+                    false
                 }
-                delay(TimeUnit.MINUTES.toMillis(1))
+
+                if (ok) {
+                    consecutiveFailures = 0
+                } else {
+                    consecutiveFailures = (consecutiveFailures + 1).coerceAtMost(6)
+                    // Exponential backoff on failure (5m -> 15m -> 45m -> 2h -> 6h)
+                    val retryDelayMs = when (consecutiveFailures) {
+                        1 -> TimeUnit.MINUTES.toMillis(5)
+                        2 -> TimeUnit.MINUTES.toMillis(15)
+                        3 -> TimeUnit.MINUTES.toMillis(45)
+                        4 -> TimeUnit.HOURS.toMillis(2)
+                        else -> TimeUnit.HOURS.toMillis(6)
+                    }
+                    delay(retryDelayMs)
+                }
             }
         }
     }
 
-    private fun fetchAndMaybeSwap(application: Application) {
-        try {
+    private fun fetchAndMaybeSwap(application: Application): Boolean {
+        return try {
             val tmpFile = File.createTempFile("relays_", ".csv", application.cacheDir)
             val ok = downloadToFile(ASSET_FILE_URL, tmpFile)
             if (!ok) {
                 Log.w(TAG, "Failed to fetch latest relays; keeping current list (will fallback to bundled if none)")
                 tmpFile.delete()
-                return
+                return false
             }
 
             val parsed = parseCsv(FileInputStream(tmpFile))
             if (parsed.isEmpty()) {
                 Log.w(TAG, "Downloaded relay CSV parsed to 0 entries; ignoring")
                 tmpFile.delete()
-                return
+                return false
             }
 
             val dest = getDownloadedFile(application)
@@ -194,8 +212,10 @@ class RelayDirectory @Inject constructor(
             getPrefs(application).edit().putLong(KEY_LAST_UPDATE_MS, System.currentTimeMillis()).apply()
 
             Log.i(TAG, "✅ Using downloaded relay list (${dest.absolutePath}), entries=$entries, sha256=$hash, updatedAtMs=${getPrefs(application).getLong(KEY_LAST_UPDATE_MS, 0L)}")
+            true
         } catch (e: Exception) {
             Log.w(TAG, "Failed to fetch and swap relay list: ${e.message}")
+            false
         }
     }
 

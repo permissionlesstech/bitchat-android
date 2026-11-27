@@ -33,13 +33,17 @@ class MeshGraphService @Inject constructor() {
      */
     fun updateFromAnnouncement(originPeerID: String, originNickname: String?, neighborsOrNull: List<String>?, timestamp: ULong) {
         synchronized(this) {
-            // Always update nickname if provided
+            // Capture previous nickname before mutating so we can detect actual state changes.
+            val prevNickname = nicknames[originPeerID]
             if (originNickname != null) nicknames[originPeerID] = originNickname
 
             // 1. Check timestamp first to ensure this is the latest word from the peer
             val prevTs = lastUpdate[originPeerID]
             if (prevTs != null && prevTs >= timestamp) {
-                // Older or equal update: ignore
+                // Older or equal update: ignore (but publish if nickname actually changed)
+                if (originNickname != null && prevNickname != originNickname) {
+                    publishSnapshot()
+                }
                 return
             }
             lastUpdate[originPeerID] = timestamp
@@ -50,16 +54,23 @@ class MeshGraphService @Inject constructor() {
             
             // Filter out self-loops just in case
             val newSet = neighbors.distinct().take(10).filter { it != originPeerID }.toSet()
-            announcements[originPeerID] = newSet
+            val prevNeighbors = announcements.put(originPeerID, newSet)
 
-            publishSnapshot()
+            // Avoid rebuilding and sorting the entire graph snapshot on periodic unchanged announces.
+            if (prevNeighbors == null || prevNeighbors != newSet || (originNickname != null && prevNickname != originNickname)) {
+                publishSnapshot()
+            }
         }
     }
 
     fun updateNickname(peerID: String, nickname: String?) {
         if (nickname == null) return
-        nicknames[peerID] = nickname
-        publishSnapshot()
+        synchronized(this) {
+            val prev = nicknames.put(peerID, nickname)
+            if (prev != nickname) {
+                publishSnapshot()
+            }
+        }
     }
 
     /**

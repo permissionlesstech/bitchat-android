@@ -10,6 +10,7 @@ import android.os.ParcelUuid
 import android.util.Log
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.util.AppConstants
+import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -171,7 +172,7 @@ class BluetoothGattServerManager(
      * Setup GATT server with proper sequencing
      */
     @Suppress("DEPRECATION")
-    private fun setupGattServer() {
+    private suspend fun setupGattServer() {
         if (!permissionManager.hasBluetoothPermissions()) return
         
         val serverCallback = object : BluetoothGattServerCallback() {
@@ -261,7 +262,7 @@ class BluetoothGattServerManager(
                     }
                     val packet = BitchatPacket.fromBinaryData(value)
                     if (packet != null) {
-                        val peerID = packet.senderID.take(8).toByteArray().joinToString("") { "%02x".format(it) }
+                        val peerID = packet.senderID.toHexString(8)
                         delegate?.onPacketReceived(packet, peerID, device, linkID)
                     } else {
                         Log.d(TAG, "Server: Failed to parse packet from ${device.address}, size: ${value.size} bytes")
@@ -321,8 +322,8 @@ class BluetoothGattServerManager(
             }
         }
 
-        // Small delay to ensure cleanup is complete
-        Thread.sleep(100)
+        // Small delay to ensure cleanup is complete (non-blocking inside coroutine)
+        delay(100)
 
         if (!isActive) {
             return

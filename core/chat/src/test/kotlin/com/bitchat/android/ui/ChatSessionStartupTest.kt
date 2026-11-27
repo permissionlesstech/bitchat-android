@@ -7,6 +7,7 @@ import com.bitchat.android.di.ChatSessionTeardown
 import com.bitchat.android.di.DefaultChatSessionEnder
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.mesh.PowerManager
 import com.bitchat.android.mesh.TransferProgressManager
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.noise.NoiseSession
@@ -56,6 +57,9 @@ class ChatSessionStartupTest {
         on { debugMessages } doReturn MutableStateFlow(emptyList())
         on { verboseLoggingEnabled } doReturn MutableStateFlow(false)
     }
+    // In the foreground, so the peer poll runs.
+    private val foreground = mock<PowerManager.RuntimePerformanceProfile> { on { isBackground } doReturn false }
+    private val powerManager = mock<PowerManager> { on { profile } doReturn MutableStateFlow(foreground) }
     private val transferProgress = mock<TransferProgressManager> {
         on { events } doReturn MutableSharedFlow()
     }
@@ -92,7 +96,7 @@ class ChatSessionStartupTest {
             channelManager = mock { on { loadChannelData() } doReturn (emptySet<String>() to emptySet()) },
             privateChatManager = mock { on { getAllPeerFingerprints() } doReturn emptyMap() },
             identityManagerProvider = Provider { mock() },
-            verificationHandler = mock(),
+            verificationHandler = mock { on { hasUnsentPendingVerifications } doReturn MutableStateFlow(false) },
             mediaSendingManager = mock(),
             geohashSession = geohashSession,
             contactFavorites = mock(),
@@ -101,6 +105,7 @@ class ChatSessionStartupTest {
             contactDirectory = stores.contactDirectory,
             transferProgress = transferProgress,
             favorites = mock<FavoritesPersistenceService>(),
+            powerManager = powerManager,
         )
 
         fun end() = DefaultChatSessionEnder().end(FakeSessionComponent(teardown, scope))

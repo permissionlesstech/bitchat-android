@@ -125,6 +125,7 @@ class WearMeshService @Inject constructor(
             transportBridgeService = transportBridgeService,
             verificationService = verificationService,
             seenMessageStore = seenMessageStore,
+            powerManager = powerManager,
             hooks = MeshCore.Hooks(
                 onMessageReceived = { message -> handleMessageReceived(message) },
                 onAnnounceProcessed = { routed, _ ->

@@ -10,6 +10,7 @@ import android.os.ParcelUuid
 import android.util.Log
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.util.AppConstants
+import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -395,7 +396,7 @@ class BluetoothGattClientManager(
         // Try to extract peerID from Service Data (if available) for stable identity
         val serviceData = scanRecord?.getServiceData(ParcelUuid(AppConstants.Mesh.Gatt.SERVICE_UUID))
         val peerID = if (serviceData != null && serviceData.size >= 8) {
-            serviceData.joinToString("") { "%02x".format(it) }
+            serviceData.toHexString()
         } else {
             null
         }
@@ -409,23 +410,12 @@ class BluetoothGattClientManager(
         // Store RSSI from scan results for later use (especially for server connections)
         connectionTracker.updateScanRSSI(deviceAddress, rssi)
 
-        // Publish scan result to debug UI buffer
-        try {
-            debugSettingsManager.get().addScanResult(
-                DebugScanResult(
-                    deviceName = device.name,
-                    deviceAddress = deviceAddress,
-                    rssi = rssi,
-                    peerID = peerID // Use the discovered peerID if available
-                )
-            )
-        } catch (_: Exception) { }
-        
-        // Power-aware RSSI filtering
-        if (rssi < powerManager.getRSSIThreshold()) {
-            // Even if we skip connecting, still publish scan result to debug UI
+        // Publish scan result to debug UI buffer only when the debug sheet is visible.
+        // Avoids device.name Binder IPC and list copying on thousands of background scan hits.
+        val dbg = try { debugSettingsManager.get() } catch (_: Exception) { null }
+        if (dbg?.debugSheetVisible?.value == true) {
             try {
-                debugSettingsManager.get().addScanResult(
+                dbg.addScanResult(
                     DebugScanResult(
                         deviceName = device.name,
                         deviceAddress = deviceAddress,
@@ -434,6 +424,10 @@ class BluetoothGattClientManager(
                     )
                 )
             } catch (_: Exception) { }
+        }
+
+        // Power-aware RSSI filtering
+        if (rssi < powerManager.getRSSIThreshold()) {
             return
         }
         
@@ -448,7 +442,6 @@ class BluetoothGattClientManager(
         }
         
         // Check if connection limit is reached
-        val dbg = try { debugSettingsManager.get() } catch (_: Exception) { null }
         val maxOverall = dbg?.maxConnectionsOverall?.value ?: powerManager.getMaxConnections()
         val maxClient = dbg?.maxClientConnections?.value ?: maxOverall
 
@@ -577,7 +570,7 @@ class BluetoothGattClientManager(
                 val value = characteristic.value
                 val packet = BitchatPacket.fromBinaryData(value)
                 if (packet != null) {
-                    val peerID = packet.senderID.take(8).toByteArray().joinToString("") { "%02x".format(it) }
+                    val peerID = packet.senderID.toHexString(8)
                     delegate?.onPacketReceived(packet, peerID, gatt.device, linkID)
                 } else {
                     Log.d(TAG, "Failed to parse packet from ${gatt.device.address}, size: ${value.size} bytes")

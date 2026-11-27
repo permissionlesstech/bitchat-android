@@ -32,6 +32,7 @@ import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Date
 import kotlinx.coroutines.isActive
 import java.util.UUID
@@ -425,13 +426,30 @@ class GeohashSession(
                 notificationManager.clearNotificationsForGeohash(channel.channel.geohash)
                 try { messageManager.clearChannelUnreadCount("geo:${channel.channel.geohash}") } catch (_: Exception) { }
 
-                try {
-                    val identity = nostrIdentity.deriveIdentity(channel.channel.geohash, application)
-                    // We don't update participant here anymore; presence loop handles it via Kind 20001
-                    val teleported = locationChannelManager?.teleported?.value
-                        ?: state.isTeleported.value
-                    if (teleported) repo.markTeleported(identity.publicKeyHex)
-                } catch (e: Exception) { Log.w(TAG, "Failed identity setup: ${e.message}") }
+                // We don't update participant here anymore; presence loop handles it via Kind 20001.
+                // Deriving a new identity is slow, so only a cached one is read on the main thread.
+                val targetGeohash = channel.channel.geohash
+                val teleported = locationChannelManager?.teleported?.value
+                    ?: state.isTeleported.value
+                val cachedIdentity = nostrIdentity.getCachedIdentity(targetGeohash)
+                if (cachedIdentity != null) {
+                    if (teleported) repo.markTeleported(cachedIdentity.publicKeyHex)
+                } else {
+                    scope.launch {
+                        try {
+                            val identity = withContext(Dispatchers.IO) {
+                                nostrIdentity.deriveIdentity(targetGeohash, application)
+                            }
+                            if (teleported && activeChannelGeohash == targetGeohash) {
+                                repo.markTeleported(identity.publicKeyHex)
+                            }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Failed identity setup: ${e.message}")
+                        }
+                    }
+                }
 
                 startGeoParticipantsTimer()
                 val liveLocationToken = locationChannelManager

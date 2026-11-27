@@ -1,14 +1,15 @@
 use jni::JNIEnv;
 use jni::objects::{JClass, JString, JObject, GlobalRef};
-use jni::sys::{jint, jstring};
+use jni::sys::{jboolean, jint, jstring};
 use jni::JavaVM;
 
-use arti_client::TorClient;
+use arti_client::{DormantMode, TorClient};
 use arti_client::config::TorClientConfigBuilder;
 use tor_rtcompat::PreferredRuntime;
 
-use std::sync::{Arc, Mutex, Once};
+use std::sync::{Arc, Mutex, Once, OnceLock};
 use std::path::PathBuf;
+use std::time::Duration;
 use anyhow::Result;
 
 // ============================================================================
@@ -18,8 +19,9 @@ use anyhow::Result;
 /// Global Arti client instance
 static ARTI_CLIENT: Mutex<Option<Arc<TorClient<PreferredRuntime>>>> = Mutex::new(None);
 
-/// Global Tokio runtime (must persist for Arti to work)
-static TOKIO_RUNTIME: Mutex<Option<tokio::runtime::Runtime>> = Mutex::new(None);
+/// Global Tokio runtime (initialized once and never replaced, so Lock-free OnceLock
+/// guarantees no lock ordering inversion with DORMANT_STATE or SOCKS_TASK).
+static TOKIO_RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
 
 /// Global JavaVM reference (cached on first JNI call)
 static JAVA_VM: Mutex<Option<JavaVM>> = Mutex::new(None);
@@ -29,6 +31,43 @@ static LOG_CALLBACK: Mutex<Option<GlobalRef>> = Mutex::new(None);
 
 /// Handle to SOCKS server task (for graceful shutdown)
 static SOCKS_TASK: Mutex<Option<tokio::task::JoinHandle<()>>> = Mutex::new(None);
+
+/// Serialized dormant-mode state preventing TOCTOU races between foreground wake
+/// (`setDormant(false)`), background sleep (`setDormant(true)`), `startSocksProxy`,
+/// `stop`, and the delayed background re-dormant timer.
+struct DormantState {
+    requested: bool,
+    socks_running: bool,
+    socks_generation: u64,
+    in_flight_connects: usize,
+    active_streams: usize,
+    activity_epoch: u64,
+    timer: Option<tokio::task::JoinHandle<()>>,
+    socks_shutdown_tx: Option<tokio::sync::watch::Sender<bool>>,
+}
+
+impl DormantState {
+    const fn new() -> Self {
+        Self {
+            requested: false,
+            socks_running: false,
+            socks_generation: 0,
+            in_flight_connects: 0,
+            active_streams: 0,
+            activity_epoch: 0,
+            timer: None,
+            socks_shutdown_tx: None,
+        }
+    }
+}
+
+static DORMANT_STATE: Mutex<DormantState> = Mutex::new(DormantState::new());
+
+/// Grace period after background SOCKS connect activity before returning to DormantMode::Soft
+const RE_DORMANT_IDLE_DELAY: Duration = Duration::from_secs(15);
+
+/// Bounded wait when joining an aborted SOCKS accept task so its TcpListener releases the port.
+const SOCKS_STOP_JOIN_TIMEOUT: Duration = Duration::from_millis(250);
 
 /// Initialization flag
 static INIT_ONCE: Once = Once::new();
@@ -71,6 +110,160 @@ macro_rules! log_error {
         android_logger::log(&format!("Arti: {}", msg));
         send_log_to_java(msg);
     }};
+}
+
+// ============================================================================
+// Dormant Mode Helpers
+// ============================================================================
+
+fn apply_dormant_mode_now(mode: DormantMode) -> bool {
+    let client_opt = ARTI_CLIENT.lock().unwrap().as_ref().map(Arc::clone);
+    if let Some(client) = client_opt {
+        client.set_dormant(mode);
+        true
+    } else {
+        false
+    }
+}
+
+/// Schedule a debounced return to `DormantMode::Soft` when backgrounded.
+///
+/// Must be called while holding `DORMANT_STATE`. Upstream `arti-client` automatically wakes
+/// `DormantMode::Soft` back to `DormantMode::Normal` whenever `client.connect(...)` runs;
+/// re-checking and applying `DormantMode::Soft` under `DORMANT_STATE` guarantees a foreground
+/// wake (`setDormant(false)`) can never be overwritten by a racing background timer.
+fn schedule_re_dormant_locked(state: &mut DormantState) {
+    if !state.requested || !state.socks_running {
+        return;
+    }
+    state.activity_epoch = state.activity_epoch.wrapping_add(1);
+    let epoch = state.activity_epoch;
+    let generation = state.socks_generation;
+    if let Some(handle) = state.timer.take() {
+        handle.abort();
+    }
+
+    let Some(runtime) = TOKIO_RUNTIME.get() else {
+        return;
+    };
+
+    let handle = runtime.spawn(async move {
+        tokio::time::sleep(RE_DORMANT_IDLE_DELAY).await;
+        let applied_streams = {
+            let mut state = DORMANT_STATE.lock().unwrap();
+            if state.requested
+                && state.socks_running
+                && state.socks_generation == generation
+                && state.in_flight_connects == 0
+                && state.activity_epoch == epoch
+            {
+                state.timer = None;
+                if apply_dormant_mode_now(DormantMode::Soft) {
+                    Some(state.active_streams)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        };
+        if let Some(streams) = applied_streams {
+            log_info!(
+                "Arti re-entered DormantMode::Soft after background SOCKS settle (active_streams={})",
+                streams
+            );
+        }
+    });
+
+    state.timer = Some(handle);
+}
+
+struct ActiveStreamGuard {
+    generation: u64,
+}
+
+impl ActiveStreamGuard {
+    fn try_new(generation: u64) -> Option<Self> {
+        let mut state = DORMANT_STATE.lock().unwrap();
+        if !state.socks_running || state.socks_generation != generation {
+            return None;
+        }
+        state.active_streams += 1;
+        Some(Self { generation })
+    }
+}
+
+impl Drop for ActiveStreamGuard {
+    fn drop(&mut self) {
+        let mut state = DORMANT_STATE.lock().unwrap();
+        if state.socks_generation != self.generation {
+            return;
+        }
+        state.active_streams = state.active_streams.saturating_sub(1);
+        if state.active_streams == 0
+            && state.socks_running
+            && state.requested
+            && state.in_flight_connects == 0
+        {
+            schedule_re_dormant_locked(&mut state);
+        }
+    }
+}
+
+struct InFlightConnectGuard {
+    generation: u64,
+}
+
+impl InFlightConnectGuard {
+    /// Register an in-flight `client.connect(...)` only if the SOCKS server is still active
+    /// for the matching proxy generation. Returns `None` if `stop()` or a restart has already
+    /// superseded this proxy, preventing a delayed handshake from waking the resident `TorClient`
+    /// out of `DormantMode::Soft`.
+    fn try_new(generation: u64) -> Option<Self> {
+        let mut state = DORMANT_STATE.lock().unwrap();
+        if !state.socks_running || state.socks_generation != generation {
+            return None;
+        }
+        state.in_flight_connects += 1;
+        state.activity_epoch = state.activity_epoch.wrapping_add(1);
+        if let Some(handle) = state.timer.take() {
+            handle.abort();
+        }
+        Some(Self { generation })
+    }
+}
+
+impl Drop for InFlightConnectGuard {
+    fn drop(&mut self) {
+        let mut state = DORMANT_STATE.lock().unwrap();
+        if state.socks_generation != self.generation {
+            return;
+        }
+        state.in_flight_connects = state.in_flight_connects.saturating_sub(1);
+        if state.in_flight_connects == 0 {
+            if !state.socks_running {
+                // Proxy was stopped while this connect was in flight; immediately re-apply Soft.
+                let _ = apply_dormant_mode_now(DormantMode::Soft);
+            } else if state.requested {
+                schedule_re_dormant_locked(&mut state);
+            }
+        }
+    }
+}
+
+/// Abort any active SOCKS accept task and wait up to `SOCKS_STOP_JOIN_TIMEOUT` for it to exit
+/// so its `TcpListener` releases the port before returning or re-binding.
+fn stop_socks_task_and_wait() {
+    let prev_handle = SOCKS_TASK.lock().unwrap().take();
+    if let Some(handle) = prev_handle {
+        log_info!("Aborting previous SOCKS server task");
+        handle.abort();
+        if let Some(rt) = TOKIO_RUNTIME.get() {
+            rt.block_on(async {
+                let _ = tokio::time::timeout(SOCKS_STOP_JOIN_TIMEOUT, handle).await;
+            });
+        }
+    }
 }
 
 // ============================================================================
@@ -149,7 +342,7 @@ pub extern "C" fn Java_org_torproject_arti_ArtiNative_initialize(
         {
             Ok(rt) => {
                 log_info!("Tokio runtime created successfully");
-                *TOKIO_RUNTIME.lock().unwrap() = Some(rt);
+                let _ = TOKIO_RUNTIME.set(rt);
             }
             Err(e) => {
                 log_error!("Failed to create Tokio runtime: {:?}", e);
@@ -158,8 +351,7 @@ pub extern "C" fn Java_org_torproject_arti_ArtiNative_initialize(
     });
 
     // Check if runtime exists
-    let runtime_guard = TOKIO_RUNTIME.lock().unwrap();
-    let runtime = match runtime_guard.as_ref() {
+    let runtime = match TOKIO_RUNTIME.get() {
         Some(rt) => rt,
         None => {
             log_error!("Tokio runtime not initialized");
@@ -218,11 +410,15 @@ pub extern "C" fn Java_org_torproject_arti_ArtiNative_startSocksProxy(
     log_info!("AMEx: state changed to Starting");
     log_info!("Starting SOCKS proxy on port {}", port);
 
-    // Stop any existing SOCKS server first
-    if let Some(handle) = SOCKS_TASK.lock().unwrap().take() {
-        log_info!("Aborting previous SOCKS server task");
-        handle.abort();
+    // Stop any existing SOCKS server and active handlers first, waiting briefly for port release.
+    {
+        let mut state = DORMANT_STATE.lock().unwrap();
+        state.socks_running = false;
+        if let Some(tx) = state.socks_shutdown_tx.take() {
+            let _ = tx.send(true);
+        }
     }
+    stop_socks_task_and_wait();
 
     let client_guard = ARTI_CLIENT.lock().unwrap();
     let client = match client_guard.as_ref() {
@@ -234,8 +430,7 @@ pub extern "C" fn Java_org_torproject_arti_ArtiNative_startSocksProxy(
     };
     drop(client_guard);
 
-    let runtime_guard = TOKIO_RUNTIME.lock().unwrap();
-    let runtime = match runtime_guard.as_ref() {
+    let runtime = match TOKIO_RUNTIME.get() {
         Some(rt) => rt,
         None => {
             log_error!("Tokio runtime not initialized");
@@ -243,7 +438,7 @@ pub extern "C" fn Java_org_torproject_arti_ArtiNative_startSocksProxy(
         }
     };
 
-    // Try to bind IMMEDIATELY to detect port conflicts before returning
+    // Try to bind IMMEDIATELY before waking TorClient so bind failures leave client dormant.
     let addr = format!("127.0.0.1:{}", port);
 
     // Use block_on to synchronously attempt binding
@@ -258,8 +453,34 @@ pub extern "C" fn Java_org_torproject_arti_ArtiNative_startSocksProxy(
         }
         Err(e) => {
             log_error!("Failed to bind SOCKS proxy to {}: {:?}", addr, e);
+            let mut state = DORMANT_STATE.lock().unwrap();
+            state.requested = true;
+            state.socks_running = false;
+            state.activity_epoch = state.activity_epoch.wrapping_add(1);
+            if let Some(handle) = state.timer.take() {
+                handle.abort();
+            }
+            client.set_dormant(DormantMode::Soft);
             return -3;
         }
+    };
+
+    // Bind succeeded: advance generation, install shutdown channel, and wake TorClient to Normal.
+    let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+    let generation = {
+        let mut state = DORMANT_STATE.lock().unwrap();
+        state.socks_generation = state.socks_generation.wrapping_add(1);
+        state.in_flight_connects = 0;
+        state.active_streams = 0;
+        state.requested = false;
+        state.socks_running = true;
+        state.socks_shutdown_tx = Some(shutdown_tx);
+        state.activity_epoch = state.activity_epoch.wrapping_add(1);
+        if let Some(handle) = state.timer.take() {
+            handle.abort();
+        }
+        client.set_dormant(DormantMode::Normal);
+        state.socks_generation
     };
 
     // Now spawn the background task with the already-bound listener
@@ -278,10 +499,18 @@ pub extern "C" fn Java_org_torproject_arti_ArtiNative_startSocksProxy(
                 Ok((stream, peer_addr)) => {
                     log_info!("SOCKS connection from: {}", peer_addr);
                     let client_clone = Arc::clone(&client);
+                    let mut conn_shutdown_rx = shutdown_rx.clone();
 
                     tokio::spawn(async move {
-                        if let Err(e) = handle_socks_connection(stream, client_clone).await {
-                            log_error!("SOCKS connection error: {:?}", e);
+                        tokio::select! {
+                            res = handle_socks_connection(stream, client_clone, generation) => {
+                                if let Err(e) = res {
+                                    log_error!("SOCKS connection error: {:?}", e);
+                                }
+                            }
+                            _ = conn_shutdown_rx.changed() => {
+                                log_info!("SOCKS connection aborted on proxy stop");
+                            }
                         }
                     });
                 }
@@ -306,8 +535,13 @@ pub extern "C" fn Java_org_torproject_arti_ArtiNative_startSocksProxy(
 async fn handle_socks_connection(
     mut stream: tokio::net::TcpStream,
     client: Arc<TorClient<PreferredRuntime>>,
+    generation: u64,
 ) -> Result<()> {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let Some(_stream_guard) = ActiveStreamGuard::try_new(generation) else {
+        return Err(anyhow::anyhow!("SOCKS proxy stopped before stream start"));
+    };
 
     // Simple SOCKS5 handshake
     let mut buf = [0u8; 512];
@@ -382,14 +616,22 @@ async fn handle_socks_connection(
 
     log_info!("SOCKS5 CONNECT to {}:{}", target_host, target_port);
 
-    // Establish Tor connection
-    let tor_stream = match client.connect((target_host.as_str(), target_port)).await {
-        Ok(s) => s,
-        Err(e) => {
-            log_error!("Failed to connect through Tor: {:?}", e);
-            // Send SOCKS5 error: general failure
-            stream.write_all(&[0x05, 0x05, 0x00, 0x01, 0, 0, 0, 0, 0, 0]).await?;
-            return Err(e.into());
+    // Establish Tor connection (automatically wakes DormantMode::Soft inside arti-client;
+    // when this guard drops, if background dormancy is still requested, we schedule a debounced
+    // return to DormantMode::Soft once all in-flight connects finish).
+    let tor_stream = {
+        let Some(_connect_guard) = InFlightConnectGuard::try_new(generation) else {
+            let _ = stream.write_all(&[0x05, 0x05, 0x00, 0x01, 0, 0, 0, 0, 0, 0]).await;
+            return Err(anyhow::anyhow!("SOCKS proxy stopped before connect"));
+        };
+        match client.connect((target_host.as_str(), target_port)).await {
+            Ok(s) => s,
+            Err(e) => {
+                log_error!("Failed to connect through Tor: {:?}", e);
+                // Send SOCKS5 error: general failure
+                stream.write_all(&[0x05, 0x05, 0x00, 0x01, 0, 0, 0, 0, 0, 0]).await?;
+                return Err(e.into());
+            }
         }
     };
 
@@ -429,6 +671,51 @@ async fn handle_socks_connection(
     Ok(())
 }
 
+/// Toggle Arti dormant mode (`DormantMode::Soft` when `dormant != 0`, `DormantMode::Normal` otherwise).
+#[no_mangle]
+pub extern "C" fn Java_org_torproject_arti_ArtiNative_setDormant(
+    _env: JNIEnv,
+    _class: JClass,
+    dormant: jboolean,
+) -> jint {
+    let want_dormant = dormant != 0;
+    let (rc, log_msg) = {
+        let mut state = DORMANT_STATE.lock().unwrap();
+        state.requested = want_dormant;
+        state.activity_epoch = state.activity_epoch.wrapping_add(1);
+        if let Some(handle) = state.timer.take() {
+            handle.abort();
+        }
+
+        if !want_dormant {
+            if apply_dormant_mode_now(DormantMode::Normal) {
+                (0, Some("Arti dormant mode set to Normal".to_string()))
+            } else {
+                (-1, None)
+            }
+        } else if state.in_flight_connects > 0 {
+            // Let active Tor connects finish before transitioning to soft-dormant mode.
+            schedule_re_dormant_locked(&mut state);
+            (0, None)
+        } else if apply_dormant_mode_now(DormantMode::Soft) {
+            (
+                0,
+                Some(format!(
+                    "Arti dormant mode set to Soft (active_streams={})",
+                    state.active_streams
+                )),
+            )
+        } else {
+            (-1, None)
+        }
+    };
+
+    if let Some(msg) = log_msg {
+        log_info!("{}", msg);
+    }
+    rc
+}
+
 /// Stop Arti and cleanup
 #[no_mangle]
 pub extern "C" fn Java_org_torproject_arti_ArtiNative_stop(
@@ -438,18 +725,27 @@ pub extern "C" fn Java_org_torproject_arti_ArtiNative_stop(
     log_info!("AMEx: state changed to Stopping");
     log_info!("Stopping Arti...");
 
-    // Abort SOCKS proxy task (releases the port)
-    if let Some(handle) = SOCKS_TASK.lock().unwrap().take() {
-        log_info!("Aborting SOCKS server task");
-        handle.abort();
+    // Stop accepted SOCKS handlers, cancel any pending re-dormant timer, and put the resident
+    // TorClient into DormantMode::Soft atomically under DORMANT_STATE.
+    let slept = {
+        let mut state = DORMANT_STATE.lock().unwrap();
+        state.socks_running = false;
+        state.requested = true;
+        state.activity_epoch = state.activity_epoch.wrapping_add(1);
+        if let Some(tx) = state.socks_shutdown_tx.take() {
+            let _ = tx.send(true);
+        }
+        if let Some(handle) = state.timer.take() {
+            handle.abort();
+        }
+        apply_dormant_mode_now(DormantMode::Soft)
+    };
+    if slept {
+        log_info!("Resident Arti client set to DormantMode::Soft on stop");
     }
 
-    // Give the abort a moment to complete and release the port
-    if let Some(rt) = TOKIO_RUNTIME.lock().unwrap().as_ref() {
-        rt.block_on(async {
-            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        });
-    }
+    // Abort SOCKS proxy task and await bounded exit so the TcpListener releases the port.
+    stop_socks_task_and_wait();
 
     // NOTE: We do NOT clear ARTI_CLIENT here!
     // The TorClient can be reused for multiple SOCKS proxy start/stop cycles.

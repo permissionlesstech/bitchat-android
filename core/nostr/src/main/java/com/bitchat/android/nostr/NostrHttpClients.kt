@@ -30,4 +30,13 @@ interface NostrHttpClients {
      * connections already use the new route.
      */
     val routeChanges: Flow<Unit>
+
+    /**
+     * Suspends until the selected route can carry traffic, for at most [timeoutMs], and reports
+     * whether it can. With Tor on but still bootstrapping, the clients already point at Tor's
+     * SOCKS port (so nothing leaks around Tor), but that port is not listening yet; a relay
+     * connection waits here instead of failing into a reconnect storm. Returns true at once when
+     * the route is ready or Tor is off.
+     */
+    suspend fun awaitRoute(timeoutMs: Long): Boolean
 }

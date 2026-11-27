@@ -11,6 +11,7 @@ import android.util.Base64
 import android.util.Log
 import com.bitchat.android.model.AuthenticatedPeerState
 import com.bitchat.android.model.PeerCapabilities
+import com.bitchat.android.util.dataFromHexString
 import com.bitchat.android.util.hexEncodedString
 import androidx.core.content.edit
 import java.util.concurrent.locks.ReentrantReadWriteLock
@@ -85,6 +86,57 @@ class SecureIdentityStateManager {
             block()
         }
 
+        private val sha256ThreadLocal = ThreadLocal.withInitial { MessageDigest.getInstance("SHA-256") }
+
+        private fun isHex64(value: String, lowercaseOnly: Boolean = false): Boolean {
+            if (value.length != 64) return false
+            for (i in 0 until 64) {
+                val c = value[i]
+                val valid = if (lowercaseOnly) {
+                    (c in '0'..'9') || (c in 'a'..'f')
+                } else {
+                    (c in '0'..'9') || (c in 'a'..'f') || (c in 'A'..'F')
+                }
+                if (!valid) return false
+            }
+            return true
+        }
+
+        /**
+         * The identity storage opened once and shared by every manager built over it, with the
+         * string sets read from it, so a manager built per call skips the master key and keyset
+         * load. [stringSets] is guarded by [privateMediaPinsLock].
+         */
+        private class SharedStorage(val appContext: Context, val prefs: SharedPreferences) {
+            val stringSets = mutableMapOf<String, Set<String>>()
+        }
+
+        private val sharedStorageLock = Any()
+        private var sharedStorage: SharedStorage? = null
+
+        private fun sharedStorage(context: Context): SharedStorage {
+            val appContext = context.applicationContext ?: context
+            return storageLock.read {
+                synchronized(sharedStorageLock) {
+                    sharedStorage?.takeIf { it.appContext === appContext }
+                        ?: SharedStorage(appContext, openEncryptedPreferences(appContext, PREFS_NAME))
+                            .also { sharedStorage = it }
+                }
+            }
+        }
+
+        /**
+         * Forgets the shared storage, so the next manager opens storage again. The sandbox wipe
+         * calls it once it has deleted the storage: a storage opened before the wipe holds the
+         * keyset it deleted and the ended identity's string sets, which a manager built on it
+         * afterwards would write under (AEADBadTagException on the next open) or read back.
+         */
+        fun dropSharedStorage() {
+            val dropped = synchronized(sharedStorageLock) { sharedStorage.also { sharedStorage = null } }
+            // Managers built before the wipe still hold it; they must not read the ended identity back.
+            if (dropped != null) synchronized(privateMediaPinsLock) { dropped.stringSets.clear() }
+        }
+
         /**
          * Opens the encrypted preferences [name] under the app's master key, waiting out a panic's
          * wipe. The master key is loaded or generated inside the lock as well as the keyset: the
@@ -110,6 +162,8 @@ class SecureIdentityStateManager {
     }
 
     private val prefs: SharedPreferences
+    /** Null for test-only plain storage, which reads through to its preferences on every call. */
+    private val storage: SharedStorage?
     private val lock = Any()
     private var privateMediaPinsEpochAtCreation: Long
 
@@ -117,7 +171,29 @@ class SecureIdentityStateManager {
         privateMediaPinsEpochAtCreation = synchronized(privateMediaPinsLock) {
             privateMediaPinsEpoch
         }
-        prefs = GatedPreferences(openEncryptedPreferences(context, PREFS_NAME))
+        val shared = sharedStorage(context)
+        storage = shared
+        prefs = GatedPreferences(shared.prefs)
+    }
+
+    /** A manager fenced by a panic reads its storage directly, never a cache it may share with others. */
+    private fun readCachedStringSet(key: String): Set<String> = synchronized(privateMediaPinsLock) {
+        val shared = storage?.takeIf { mayWrite() }
+            ?: return@synchronized prefs.getStringSet(key, emptySet())?.toSet() ?: emptySet()
+        shared.stringSets[key]?.let { return@synchronized it }
+        val loaded = prefs.getStringSet(key, emptySet())?.toSet() ?: emptySet()
+        shared.stringSets[key] = loaded
+        loaded
+    }
+
+    /** A fenced manager's write was refused, so it forgets the key rather than caching the refused value. */
+    private fun writeCachedStringSetLocked(key: String, value: Set<String>) {
+        val shared = storage ?: return
+        if (mayWrite()) shared.stringSets[key] = value.toSet() else shared.stringSets.remove(key)
+    }
+
+    private fun invalidateAllCachedSetsLocked() {
+        storage?.stringSets?.clear()
     }
 
     /** Test-only storage injection; production always uses encrypted prefs. */
@@ -128,6 +204,7 @@ class SecureIdentityStateManager {
             privateMediaPinsEpoch
         }
         this.prefs = GatedPreferences(prefs)
+        this.storage = null
     }
 
     /** Whether no panic has fenced this manager since it was built or last cleared its own storage. */
@@ -303,7 +380,8 @@ class SecureIdentityStateManager {
      * Generate fingerprint from public key (SHA-256 hash)
      */
     fun generateFingerprint(publicKeyData: ByteArray): String {
-        val digest = MessageDigest.getInstance("SHA-256")
+        val digest = sha256ThreadLocal.get()!!
+        digest.reset()
         val hash = digest.digest(publicKeyData)
         return hash.hexEncodedString()
     }
@@ -313,13 +391,13 @@ class SecureIdentityStateManager {
      */
     fun isValidFingerprint(fingerprint: String): Boolean {
         // SHA-256 fingerprint should be 64 hex characters
-        return fingerprint.matches(Regex("^[a-fA-F0-9]{64}$"))
+        return isHex64(fingerprint)
     }
 
     // MARK: - Verified Fingerprints
 
     fun getVerifiedFingerprints(): Set<String> {
-        return prefs.getStringSet(KEY_VERIFIED_FINGERPRINTS, emptySet())?.toSet() ?: emptySet()
+        return readCachedStringSet(KEY_VERIFIED_FINGERPRINTS)
     }
 
     fun isVerifiedFingerprint(fingerprint: String): Boolean {
@@ -328,24 +406,23 @@ class SecureIdentityStateManager {
 
     fun setVerifiedFingerprint(fingerprint: String, verified: Boolean) {
         if (!isValidFingerprint(fingerprint)) return
-        synchronized(lock) {
-            val current = prefs.getStringSet(KEY_VERIFIED_FINGERPRINTS, emptySet())?.toMutableSet() ?: mutableSetOf()
-            if (verified) {
+        synchronized(privateMediaPinsLock) {
+            val current = readCachedStringSet(KEY_VERIFIED_FINGERPRINTS).toMutableSet()
+            val changed = if (verified) {
                 current.add(fingerprint)
             } else {
                 current.remove(fingerprint)
             }
-            prefs.edit { putStringSet(KEY_VERIFIED_FINGERPRINTS, current) }
+            if (changed) {
+                prefs.edit { putStringSet(KEY_VERIFIED_FINGERPRINTS, current) }
+                writeCachedStringSetLocked(KEY_VERIFIED_FINGERPRINTS, current)
+            }
         }
     }
 
     fun getCachedPeerFingerprint(peerID: String): String? {
         val pid = peerID.lowercase()
-        // Reading is safe without lock for SharedPreferences, but synchronizing ensures memory visibility
-        // if we are paranoid, but SharedPreferences is generally thread-safe for reads.
-        // However, to ensure we don't read a partial update (unlikely with SP), we can leave it.
-        // The critical part is the write.
-        val entries = prefs.getStringSet(KEY_CACHED_PEER_FINGERPRINTS, emptySet()) ?: return null
+        val entries = readCachedStringSet(KEY_CACHED_PEER_FINGERPRINTS)
         val entry = entries.firstOrNull { it.startsWith("$pid:") } ?: return null
         return entry.substringAfter(':').takeIf { isValidFingerprint(it) }
     }
@@ -357,33 +434,33 @@ class SecureIdentityStateManager {
 
     fun getCachedNoiseKey(peerID: String): String? {
         val pid = peerID.lowercase()
-        val entries = prefs.getStringSet(KEY_CACHED_PEER_NOISE_KEYS, emptySet()) ?: return null
+        val entries = readCachedStringSet(KEY_CACHED_PEER_NOISE_KEYS)
         val entry = entries.firstOrNull { it.startsWith("$pid=") } ?: return null
-        return entry.substringAfter('=').takeIf { it.matches(Regex("^[a-fA-F0-9]{64}$")) }
+        return entry.substringAfter('=').takeIf { isHex64(it) }
     }
 
     fun cachePeerNoiseKey(peerID: String, noiseKeyHex: String) {
-        if (!noiseKeyHex.matches(Regex("^[a-fA-F0-9]{64}$"))) return
+        if (!isHex64(noiseKeyHex)) return
         updateCache(KEY_CACHED_PEER_NOISE_KEYS, '=', mapOf(peerID.lowercase() to noiseKeyHex.lowercase()))
     }
 
     fun getCachedNoiseFingerprint(noiseKeyHex: String): String? {
         val key = noiseKeyHex.lowercase()
-        val entries = prefs.getStringSet(KEY_CACHED_NOISE_FINGERPRINTS, emptySet()) ?: return null
+        val entries = readCachedStringSet(KEY_CACHED_NOISE_FINGERPRINTS)
         val entry = entries.firstOrNull { it.startsWith("$key=") } ?: return null
         return entry.substringAfter('=').takeIf { isValidFingerprint(it) }
     }
 
     fun cacheNoiseFingerprint(noiseKeyHex: String, fingerprint: String) {
         if (!isValidFingerprint(fingerprint)) return
-        if (!noiseKeyHex.matches(Regex("^[a-fA-F0-9]{64}$"))) return
+        if (!isHex64(noiseKeyHex)) return
         updateCache(KEY_CACHED_NOISE_FINGERPRINTS, '=', mapOf(noiseKeyHex.lowercase() to fingerprint))
     }
 
     fun getCachedFingerprintNickname(fingerprint: String): String? {
         if (!isValidFingerprint(fingerprint)) return null
         val key = fingerprint.lowercase()
-        val entries = prefs.getStringSet(KEY_CACHED_FINGERPRINT_NICKNAMES, emptySet()) ?: return null
+        val entries = readCachedStringSet(KEY_CACHED_FINGERPRINT_NICKNAMES)
         val entry = entries.firstOrNull { it.startsWith("$key=") } ?: return null
         val encoded = entry.substringAfter('=')
         return runCatching {
@@ -418,7 +495,7 @@ class SecureIdentityStateManager {
         updateCache(KEY_CACHED_PEER_FINGERPRINTS, ':', valid.associate {
             it.peerID.lowercase() to it.fingerprint
         })
-        val withKeys = valid.filter { it.noiseKeyHex?.matches(Regex("^[a-fA-F0-9]{64}$")) == true }
+        val withKeys = valid.filter { it.noiseKeyHex != null && isHex64(it.noiseKeyHex) }
         updateCache(KEY_CACHED_PEER_NOISE_KEYS, '=', withKeys.associate {
             it.peerID.lowercase() to it.noiseKeyHex!!.lowercase()
         })
@@ -435,12 +512,15 @@ class SecureIdentityStateManager {
     private fun updateCache(preferenceKey: String, separator: Char, updates: Map<String, String>) {
         if (updates.isEmpty()) return
         synchronized(privateMediaPinsLock) {
-            val current = prefs.getStringSet(preferenceKey, emptySet()).orEmpty()
+            val current = readCachedStringSet(preferenceKey)
             val updated = current.filterNotTo(mutableSetOf()) {
                 it.substringBefore(separator) in updates
             }
             updates.forEach { (key, value) -> updated.add("$key$separator$value") }
-            if (updated != current) prefs.edit { putStringSet(preferenceKey, updated) }
+            if (updated != current) {
+                prefs.edit { putStringSet(preferenceKey, updated) }
+                writeCachedStringSetLocked(preferenceKey, updated)
+            }
         }
     }
 
@@ -452,8 +532,8 @@ class SecureIdentityStateManager {
             if (privateMediaPinsEpochAtCreation != privateMediaPinsEpoch) {
                 return@synchronized false
             }
-            prefs.getStringSet(KEY_PRIVATE_MEDIA_CAPABILITY_PINS, emptySet())
-                ?.any { it.equals(fingerprint, ignoreCase = true) } == true
+            readCachedStringSet(KEY_PRIVATE_MEDIA_CAPABILITY_PINS)
+                .any { it.equals(fingerprint, ignoreCase = true) }
         }
     }
 
@@ -469,8 +549,7 @@ class SecureIdentityStateManager {
         return synchronized(privateMediaPinsLock) {
             // A controller that survived panic must not republish pre-wipe proof state.
             if (privateMediaPinsEpochAtCreation != privateMediaPinsEpoch) return@synchronized false
-            val records = prefs.getStringSet(KEY_AUTHENTICATED_PEER_STATES, emptySet())
-                ?.toMutableSet() ?: mutableSetOf()
+            val records = readCachedStringSet(KEY_AUTHENTICATED_PEER_STATES).toMutableSet()
             records.removeAll { it.startsWith("$normalizedFingerprint:") }
             val capabilitiesHex = java.lang.Long.toUnsignedString(state.capabilities.rawValue, 16)
             records.add(
@@ -478,16 +557,22 @@ class SecureIdentityStateManager {
             )
 
             val editor = prefs.edit().putStringSet(KEY_AUTHENTICATED_PEER_STATES, records)
+            var updatedPins: Set<String>? = null
             if (state.capabilities.contains(PeerCapabilities.PRIVATE_MEDIA)) {
-                val pins = prefs.getStringSet(KEY_PRIVATE_MEDIA_CAPABILITY_PINS, emptySet())
-                    ?.mapTo(mutableSetOf()) { it.lowercase() } ?: mutableSetOf()
+                val pins = readCachedStringSet(KEY_PRIVATE_MEDIA_CAPABILITY_PINS)
+                    .mapTo(mutableSetOf()) { it.lowercase() }
                 pins.add(normalizedFingerprint)
                 editor.putStringSet(KEY_PRIVATE_MEDIA_CAPABILITY_PINS, pins)
+                updatedPins = pins
             }
             // This result is a security boundary: do not publish the Ed key in memory unless the
             // encrypted identity record and its HSTS pin were durably committed together.
             editor.commit().also { committed ->
-                if (committed) onCommitted()
+                if (committed) {
+                    writeCachedStringSetLocked(KEY_AUTHENTICATED_PEER_STATES, records)
+                    updatedPins?.let { writeCachedStringSetLocked(KEY_PRIVATE_MEDIA_CAPABILITY_PINS, it) }
+                    onCommitted()
+                }
             }
         }
     }
@@ -497,18 +582,17 @@ class SecureIdentityStateManager {
         return synchronized(privateMediaPinsLock) {
             if (privateMediaPinsEpochAtCreation != privateMediaPinsEpoch) return@synchronized null
             val prefix = "${fingerprint.lowercase()}:"
-            val record = prefs.getStringSet(KEY_AUTHENTICATED_PEER_STATES, emptySet())
-                ?.firstOrNull { it.startsWith(prefix) } ?: return@synchronized null
+            val record = readCachedStringSet(KEY_AUTHENTICATED_PEER_STATES)
+                .firstOrNull { it.startsWith(prefix) } ?: return@synchronized null
             val fields = record.split(':', limit = 3)
             if (fields.size != 3) return@synchronized null
             val capabilities = runCatching {
                 PeerCapabilities(java.lang.Long.parseUnsignedLong(fields[1], 16))
             }.getOrNull() ?: return@synchronized null
             val signingKeyHex = fields[2]
-            if (!signingKeyHex.matches(Regex("^[0-9a-f]{64}$"))) return@synchronized null
-            val signingKey = runCatching {
-                signingKeyHex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-            }.getOrNull() ?: return@synchronized null
+            if (!isHex64(signingKeyHex, lowercaseOnly = true)) return@synchronized null
+            val signingKey = signingKeyHex.dataFromHexString()
+                ?: return@synchronized null
             AuthenticatedPeerState(capabilities, signingKey)
         }
     }
@@ -597,6 +681,7 @@ class SecureIdentityStateManager {
             val committed = synchronized(privateMediaPinsLock) {
                 privateMediaPinsEpoch += 1
                 privateMediaPinsEpochAtCreation = privateMediaPinsEpoch
+                invalidateAllCachedSetsLocked()
                 prefs.edit().clear().commit()
             }
             if (!committed) {

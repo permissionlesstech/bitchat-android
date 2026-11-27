@@ -1302,3 +1302,27 @@ Then the same suites again over the data that run left, reinstalled in
 place: app 104, chat 6, settings 5, location 4, share 3, all passing. Mesh Lab on two
 emulators passed 14/14; the earlier flaky runs had a stale third bitchat build running its own
 mesh on one image, and every flaked scenario passed alone.
+
+### Upstream sync after Phase 11: #1096, battery and CPU (2026-11-27)
+
+Merged upstream to `884d951a` (PR #1096 and its four review rounds). Every behaviour change is
+kept; where the refactor had moved or rebuilt the code, it was ported:
+
+| Upstream change | Where it went |
+|---|---|
+| One encrypted identity storage per process, with a read-through cache of its string sets | `SecureIdentityStateManager` shares one opened storage, its string sets cached on it, still opened inside the storage lock (the 10c-3 master-key fix). Upstream's panic only clears keys, so its cache stays valid; this branch's wipe deletes the files and the Keystore key, so `SandboxWipe.run()` drops the shared storage and empties its cache, and a manager fenced by the panic reads storage directly. Without that, a manager built after the wipe would write under the deleted keyset (`AEADBadTagException` at the next open) and a manager held across it would read the ended identity's peers. `PanicContractTest` checks both. |
+| Cached current Nostr identity and lock-free geohash identity lookup | `NostrIdentityBridge` is `@IdentityScoped`, so the cache ends with the identity. Upstream's read-write lock existed only for `clearAllAssociations`, which this branch had already removed as dead; it is not added. |
+| Chat poll gated on foreground, peers or an unsent QR verification; no writes when nothing changed | `ChatSessionStartup` (was `ChatViewModel`). The skip state lives in the session scope, so a panic resets it without the hand-written reset upstream needs. |
+| Geohash identity derived off the main thread | `GeohashSession` (was `GeohashViewModel`). The peer list already derived it off the main thread for the selected channel, so `GeohashPeopleList`'s change had nothing left to fix. |
+| Batched seen-message writes | `SeenMessageStore`, inside the identity scope. Its teardown closes the store, cancels the pending batch and waits for a write in flight, so no batch lands after the wipe. Upstream's `clear()` is not added back. |
+| Arti soft-dormant in the background | `ArtiTorManager` takes a `TorAppBackground` port, bound by the app from `PowerManager`, so `:core:tor` still depends on no project module. |
+| Relay pause and heal on network loss, background throttle, wait for Tor's route | `NostrRelayManager`, with the wait through a new `NostrHttpClients.awaitRoute`, which has no default binding, like the rest of the port. `RelayDirectory` waits the same way instead of calling `ArtiTorManager` statically. `clearAllOnPanic()` also clears the new throttle state. |
+| Block lists reloaded only when they change | `NostrBackgroundEventProcessor` in `:core:chat`, inside the identity scope. `DataManager`'s change counter is process-wide and holds no list. |
+| Debug counters as ring buffers, nothing recorded while the debug sheet is hidden | `DebugSettingsManager`; the panic cleanup empties its new per-peer maps too. |
+| Mesh, Noise, gossip and protocol hot paths (fewer copies, thread-local digests, BFS routing, conflated cleanup) | Merged as is. `MeshCore` takes `PowerManager` from its caller instead of `getInstance`. No wire format changed. |
+| Rebuilt Arti libraries | Under `core/tor/src/main/jniLibs`; `SHA256SUMS` updated, `verify-checksums.sh` passes. |
+
+Tests: upstream's new tests were moved beside their subjects in `:core:mesh`, `:core:nostr`,
+`:core:chat` and `:core:tor` and adapted to the injected constructors. The relay tests of upstream's
+`reconnect` flag are not added; this branch has no such flag (see the sync after Phase 10c-3).
+`IdentityScopeRulesTest` lists the three new process-wide objects with their reasons.

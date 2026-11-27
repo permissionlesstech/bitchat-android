@@ -164,11 +164,5 @@ class FragmentingPacketSender(
         }
     }
 
-    private fun sha256Hex(bytes: ByteArray): String = try {
-        val md = MessageDigest.getInstance("SHA-256")
-        md.update(bytes)
-        md.digest().joinToString("") { "%02x".format(it) }
-    } catch (_: Exception) {
-        bytes.size.toString(16)
-    }
+    private fun sha256Hex(bytes: ByteArray): String = MeshPacketUtils.sha256Hex(bytes)
 }

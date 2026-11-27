@@ -131,12 +131,15 @@ class PacketProcessor(
         var validPacket = true
         val messageType = MessageType.fromValue(packet.type)
         // Verbose logging to debug manager (and chat via ChatViewModel observer)
-        try {
-            val mt = messageType?.name ?: packet.type.toString()
-            val routeDevice = routed.relayAddress
-            val nick = delegate?.getPeerNickname(peerID)
-            debugManager?.logIncomingPacket(peerID, nick, mt, routeDevice)
-        } catch (_: Exception) { }
+        val dbg = debugManager
+        if (dbg != null && dbg.verboseLoggingEnabled.value) {
+            try {
+                val mt = messageType?.name ?: packet.type.toString()
+                val routeDevice = routed.relayAddress
+                val nick = delegate?.getPeerNickname(peerID)
+                dbg.logIncomingPacket(peerID, nick, mt, routeDevice)
+            } catch (_: Exception) { }
+        }
         
         
         // Handle public packet types (no address check needed)
@@ -288,8 +291,8 @@ interface PacketProcessorDelegate {
     fun getBroadcastRecipient(): ByteArray
     
     // Message type handlers
-    fun handleNoiseHandshake(routed: RoutedPacket): Boolean
-    fun handleNoiseEncrypted(routed: RoutedPacket): Boolean
+    suspend fun handleNoiseHandshake(routed: RoutedPacket): Boolean
+    suspend fun handleNoiseEncrypted(routed: RoutedPacket): Boolean
     suspend fun handleAnnounce(routed: RoutedPacket): Boolean
     suspend fun handleMessage(routed: RoutedPacket)
     fun handleVoiceFrame(routed: RoutedPacket): Boolean = false

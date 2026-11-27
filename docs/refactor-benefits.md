@@ -129,6 +129,7 @@ Found here and fixed upstream since, merged into this branch:
 | Unit and device tests (10c-3) | JVM 1626; device app 102 | JVM 1685; device app 104 (the full gate on the final code, after the 10c-3 follow-ups) |
 | Encrypted storage after a panic (10c-3 follow-up) | A manager started while a panic held the storage lock built the master key outside it, so after the wipe two key generators could race and leave the new identity's encrypted storage unreadable on every launch (a bug of this branch only, seen on test emulators) | The master key is built inside the storage lock with its keyset, through one helper that `EncryptionService` uses too. `PanicContractTest` starts a manager inside a real wipe and fails if a key exists before the panic lets go |
 | Unit and device tests (upstream sync and Phase 11 audit) | JVM 1685; device app 104 | JVM 1773 (3 skipped): upstream's new tests ported beside their subjects, and the audit's and the Codex fixes'; device app 108 |
+| Unit and device tests (upstream #1096 sync) | JVM 1773; device app 108 | JVM 1807 (3 skipped): upstream's battery and CPU tests ported beside their subjects; device app 108, the panic contract now also checking the shared identity storage |
 | Module rules | Unwritten | `FeatureDependencyRulesTest` fails when a feature depends on another feature, an `:api` module grows dependencies, or `:core:tor` gains one |
 | Watch crypto | Tink 1.8.0 | Tink 1.23.0, the phone's version |
 | Watch theme | Its own copy of the palette, peer-color hash and fonts | The shared `:core:designsystem` base |
@@ -168,12 +169,13 @@ Safety rails added on the way:
 
 ## Kept in step with upstream
 
-The branch is merged with upstream `main` up to `f6bfceac` (2026-11-26, 30 commits). Every
+The branch is merged with upstream `main` up to `884d951a` (2026-11-27, PR #1096 on top of the 30 commits to `f6bfceac`). Every
 upstream behaviour fix is kept: foreground-service retries, Wi-Fi Aware and BLE scan recovery,
 the Tor restart fixes, the private chat send fix, offline peers greyed, and Nostr relays
-reconnecting after a panic only once the wipe has confirmed. Where the refactor had moved the
+reconnecting after a panic only once the wipe has confirmed, and #1096's battery and CPU work,
+its process-wide identity storage cache made safe for the sandbox wipe. Where the refactor had moved the
 code, the fix was ported and upstream's tests came with it ("Upstream sync after Phase 10c-3"
-in the decision log).
+and "Upstream sync after Phase 11" in the decision log).
 
 ## What it cost
 

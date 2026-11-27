@@ -19,9 +19,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -106,6 +108,7 @@ class MessageRouter internal constructor(
 
     private val schedulerScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var schedulerJob: kotlinx.coroutines.Job? = null
+    private val outboxWakeup = Channel<Unit>(Channel.CONFLATED)
 
     // Injectable clock for tests
     internal var clock: () -> Long = { System.currentTimeMillis() }
@@ -277,6 +280,7 @@ class MessageRouter internal constructor(
             Log.w(TAG, "Outbox full for ${conversationID.take(16)}…; evicting oldest msg_id=${evicted.messageID.take(8)}…")
             notifyExpired(evicted.messageID)
         }
+        outboxWakeup.trySend(Unit)
     }
 
     private fun notifyExpired(messageID: String) {
@@ -311,7 +315,13 @@ class MessageRouter internal constructor(
         if (schedulerJob?.isActive == true) return
         schedulerJob = schedulerScope.launch {
             while (isActive) {
-                delay(OUTBOX_TICK_MS)
+                if (outbox.isEmpty()) {
+                    // Suspend with zero CPU wakeups until a message is queued.
+                    outboxWakeup.receive()
+                    continue
+                }
+                withTimeoutOrNull(OUTBOX_TICK_MS) { outboxWakeup.receive() }
+                if (outbox.isEmpty()) continue
                 try { tickOutbox() } catch (e: Exception) {
                     Log.w(TAG, "Outbox scheduler tick failed: ${e.message}")
                 }
