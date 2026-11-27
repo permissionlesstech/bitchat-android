@@ -639,13 +639,19 @@ class MainActivity : OrientationAwareActivity() {
     }
 
     private fun startMeshForegroundServiceBestEffort() {
-        if (!localTransportsEnabled() || !permissionManager.areRequiredPermissionsGranted()) {
+        if (!localTransportsEnabled()) {
             pendingMeshForegroundServiceStart = false
             return
         }
         if (!lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
             pendingMeshForegroundServiceStart = true
             Log.i("MainActivity", "Deferring foreground mesh service start until activity is started")
+            return
+        }
+        // Quit and retry tests call this before onboarding builds the manager.
+        // A missing manager is not a denial; only a built manager can refuse.
+        if (::permissionManager.isInitialized && !permissionManager.areRequiredPermissionsGranted()) {
+            pendingMeshForegroundServiceStart = false
             return
         }
 
