@@ -170,6 +170,8 @@ class PrivateChatViewModel @AssistedInject constructor(
                 onSelectedOther = { selected ->
                     viewModelScope.launch { _events.send(PrivateChatEvent.OpenConversation(selected)) }
                 },
+                // The main chat then shows the channel the command joined.
+                onLeft = { viewModelScope.launch { _events.send(PrivateChatEvent.Close) } },
             ) { accepted ->
                 if (accepted) {
                     conversationListPreferences.saveComposerDraft(conversation, "")

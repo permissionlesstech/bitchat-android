@@ -139,13 +139,16 @@ class MessageSender @Inject constructor(
      * starts on IO, and is never set for a blocked peer. The message reaches this conversation
      * or is refused. [onRefusedBlocked] runs when it was refused because the peer is blocked.
      * [onSelectedOther] runs when a command (`/msg`) selected a different conversation, which
-     * the caller must present so the selection is never hidden behind this chat.
+     * the caller must present so the selection is never hidden behind this chat. [onLeft] runs
+     * when a command (`/join`) left private chat altogether, which the caller must close: a chat
+     * left open with no selection would refuse every later command.
      */
     fun sendToConversation(
         conversationID: String,
         content: String,
         onRefusedBlocked: () -> Unit = {},
         onSelectedOther: (conversationID: String) -> Unit = {},
+        onLeft: () -> Unit = {},
         onAccepted: (Boolean) -> Unit = {},
     ) {
         if (content.isEmpty()) {
@@ -158,6 +161,7 @@ class MessageSender @Inject constructor(
             val selectedPeer = state.getSelectedPrivateChatPeerValue()
             if (selectedPeer != null && isSameConversation(selectedPeer, conversationID)) {
                 send(content, onSelectedOther, onAccepted)
+                if (state.getSelectedPrivateChatPeerValue() == null) onLeft()
             } else {
                 onAccepted(false)
             }

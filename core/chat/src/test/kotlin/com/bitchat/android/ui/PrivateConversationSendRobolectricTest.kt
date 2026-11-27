@@ -172,6 +172,28 @@ class PrivateConversationSendRobolectricTest {
     }
 
     @Test
+    fun `join typed in an open chat reports that it left the chat`() {
+        assertTrue(privateChatManager.startPrivateChat(previousPeerID, mesh))
+        var left = 0
+
+        sender.sendToConversation(previousPeerID, "/join #synthetic", onLeft = { left++ })
+
+        assertEquals("#synthetic", state.getCurrentChannelValue())
+        assertEquals(null, state.getSelectedPrivateChatPeerValue())
+        assertEquals(1, left)
+    }
+
+    @Test
+    fun `a command that keeps this chat selected does not report leaving it`() {
+        assertTrue(privateChatManager.startPrivateChat(previousPeerID, mesh))
+        var left = 0
+
+        sender.sendToConversation(previousPeerID, "/clear", onLeft = { left++ })
+
+        assertEquals(0, left)
+    }
+
+    @Test
     fun `main chat text after msg goes to the public mesh, not the chat msg selected`() {
         whenever(mesh.getPeerNicknames()).thenReturn(mapOf(otherPeerID to "bob"))
         sender.send("/msg bob")
