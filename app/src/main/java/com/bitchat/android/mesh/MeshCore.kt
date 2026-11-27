@@ -22,6 +22,8 @@ import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.ConcurrentHashMap
@@ -116,7 +118,22 @@ class MeshCore(
     private val directPeers = ConcurrentHashMap.newKeySet<String>()
 
     val gossipSyncManager: GossipSyncManager =
-        sharedGossipManager ?: GossipSyncManager(myPeerID = myPeerID, scope = scope, configProvider = gossipConfigProvider)
+        sharedGossipManager ?: GossipSyncManager(
+            myPeerID = myPeerID,
+            scope = scope,
+            configProvider = gossipConfigProvider,
+            hasPeersProvider = {
+                peerManager.getActivePeerCount() > 0 ||
+                    directPeers.isNotEmpty() ||
+                    com.bitchat.android.services.AppStateStore.directPeers.value.isNotEmpty()
+            },
+            syncIntervalProvider = {
+                GossipSyncManager.recommendedSyncIntervalMs(PowerManager.getInstance(context).profile.value)
+            },
+            syncIntervalFlow = PowerManager.getInstance(context).profile
+                .map { GossipSyncManager.recommendedSyncIntervalMs(it) }
+                .distinctUntilChanged()
+        )
     private val ownsGossipManager: Boolean = sharedGossipManager == null
 
     var delegate: MeshDelegate? = null
@@ -442,12 +459,12 @@ class MeshCore(
                 return SpecialRecipients.BROADCAST
             }
 
-            override fun handleNoiseHandshake(routed: RoutedPacket): Boolean {
-                return runBlocking { securityManager.handleNoiseHandshake(routed) }
+            override suspend fun handleNoiseHandshake(routed: RoutedPacket): Boolean {
+                return securityManager.handleNoiseHandshake(routed)
             }
 
-            override fun handleNoiseEncrypted(routed: RoutedPacket): Boolean {
-                return runBlocking { messageHandler.handleNoiseEncrypted(routed) }
+            override suspend fun handleNoiseEncrypted(routed: RoutedPacket): Boolean {
+                return messageHandler.handleNoiseEncrypted(routed)
             }
 
             override suspend fun handleAnnounce(routed: RoutedPacket): Boolean {

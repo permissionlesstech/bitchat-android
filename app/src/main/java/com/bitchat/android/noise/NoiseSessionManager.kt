@@ -3,6 +3,8 @@ package com.bitchat.android.noise
 import android.util.Log
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 
 data class NoiseHandshakeProcessingResult(
@@ -63,18 +65,49 @@ class NoiseSessionManager(
     // can evict a working transport session. Keep responder candidates outside the active map.
     private val responderCandidates = ConcurrentHashMap<String, NoiseSession>()
 
-    private val sweepScheduler = Executors.newSingleThreadScheduledExecutor { runnable ->
-        Thread(runnable, "NoiseHandshakeSweeper").apply { isDaemon = true }
+    private val sweepLock = Any()
+    private var sweepScheduler: ScheduledExecutorService? = null
+    private var pendingSweep: ScheduledFuture<*>? = null
+    @Volatile
+    private var isShutdown = false
+
+    private val sweepRunnable = Runnable {
+        try {
+            cleanupStaleHandshakes(System.currentTimeMillis())
+        } catch (e: Exception) {
+            Log.w(TAG, "Handshake sweep failed: ${e.message}")
+        } finally {
+            synchronized(sweepLock) {
+                pendingSweep = null
+                if (!isShutdown && hasActiveHandshakes()) {
+                    scheduleNextSweepLocked()
+                }
+            }
+        }
     }
 
-    init {
-        sweepScheduler.scheduleWithFixedDelay({
-            try {
-                cleanupStaleHandshakes(System.currentTimeMillis())
-            } catch (e: Exception) {
-                Log.w(TAG, "Handshake sweep failed: ${e.message}")
-            }
-        }, HANDSHAKE_SWEEP_INTERVAL_MS, HANDSHAKE_SWEEP_INTERVAL_MS, TimeUnit.MILLISECONDS)
+    private fun hasActiveHandshakes(): Boolean =
+        sessions.values.any { it.isHandshaking() } ||
+            responderCandidates.values.any { it.isHandshaking() }
+
+    private fun ensureHandshakeSweepScheduled() {
+        synchronized(sweepLock) {
+            if (isShutdown || pendingSweep != null) return
+            scheduleNextSweepLocked()
+        }
+    }
+
+    private fun scheduleNextSweepLocked() {
+        val scheduler = sweepScheduler ?: Executors.newSingleThreadScheduledExecutor { runnable ->
+            Thread(runnable, "NoiseHandshakeSweeper").apply { isDaemon = true }
+        }.also { sweepScheduler = it }
+        if (!scheduler.isShutdown) {
+            pendingSweep = scheduler.schedule(
+                sweepRunnable,
+                HANDSHAKE_SWEEP_INTERVAL_MS,
+                TimeUnit.MILLISECONDS
+            )
+        }
     }
     
     // Callbacks
@@ -126,7 +159,9 @@ class NoiseSessionManager(
                     responderCandidates.remove(peerID)?.destroy()
                     responderCandidates[peerID] = candidate
                     return try {
-                        candidate.startHandshake()
+                        val msg = candidate.startHandshake()
+                        ensureHandshakeSweepScheduled()
+                        msg
                     } catch (e: Exception) {
                         responderCandidates.remove(peerID, candidate)
                         candidate.destroy()
@@ -156,7 +191,9 @@ class NoiseSessionManager(
         addSession(peerID, session)
         
         try {
-            return session.startHandshake()
+            val msg = session.startHandshake()
+            ensureHandshakeSweepScheduled()
+            return msg
         } catch (e: Exception) {
             if (sessions.remove(peerID, session)) session.destroy()
             throw e
@@ -248,6 +285,10 @@ class NoiseSessionManager(
             val session = activeSession ?: throw NoiseSessionError.InvalidState
 
             response = session.processHandshakeMessage(message)
+
+            if (session.isHandshaking()) {
+                ensureHandshakeSweepScheduled()
+            }
 
             if (session.isEstablished()) {
                 val remoteStaticKey = session.getRemoteStaticPublicKey()
@@ -469,7 +510,13 @@ class NoiseSessionManager(
      */
     @Synchronized
     fun shutdown() {
-        sweepScheduler.shutdownNow()
+        synchronized(sweepLock) {
+            isShutdown = true
+            pendingSweep?.cancel(false)
+            pendingSweep = null
+            sweepScheduler?.shutdownNow()
+            sweepScheduler = null
+        }
         sessions.values.forEach { it.destroy() }
         responderCandidates.values.forEach { it.destroy() }
         sessions.clear()

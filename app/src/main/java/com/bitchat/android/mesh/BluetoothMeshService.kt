@@ -20,6 +20,8 @@ import com.bitchat.android.util.toHexString
 import com.bitchat.android.services.VerificationService
 import com.bitchat.android.service.TransportBridgeService
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.channels.Channel
 import java.util.*
 import kotlin.math.sign
@@ -151,6 +153,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         }
 
         // Initialize sync manager (needs serviceScope)
+        val appPowerManager = PowerManager.getInstance(context)
         gossipSyncManager = GossipSyncManager(
             myPeerID = myPeerID,
             scope = serviceScope,
@@ -166,7 +169,17 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 override fun gcsTargetFpr(): Double = try {
                     com.bitchat.android.ui.debug.DebugPreferenceManager.getGcsFprPercent(1.0) / 100.0
                 } catch (_: Exception) { 0.01 }
-            }
+            },
+            hasPeersProvider = {
+                peerManager.getActivePeerCount() > 0 ||
+                    com.bitchat.android.services.AppStateStore.directPeers.value.isNotEmpty()
+            },
+            syncIntervalProvider = {
+                GossipSyncManager.recommendedSyncIntervalMs(appPowerManager.profile.value)
+            },
+            syncIntervalFlow = appPowerManager.profile
+                .map { GossipSyncManager.recommendedSyncIntervalMs(it) }
+                .distinctUntilChanged()
         )
 
         com.bitchat.android.service.MeshServiceHolder.setGossipManager(gossipSyncManager) { packet ->
@@ -547,12 +560,12 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 return SpecialRecipients.BROADCAST
             }
             
-            override fun handleNoiseHandshake(routed: RoutedPacket): Boolean {
-                return runBlocking { securityManager.handleNoiseHandshake(routed) }
+            override suspend fun handleNoiseHandshake(routed: RoutedPacket): Boolean {
+                return securityManager.handleNoiseHandshake(routed)
             }
             
-            override fun handleNoiseEncrypted(routed: RoutedPacket): Boolean {
-                return runBlocking { messageHandler.handleNoiseEncrypted(routed) }
+            override suspend fun handleNoiseEncrypted(routed: RoutedPacket): Boolean {
+                return messageHandler.handleNoiseEncrypted(routed)
             }
             
             override suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
@@ -1505,23 +1518,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     /**
      * Convert hex string peer ID to binary data (8 bytes) - exactly same as iOS
      */
-    private fun hexStringToByteArray(hexString: String): ByteArray {
-        val result = ByteArray(8) { 0 } // Initialize with zeros, exactly 8 bytes
-        var tempID = hexString
-        var index = 0
-        
-        while (tempID.length >= 2 && index < 8) {
-            val hexByte = tempID.substring(0, 2)
-            val byte = hexByte.toIntOrNull(16)?.toByte()
-            if (byte != null) {
-                result[index] = byte
-            }
-            tempID = tempID.substring(2)
-            index++
-        }
-        
-        return result
-    }
+    private fun hexStringToByteArray(hexString: String): ByteArray =
+        MeshPacketUtils.hexStringToByteArray(hexString)
     
     /**
      * Sign packet before broadcasting using our signing private key
@@ -1530,7 +1528,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         return try {
             val recipient = packet.recipientID
             if (recipient != null && !recipient.contentEquals(SpecialRecipients.BROADCAST)) {
-                val destination = recipient.joinToString("") { byte -> "%02x".format(byte) }
+                val destination = recipient.toHexString()
                 val path = com.bitchat.android.services.meshgraph.RoutePlanner.shortestPath(
                     myPeerID,
                     destination

@@ -23,16 +23,31 @@ object CompressionUtil {
         // 1. Data is too small
         // 2. Data appears to be already compressed (high entropy)
         if (data.size < COMPRESSION_THRESHOLD) return false
-        
-        // Simple entropy check - count unique bytes (exact same as iOS)
-        val byteFrequency = mutableMapOf<Byte, Int>()
-        for (byte in data) {
-            byteFrequency[byte] = (byteFrequency[byte] ?: 0) + 1
+
+        // Zero-allocation 256-bit unique byte counter with early exit once ratio >= 0.9
+        // (mathematically identical to uniqueCount.toDouble() / minOf(data.size, 256) < 0.9).
+        var w0 = 0L
+        var w1 = 0L
+        var w2 = 0L
+        var w3 = 0L
+        var uniqueCount = 0
+        val denominator = minOf(data.size, 256).toDouble()
+
+        for (b in data) {
+            val v = b.toInt() and 0xFF
+            val bit = 1L shl (v and 63)
+            val added = when (v ushr 6) {
+                0 -> if ((w0 and bit) == 0L) { w0 = w0 or bit; true } else false
+                1 -> if ((w1 and bit) == 0L) { w1 = w1 or bit; true } else false
+                2 -> if ((w2 and bit) == 0L) { w2 = w2 or bit; true } else false
+                else -> if ((w3 and bit) == 0L) { w3 = w3 or bit; true } else false
+            }
+            if (added) {
+                uniqueCount++
+                if (uniqueCount.toDouble() / denominator >= 0.9) return false
+            }
         }
-        
-        // If we have very high byte diversity, data is likely already compressed
-        val uniqueByteRatio = byteFrequency.size.toDouble() / minOf(data.size, 256).toDouble()
-        return uniqueByteRatio < 0.9 // Compress if less than 90% unique bytes
+        return true
     }
     
     /**
