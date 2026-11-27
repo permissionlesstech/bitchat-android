@@ -338,8 +338,15 @@ class PrivateChatDestinationTest {
             rule.activity.intent = launchIntent
         }
 
-        rule.waitUntil(timeoutMillis = 5_000) { rule.topOfStack() == ChatRoute }
-        assertEquals(listOf(ChatRoute), rule.backStack())
+        try {
+            rule.waitUntil(timeoutMillis = 5_000) { rule.topOfStack() == ChatRoute }
+            assertEquals(listOf(ChatRoute), rule.backStack())
+        } finally {
+            // The selection is stored; later tests expect the mesh.
+            rule.runOnUiThread {
+                session().geohashSession().selectLocationChannel(com.bitchat.android.geohash.ChannelID.Mesh)
+            }
+        }
     }
 
     /** Closing a chat opened from a notification lands on the conversation list. */

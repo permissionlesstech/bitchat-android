@@ -56,6 +56,10 @@ class MessageSendingTest {
     @Test
     fun aCommandRunsInsteadOfBeingSent() {
         rule.awaitChat()
+        // `/w` answers for the selected channel, which is stored across launches.
+        rule.runOnUiThread {
+            session().geohashSession().selectLocationChannel(com.bitchat.android.geohash.ChannelID.Mesh)
+        }
 
         rule.runOnUiThread { session().messageSender().send("/w") {} }
 
