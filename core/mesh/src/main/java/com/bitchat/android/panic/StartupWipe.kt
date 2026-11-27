@@ -28,8 +28,12 @@ object StartupWipe {
         context: Context,
         wipe: SandboxWipeRunner = SandboxWipeRunner { SandboxWipe(context).run() },
         marker: PanicMarker = PanicMarker(context),
+        savedScreensStale: PanicMarker = PanicMarker.savedScreensStale(context),
     ): Outcome {
         if (!marker.pending) return Outcome(foundPending = false, markerClear = true)
+        // Before the wipe: the system kept the Activity's state outside the sandbox, and whichever
+        // process opens the next Activity must not restore it, even if this one dies first.
+        savedScreensStale.set()
         repeat(ATTEMPTS) { attempt ->
             val result = try {
                 wipe.run()
@@ -58,6 +62,17 @@ object StartupWipe {
      * shortcuts or a copied clip. Every cleanup runs; a failure is logged by name and never stops
      * the launch.
      */
+    /**
+     * True once after a launch found a pending wipe, for the first Activity, which then starts
+     * with no saved state: state saved before the panic names the ended identity's screens.
+     */
+    fun takeStaleSavedScreens(context: Context): Boolean {
+        val stale = PanicMarker.savedScreensStale(context)
+        if (!stale.pending) return false
+        stale.clear()
+        return true
+    }
+
     fun replayCleanups(cleanups: Iterable<PanicCleanup>) {
         for (cleanup in cleanups) {
             val undone = try {

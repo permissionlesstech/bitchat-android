@@ -136,6 +136,7 @@ object KeepList {
         KeptPath("files/profileInstalled", "ART profile marker"),
         KeptPath("files/profileinstaller_*", "ART profile markers"),
         KeptPath("no_backup/panic_pending", "the panic marker"),
+        KeptPath("no_backup/saved_screens_stale", "a flag that saved screen state predates a wipe"),
     )
 
     val paths: List<KeptPath> = kept + prefs.map {

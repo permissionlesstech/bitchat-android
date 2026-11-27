@@ -1,5 +1,6 @@
 package com.bitchat.android
 
+import com.bitchat.android.panic.StartupWipe
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -192,7 +193,7 @@ class MainActivity : OrientationAwareActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // State saved before a panic whose wipe this launch finished names the ended identity.
-        val restored = savedInstanceState.takeUnless { (application as BitchatApplication).takeDiscardSavedScreens() }
+        val restored = savedInstanceState.takeUnless { StartupWipe.takeStaleSavedScreens(this) }
         super.onCreate(restored)
         intentHandled = restored?.getBoolean(STATE_INTENT_HANDLED) ?: false
         foregroundServiceStart = ForegroundServiceStartRetry(lifecycle) {

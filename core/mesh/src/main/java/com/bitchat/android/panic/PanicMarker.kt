@@ -38,5 +38,13 @@ class PanicMarker(private val file: File) {
 
     companion object {
         const val NAME = "panic_pending"
+        const val SAVED_SCREENS_STALE = "saved_screens_stale"
+
+        /**
+         * Says the system may still hold an Activity's state saved before a panic's wipe. Written
+         * by the startup wipe and taken by the first Activity, which then starts with no saved
+         * state; durable, because the process recovering the wipe may die before any Activity.
+         */
+        fun savedScreensStale(context: Context) = PanicMarker(File(context.noBackupFilesDir, SAVED_SCREENS_STALE))
     }
 }

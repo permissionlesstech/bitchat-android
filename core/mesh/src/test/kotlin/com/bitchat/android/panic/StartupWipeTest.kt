@@ -125,4 +125,41 @@ class StartupWipeTest {
 
         assertEquals(listOf("throws", "fails", "works"), ran)
     }
+
+    @Test
+    fun aRecoveredWipeMarksSavedScreensStaleUntilAnActivityTakesIt() {
+        marker.set()
+
+        StartupWipe.finishPendingWipe(context, { confirmed }, marker)
+
+        // Still marked in a later process: the recovering one may die before any Activity opens.
+        assertTrue(StartupWipe.takeStaleSavedScreens(context))
+        assertFalse(StartupWipe.takeStaleSavedScreens(context))
+    }
+
+    @Test
+    fun aWipeThatCannotConfirmStillMarksSavedScreensStale() {
+        marker.set()
+
+        StartupWipe.finishPendingWipe(context, { unconfirmed }, marker)
+
+        assertTrue(StartupWipe.takeStaleSavedScreens(context))
+    }
+
+    @Test
+    fun noPendingWipeLeavesSavedScreensAlone() {
+        StartupWipe.finishPendingWipe(context, { confirmed }, marker)
+
+        assertFalse(StartupWipe.takeStaleSavedScreens(context))
+    }
+
+    @Test
+    fun theWipeKeepsTheStaleScreensMark() {
+        marker.set()
+        StartupWipe.finishPendingWipe(context, { confirmed }, marker)
+
+        SandboxWipe(context, keyStore = NoAliases).run()
+
+        assertTrue(StartupWipe.takeStaleSavedScreens(context))
+    }
 }
