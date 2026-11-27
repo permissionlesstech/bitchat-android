@@ -17,11 +17,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
@@ -48,9 +48,14 @@ private fun syntheticString(resId: Int) = "string:$resId"
 class ApkDownloadViewModelTest {
     private lateinit var application: Application
 
+    // Main and the ViewModel's disk work share one scheduler, which runTest drives: no work of
+    // the ViewModel outlives a test or runs on a thread the test does not wait for.
+    private val scheduler = TestCoroutineScheduler()
+    private val io = UnconfinedTestDispatcher(scheduler)
+
     @Before
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        Dispatchers.setMain(UnconfinedTestDispatcher(scheduler))
         application = SyntheticStringsApplication(ApplicationProvider.getApplicationContext())
     }
 
@@ -71,7 +76,7 @@ class ApkDownloadViewModelTest {
                 return Result.failure(IllegalStateException("synthetic offline response"))
             }
         }
-        viewModel = ApkDownloadViewModel(application, manager, downloader, metadata)
+        viewModel = ApkDownloadViewModel(application, manager, downloader, metadata, ioDispatcher = io)
 
         viewModel.onAction(ApkAction.SectionShown)
         val ready = awaitReady(viewModel)
@@ -88,7 +93,8 @@ class ApkDownloadViewModelTest {
             application,
             manager,
             downloader,
-            offlineMetadata()
+            offlineMetadata(),
+            ioDispatcher = io
         )
 
         viewModel.onAction(ApkAction.SectionShown)
@@ -113,7 +119,8 @@ class ApkDownloadViewModelTest {
             application,
             manager,
             downloader,
-            offlineMetadata()
+            offlineMetadata(),
+            ioDispatcher = io
         )
 
         downloader.emit(
@@ -138,7 +145,8 @@ class ApkDownloadViewModelTest {
             application,
             manager,
             downloader,
-            offlineMetadata()
+            offlineMetadata(),
+            ioDispatcher = io
         )
 
         downloader.emit(
@@ -172,7 +180,8 @@ class ApkDownloadViewModelTest {
                 application,
                 manager,
                 downloader,
-                offlineMetadata()
+                offlineMetadata(),
+                ioDispatcher = io
             )
 
             val restored = viewModel.uiState.value.apkStatus as ApkPreparationStatus.Downloading
@@ -193,7 +202,8 @@ class ApkDownloadViewModelTest {
             application,
             manager,
             downloader,
-            offlineMetadata()
+            offlineMetadata(),
+            ioDispatcher = io
         )
 
         viewModel.onAction(ApkAction.SectionShown)
@@ -216,7 +226,8 @@ class ApkDownloadViewModelTest {
             application,
             managerWithLocalApk(),
             FakeDownloader(),
-            offlineMetadata()
+            offlineMetadata(),
+            ioDispatcher = io
         )
         installed.onAction(ApkAction.SectionShown)
         awaitReady(installed)
@@ -228,7 +239,8 @@ class ApkDownloadViewModelTest {
             application,
             managerWithLocalApk(source = UniversalApkManager.ApkSource.DOWNLOADED),
             FakeDownloader(),
-            offlineMetadata()
+            offlineMetadata(),
+            ioDispatcher = io
         )
         downloaded.onAction(ApkAction.SectionShown)
         awaitReady(downloaded)
@@ -242,7 +254,7 @@ class ApkDownloadViewModelTest {
         val manager = managerWithLocalApk()
         whenever(manager.getPartialDownloadProgress()).thenReturn(42)
         val downloader = FakeDownloader(emitOnStart = false)
-        val viewModel = ApkDownloadViewModel(application, manager, downloader, offlineMetadata())
+        val viewModel = ApkDownloadViewModel(application, manager, downloader, offlineMetadata(), ioDispatcher = io)
         viewModel.onAction(ApkAction.SectionShown)
         val ready = awaitReady(viewModel)
 
@@ -264,7 +276,8 @@ class ApkDownloadViewModelTest {
             application,
             managerWithLocalApk(),
             downloader,
-            offlineMetadata()
+            offlineMetadata(),
+            ioDispatcher = io
         )
         viewModel.onAction(ApkAction.SectionShown)
         awaitReady(viewModel)
@@ -308,7 +321,7 @@ class ApkDownloadViewModelTest {
             true
         }
         val downloader = FakeDownloader(onCancel = { calls += "cancel" })
-        val viewModel = ApkDownloadViewModel(application, manager, downloader, offlineMetadata())
+        val viewModel = ApkDownloadViewModel(application, manager, downloader, offlineMetadata(), ioDispatcher = io)
         viewModel.onAction(ApkAction.SectionShown)
         awaitReady(viewModel)
         viewModel.onAction(ApkAction.DeleteClicked)
@@ -326,7 +339,7 @@ class ApkDownloadViewModelTest {
         val manager = managerWithLocalApk()
         val apk = File(application.cacheDir, "synthetic-shareable.apk")
         whenever(manager.getCachedApk()).thenReturn(apk)
-        val viewModel = ApkDownloadViewModel(application, manager, FakeDownloader(), offlineMetadata())
+        val viewModel = ApkDownloadViewModel(application, manager, FakeDownloader(), offlineMetadata(), ioDispatcher = io)
 
         viewModel.onAction(ApkAction.HotspotShareClicked)
 
@@ -338,7 +351,7 @@ class ApkDownloadViewModelTest {
         // K9
         val manager = managerWithLocalApk()
         whenever(manager.getCachedApk()).thenReturn(null)
-        val viewModel = ApkDownloadViewModel(application, manager, FakeDownloader(), offlineMetadata())
+        val viewModel = ApkDownloadViewModel(application, manager, FakeDownloader(), offlineMetadata(), ioDispatcher = io)
 
         viewModel.onAction(ApkAction.HotspotShareClicked)
 
@@ -355,7 +368,7 @@ class ApkDownloadViewModelTest {
         whenever(manager.getCachedApk()).thenReturn(
             File(application.cacheDir, "synthetic-missing.apk")
         )
-        val viewModel = ApkDownloadViewModel(application, manager, FakeDownloader(), offlineMetadata())
+        val viewModel = ApkDownloadViewModel(application, manager, FakeDownloader(), offlineMetadata(), ioDispatcher = io)
         viewModel.onAction(ApkAction.AppShareClicked)
 
         viewModel.onAction(ApkAction.ConfirmAppShare)
@@ -375,7 +388,7 @@ class ApkDownloadViewModelTest {
             writeBytes(byteArrayOf(0x50, 0x4b))
         }
         whenever(manager.getCachedApk()).thenReturn(apk)
-        val viewModel = ApkDownloadViewModel(application, manager, FakeDownloader(), offlineMetadata())
+        val viewModel = ApkDownloadViewModel(application, manager, FakeDownloader(), offlineMetadata(), ioDispatcher = io)
 
         viewModel.onAction(ApkAction.ConfirmAppShare)
 
@@ -393,7 +406,8 @@ class ApkDownloadViewModelTest {
             application,
             managerWithLocalApk(),
             downloader,
-            offlineMetadata()
+            offlineMetadata(),
+            ioDispatcher = io
         )
         viewModel.onAction(ApkAction.SectionShown)
         val ready = awaitReady(viewModel)
@@ -415,7 +429,8 @@ class ApkDownloadViewModelTest {
             application,
             managerWithoutApk(),
             downloader,
-            offlineMetadata()
+            offlineMetadata(),
+            ioDispatcher = io
         )
         viewModel.onAction(ApkAction.SectionShown)
         awaitStatus(viewModel) { it is ApkPreparationStatus.NotDownloaded }
@@ -440,7 +455,8 @@ class ApkDownloadViewModelTest {
             application,
             managerWithoutApk(),
             downloader,
-            offlineMetadata()
+            offlineMetadata(),
+            ioDispatcher = io
         )
         downloader.emit(ApkDownloader.DownloadState.Downloading(progressPercent = 10))
         assertTrue(viewModel.uiState.value.apkStatus is ApkPreparationStatus.Downloading)
@@ -460,7 +476,8 @@ class ApkDownloadViewModelTest {
             application,
             managerWithoutApk(),
             downloader,
-            offlineMetadata()
+            offlineMetadata(),
+            ioDispatcher = io
         )
         downloader.emit(ApkDownloader.DownloadState.Success(version = "1.7.6", sizeMB = 20))
         val ready = awaitReady(viewModel)
@@ -479,7 +496,8 @@ class ApkDownloadViewModelTest {
             application,
             managerWithLocalApk(),
             downloader,
-            offlineMetadata()
+            offlineMetadata(),
+            ioDispatcher = io
         )
         viewModel.onAction(ApkAction.SectionShown)
         val ready = awaitReady(viewModel)
@@ -513,7 +531,7 @@ class ApkDownloadViewModelTest {
             )
         )
         val downloader = FakeDownloader()
-        val viewModel = ApkDownloadViewModel(application, manager, downloader, releaseMetadata("1.7.6"))
+        val viewModel = ApkDownloadViewModel(application, manager, downloader, releaseMetadata("1.7.6"), ioDispatcher = io)
         viewModel.onAction(ApkAction.SectionShown)
         awaitReady(viewModel)
         val known = awaitKnownRelease(viewModel)
@@ -539,7 +557,8 @@ class ApkDownloadViewModelTest {
             application,
             managerWithoutApk(),
             downloader,
-            offlineMetadata()
+            offlineMetadata(),
+            ioDispatcher = io
         )
 
         downloader.emit(ApkDownloader.DownloadState.Success(version = "1.7.6", sizeMB = 20))
@@ -564,7 +583,8 @@ class ApkDownloadViewModelTest {
             application,
             managerWithLocalApk(),
             downloader,
-            offlineMetadata()
+            offlineMetadata(),
+            ioDispatcher = io
         )
         viewModel.onAction(ApkAction.SectionShown)
         val ready = awaitReady(viewModel)
@@ -595,7 +615,8 @@ class ApkDownloadViewModelTest {
             application,
             managerWithoutApk(),
             downloader,
-            offlineMetadata()
+            offlineMetadata(),
+            ioDispatcher = io
         )
 
         downloader.emit(
@@ -624,7 +645,8 @@ class ApkDownloadViewModelTest {
             application,
             managerWithLocalApk(),
             downloader,
-            offlineMetadata()
+            offlineMetadata(),
+            ioDispatcher = io
         )
         viewModel.onAction(ApkAction.SectionShown)
         awaitReady(viewModel)
@@ -654,7 +676,8 @@ class ApkDownloadViewModelTest {
             application,
             managerWithLocalApk(),
             downloader,
-            releaseMetadata("1.7.6")
+            releaseMetadata("1.7.6"),
+            ioDispatcher = io
         )
         assertNull(viewModel.uiState.value.shareableApk)
 
@@ -678,17 +701,16 @@ class ApkDownloadViewModelTest {
 
     // --- Helpers ---
     //
-    // Waits run on Dispatchers.Default so their timeouts are real time: the ViewModel does its
-    // disk work on Dispatchers.IO, which the test scheduler's virtual clock does not wait for.
+    // Timeouts are on the test scheduler's virtual clock: a wait that cannot be met fails as soon
+    // as the scheduler is idle, and one for no effect returns once nothing else can run.
 
     private suspend fun awaitStatus(
         viewModel: ApkDownloadViewModel,
         predicate: (ApkPreparationStatus) -> Boolean
-    ): ApkPreparationStatus = withContext(Dispatchers.Default) {
+    ): ApkPreparationStatus =
         withTimeout(5_000L) {
             viewModel.uiState.map { it.apkStatus }.first(predicate)
         }
-    }
 
     private suspend fun awaitFallback(
         viewModel: ApkDownloadViewModel
@@ -709,23 +731,18 @@ class ApkDownloadViewModelTest {
 
     private suspend fun awaitKnownRelease(
         viewModel: ApkDownloadViewModel
-    ): ApkReleaseStatus.Known = withContext(Dispatchers.Default) {
+    ): ApkReleaseStatus.Known =
         withTimeout(5_000L) {
             viewModel.uiState.map { it.releaseStatus }.first { it is ApkReleaseStatus.Known }
                 as ApkReleaseStatus.Known
         }
-    }
 
     private suspend fun awaitEffect(viewModel: ApkDownloadViewModel): ApkEvent =
-        withContext(Dispatchers.Default) {
-            withTimeout(5_000L) { viewModel.events.first() }
-        }
+        withTimeout(5_000L) { viewModel.events.first() }
 
-    /** Null when no effect arrives within a short real-time window. */
+    /** Null when no effect arrives before the scheduler runs out of work. */
     private suspend fun awaitNoEffect(viewModel: ApkDownloadViewModel): ApkEvent? =
-        withContext(Dispatchers.Default) {
-            withTimeoutOrNull(300L) { viewModel.events.first() }
-        }
+        withTimeoutOrNull(300L) { viewModel.events.first() }
 
     /**
      * This module's JVM tests run without Android resources (see BackDispatchTest), so the

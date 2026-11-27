@@ -22,6 +22,7 @@ import com.bitchat.android.util.UniversalApkManager
 import com.bitchat.android.util.WorkManagerApkDownloader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -194,7 +195,9 @@ class ApkDownloadViewModel internal constructor(
     application: Application,
     private val apkManager: UniversalApkManager,
     private val downloader: ApkDownloader,
-    private val latestReleaseProvider: LatestReleaseProvider
+    private val latestReleaseProvider: LatestReleaseProvider,
+    // Tests pass their own, so the disk work runs under the test's scheduler.
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : AndroidViewModel(application) {
 
     // Hilt injects through this constructor rather than the primary one:
@@ -288,14 +291,14 @@ class ApkDownloadViewModel internal constructor(
         _state.update { it.copy(showDeleteDialog = false) }
         downloader.cancelDownload()
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { apkManager.deleteCachedApk() }
+            withContext(ioDispatcher) { apkManager.deleteCachedApk() }
             checkStatus()
         }
     }
 
     private fun onHotspotShareClicked() {
         viewModelScope.launch {
-            val apkFile = withContext(Dispatchers.IO) { apkManager.getCachedApk() }
+            val apkFile = withContext(ioDispatcher) { apkManager.getCachedApk() }
             if (apkFile != null) {
                 _events.send(ApkEvent.NavigateToHotspot(apkFile.absolutePath))
             } else {
@@ -308,7 +311,7 @@ class ApkDownloadViewModel internal constructor(
 
     private fun onConfirmAppShare() {
         _state.update { it.copy(showShareApkDialog = false) }
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(ioDispatcher) {
             try {
                 val apkFile = apkManager.getCachedApk()
                 if (apkFile == null || !apkFile.exists()) {
@@ -467,7 +470,7 @@ class ApkDownloadViewModel internal constructor(
                         }
                     }
                     is ApkDownloader.DownloadState.Success -> {
-                        val info = withContext(Dispatchers.IO) { apkManager.getCachedApkInfo() }
+                        val info = withContext(ioDispatcher) { apkManager.getCachedApkInfo() }
                         _state.update {
                             val ready = ApkPreparationStatus.Ready(
                                 version = info?.version ?: downloadState.version,
@@ -488,7 +491,7 @@ class ApkDownloadViewModel internal constructor(
                         val failure = downloadState.toFailureMessage()
                         val fallback = (_state.value.apkStatus as? ApkPreparationStatus.Downloading)
                             ?.shareableFallback
-                            ?: withContext(Dispatchers.IO) { apkManager.getCachedApkInfo() }
+                            ?: withContext(ioDispatcher) { apkManager.getCachedApkInfo() }
                                 ?.toReady()
                         if (fallback != null) {
                             _state.update {
@@ -562,7 +565,7 @@ class ApkDownloadViewModel internal constructor(
         variant = variant
     )
 
-    private suspend fun resolveApkStatus(): ApkPreparationStatus = withContext(Dispatchers.IO) {
+    private suspend fun resolveApkStatus(): ApkPreparationStatus = withContext(ioDispatcher) {
         try {
             val info = apkManager.prepareLocalApkInfo()
             if (info != null) {
