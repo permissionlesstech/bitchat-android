@@ -40,7 +40,12 @@ Geohash (recipient-less) `bitchat1:` envelopes and their acks carry 8 fresh
 random bytes in the embedded packet's sender field, never the mesh peer ID,
 which would link a geohash identity to the device. Receivers key these
 conversations on the Nostr sender pubkey and must not read the field
-(`NostrEmbeddedBitChatTest`).
+(`NostrEmbeddedBitChatTest` for encoding and
+`NostrAutomaticReceiptPrivacyRobolectricTest` for receiver behavior).
+
+The shared account inbox also uses the no-recipient encoder for automatic
+delivery and read receipts. Random sender headers do not prevent correlation
+through nicknames, content or other shared information.
 
 Bech32 byte decoding must reject nonzero discarded bits and a residual whole
 five-bit symbol. A valid checksum alone does not make byte padding canonical.
