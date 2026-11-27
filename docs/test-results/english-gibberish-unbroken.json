@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "implementation_parent_commit": "546538969034b36c5262164fa114a3a35e01ba00",
+  "detector_source": "app/src/main/java/com/bitchat/android/spam/EnglishGibberishDetector.kt",
+  "detector_source_sha256": "1ad18859ef419da7b2e349acd033d68027952ef9deaaa33a378764792c5419b3",
+  "model_source_sha256": "1151436434dce14cfe590eb55d25027f992c8b345085e53024c4fd0ee3103b49",
+  "test_seed": 999,
+  "correction": {
+    "previous_minimum_words": 3,
+    "previous_maximum_word_length": 24,
+    "minimum_letters": 24,
+    "word_boundaries_required": false,
+    "unbroken_alphabetic_tokens_scored": true,
+    "threshold": 4.2,
+    "weights_retrained": false
+  },
+  "metrics": [
+    {
+      "scenario": "fresh mesh identities",
+      "spaced": true,
+      "sent": 10000,
+      "model_off_admitted": 10000,
+      "model_admitted": 67,
+      "model_hidden": 9933,
+      "hidden_percent": 99.33
+    },
+    {
+      "scenario": "fresh mesh identities",
+      "spaced": false,
+      "sent": 10000,
+      "model_off_admitted": 10000,
+      "model_admitted": 2,
+      "model_hidden": 9998,
+      "hidden_percent": 99.98
+    },
+    {
+      "scenario": "fresh nostr identities",
+      "spaced": true,
+      "sent": 10000,
+      "model_off_admitted": 10000,
+      "model_admitted": 52,
+      "model_hidden": 9948,
+      "hidden_percent": 99.48
+    },
+    {
+      "scenario": "fresh nostr identities",
+      "spaced": false,
+      "sent": 10000,
+      "model_off_admitted": 10000,
+      "model_admitted": 1,
+      "model_hidden": 9999,
+      "hidden_percent": 99.99
+    },
+    {
+      "scenario": "mesh app-state admission",
+      "spaced": false,
+      "sent": 200,
+      "model_admitted": 0,
+      "model_hidden": 200,
+      "hidden_percent": 100.0
+    },
+    {
+      "scenario": "mesh app-state admission",
+      "spaced": true,
+      "sent": 200,
+      "model_admitted": 1,
+      "model_hidden": 199,
+      "hidden_percent": 99.5
+    },
+    {
+      "scenario": "validly signed geohash events",
+      "spaced": true,
+      "sent": 500,
+      "model_off_admitted": 500,
+      "model_admitted": 1,
+      "model_hidden": 499,
+      "hidden_percent": 99.8
+    },
+    {
+      "scenario": "validly signed geohash events",
+      "spaced": false,
+      "sent": 500,
+      "model_off_admitted": 500,
+      "model_admitted": 0,
+      "model_hidden": 500,
+      "hidden_percent": 100.0
+    }
+  ],
+  "keyboard_like_stream": {
+    "alphabet": "bdfhijknrtuv",
+    "message_length": 100,
+    "sent": 1000,
+    "model_hidden": 1000,
+    "model_admitted": 0,
+    "fresh_identity_per_message": true
+  },
+  "legitimate_controls": {
+    "english": 60,
+    "multilingual": 16,
+    "technical_and_short": 15,
+    "model_flags": 0,
+    "baseline_other_rule_flags": 1,
+    "new_admission_changes": 0
+  },
+  "unit_tests": {
+    "app": {
+      "tests": 771,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 3,
+      "passed": 768
+    },
+    "wear": {
+      "tests": 299,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 299
+    }
+  },
+  "debug_builds": {
+    "app": "pass",
+    "wear": "pass"
+  },
+  "lint": {
+    "tasks": "completed under repository nonblocking configuration",
+    "new_detector_findings": 0,
+    "reported": {
+      "app": {
+        "hint": 19,
+        "warning": 335,
+        "error": 311
+      },
+      "wear": {
+        "error": 37,
+        "warning": 51,
+        "hint": 10
+      }
+    }
+  },
+  "physical_validation": {
+    "result": "not_run",
+    "scenario": "broadcast_gibberish",
+    "physical_evidence": false
+  },
+  "fixtures": "Synthetic only; no live conversation text, identifiers, or channel data used",
+  "previous_results": "docs/test-results/english-gibberish-filter.json",
+  "limits": [
+    "Small synthetic regression sets are not real-world accuracy estimates",
+    "Explicit technical tokens and unsupported scripts can cause abstention",
+    "Bare alphabetic identifiers may be flagged",
+    "Plausible word sequences and ordinary English sentences can pass"
+  ]
+}

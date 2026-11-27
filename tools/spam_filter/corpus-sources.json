@@ -1,0 +1,897 @@
+{
+  "formatVersion": 1,
+  "cachePolicy": "Downloaded text, raw artifacts and provider metadata remain local under ignored build/corpora/conversational; never copy into repository fixtures or upload. No app or device data is used.",
+  "languages": {
+    "ar": {
+      "scripts": [
+        "Arab"
+      ],
+      "tatoebaCode": "ara",
+      "providerCodes": [
+        "arb",
+        "ara",
+        "ary",
+        "ars",
+        "acq",
+        "arz",
+        "apc"
+      ],
+      "massiveLocales": [
+        "ar-SA"
+      ]
+    },
+    "bn": {
+      "scripts": [
+        "Beng"
+      ],
+      "tatoebaCode": "ben",
+      "providerCodes": [
+        "ben"
+      ],
+      "massiveLocales": [
+        "bn-BD"
+      ]
+    },
+    "de": {
+      "scripts": [
+        "Latn"
+      ],
+      "tatoebaCode": "deu",
+      "providerCodes": [
+        "deu"
+      ],
+      "massiveLocales": [
+        "de-DE"
+      ]
+    },
+    "en": {
+      "scripts": [
+        "Latn"
+      ],
+      "tatoebaCode": "eng",
+      "providerCodes": [
+        "eng"
+      ],
+      "massiveLocales": [
+        "en-US"
+      ]
+    },
+    "es": {
+      "scripts": [
+        "Latn"
+      ],
+      "tatoebaCode": "spa",
+      "providerCodes": [
+        "spa"
+      ],
+      "massiveLocales": [
+        "es-ES"
+      ]
+    },
+    "eu": {
+      "scripts": [
+        "Latn"
+      ],
+      "tatoebaCode": "eus",
+      "providerCodes": [
+        "eus"
+      ],
+      "massiveLocales": []
+    },
+    "fa": {
+      "scripts": [
+        "Arab"
+      ],
+      "tatoebaCode": "pes",
+      "providerCodes": [
+        "pes",
+        "fas"
+      ],
+      "massiveLocales": [
+        "fa-IR"
+      ]
+    },
+    "fil": {
+      "scripts": [
+        "Latn"
+      ],
+      "tatoebaCode": "tgl",
+      "providerCodes": [
+        "fil",
+        "tgl"
+      ],
+      "massiveLocales": [
+        "tl-PH"
+      ]
+    },
+    "fr": {
+      "scripts": [
+        "Latn"
+      ],
+      "tatoebaCode": "fra",
+      "providerCodes": [
+        "fra"
+      ],
+      "massiveLocales": [
+        "fr-FR"
+      ]
+    },
+    "he": {
+      "scripts": [
+        "Hebr"
+      ],
+      "tatoebaCode": "heb",
+      "providerCodes": [
+        "heb"
+      ],
+      "massiveLocales": [
+        "he-IL"
+      ]
+    },
+    "hi": {
+      "scripts": [
+        "Deva"
+      ],
+      "tatoebaCode": "hin",
+      "providerCodes": [
+        "hin"
+      ],
+      "massiveLocales": [
+        "hi-IN"
+      ]
+    },
+    "id": {
+      "scripts": [
+        "Latn"
+      ],
+      "tatoebaCode": "ind",
+      "providerCodes": [
+        "ind"
+      ],
+      "massiveLocales": [
+        "id-ID"
+      ]
+    },
+    "it": {
+      "scripts": [
+        "Latn"
+      ],
+      "tatoebaCode": "ita",
+      "providerCodes": [
+        "ita"
+      ],
+      "massiveLocales": [
+        "it-IT"
+      ]
+    },
+    "ja": {
+      "scripts": [
+        "Jpan"
+      ],
+      "tatoebaCode": "jpn",
+      "providerCodes": [
+        "jpn"
+      ],
+      "massiveLocales": [
+        "ja-JP"
+      ]
+    },
+    "ka": {
+      "scripts": [
+        "Geor"
+      ],
+      "tatoebaCode": "kat",
+      "providerCodes": [
+        "kat"
+      ],
+      "massiveLocales": [
+        "ka-GE"
+      ]
+    },
+    "ko": {
+      "scripts": [
+        "Hang"
+      ],
+      "tatoebaCode": "kor",
+      "providerCodes": [
+        "kor"
+      ],
+      "massiveLocales": [
+        "ko-KR"
+      ]
+    },
+    "mg": {
+      "scripts": [
+        "Latn"
+      ],
+      "tatoebaCode": "mlg",
+      "providerCodes": [
+        "mlg",
+        "plt"
+      ],
+      "massiveLocales": []
+    },
+    "ms": {
+      "scripts": [
+        "Latn"
+      ],
+      "tatoebaCode": "zsm",
+      "providerCodes": [
+        "msa",
+        "zsm"
+      ],
+      "massiveLocales": [
+        "ms-MY"
+      ]
+    },
+    "ne": {
+      "scripts": [
+        "Deva"
+      ],
+      "tatoebaCode": "npi",
+      "providerCodes": [
+        "nep",
+        "npi"
+      ],
+      "massiveLocales": []
+    },
+    "nl": {
+      "scripts": [
+        "Latn"
+      ],
+      "tatoebaCode": "nld",
+      "providerCodes": [
+        "nld"
+      ],
+      "massiveLocales": [
+        "nl-NL"
+      ]
+    },
+    "pa": {
+      "scripts": [
+        "Arab"
+      ],
+      "tatoebaCode": "pnb",
+      "providerCodes": [
+        "pnb",
+        "pan"
+      ],
+      "massiveLocales": []
+    },
+    "pl": {
+      "scripts": [
+        "Latn"
+      ],
+      "tatoebaCode": "pol",
+      "providerCodes": [
+        "pol"
+      ],
+      "massiveLocales": [
+        "pl-PL"
+      ]
+    },
+    "pt": {
+      "scripts": [
+        "Latn"
+      ],
+      "tatoebaCode": "por",
+      "providerCodes": [
+        "por"
+      ],
+      "massiveLocales": [
+        "pt-PT"
+      ]
+    },
+    "ru": {
+      "scripts": [
+        "Cyrl"
+      ],
+      "tatoebaCode": "rus",
+      "providerCodes": [
+        "rus"
+      ],
+      "massiveLocales": [
+        "ru-RU"
+      ]
+    },
+    "sv": {
+      "scripts": [
+        "Latn"
+      ],
+      "tatoebaCode": "swe",
+      "providerCodes": [
+        "swe"
+      ],
+      "massiveLocales": [
+        "sv-SE"
+      ]
+    },
+    "ta": {
+      "scripts": [
+        "Taml"
+      ],
+      "tatoebaCode": "tam",
+      "providerCodes": [
+        "tam"
+      ],
+      "massiveLocales": [
+        "ta-IN"
+      ]
+    },
+    "th": {
+      "scripts": [
+        "Thai"
+      ],
+      "tatoebaCode": "tha",
+      "providerCodes": [
+        "tha"
+      ],
+      "massiveLocales": [
+        "th-TH"
+      ]
+    },
+    "tr": {
+      "scripts": [
+        "Latn"
+      ],
+      "tatoebaCode": "tur",
+      "providerCodes": [
+        "tur"
+      ],
+      "massiveLocales": [
+        "tr-TR"
+      ]
+    },
+    "uk": {
+      "scripts": [
+        "Cyrl"
+      ],
+      "tatoebaCode": "ukr",
+      "providerCodes": [
+        "ukr"
+      ],
+      "massiveLocales": []
+    },
+    "ur": {
+      "scripts": [
+        "Arab"
+      ],
+      "tatoebaCode": "urd",
+      "providerCodes": [
+        "urd"
+      ],
+      "massiveLocales": [
+        "ur-PK"
+      ]
+    },
+    "vi": {
+      "scripts": [
+        "Latn"
+      ],
+      "tatoebaCode": "vie",
+      "providerCodes": [
+        "vie"
+      ],
+      "massiveLocales": [
+        "vi-VN"
+      ]
+    },
+    "zh": {
+      "scripts": [
+        "Hans",
+        "Hant"
+      ],
+      "tatoebaCode": "cmn",
+      "providerCodes": [
+        "zho",
+        "cmn"
+      ],
+      "massiveLocales": [
+        "zh-CN",
+        "zh-TW"
+      ]
+    }
+  },
+  "sources": [
+    {
+      "id": "soc",
+      "title": "Synthetic Online Conversations 2508 MULTI",
+      "kind": "synthetic-online-chat",
+      "homepage": "https://huggingface.co/datasets/marcodsn/SOC-2508-MULTI",
+      "license": "CC-BY-4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "revision": "a94d7b817488c8e201623e43186893f38335af45",
+      "languages": [
+        "en",
+        "fr",
+        "it",
+        "de",
+        "es"
+      ],
+      "artifacts": [
+        {
+          "url": "https://huggingface.co/datasets/marcodsn/SOC-2508-MULTI/resolve/a94d7b817488c8e201623e43186893f38335af45/data/train-00000-of-00001.parquet",
+          "localFile": "raw/soc.parquet",
+          "bytes": 22229453,
+          "sha256": "ab9dc2712a407c157637289b52759a8262bbf8b09463cc2b55a09e4bf435bab6"
+        }
+      ],
+      "notes": "Synthetic multi-turn chat, machine translated. Read only message text; discard persona and account-like metadata."
+    },
+    {
+      "id": "aya-soda",
+      "title": "Aya translated SODA dialogue subset",
+      "kind": "machine-translated-synthetic-dialogue",
+      "homepage": "https://huggingface.co/datasets/CohereLabs/aya_collection",
+      "license": "Apache-2.0 AND CC-BY-4.0",
+      "licenseUrl": "https://huggingface.co/datasets/CohereLabs/aya_collection/blob/main/README.md",
+      "upstream": "https://huggingface.co/datasets/allenai/soda",
+      "revision": "09069079fad96ad9c7f8781be8c1d70471dfa768",
+      "repository": "CohereLabs/aya_collection",
+      "directory": "translated_soda",
+      "rowGroupsPerLanguageScriptPerShard": 10,
+      "artifacts": [],
+      "notes": "Ranged subset of training shards, not the full collection. Machine-translated synthetic dialogue; no native-quality guarantee. Component SODA is CC-BY-4.0; keep component and collection notices. Script checks must reject Gurmukhi for pa-PK.",
+      "expectedTrainingShards": 38
+    },
+    {
+      "id": "aya",
+      "title": "Aya Dataset original human annotations",
+      "kind": "human-authored-qa",
+      "homepage": "https://huggingface.co/datasets/CohereLabs/aya_dataset",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "revision": "f9ea04583f02a8f86404ff6c58bf75fe637df8a2",
+      "artifacts": [
+        {
+          "url": "https://huggingface.co/datasets/CohereLabs/aya_dataset/resolve/f9ea04583f02a8f86404ff6c58bf75fe637df8a2/data/train-00000-of-00001.parquet",
+          "localFile": "raw/aya.parquet",
+          "bytes": 137195800,
+          "sha256": "51baa85043b569ba117f41516b32d1b0e4e2647fb203a08933f98a556fb1fb06"
+        }
+      ],
+      "notes": "Original human-authored prompt/response pairs only. Not a natural-chat corpus. Exclude re-annotations, user_id and demographics. Punjabi requires an Arabic-script check."
+    },
+    {
+      "id": "tatoeba",
+      "title": "Tatoeba authored sentences",
+      "kind": "authored-short-sentences",
+      "homepage": "https://tatoeba.org/",
+      "license": "CC-BY-2.0-FR",
+      "licenseUrl": "https://en.wiki.tatoeba.org/articles/show/using-the-tatoeba-corpus",
+      "artifacts": [
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/ara/ara_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-ara.tsv.bz2",
+          "bytes": 769162,
+          "sha256": "c8d9c09f2db910ee1fb05054f0badb7a38195ea952b39f9e4ce5b92ec8ec70bc",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-bbc8a\"",
+          "language": "ar"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/ben/ben_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-ben.tsv.bz2",
+          "bytes": 250791,
+          "sha256": "27901d1bd8b4cce1936266df3e1191c51ea652163ff27ceb5c92e47da2cbb5fd",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-3d3a7\"",
+          "language": "bn"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/deu/deu_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-deu.tsv.bz2",
+          "bytes": 12108183,
+          "sha256": "ce1f925b5fa76535f970f0ff02dc35899a4dec6c2eefd526cf832b4c791625ea",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-b8c197\"",
+          "language": "de"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/eng/eng_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-eng.tsv.bz2",
+          "bytes": 24918676,
+          "sha256": "f634eaaf26623c2a2e170be2dae54b18388479311ae8619d04889df4e5d021f3",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-17c3a94\"",
+          "language": "en"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/spa/spa_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-spa.tsv.bz2",
+          "bytes": 6370284,
+          "sha256": "29efd66854f11ad3480720ceda6e7b42563d40df4e660d9b0721c56a61753e9a",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-6133ec\"",
+          "language": "es"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/eus/eus_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-eus.tsv.bz2",
+          "bytes": 81179,
+          "sha256": "eb243f66ff433fbc3fc63daf045509c0478ae4f80c91c7e92c3bf830f3a1f4bd",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-13d1b\"",
+          "language": "eu"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/pes/pes_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-pes.tsv.bz2",
+          "bytes": 468738,
+          "sha256": "3a806fde7b45fa794f1eb1fdf97fb7ebf6ce3d11cdcebb3fbde49c9304278752",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-72702\"",
+          "language": "fa"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/tgl/tgl_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-tgl.tsv.bz2",
+          "bytes": 955385,
+          "sha256": "68417e29aaa2654c16d75fa8283003296c99384368788493cf45dc492b014dff",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-e93f9\"",
+          "language": "fil"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/fra/fra_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-fra.tsv.bz2",
+          "bytes": 9781712,
+          "sha256": "3cbc43eab20185907b3ff4eae8aa60d20b9caf5133076c1c1c013d169cd87a99",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-9541d0\"",
+          "language": "fr"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/heb/heb_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-heb.tsv.bz2",
+          "bytes": 2401757,
+          "sha256": "529ecc874447d5a47e3d4d69af6d96ac38c624b7da532962e228ba1ef5f379e3",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-24a5dd\"",
+          "language": "he"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/hin/hin_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-hin.tsv.bz2",
+          "bytes": 179395,
+          "sha256": "7e45c13ea3ccb15ed68bbc655f41b3be5f387bd42d2613efda179b32c540621c",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-2bcc3\"",
+          "language": "hi"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/ind/ind_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-ind.tsv.bz2",
+          "bytes": 330030,
+          "sha256": "03e60b55501c1851a856ba5270c736083b94e95fee43e7c69e32f7a8cdac9bf7",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-5092e\"",
+          "language": "id"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/ita/ita_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-ita.tsv.bz2",
+          "bytes": 9596820,
+          "sha256": "1cccd6614ee66899ebf6d22549a29a2b52531c68483e508c60decc7135a0c7cc",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-926f94\"",
+          "language": "it"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/jpn/jpn_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-jpn.tsv.bz2",
+          "bytes": 3417887,
+          "sha256": "25d727283d297f812b2c9ec36f3a6812a8a60ed9d6d5427978c4e020a83782c3",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-34271f\"",
+          "language": "ja"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/kat/kat_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-kat.tsv.bz2",
+          "bytes": 84382,
+          "sha256": "853f93f293e0301d6de34095f0990b31a69a08b73fbadcd900e924e53d3a9776",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-1499e\"",
+          "language": "ka"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/kor/kor_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-kor.tsv.bz2",
+          "bytes": 194349,
+          "sha256": "63bae2eec70e19d53d3bc46e9b7f2de3231cf0834265788983c0a222eb8f0186",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-2f72d\"",
+          "language": "ko"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/mlg/mlg_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-mlg.tsv.bz2",
+          "bytes": 1135,
+          "sha256": "bbf82b36226f77d5e36f4a0c9f67907d401540bd9bcb7e4aadbc42fc00f1c1eb",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-46f\"",
+          "language": "mg"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/zsm/zsm_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-zsm.tsv.bz2",
+          "bytes": 111610,
+          "sha256": "70d3632289dba332e94b2557c4dbaf8961ff75168f5cafc98c18a04755e38f08",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-1b3fa\"",
+          "language": "ms"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/npi/npi_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-npi.tsv.bz2",
+          "bytes": 52122,
+          "sha256": "e6377d6ee63f26a45df86c5bbc02e72ecfb6c3c6e1534e06fbe2ee87acaf300c",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-cb9a\"",
+          "language": "ne"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/nld/nld_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-nld.tsv.bz2",
+          "bytes": 2501052,
+          "sha256": "87431fcb868dd4d2ac2a691b3934ecda7e9cfbde7a22970419afb668252fa374",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-2629bc\"",
+          "language": "nl"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/pnb/pnb_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-pnb.tsv.bz2",
+          "bytes": 1314,
+          "sha256": "4d462f07825d44db7352500c4d72e81c0059bd038bb69a9ba4383313895dfad5",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-522\"",
+          "language": "pa"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/pol/pol_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-pol.tsv.bz2",
+          "bytes": 1737662,
+          "sha256": "34a0d8105ced64ebc77dc82aec67f50434a6f484d725a5cb3ffd6755fa2b3751",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-1a83be\"",
+          "language": "pl"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/por/por_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-por.tsv.bz2",
+          "bytes": 6398543,
+          "sha256": "ddb8dc071797c5e52d97e7b3f0d607290881ab2bfae4004a7c37007811f1c234",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-61a24f\"",
+          "language": "pt"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/rus/rus_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-rus.tsv.bz2",
+          "bytes": 15570556,
+          "sha256": "4cc471dbea673819ffada4735a9eadb4cd360074f9feee2fd6481bc5c7081760",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-ed967c\"",
+          "language": "ru"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/swe/swe_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-swe.tsv.bz2",
+          "bytes": 630437,
+          "sha256": "8c366cf7f259f7f349565e3ce772dd8e79b7d054ec8e42c4f852d0a7d77b2112",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-99ea5\"",
+          "language": "sv"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/tam/tam_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-tam.tsv.bz2",
+          "bytes": 8099,
+          "sha256": "c40ff7e21a1b57a7b753806cf0e737b71608151a8714aaa40831d7a25eac2139",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-1fa3\"",
+          "language": "ta"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/tha/tha_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-tha.tsv.bz2",
+          "bytes": 72082,
+          "sha256": "d03a70b0189cf410e3b6ce4d6e0daa4062a01518d71ed1efd2fbed619669e5a4",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-11992\"",
+          "language": "th"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/tur/tur_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-tur.tsv.bz2",
+          "bytes": 8585287,
+          "sha256": "364ad61c0a4739fd58a6f3e18ea2355ceee6a5b510a135fa27cb3e8ef3dca32f",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-830047\"",
+          "language": "tr"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/ukr/ukr_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-ukr.tsv.bz2",
+          "bytes": 1996218,
+          "sha256": "fcb9454e62978b2636d2465cbba4d383a76e6cf12030d8c675fc4ba420abf68c",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-1e75ba\"",
+          "language": "uk"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/urd/urd_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-urd.tsv.bz2",
+          "bytes": 38788,
+          "sha256": "a3c527c10f3504e91f9d2da6ee4bb4c23af1f52334b296c4b45e83033daf2ef0",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-9784\"",
+          "language": "ur"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/vie/vie_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-vie.tsv.bz2",
+          "bytes": 422555,
+          "sha256": "3533911c9a693e12dfd2a77be695a847a631dac46f01cb3a27017b20bdc5ea66",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-6729b\"",
+          "language": "vi"
+        },
+        {
+          "url": "https://downloads.tatoeba.org/exports/per_language/cmn/cmn_sentences.tsv.bz2",
+          "localFile": "raw/tatoeba-cmn.tsv.bz2",
+          "bytes": 1259217,
+          "sha256": "edf090f0e0a043792e379560ddb56816757baa3dc99541fdca999c83b98a47ee",
+          "lastModified": "Sat, 24 Oct 2026 06:42:40 GMT",
+          "etag": "\"6adc5360-1336d1\"",
+          "language": "zh"
+        }
+      ],
+      "notes": "Short authored/translated examples, not continuous conversations. Weekly mutable URLs: snapshots are locked by SHA-256. Keep original sentence IDs for per-author attribution before redistribution."
+    },
+    {
+      "id": "massive",
+      "title": "MASSIVE 1.1",
+      "kind": "authored-assistant-utterances",
+      "homepage": "https://huggingface.co/datasets/AmazonScience/massive",
+      "license": "CC-BY-4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "revision": "1.1",
+      "artifacts": [
+        {
+          "url": "https://amazon-massive-nlu-dataset.s3.amazonaws.com/amazon-massive-dataset-1.1.tar.gz",
+          "localFile": "raw/massive-1.1.tar.gz",
+          "bytes": 40251390,
+          "sha256": "4cba5faa11c71437928e17cb1b9b3d8b8e727e7ea363a3a9a8045e19c0491577"
+        }
+      ],
+      "notes": "Professionally translated short assistant requests. Select upstream training utterances only; discard worker IDs, judgments and slot annotations. Not casual multi-turn chat."
+    },
+    {
+      "id": "kakugo-mg",
+      "title": "Kakugo Plateau Malagasy",
+      "kind": "synthetic-assistant-qa",
+      "homepage": "https://huggingface.co/datasets/ptrdvn/kakugo-plt",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "revision": "9b60010d8cb2db8808f1e92aff4e7a6abf34c544",
+      "languages": [
+        "mg"
+      ],
+      "artifacts": [
+        {
+          "url": "https://huggingface.co/datasets/ptrdvn/kakugo-plt/resolve/9b60010d8cb2db8808f1e92aff4e7a6abf34c544/data/train-00000-of-00001.parquet",
+          "localFile": "raw/kakugo-mg.parquet",
+          "bytes": 47796068,
+          "sha256": "6b27f8716cad44adf0463c16397fb0449847e09057adf95ed92f6335b0e917dc"
+        }
+      ],
+      "notes": "Synthetic and machine-translated assistant exchanges, not native-speaker-validated casual chat. Drop system prompts, reasoning traces and scenario metadata."
+    },
+    {
+      "id": "georgian-roleplay",
+      "title": "Georgian GPTeacher Roleplay",
+      "kind": "machine-translated-roleplay",
+      "homepage": "https://huggingface.co/datasets/jojo-ai-mst/Roleplay-Georgian",
+      "license": "MIT",
+      "licenseUrl": "https://huggingface.co/datasets/jojo-ai-mst/Roleplay-Georgian",
+      "revision": "74aeec0457a27c61d17e14c4ca6cfbf0a4f9715f",
+      "languages": [
+        "ka"
+      ],
+      "artifacts": [
+        {
+          "url": "https://huggingface.co/datasets/jojo-ai-mst/Roleplay-Georgian/resolve/74aeec0457a27c61d17e14c4ca6cfbf0a4f9715f/GPTeacher%20RolePlay%20Simple%20Deduped%20-%20Georgian.csv",
+          "localFile": "raw/georgian-roleplay.csv",
+          "bytes": 5725665,
+          "sha256": "5cd6ea836340ddc2f6144d0561eea994ca19b3e58d9d5f19637e42158698f4a6"
+        }
+      ],
+      "notes": "Machine-translated fictional roleplay; supplement only. Retain Georgian columns, not the English originals."
+    },
+    {
+      "id": "sacor-pa",
+      "title": "SACOR Shahmukhi Punjabi",
+      "kind": "human-translated-parallel-sentences",
+      "homepage": "https://github.com/hjy895/SACOR",
+      "license": "MIT",
+      "licenseUrl": "https://github.com/hjy895/SACOR/blob/main/LICENSE",
+      "revision": "d0f5cb2c895feac5cb429853cfa0416c4cea7af5",
+      "languages": [
+        "pa"
+      ],
+      "artifacts": [
+        {
+          "url": "https://raw.githubusercontent.com/hjy895/SACOR/d0f5cb2c895feac5cb429853cfa0416c4cea7af5/corpora/en-pan.tsv",
+          "localFile": "raw/sacor-pa.tsv",
+          "bytes": 782776,
+          "sha256": "2d45b8529fa84787360d00e6dcd0b7301c784eb7913cdd591b974fe4e0aaab68"
+        }
+      ],
+      "notes": "Native Arabic-script Punjabi translations. Not a conversational chat collection. Retain target_sentence only; discard translator and region metadata. Download audit: 5127 rows collapse to 53 distinct target strings; do not report this as 5127 distinct training examples."
+    },
+    {
+      "id": "smol-pa",
+      "title": "SMOL professionally translated Shahmukhi sentences",
+      "kind": "professionally-translated-sentences",
+      "homepage": "https://huggingface.co/datasets/google/smol",
+      "license": "CC-BY-4.0",
+      "licenseUrl": "https://huggingface.co/datasets/google/smol/blob/main/README.md",
+      "revision": "fdaff3a1a019f89fa30a562a85d7c1d3e9150444",
+      "languages": [
+        "pa"
+      ],
+      "artifacts": [
+        {
+          "url": "https://huggingface.co/datasets/google/smol/resolve/fdaff3a1a019f89fa30a562a85d7c1d3e9150444/smolsent/en_pa-Arab.jsonl",
+          "localFile": "raw/smol-pa-forward.jsonl",
+          "bytes": 506617,
+          "sha256": "a5d8c5bb3eedb4365db65362d0488e07a8dc0776e36e9de98a6c7a7ec3e7d8cd"
+        },
+        {
+          "url": "https://huggingface.co/datasets/google/smol/resolve/fdaff3a1a019f89fa30a562a85d7c1d3e9150444/smolsent/pa-Arab_en.jsonl",
+          "localFile": "raw/smol-pa-reverse.jsonl",
+          "bytes": 507480,
+          "sha256": "77ae9a3a770097cd106d1747267dae8e67cd39ec3e99afd8b50203f93d5db474"
+        }
+      ],
+      "notes": "Professional sentence translations, not casual conversation. Select the pa-Arab side; opposite directions can duplicate the same pair and must be deduplicated. Excludes GATITOS word lists."
+    },
+    {
+      "id": "fasal-pa",
+      "title": "Fasal Shahmukhi agricultural assistant QA",
+      "kind": "domain-specific-synthetic-qa",
+      "homepage": "https://huggingface.co/datasets/KhetLink/Fasal-1B-Pak-Agri",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://huggingface.co/datasets/KhetLink/Fasal-1B-Pak-Agri/blob/main/README.md",
+      "revision": "d6e4f60dcf352d4afb54f1148ed66795d14802d1",
+      "languages": [
+        "pa"
+      ],
+      "artifacts": [
+        {
+          "url": "https://huggingface.co/datasets/KhetLink/Fasal-1B-Pak-Agri/resolve/d6e4f60dcf352d4afb54f1148ed66795d14802d1/data/train-00000-of-00001.parquet",
+          "localFile": "raw/fasal-pa.parquet",
+          "bytes": 1915898,
+          "sha256": "6625d3227d3a99804ea93657561731e7574c7c996fa6128811b30f52a04b96ca"
+        }
+      ],
+      "notes": "Supplement only: synthetic agricultural questions/answers, not a broad casual-chat corpus. Select language=pa and verify Arabic script; other languages in the archive are not selected."
+    }
+  ],
+  "notSelected": [
+    {
+      "name": "OpenSubtitles",
+      "source": "https://opus.nlpl.eu/legacy/OpenSubtitles-v2018.php",
+      "reason": "No clear open data license grant on the OPUS page; upstream terms restrict commercial use. Not selected for reusable training data.",
+      "terms": "https://opensubtitles.tawk.help/article/terms-of-service"
+    },
+    {
+      "name": "Aya Punjabi Gurmukhi annotations",
+      "source": "https://huggingface.co/datasets/CohereLabs/aya_dataset",
+      "reason": "All inspected Punjabi-letter records use Gurmukhi, incompatible with pa-PK. Script metadata alone is insufficient."
+    }
+  ]
+}

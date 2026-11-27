@@ -1,0 +1,225 @@
+id,category,content,before_score,after_score,before_model_flagged,after_model_flagged,before_filter_verdict,after_filter_verdict
+numbers_in_chat-1,numbers_in_chat,Please send 2 copies of the synthetic example.,2.390517,2.861769,False,False,ALLOWED,ALLOWED
+numbers_in_chat-2,numbers_in_chat,The sample has 3 pages and 12 diagrams.,2.332164,3.457502,False,False,ALLOWED,ALLOWED
+numbers_in_chat-3,numbers_in_chat,I tried this 4 times and it worked every time.,2.202349,2.686146,False,False,ALLOWED,ALLOWED
+numbers_in_chat-4,numbers_in_chat,The pretend order contains 24 blue pencils.,2.33149,3.01033,False,False,ALLOWED,ALLOWED
+numbers_in_chat-5,numbers_in_chat,The example timer runs for 30 seconds.,2.120889,2.914231,False,False,ALLOWED,ALLOWED
+numbers_in_chat-6,numbers_in_chat,There are 128 entries in this demonstration list.,2.164213,2.924118,False,False,ALLOWED,ALLOWED
+numbers_in_chat-7,numbers_in_chat,The sample file contains 4096 bytes.,2.12808,3.384862,False,False,ALLOWED,ALLOWED
+numbers_in_chat-8,numbers_in_chat,The fictional price is EUR 12.50 including delivery.,2.435529,3.399577,False,False,ALLOWED,ALLOWED
+numbers_in_chat-9,numbers_in_chat,The recipe needs 250 g of flour and 100 ml of milk.,2.699394,3.916178,False,False,ALLOWED,ALLOWED
+numbers_in_chat-10,numbers_in_chat,The example uses a 16:9 image with a 1920x1080 preview.,2.248144,4.384785,False,True,ALLOWED,ENGLISH_GIBBERISH
+numbers_in_chat-11,numbers_in_chat,The progress indicator is at 75% in this fictional example.,2.182901,2.810177,False,False,ALLOWED,ALLOWED
+numbers_in_chat-12,numbers_in_chat,The demonstration temperature is 21.5 degrees.,2.347378,3.295635,False,False,ALLOWED,ALLOWED
+numbers_in_chat-13,numbers_in_chat,Version 2.0.3 fixes the sample menu problem.,2.246133,3.420371,False,False,ALLOWED,ALLOWED
+numbers_in_chat-14,numbers_in_chat,The sample calendar entry uses 2099-01-02 as a fictional date.,2.262521,3.678282,False,False,ALLOWED,ALLOWED
+numbers_in_chat-15,numbers_in_chat,The example shows 09:30 and 10:45 as pretend time values.,2.255217,3.927595,False,False,ALLOWED,ALLOWED
+numbers_in_chat-16,numbers_in_chat,"Try option 1 first, then compare it with option 2.",2.301086,3.172377,False,False,ALLOWED,ALLOWED
+numbers_in_chat-17,numbers_in_chat,The fictional total is 19.95 + 4.00 = 23.95.,,5.742143,False,True,ALLOWED,ENGLISH_GIBBERISH
+numbers_in_chat-18,numbers_in_chat,Use a 3 mm drill for the small demonstration piece.,2.474755,2.893828,False,False,ALLOWED,ALLOWED
+numbers_in_chat-19,numbers_in_chat,"The example battery indicator reads 80%, not a real measurement.",2.281206,2.964835,False,False,ALLOWED,ALLOWED
+numbers_in_chat-20,numbers_in_chat,We need 6 more samples to reach a total of 20.,2.304016,3.09142,False,False,ALLOWED,ALLOWED
+punctuation_in_chat-1,punctuation_in_chat,Really? That's the result I was hoping for!,2.220033,3.068773,False,False,ALLOWED,ALLOWED
+punctuation_in_chat-2,punctuation_in_chat,Thanks!!! This makes the explanation much easier to understand.,2.235964,2.835999,False,False,ALLOWED,ALLOWED
+punctuation_in_chat-3,punctuation_in_chat,I'm not sure... could you explain the second part?,2.237617,3.271339,False,False,ALLOWED,ALLOWED
+punctuation_in_chat-4,punctuation_in_chat,"The sample is called ""the small example"" in the instructions.",1.993056,2.633686,False,False,ALLOWED,ALLOWED
+punctuation_in_chat-5,punctuation_in_chat,Try the other option (the one below the preview).,2.098272,2.715957,False,False,ALLOWED,ALLOWED
+punctuation_in_chat-6,punctuation_in_chat,"The choices are [small], [medium], and [large].",2.468079,4.578355,False,True,ALLOWED,ENGLISH_GIBBERISH
+punctuation_in_chat-7,punctuation_in_chat,"Please compare these: red/blue, on/off, and yes/no.",,4.134972,False,False,ALLOWED,ALLOWED
+punctuation_in_chat-8,punctuation_in_chat,That looks good :) thanks for checking it!,2.29625,2.995085,False,False,ALLOWED,ALLOWED
+punctuation_in_chat-9,punctuation_in_chat,Oops :-/ I clicked the wrong button again.,2.390212,3.252297,False,False,ALLOWED,ALLOWED
+punctuation_in_chat-10,punctuation_in_chat,I think it's ready... unless I've missed something?!,2.566254,3.888086,False,False,ALLOWED,ALLOWED
+punctuation_in_chat-11,punctuation_in_chat,Could you check the spelling of 'example' in this paragraph?,2.263288,2.87947,False,False,ALLOWED,ALLOWED
+punctuation_in_chat-12,punctuation_in_chat,The heading uses a colon: here is the explanation.,2.02322,2.487156,False,False,ALLOWED,ALLOWED
+punctuation_in_chat-13,punctuation_in_chat,The first part works; the second part still needs attention.,2.216699,2.603038,False,False,ALLOWED,ALLOWED
+punctuation_in_chat-14,punctuation_in_chat,Please keep the hyphenated sample-label in the demonstration.,2.304781,2.653756,False,False,ALLOWED,ALLOWED
+punctuation_in_chat-15,punctuation_in_chat,Use the + button to add an item and the - button to remove it.,2.173684,2.770866,False,False,ALLOWED,ALLOWED
+punctuation_in_chat-16,punctuation_in_chat,"This is a pretend quote: ""Can you hear me?""",2.432966,3.467159,False,False,ALLOWED,ALLOWED
+punctuation_in_chat-17,punctuation_in_chat,The sample uses A/B testing to compare two layouts.,2.201907,2.742072,False,False,ALLOWED,ALLOWED
+punctuation_in_chat-18,punctuation_in_chat,I agree -- the shorter explanation is easier to follow.,2.307178,2.836965,False,False,ALLOWED,ALLOWED
+punctuation_in_chat-19,punctuation_in_chat,That's exactly what I meant!!! Thank you so much!!!,2.528732,3.748739,False,False,ALLOWED,ALLOWED
+punctuation_in_chat-20,punctuation_in_chat,"The example includes commas, parentheses (like these), and a final period.",2.190764,3.0031,False,False,ALLOWED,ALLOWED
+numeric_and_math-1,numeric_and_math,2 + 2 = 4,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+numeric_and_math-2,numeric_and_math,12 * 8 = 96,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+numeric_and_math-3,numeric_and_math,144 / 12 = 12,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+numeric_and_math-4,numeric_and_math,100 - 37 = 63,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+numeric_and_math-5,numeric_and_math,3.14159,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+numeric_and_math-6,numeric_and_math,0.125 = 1/8,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+numeric_and_math-7,numeric_and_math,50% + 25% = 75%,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+numeric_and_math-8,numeric_and_math,(2 + 3) * 4 = 20,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+numeric_and_math-9,numeric_and_math,"1, 1, 2, 3, 5, 8, 13, 21",,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+numeric_and_math-10,numeric_and_math,x^2 + y^2 = r^2,,8.723071,False,True,ALLOWED,ENGLISH_GIBBERISH
+numeric_and_math-11,numeric_and_math,f(x) = 2*x + 3,,8.955815,False,True,ALLOWED,ENGLISH_GIBBERISH
+numeric_and_math-12,numeric_and_math,a <= b && b < c,,7.178534,False,True,ALLOWED,ENGLISH_GIBBERISH
+numeric_and_math-13,numeric_and_math,6.02e23,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+numeric_and_math-14,numeric_and_math,0.000001,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+numeric_and_math-15,numeric_and_math,-12.5 + 7.25 = -5.25,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+numeric_and_math-16,numeric_and_math,10:15 + 00:45 = 11:00,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+numeric_and_math-17,numeric_and_math,1/2 + 1/3 = 5/6,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+numeric_and_math-18,numeric_and_math,sqrt(81) = 9,,8.168247,False,True,ALLOWED,ENGLISH_GIBBERISH
+numeric_and_math-19,numeric_and_math,2099-01-02,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+numeric_and_math-20,numeric_and_math,00:01:30.500,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+code_and_structured-1,code_and_structured,val count = 3,,4.022099,False,False,ALLOWED,ALLOWED
+code_and_structured-2,code_and_structured,"println(""hello"")",,5.080015,False,True,ALLOWED,ENGLISH_GIBBERISH
+code_and_structured-3,code_and_structured,"fun add(a: Int, b: Int) = a + b",,5.756151,False,True,ALLOWED,ENGLISH_GIBBERISH
+code_and_structured-4,code_and_structured,if (count > 0) { showExample() },,5.232572,False,True,ALLOWED,ENGLISH_GIBBERISH
+code_and_structured-5,code_and_structured,items.map { it.name }.sorted(),,5.25682,False,True,ALLOWED,ENGLISH_GIBBERISH
+code_and_structured-6,code_and_structured,SELECT sample FROM demo WHERE count > 3;,2.277199,3.002991,False,False,ALLOWED,ALLOWED
+code_and_structured-7,code_and_structured,"{""example"":true,""count"":3}",,5.772091,False,True,ALLOWED,ENGLISH_GIBBERISH
+code_and_structured-8,code_and_structured,"[1, 2, 3, 4, 5]",,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+code_and_structured-9,code_and_structured,"<sample enabled=""true"">hello</sample>",,4.535545,False,True,ALLOWED,ENGLISH_GIBBERISH
+code_and_structured-10,code_and_structured,"sample_count: 12
+example_enabled: true",,4.463843,False,True,ALLOWED,ENGLISH_GIBBERISH
+code_and_structured-11,code_and_structured,demo_key=example_value; mode=test; count=7,,4.868345,False,True,ALLOWED,ENGLISH_GIBBERISH
+code_and_structured-12,code_and_structured,for (index in 0 until 10) println(index),,4.466434,False,True,ALLOWED,ENGLISH_GIBBERISH
+code_and_structured-13,code_and_structured,"const sample = { count: 3, enabled: true };",2.22354,4.478782,False,True,ALLOWED,ENGLISH_GIBBERISH
+code_and_structured-14,code_and_structured,result = [value * 2 for value in range(5)],,4.535054,False,True,ALLOWED,ENGLISH_GIBBERISH
+code_and_structured-15,code_and_structured,"name,count,enabled
+demo,3,true",,4.440121,False,True,ALLOWED,ENGLISH_GIBBERISH
+code_and_structured-16,code_and_structured,^example_[a-z]+[0-9]{2}$,,7.541737,False,True,ALLOWED,ENGLISH_GIBBERISH
+code_and_structured-17,code_and_structured,`sampleValues.map { it + 1 }`,,5.326647,False,True,ALLOWED,ENGLISH_GIBBERISH
+code_and_structured-18,code_and_structured,"```json
+{""synthetic"":true,""value"":42}
+```",,6.427389,False,True,ALLOWED,ENGLISH_GIBBERISH
+code_and_structured-19,code_and_structured,config/demo.json,,4.542751,False,True,ALLOWED,ENGLISH_GIBBERISH
+code_and_structured-20,code_and_structured,value != null && value.length >= 2,,5.327968,False,True,ALLOWED,ENGLISH_GIBBERISH
+urls-1,urls,https://example.invalid,,4.697846,False,True,ALLOWED,ENGLISH_GIBBERISH
+urls-2,urls,https://example.invalid/demo,,4.817869,False,True,ALLOWED,ENGLISH_GIBBERISH
+urls-3,urls,https://example.invalid/sample?count=3,,4.813107,False,True,ALLOWED,ENGLISH_GIBBERISH
+urls-4,urls,https://example.invalid/docs#example,,4.82215,False,True,ALLOWED,ENGLISH_GIBBERISH
+urls-5,urls,https://example.invalid/a/b/c,,5.718159,False,True,ALLOWED,ENGLISH_GIBBERISH
+urls-6,urls,https://example.invalid/search?q=sample+text,,4.93738,False,True,ALLOWED,ENGLISH_GIBBERISH
+urls-7,urls,https://example.invalid/sample%20file.txt,,5.144056,False,True,ALLOWED,ENGLISH_GIBBERISH
+urls-8,urls,https://example.invalid/demo?enabled=true&count=12,,5.064457,False,True,ALLOWED,ENGLISH_GIBBERISH
+urls-9,urls,www.example.invalid/demo,,4.718611,False,True,ALLOWED,ENGLISH_GIBBERISH
+urls-10,urls,example.invalid/sample,,3.72214,False,False,ALLOWED,ALLOWED
+urls-11,urls,Please read https://example.invalid/demo for the synthetic explanation.,2.343488,3.423743,False,False,ALLOWED,ALLOWED
+urls-12,urls,The fictional example is documented at https://example.invalid/docs.,2.294011,3.541673,False,False,ALLOWED,ALLOWED
+urls-13,urls,Try https://example.invalid/sample?count=3 for the demonstration.,,3.958234,False,False,ALLOWED,ALLOWED
+urls-14,urls,The sample link is https://example.invalid/a/b/c and contains no real service.,2.196001,3.632719,False,False,ALLOWED,ALLOWED
+urls-15,urls,See https://example.invalid/docs#example for another explanation.,2.14353,3.731988,False,False,ALLOWED,ALLOWED
+urls-16,urls,The pretend download is https://example.invalid/sample.zip.,,4.053539,False,False,ALLOWED,ALLOWED
+urls-17,urls,The synthetic image is https://example.invalid/image.png?size=small.,,4.242163,False,True,ALLOWED,ENGLISH_GIBBERISH
+urls-18,urls,This is a fictional address: https://example.invalid/test?x=1&y=2.,,4.657675,False,True,ALLOWED,ENGLISH_GIBBERISH
+urls-19,urls,Open https://example.invalid/help to read the sample instructions.,2.273038,3.482983,False,False,ALLOWED,ALLOWED
+urls-20,urls,The example website is www.example.invalid and is deliberately nonfunctional.,2.349166,2.948456,False,False,ALLOWED,ALLOWED
+hashes_and_identifiers-1,hashes_and_identifiers,demo_value_0001,,6.223148,False,True,ALLOWED,ENGLISH_GIBBERISH
+hashes_and_identifiers-2,hashes_and_identifiers,SAMPLE_REFERENCE_1234567890,,5.84993,False,True,ALLOWED,ENGLISH_GIBBERISH
+hashes_and_identifiers-3,hashes_and_identifiers,demo-0000-1111-2222-3333,,8.565103,False,True,ALLOWED,ENGLISH_GIBBERISH
+hashes_and_identifiers-4,hashes_and_identifiers,00000000-1111-4222-8333-444444444444,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+hashes_and_identifiers-5,hashes_and_identifiers,0x0123456789abcdef,,8.077163,False,True,ALLOWED,ENGLISH_GIBBERISH
+hashes_and_identifiers-6,hashes_and_identifiers,AAECAwQFBgcICQoLDA0ODw==,,6.062708,False,True,ALLOWED,ENGLISH_GIBBERISH
+hashes_and_identifiers-7,hashes_and_identifiers,c3ludGhldGljIGV4YW1wbGU=,,6.34621,False,True,ALLOWED,ENGLISH_GIBBERISH
+hashes_and_identifiers-8,hashes_and_identifiers,example.user@example.invalid,,3.933278,False,False,ALLOWED,ALLOWED
+hashes_and_identifiers-9,hashes_and_identifiers,Synthetic reference: DEMO-2099-000123,,5.427051,False,True,ALLOWED,ENGLISH_GIBBERISH
+hashes_and_identifiers-10,hashes_and_identifiers,The pretend identifier is sample_value_0001.,,3.615163,False,False,ALLOWED,ALLOWED
+hashes_and_identifiers-11,hashes_and_identifiers,The fictional attachment is example_document_v2.3.txt.,2.384697,3.875018,False,False,ALLOWED,ALLOWED
+hashes_and_identifiers-12,hashes_and_identifiers,sample.package.ExampleClass,,3.668892,False,False,ALLOWED,ALLOWED
+hashes_and_identifiers-13,hashes_and_identifiers,"exampleFunction(sample_value, count=3)",,4.099866,False,False,ALLOWED,ALLOWED
+hashes_and_identifiers-14,hashes_and_identifiers,Example checksum: 8a4f2c9d6e1b70358c2d4a6f9b1e5073,,7.279888,False,True,ALLOWED,ENGLISH_GIBBERISH
+hashes_and_identifiers-15,hashes_and_identifiers,Synthetic digest: 6b3e91a04fd728c59a107e3b2c8d465fb9017a2c5e38d6f04b72c9e135a8fd60,,8.177614,False,True,ALLOWED,ENGLISH_GIBBERISH
+hashes_and_identifiers-16,hashes_and_identifiers,sample-id: qxjvtpkzmxqvfbjkvxzpqvxjqzmt,5.880891,5.675901,True,True,ENGLISH_GIBBERISH,ENGLISH_GIBBERISH
+hashes_and_identifiers-17,hashes_and_identifiers,`qxjvtpkzmxqvfbjkvxzpqvxjqzmt`,,6.127678,False,True,ALLOWED,ENGLISH_GIBBERISH
+hashes_and_identifiers-18,hashes_and_identifiers,"{""sample_id"":""qxjvtpkzmxqvfbjkvxzpqvxjqzmt""}",,6.218029,False,True,ALLOWED,ENGLISH_GIBBERISH
+hashes_and_identifiers-19,hashes_and_identifiers,The fictional build label is demo_release_1.2.3_debug.,2.280134,3.89724,False,False,ALLOWED,ALLOWED
+hashes_and_identifiers-20,hashes_and_identifiers,This synthetic example token is AAECAwQFBgcICQoLDA0ODw==.,2.484015,4.05507,False,False,ALLOWED,ALLOWED
+short_replies-1,short_replies,ok,,3.770376,False,False,ALLOWED,ALLOWED
+short_replies-2,short_replies,yes,,2.921728,False,False,ALLOWED,ALLOWED
+short_replies-3,short_replies,no,,2.717626,False,False,ALLOWED,ALLOWED
+short_replies-4,short_replies,thanks,,2.125011,False,False,ALLOWED,ALLOWED
+short_replies-5,short_replies,hello,,2.185004,False,False,ALLOWED,ALLOWED
+short_replies-6,short_replies,hi 1,,5.624968,False,True,ALLOWED,ENGLISH_GIBBERISH
+short_replies-7,short_replies,ok 2,,4.852269,False,True,ALLOWED,ENGLISH_GIBBERISH
+short_replies-8,short_replies,v2.0,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+short_replies-9,short_replies,42,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+short_replies-10,short_replies,3/4,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+short_replies-11,short_replies,:),,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+short_replies-12,short_replies,:-),,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+short_replies-13,short_replies,:-P,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+short_replies-14,short_replies,?!,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+short_replies-15,short_replies,...,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+short_replies-16,short_replies,brb,,4.251491,False,True,ALLOWED,ENGLISH_GIBBERISH
+short_replies-17,short_replies,idk,,5.631675,False,True,ALLOWED,ENGLISH_GIBBERISH
+short_replies-18,short_replies,hmmmm,,5.163104,False,True,ALLOWED,ENGLISH_GIBBERISH
+short_replies-19,short_replies,don't,,5.851457,False,True,ALLOWED,ENGLISH_GIBBERISH
+short_replies-20,short_replies,can't,,5.644679,False,True,ALLOWED,ENGLISH_GIBBERISH
+unicode-1,unicode,"Tiếng Việt có dấu, đây là một ví dụ hoàn toàn hư cấu",,6.532605,False,True,ALLOWED,ENGLISH_GIBBERISH
+unicode-2,unicode,क्या कोई इस काल्पनिक उदाहरण को समझाने में मदद कर सकता है?,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+unicode-3,unicode,これは架空の会話を使ったソフトウェアのテストです。,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+unicode-4,unicode,这是一个完全虚构的软件测试示例，不是真实对话。,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+unicode-5,unicode,Это вымышленный пример для проверки работы программы.,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+unicode-6,unicode,هذا مثال خيالي بالكامل لاختبار سلوك البرنامج.,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+unicode-7,unicode,이 문장은 소프트웨어 테스트를 위한 가상의 예시입니다.,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+unicode-8,unicode,Este é um exemplo fictício para testar o comportamento do programa.,,3.153211,False,False,ALLOWED,ALLOWED
+unicode-9,unicode,Ceci est un exemple fictif pour essayer le fonctionnement du programme.,2.675804,2.772711,False,False,ALLOWED,ALLOWED
+unicode-10,unicode,Esta es una frase inventada para comprobar el comportamiento del programa.,2.626863,2.720458,False,False,ALLOWED,ALLOWED
+unicode-11,unicode,Questo esempio inventato serve a controllare il comportamento del programma.,2.50434,2.597073,False,False,ALLOWED,ALLOWED
+unicode-12,unicode,Dies ist ein erfundener Beispielsatz zum Testen des Programms.,2.988406,3.094486,False,False,ALLOWED,ALLOWED
+unicode-13,unicode,Dit is een verzonnen voorbeeld om het gedrag van het programma te testen.,2.790508,2.88313,False,False,ALLOWED,ALLOWED
+unicode-14,unicode,Bu tamamen uydurma bir yazilim testi cumlesidir ve gercek veri icermez.,3.243421,3.33222,False,False,ALLOWED,ALLOWED
+unicode-15,unicode,To jest wymyslony przyklad do sprawdzania dzialania programu.,3.654438,3.751186,False,False,ALLOWED,ALLOWED
+unicode-16,unicode,Privet eto vymyshlennyi primer dlya proverki raboty programmy.,3.260179,3.361804,False,False,ALLOWED,ALLOWED
+unicode-17,unicode,Thanks for the example 👍,,2.218853,False,False,ALLOWED,ALLOWED
+unicode-18,unicode,😀 🎉 👍 🤖 🐙 🦕,,9.459308,False,True,ALLOWED,ENGLISH_GIBBERISH
+unicode-19,unicode,The fictional price is €12.50 and the sample length is 3 µm.,,3.581583,False,False,ALLOWED,ALLOWED
+unicode-20,unicode,"This synthetic sentence uses café, naïve, and résumé as examples.",,3.810591,False,False,ALLOWED,ALLOWED
+english-1,english,Could somebody help me understand why this option keeps turning itself off?,2.599671,2.692369,False,False,ALLOWED,ALLOWED
+english-2,english,I tried the suggestion and the problem went away immediately.,2.346871,2.465412,False,False,ALLOWED,ALLOWED
+english-3,english,Would it be possible to make the text a little larger in this view?,2.305646,2.414035,False,False,ALLOWED,ALLOWED
+english-4,english,"The attachment arrived correctly, although the preview took a while to appear.",2.399713,2.700579,False,False,ALLOWED,ALLOWED
+english-5,english,Everything seems to be working again after restarting the application.,2.287334,2.391276,False,False,ALLOWED,ALLOWED
+english-6,english,I think we should check the simpler explanation before adding another dependency.,2.219075,2.309578,False,False,ALLOWED,ALLOWED
+english-7,english,"That is an interesting question, and I do not have a confident answer yet.",2.359293,2.661495,False,False,ALLOWED,ALLOWED
+english-8,english,Can we keep this discussion focused on the behavior that actually changed?,2.313853,2.411736,False,False,ALLOWED,ALLOWED
+english-9,english,"The new design feels much cleaner, especially when there are lots of replies.",2.505882,2.791811,False,False,ALLOWED,ALLOWED
+english-10,english,Please let me know whether you can reproduce this with the default settings.,2.390301,2.484554,False,False,ALLOWED,ALLOWED
+english-11,english,I'm not sure I understand the difference between those two examples.,2.40779,2.708891,False,False,ALLOWED,ALLOWED
+english-12,english,You don't have to finish everything at once; the smaller improvement is useful.,2.2812,2.759811,False,False,ALLOWED,ALLOWED
+english-13,english,"We haven't checked the unusual cases, so let's avoid making a strong claim.",2.377644,3.03766,False,False,ALLOWED,ALLOWED
+english-14,english,It's much easier to follow the explanation with a concrete example.,2.322258,2.612498,False,False,ALLOWED,ALLOWED
+english-15,english,"The notification appeared twice, but there was only one message in the conversation.",2.143915,2.422276,False,False,ALLOWED,ALLOWED
+english-16,english,I accidentally closed the window before the operation had completed.,2.304551,2.411339,False,False,ALLOWED,ALLOWED
+english-17,english,There might be a simpler approach that avoids keeping so much state.,2.426676,2.531641,False,False,ALLOWED,ALLOWED
+english-18,english,The latest change makes scrolling smoother when the list gets longer.,2.130956,2.238726,False,False,ALLOWED,ALLOWED
+english-19,english,"The picture is slightly blurry, but I can still read the small print.",2.325731,2.668595,False,False,ALLOWED,ALLOWED
+english-20,english,The recording is understandable even though there is some background noise.,2.225787,2.323537,False,False,ALLOWED,ALLOWED
+english-21,english,I would rather have an honest uncertain result than a misleading confident one.,2.303641,2.395381,False,False,ALLOWED,ALLOWED
+english-22,english,"The two samples look similar, but the second contains an extra blank line.",2.238463,2.54347,False,False,ALLOWED,ALLOWED
+english-23,english,The first explanation was confusing; the diagram made the relationship clearer.,2.271178,2.562737,False,False,ALLOWED,ALLOWED
+english-24,english,We should leave enough room for the translated version of this sentence.,2.230742,2.332553,False,False,ALLOWED,ALLOWED
+english-25,english,The easiest way to check is to repeat the experiment with fresh input.,2.245318,2.349869,False,False,ALLOWED,ALLOWED
+english-26,english,The old behavior was surprising because it silently discarded the result.,2.300883,2.400306,False,False,ALLOWED,ALLOWED
+english-27,english,There is probably a missing condition somewhere in the cleanup logic.,2.194306,2.301144,False,False,ALLOWED,ALLOWED
+english-28,english,The reply arrived before the progress indicator had disappeared.,2.241792,2.356356,False,False,ALLOWED,ALLOWED
+english-29,english,The example is deliberately fictional and contains no actual conversation data.,2.293953,2.385816,False,False,ALLOWED,ALLOWED
+english-30,english,"I expected the small file to finish first, but both completed together.",2.23662,2.55162,False,False,ALLOWED,ALLOWED
+english-31,english,The tiny dinosaur illustration would look funny beside the serious error message.,2.347721,2.436616,False,False,ALLOWED,ALLOWED
+english-32,english,An enormous imaginary octopus borrowed a miniature umbrella from a dragon.,2.705499,2.798017,False,False,ALLOWED,ALLOWED
+english-33,english,The mysterious clockwork penguin carefully rearranged the colorful puzzle pieces.,2.402207,2.490421,False,False,ALLOWED,ALLOWED
+english-34,english,A whimsical wizard examined the extraordinary collection of rubber ducks.,2.6993,2.793189,False,False,ALLOWED,ALLOWED
+english-35,english,The curious robot enthusiastically described its favorite imaginary breakfast.,2.582788,2.672094,False,False,ALLOWED,ALLOWED
+english-36,english,My spelling is terrible sometimes but hopefully the meaning is still obvious.,2.318543,2.4125,False,False,ALLOWED,ALLOWED
+english-37,english,honestly this looks pretty good and i cant think of anything else to change,2.409075,2.409075,False,False,ALLOWED,ALLOWED
+english-38,english,yeah that makes sense now thanks for taking the time to explain it,2.263257,2.263257,False,False,ALLOWED,ALLOWED
+english-39,english,hmm maybe try the other option first and see whether that helps,2.28568,2.28568,False,False,ALLOWED,ALLOWED
+english-40,english,lol i completely missed that detail when i read the question,2.332422,2.332422,False,False,ALLOWED,ALLOWED
+english-41,english,btw does anyone know whether the new setting survives a restart,2.581115,2.581115,False,False,ALLOWED,ALLOWED
+english-42,english,idk why it failed the first time but it seems fine after trying again,2.445095,2.445095,False,False,ALLOWED,ALLOWED
+english-43,english,the color looks kinda different but the layout is basically the same,2.203786,2.203786,False,False,ALLOWED,ALLOWED
+english-44,english,could u explain that again im still a bit confused about the last part,2.286262,2.286262,False,False,ALLOWED,ALLOWED
+english-45,english,wow this is soooo much easier to understand with the extra example,2.341744,2.341744,False,False,ALLOWED,ALLOWED
+english-46,english,thanks!!! this finally explains the weird behavior i kept seeing,2.378139,2.847222,False,False,ALLOWED,ALLOWED
+english-47,english,PLEASE CHECK THE SMALL EXAMPLE BEFORE TRYING THE FULL EXPERIMENT,2.066846,2.066846,False,False,ALLOWED,ALLOWED
+english-48,english,"One, two, three: there are several perfectly ordinary ways to phrase this.",2.330471,3.048761,False,False,ALLOWED,ALLOWED
+english-49,english,Does the original rule still apply when the message contains a question?,2.191232,2.293599,False,False,ALLOWED,ALLOWED
+english-50,english,"The hypothetical attacker changes identity, while the text remains complete nonsense.",2.278688,2.557364,False,False,ALLOWED,ALLOWED
+english-51,english,A sufficiently careful test should include ordinary jokes and casual abbreviations.,2.496995,2.581901,False,False,ALLOWED,ALLOWED
+english-52,english,The approximate result is useful even when the exact measurement is unavailable.,2.394418,2.483847,False,False,ALLOWED,ALLOWED
+english-53,english,The xylophone player quietly improvised a surprisingly jazzy little melody.,2.749241,2.839918,False,False,ALLOWED,ALLOWED
+english-54,english,The bizarre juxtaposition of fuzzy textures and geometric shapes was delightful.,2.757997,2.842824,False,False,ALLOWED,ALLOWED
+english-55,english,Quizzical expressions appeared as the exceptionally awkward explanation continued.,2.510957,2.596739,False,False,ALLOWED,ALLOWED
+english-56,english,We can discuss the tradeoffs without pretending that every case has an easy answer.,2.351483,2.438164,False,False,ALLOWED,ALLOWED
+english-57,english,This is an entirely plausible sentence even though it is generated for a test.,2.254298,2.347869,False,False,ALLOWED,ALLOWED
+english-58,english,A sentence can be grammatically ordinary while still being irrelevant to the discussion.,2.387646,2.46893,False,False,ALLOWED,ALLOWED
+english-59,english,Randomly chosen real words remain a limitation of a character probability model.,2.55252,2.639948,False,False,ALLOWED,ALLOWED
+english-60,english,The implementation should preserve the original content when calculating its score.,2.14477,2.233972,False,False,ALLOWED,ALLOWED
