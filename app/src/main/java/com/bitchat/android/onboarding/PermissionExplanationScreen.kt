@@ -163,10 +163,9 @@ fun PermissionExplanationScreen(
                         fontWeight = FontWeight.Bold
                     )
                 )
-            }
-            TextButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.continue_internet_only))
-            }
+        }
+        TextButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.continue_internet_only))
         }
     }
 }
