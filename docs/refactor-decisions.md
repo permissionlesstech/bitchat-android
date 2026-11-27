@@ -158,8 +158,8 @@ Facts only where the sources measured them.
   every setting enabled.
 - **Panic time.** 1.0 to 2.9 s on an emulator, against about 0.4 s in 10c-2b. The developer
   accepted it. On a real phone it took 0.79 s, of which the wipe was 30 ms.
-- **Tests.** 1770 JVM tests (3 skipped) across the phone, the core modules, the features and
-  Wear, after the Phase 11 audit and the Codex fixes. 124 device tests: 106 in `:app`, 6 in `:feature:chat`, 5 in
+- **Tests.** 1773 JVM tests (3 skipped) across the phone, the core modules, the features and
+  Wear, after the Phase 11 audit and the Codex fixes. 126 device tests: 108 in `:app`, 6 in `:feature:chat`, 5 in
   `:feature:settings`, 4 in `:feature:location`, 3 in `:feature:share`.
 
 ## 3. Decisions, by phase
@@ -1235,7 +1235,7 @@ phone is deferred and out of scope for this refactor. (2026-11-26)
 | — | Nothing pinned that the panic's relay release only unsubscribes. | `GeohashSessionSendTest` and `NostrBackgroundRuntimeReleaseTest` check that `panicReleaseRelays` and `releaseSubscriptions` make no subscribe call, even after ten minutes of virtual time. The runtime's test fails against a release that subscribes again. |
 | — | `/msg` typed in the main chat selected the peer but opened nothing, and the main composer still sent to the selection: what looked like a public message went privately to a peer the screen did not show, and the replies were not visible (Codex review on PR #972). | The main composer sends to what the main chat shows (`MessageSender.send` has no private path) and keeps no private draft, and the chat screen opens the chat `/msg` selected. `PrivateConversationSendRobolectricTest` fails against a sender that sends main-chat text to the selection, and `PrivateChatDestinationTest` opens the chat from `/msg` on a device. Commands typed in the main chat still act on the selection, which only a private chat that is open or leaving holds. |
 | — | Private media is sent only from the private chat, but the one-shot consent to send it unencrypted to an older peer was asked only by the chat screen, which is not composed under the private chat. The send waited with no prompt until the user went back (since Phase 7.5; Codex review on PR #972). | One `LegacyPrivateMediaConsentDialog`, drawn once by `SessionDialogs` above navigation (see the next row), so the consent is asked over whatever is on top when it is raised: the private chat, or the peer list if the user has left the chat by then. `SessionDialogsViewModelTest`, and `PrivateChatDestinationTest` on a device for both cases. |
-| — | `/join` of a password-protected channel typed in a private chat raised the password prompt, but only the chat screen drew it, and that screen is not composed under the full-screen private chat. The composer cleared with no prompt, which appeared only after backing out (since Phase 7.5; Codex review on PR #972). | The session's dialogs, the password prompt and the legacy media consent, are drawn once by `SessionDialogs` in `:feature:chat`, hosted by `MainActivity` above `BitchatNavDisplay` while chat is the root. Its ViewModel lives in the screens' store, so a new session discards it with the screens. No screen draws either dialog any more. Each dialog is its own window and takes Back while it shows, so Back never closes a prompt the user cannot see. `SessionDialogsViewModelTest`, and `PrivateChatDestinationTest` shows the prompt over the private chat on a device. |
+| — | `/join` of a password-protected channel typed in a private chat raised the password prompt, but only the chat screen drew it, and that screen is not composed under the full-screen private chat. The composer cleared with no prompt, which appeared only after backing out (since Phase 7.5; Codex review on PR #972). | The session's dialogs, the password prompt and the legacy media consent, are drawn once by `SessionDialogs` in `:feature:chat`, hosted by `MainActivity` above `BitchatNavDisplay` while chat is the root. Its ViewModel lives in the screens' store, so a new session discards it with the screens. No screen draws either dialog any more. Each dialog is its own window and takes Back while it shows, so Back never closes a prompt the user cannot see. After an Activity recreation, a restored sheet can sit above a pending dialog until Back closes the sheet; the dialog then shows with its state kept. `SessionDialogsViewModelTest`, and `PrivateChatDestinationTest` shows the prompt over the private chat on a device. |
 
 Also closed in this section's cleanup of section 5: the smells `MessageRouter`'s unscoped
 `Provider` (10c-2a-2b), `GeohashSession`'s never-cancelled scope (10c-2b) and the `object`
@@ -1294,9 +1294,10 @@ The stage split on the phone: identity ended 165 ms in, sandbox wiped by 195 ms,
 | (D) A panic taking 1.0 to 2.9 s on an emulator, against about 0.4 s in 10c-2b, is accepted. On a real phone it took 0.79 s (2026-11-27). (2026-11-26) | The split by stage (10c-3) shows no single cause, and emulator storage says little about real flash. | The bulk-media change now. | If the real phone is slow, the conversation store's clear and the blank frame are the first stages to look at. |
 | (D) The real-device checks are the developer's, at the end of the refactor. (2026-11-26) | They need two physical phones, a throwaway install and a watch. | Running them per phase. | Listed in section 5, "Owed before handover". |
 
-Tests: JVM 1770 with 0 failures (3 skipped), lint, both assembles and `clientRewriteContractTest`
-green after the two Codex fixes, and on an emulator after a fresh install: app 106, chat 6,
-settings 5, location 4, share 3, all passing. Before those fixes: JVM 1763, run twice.
+Tests: JVM 1773 with 0 failures (3 skipped), lint, both assembles and `clientRewriteContractTest`
+green after the Codex fixes and the session dialogs, and on an emulator after a fresh install:
+app 108, chat 6, settings 5, location 4, share 3, all passing. After the first two Codex fixes:
+JVM 1770 and app 106. Before those fixes: JVM 1763, run twice.
 Device, on an emulator after a fresh install: app 104, chat 6, settings 5, location 4, share 3.
 Then the same suites again over the data that run left, reinstalled in
 place: app 104, chat 6, settings 5, location 4, share 3, all passing. Mesh Lab on two

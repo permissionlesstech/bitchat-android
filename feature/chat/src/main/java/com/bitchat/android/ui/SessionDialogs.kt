@@ -23,7 +23,9 @@ import com.bitchat.android.navigation.GenerationViewModelStoreOwner
  * destination is on top. A full-screen destination covers chat, which then leaves composition,
  * so a dialog drawn by chat would wait unseen until the user went back to it.
  *
- * Each dialog is its own window and takes Back while it shows.
+ * Each dialog is its own window and takes Back while it shows. One exception: after the Activity
+ * is recreated, a sheet destination's window is restored a frame after the dialog's and sits above
+ * it until the sheet is closed, which Back does first.
  *
  * The ViewModel lives in [viewModelStores] with the screens' ViewModels, so a new session discards
  * it with them and the next one reads the new session.
