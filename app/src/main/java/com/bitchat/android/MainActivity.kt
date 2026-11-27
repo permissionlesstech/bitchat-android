@@ -34,6 +34,7 @@ import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.GeohashSession
 import com.bitchat.android.ui.VerificationHandler
 import com.bitchat.android.ui.OrientationAwareActivity
+import com.bitchat.android.ui.SessionDialogs
 import com.bitchat.android.ui.theme.BitchatTheme
 import com.bitchat.android.service.ForegroundServiceStartRetry
 import com.bitchat.android.service.MeshServiceHolder
@@ -332,6 +333,12 @@ class MainActivity : OrientationAwareActivity() {
                                 sceneStrategies = listOf(sheetSceneStrategy),
                             )
                         }
+                    }
+
+                    // The session's dialogs, above whichever chat destination is on top: a
+                    // command or a send in any chat can raise them. Not over onboarding.
+                    if (navigator.backStack.firstOrNull() == ChatRoute) {
+                        SessionDialogs(screenViewModels)
                     }
 
                     // NavDisplay enables its own back handler only while

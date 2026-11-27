@@ -22,8 +22,6 @@ import kotlinx.coroutines.withContext
 
 data class LegacyPrivateMediaConsentRequest(
     val requestId: String,
-    /** The private conversation the media is for, so the screen showing it can ask. */
-    val conversationID: String,
     val recipientNickname: String,
     val fileName: String,
     val warning: String
@@ -479,7 +477,6 @@ class MediaSendingManager(
                 } ?: pending.recipientMeshPeerID.take(8)
                 val request = LegacyPrivateMediaConsentRequest(
                     requestId = UUID.randomUUID().toString(),
-                    conversationID = pending.conversationID,
                     recipientNickname = nickname,
                     fileName = pending.filePacket.fileName,
                     warning = preparation.warning

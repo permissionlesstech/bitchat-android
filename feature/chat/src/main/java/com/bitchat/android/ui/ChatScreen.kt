@@ -73,7 +73,6 @@ fun ChatScreen(
     val onAction = viewModel::onAction
     val timeline = uiState.timeline
     val composer = uiState.composer
-    val dialogs = uiState.dialogs
     val connectedPeers = timeline.connectedPeers
     val peerNicknames = timeline.peerNicknames
     val geohashPeople = timeline.geohashPeople
@@ -440,16 +439,8 @@ fun ChatScreen(
         )
     }
 
-    // Dialogs and Sheets
-    ChannelPasswordPrompt(
-        showPrompt = dialogs.showPasswordPrompt,
-        promptChannel = dialogs.passwordPromptChannel,
-        onSubmit = { channel, password ->
-            onAction(ChatAction.SubmitChannelPassword(channel, password))
-        },
-        onDismiss = { onAction(ChatAction.DismissPasswordPrompt) },
-    )
-
+    // The channel password prompt and the legacy media consent are the session's, not this
+    // screen's: SessionDialogs draws them above navigation.
     if (showPanicConfirmation) {
         AlertDialog(
             onDismissRequest = { showPanicConfirmation = false },
@@ -476,24 +467,6 @@ fun ChatScreen(
             }
         )
     }
-
-    // The private chat a request is for asks for it itself. This copy asks only for a request
-    // whose chat is neither open nor still leaving (the selection names a popped chat until it
-    // ends), so it is never shown twice. A request raised after the user left that chat for
-    // another screen waits, unsent, until this one is shown again.
-    dialogs.legacyPrivateMediaConsent
-        ?.takeUnless { request ->
-            visiblePrivatePeer != null &&
-                dependencies.contactDirectory().canonicalConversationId(request.conversationID)
-                    .equals(visiblePrivatePeer, ignoreCase = true)
-        }
-        ?.let { request ->
-            LegacyPrivateMediaConsentDialog(
-                request = request,
-                onApprove = { onAction(ChatAction.ApproveLegacyPrivateMedia(request.requestId)) },
-                onCancel = { onAction(ChatAction.CancelLegacyPrivateMedia(request.requestId)) },
-            )
-        }
 }
 
 @Composable
@@ -722,41 +695,4 @@ private fun ChatFloatingHeader(
             onOpenLatestUnreadPrivateChat = { onAction(ChatAction.OpenLatestUnreadPrivateChat) },
         )
     }
-}
-
-/**
- * Shows the channel password dialog for as long as the prompt state asks for it. The typed
- * password lives only while the prompt is open.
- */
-@Composable
-internal fun ChannelPasswordPrompt(
-    showPrompt: Boolean,
-    promptChannel: String?,
-    onSubmit: (channel: String, password: String) -> Unit,
-    onDismiss: () -> Unit,
-    dialog: @Composable (
-        show: Boolean,
-        channelName: String?,
-        passwordInput: String,
-        onPasswordChange: (String) -> Unit,
-        onConfirm: () -> Unit,
-        onDismiss: () -> Unit
-    ) -> Unit = { show, channelName, passwordInput, onPasswordChange, onConfirm, dismiss ->
-        PasswordPromptDialog(show, channelName, passwordInput, onPasswordChange, onConfirm, dismiss)
-    }
-) {
-    var passwordInput by remember(showPrompt, promptChannel) { mutableStateOf("") }
-
-    dialog(
-        showPrompt,
-        promptChannel,
-        passwordInput,
-        { passwordInput = it },
-        {
-            if (promptChannel != null && passwordInput.isNotEmpty()) {
-                onSubmit(promptChannel, passwordInput)
-            }
-        },
-        onDismiss
-    )
 }

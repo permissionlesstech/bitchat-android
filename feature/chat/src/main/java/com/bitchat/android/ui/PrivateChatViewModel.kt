@@ -47,7 +47,6 @@ class PrivateChatViewModel @AssistedInject constructor(
     @CurrentSession private val privateChatSession: PrivateChatSession,
     @CurrentSession private val messageSender: MessageSender,
     @CurrentSession private val composerMedia: ComposerMedia,
-    @CurrentSession private val mediaSendingManager: MediaSendingManager,
     @CurrentSession private val contactFavorites: ContactFavorites,
     @CurrentSession private val verificationHandler: VerificationHandler,
     @CurrentSession private val geohashSession: GeohashSession,
@@ -102,14 +101,6 @@ class PrivateChatViewModel @AssistedInject constructor(
         override fun isFavorite(conversationID: String) = contactFavorites.isFavorite(conversationID)
     }
 
-    // Media sent from this screen asks for its consent here: chat, which also
-    // shows the prompt, is not composed under this screen.
-    private fun legacyConsentForThisChat() = mediaSendingManager.legacyPrivateMediaConsent.value
-        ?.takeIf { request ->
-            contactDirectory.canonicalConversationId(request.conversationID)
-                .equals(conversationID.value, ignoreCase = true)
-        }
-
     // Rebuilt from the current values whenever an input changes, and seeded the
     // same way. The registries the resolvers read are not observable; they are
     // re-read on every change, as the screen's remember blocks re-read them.
@@ -129,7 +120,7 @@ class PrivateChatViewModel @AssistedInject constructor(
             wifiAwarePeerIDs = wifiAwarePeers.connected.value.keys,
         ),
         resolvers,
-    ).copy(legacyPrivateMediaConsent = legacyConsentForThisChat())
+    )
 
     val uiState: StateFlow<PrivateChatUiState> = combine(
         listOf(
@@ -137,7 +128,6 @@ class PrivateChatViewModel @AssistedInject constructor(
             state.connectedPeers, state.peerDirect, state.peerSessionStates,
             state.favoritePeers, state.peerFavoritedUs, state.peerFingerprints,
             verificationHandler.verifiedFingerprints, wifiAwarePeers.connected,
-            mediaSendingManager.legacyPrivateMediaConsent,
         )
     ) { uiStateNow() }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), uiStateNow())
 
@@ -193,10 +183,6 @@ class PrivateChatViewModel @AssistedInject constructor(
             is PrivateChatAction.SendFileNote ->
                 composerMedia.sendFileNote(action.peerID, action.channel, action.path)
             is PrivateChatAction.CancelMediaSend -> composerMedia.cancelMediaSend(action.messageID)
-            is PrivateChatAction.ApproveLegacyPrivateMedia ->
-                mediaSendingManager.approveLegacyPrivateMedia(action.requestID)
-            is PrivateChatAction.CancelLegacyPrivateMedia ->
-                mediaSendingManager.cancelLegacyPrivateMedia(action.requestID)
             PrivateChatAction.ToggleFavorite -> contactFavorites.toggle(conversation)
         }
     }

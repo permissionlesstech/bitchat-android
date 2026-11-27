@@ -4,9 +4,11 @@ package com.bitchat.android.ui
  * What a Back press should unwind next on the chat screen.
  *
  * Sheets and screens are back-stack entries and pop themselves. What remains
- * is state the chat screen shows in place: the join-password dialog, a channel,
- * and a private chat selection whose screen has not opened yet or has just been
- * popped.
+ * is state the chat screen shows in place: a channel, and a private chat
+ * selection whose screen has not opened yet or has just been popped. The
+ * join-password dialog is drawn above every destination and takes Back itself
+ * while it shows; it ranks first so that a press reaching the chat screen's
+ * handler with the prompt still set closes the prompt, not what lies under it.
  */
 enum class BackAction {
     DismissPasswordPrompt,

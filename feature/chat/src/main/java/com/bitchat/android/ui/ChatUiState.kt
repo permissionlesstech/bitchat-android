@@ -14,7 +14,6 @@ data class ChatUiState(
     val timeline: TimelineState = TimelineState(),
     val header: HeaderState = HeaderState(),
     val composer: ComposerState = ComposerState(),
-    val dialogs: DialogState = DialogState(),
 )
 
 /** The conversation on screen and what its rows need to render. */
@@ -53,13 +52,6 @@ data class ComposerState(
     val mentionSuggestions: List<String> = emptyList(),
 )
 
-@Immutable
-data class DialogState(
-    val showPasswordPrompt: Boolean = false,
-    val passwordPromptChannel: String? = null,
-    val legacyPrivateMediaConsent: LegacyPrivateMediaConsentRequest? = null,
-)
-
 /** Everything the chat screen asks of its ViewModel. */
 sealed interface ChatAction {
     /** The composer changed; refreshes suggestions. The public timelines keep no draft. */
@@ -77,11 +69,6 @@ sealed interface ChatAction {
     data class SendImageNote(val peerID: String?, val channel: String?, val path: String) : ChatAction
     data class SendFileNote(val peerID: String?, val channel: String?, val path: String) : ChatAction
     data class CancelMediaSend(val messageID: String) : ChatAction
-    data class ApproveLegacyPrivateMedia(val requestID: String) : ChatAction
-    data class CancelLegacyPrivateMedia(val requestID: String) : ChatAction
-    /** Joins the prompted channel; on success the prompt closes. */
-    data class SubmitChannelPassword(val channel: String, val password: String) : ChatAction
-    data object DismissPasswordPrompt : ChatAction
     data class SetNickname(val nickname: String) : ChatAction
     data class LeaveChannel(val channel: String) : ChatAction
     /** Returns from a channel to the location timeline. */

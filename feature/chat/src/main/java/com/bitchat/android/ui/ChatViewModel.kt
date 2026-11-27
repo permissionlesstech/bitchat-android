@@ -42,7 +42,6 @@ class ChatViewModel @Inject constructor(
     @CurrentSession private val dataManager: DataManager,
     @CurrentSession private val channelManager: ChannelManager,
     @CurrentSession private val commandProcessor: CommandProcessor,
-    @CurrentSession private val mediaSendingManager: MediaSendingManager,
     @CurrentSession private val geohashSession: GeohashSession,
     @CurrentSession private val messageSender: MessageSender,
     @CurrentSession private val composerMedia: ComposerMedia,
@@ -98,12 +97,6 @@ class ChatViewModel @Inject constructor(
         mentionSuggestions = state.mentionSuggestions.value,
     )
 
-    private fun dialogsNow() = DialogState(
-        showPasswordPrompt = state.showPasswordPrompt.value,
-        passwordPromptChannel = state.passwordPromptChannel.value,
-        legacyPrivateMediaConsent = mediaSendingManager.legacyPrivateMediaConsent.value,
-    )
-
     private fun <T> groupOf(inputs: List<Flow<Any?>>, now: () -> T): Flow<T> =
         combine(inputs) { now() }
 
@@ -131,18 +124,11 @@ class ChatViewModel @Inject constructor(
             ),
             ::composerNow,
         ),
-        groupOf(
-            listOf(
-                state.showPasswordPrompt, state.passwordPromptChannel,
-                mediaSendingManager.legacyPrivateMediaConsent,
-            ),
-            ::dialogsNow,
-        ),
         ::ChatUiState,
     ).stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
-        ChatUiState(timelineNow(), headerNow(), composerNow(), dialogsNow()),
+        ChatUiState(timelineNow(), headerNow(), composerNow()),
     )
 
     private val _events = Channel<ChatEvent>(Channel.BUFFERED)
@@ -198,19 +184,6 @@ class ChatViewModel @Inject constructor(
             is ChatAction.SendFileNote ->
                 composerMedia.sendFileNote(action.peerID, action.channel, action.path)
             is ChatAction.CancelMediaSend -> composerMedia.cancelMediaSend(action.messageID)
-            is ChatAction.ApproveLegacyPrivateMedia ->
-                mediaSendingManager.approveLegacyPrivateMedia(action.requestID)
-            is ChatAction.CancelLegacyPrivateMedia ->
-                mediaSendingManager.cancelLegacyPrivateMedia(action.requestID)
-            is ChatAction.SubmitChannelPassword -> {
-                if (channelManager.joinChannel(action.channel, action.password, mesh.myPeerID)) {
-                    state.clearPasswordPrompt()
-                }
-            }
-            // Both Back and the dialog's own buttons clear the one flag, so it
-            // cannot be left set by one path and cleared by another. While it is
-            // set, [backActionFor] ranks it above exiting a private chat or a channel.
-            ChatAction.DismissPasswordPrompt -> state.clearPasswordPrompt()
             is ChatAction.SetNickname -> {
                 state.setNickname(action.nickname)
                 dataManager.saveNickname(action.nickname)

@@ -24,8 +24,6 @@ data class PrivateChatUiState(
     val isNostrPeer: Boolean,
     /** A mutual favourite that is off the mesh but reachable over Nostr. */
     val isNostrReachableFavorite: Boolean,
-    /** Media for this conversation waiting for consent to go to an older peer unencrypted. */
-    val legacyPrivateMediaConsent: LegacyPrivateMediaConsentRequest? = null,
 )
 
 sealed interface PrivateChatAction {
@@ -37,8 +35,6 @@ sealed interface PrivateChatAction {
     data class SendImageNote(val peerID: String?, val channel: String?, val path: String) : PrivateChatAction
     data class SendFileNote(val peerID: String?, val channel: String?, val path: String) : PrivateChatAction
     data class CancelMediaSend(val messageID: String) : PrivateChatAction
-    data class ApproveLegacyPrivateMedia(val requestID: String) : PrivateChatAction
-    data class CancelLegacyPrivateMedia(val requestID: String) : PrivateChatAction
     data object ToggleFavorite : PrivateChatAction
 }
 

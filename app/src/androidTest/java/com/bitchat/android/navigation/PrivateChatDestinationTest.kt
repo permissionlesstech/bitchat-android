@@ -53,6 +53,7 @@ class PrivateChatDestinationTest {
         private const val PEER_A = "0123456789abcdef"
         private const val PEER_B = "fedcba9876543210"
         private const val PEER_A_NICKNAME = "synthetic-peer-a"
+        private const val LOCKED_CHANNEL = "#synthetic-locked"
 
         @JvmStatic
         @BeforeClass
@@ -433,25 +434,91 @@ class PrivateChatDestinationTest {
 
     /**
      * Media sent from a private chat to an older peer asks there, once, before
-     * it may go without the private-media encryption. Chat, which also asks,
-     * is not composed under the private chat.
+     * it may go without the private-media encryption. Chat is not composed
+     * under the private chat, so the dialog is drawn above navigation.
      */
     @Test
     fun legacyMediaConsentIsAskedOnceInThePrivateChat() {
         rule.awaitChat()
-        replaceMesh { mesh ->
-            object : MeshService by mesh {
-                override fun prepareFilePrivate(
-                    recipientPeerID: String,
-                    file: BitchatFilePacket,
-                    transferId: String,
-                    allowLegacyFallback: Boolean,
-                ): PrivateMediaPreparation = PrivateMediaPreparation.RequiresLegacyConsent("synthetic warning")
-            }
-        }
+        requireLegacyConsent()
         openPrivateChat(PEER_A)
         awaitPrivateChatScreen()
         awaitSelection(PEER_A)
+
+        sendImageAndCancelTheConsent()
+        assertEquals(PrivateChatRoute(PEER_A), rule.topOfStack())
+    }
+
+    /**
+     * A send still being prepared when the user leaves the chat asks for its
+     * consent over whatever is on top then, here the peer list, rather than
+     * waiting unseen until the main chat shows again.
+     */
+    @Test
+    fun legacyMediaConsentRaisedOverThePeerListIsAskedThere() {
+        rule.awaitChat()
+        requireLegacyConsent()
+        rule.navigateTo(MeshPeerListRoute)
+        rule.awaitPeerList()
+
+        sendImageAndCancelTheConsent()
+        assertEquals(MeshPeerListRoute, rule.topOfStack())
+    }
+
+    /**
+     * `/join` of a password-protected channel typed in a private chat asks for
+     * the password over that chat, not once the user is back in the main chat.
+     * The dialog takes Back itself, so Back closes it and the chat stays.
+     */
+    @Test
+    fun joinTypedInAPrivateChatAsksForThePasswordOverIt() {
+        rule.awaitChat()
+        rule.runOnUiThread { session().chatState().setPasswordProtectedChannels(setOf(LOCKED_CHANNEL)) }
+        try {
+            openPrivateChat(PEER_A)
+            awaitPrivateChatScreen()
+            awaitSelection(PEER_A)
+
+            rule.onAllNodes(hasSetTextAction() and hasText("")).onLast()
+                .performTextInput("/join $LOCKED_CHANNEL")
+            rule.onNode(hasSetTextAction() and hasText("/join $LOCKED_CHANNEL")).performImeAction()
+
+            val title = rule.activity.getString(com.bitchat.android.feature.chat.R.string.pwd_prompt_title)
+            rule.waitUntil(timeoutMillis = 5_000) {
+                rule.onAllNodesWithText(title).fetchSemanticsNodes().isNotEmpty()
+            }
+            rule.waitForIdle()
+            assertEquals(1, rule.onAllNodesWithText(title).fetchSemanticsNodes().size)
+            assertEquals(PrivateChatRoute(PEER_A), rule.topOfStack())
+
+            rule.pressSystemBack()
+
+            rule.waitUntil(timeoutMillis = 5_000) {
+                rule.onAllNodesWithText(title).fetchSemanticsNodes().isEmpty()
+            }
+            assertEquals(PrivateChatRoute(PEER_A), rule.topOfStack())
+            assertEquals(PEER_A, selection())
+        } finally {
+            rule.runOnUiThread {
+                session().chatState().clearPasswordPrompt()
+                session().chatState().setPasswordProtectedChannels(emptySet())
+            }
+        }
+    }
+
+    private fun requireLegacyConsent() = replaceMesh { mesh ->
+        object : MeshService by mesh {
+            override fun prepareFilePrivate(
+                recipientPeerID: String,
+                file: BitchatFilePacket,
+                transferId: String,
+                allowLegacyFallback: Boolean,
+            ): PrivateMediaPreparation = PrivateMediaPreparation.RequiresLegacyConsent("synthetic warning")
+        }
+    }
+
+    /** Sends a synthetic image to [PEER_A], waits for the one consent dialog and cancels it. */
+    private fun sendImageAndCancelTheConsent() {
         val image = java.io.File.createTempFile("synthetic", ".jpg", rule.activity.cacheDir)
         try {
             image.writeBytes(ByteArray(16))

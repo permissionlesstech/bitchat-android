@@ -286,12 +286,4 @@ fun PrivateChatScreen(
             }
         }
     }
-
-    uiState.legacyPrivateMediaConsent?.let { request ->
-        LegacyPrivateMediaConsentDialog(
-            request = request,
-            onApprove = { onAction(PrivateChatAction.ApproveLegacyPrivateMedia(request.requestId)) },
-            onCancel = { onAction(PrivateChatAction.CancelLegacyPrivateMedia(request.requestId)) },
-        )
-    }
 }
