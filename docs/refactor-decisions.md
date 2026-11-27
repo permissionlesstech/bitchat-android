@@ -153,9 +153,9 @@ Facts only where the sources measured them.
   against upstream was not recorded.
 - **Reproducibility.** Release APKs were byte-identical across two clean builds at Phase 2 and
   at Phase 6. The fork CI's container double build and byte compare passed at the end of Phase
-  7.5. The container build is deferred to the end of the refactor, after Phase 11, and is not
-  run per phase. Fork CI is blocked for now: GitHub answers "Actions has been disabled" with
-  every setting enabled.
+  7.5. The container build was deferred to the end of the refactor. It passed at the final
+  code: on PR #972 (d663482a), CI built the release twice in the container
+  (`tools/reproducible-builds/build-in-container.sh`) and the bytes compared equal.
 - **Panic time.** 1.0 to 2.9 s on an emulator, against about 0.4 s in 10c-2b. The developer
   accepted it. On a real phone it took 0.79 s, of which the wipe was 30 ms.
 - **Tests.** 1773 JVM tests (3 skipped) across the phone, the core modules, the features and
@@ -603,7 +603,6 @@ The real-device checks are the developer's, run once at the end:
   location data.
 
 Also owed:
-- **Container reproducible build**, once, at the end of the refactor, when fork CI can run.
 - **Before/after screenshots** in the handover PR for the Phase 7.5 screens and the Wear peer
   colors, with synthetic data only.
 

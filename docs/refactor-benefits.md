@@ -190,5 +190,6 @@ in the decision log).
   cannot confirm restarts the app (10c-3).
 - Owed before handover: the real-device checks, which the developer runs at the end (Mesh Lab on
   two Android phones, the watch, voice notes and the rest of the Phase 9 checklist; a real-phone
-  panic and the first-launch checks passed on 2026-11-27), the container reproducible build and the handover screenshots
-  (section 5 of `refactor-decisions.md`).
+  panic and the first-launch checks passed on 2026-11-27) and the handover screenshots
+  (section 5 of `refactor-decisions.md`). The container reproducible build passed in CI at the
+  final code.
