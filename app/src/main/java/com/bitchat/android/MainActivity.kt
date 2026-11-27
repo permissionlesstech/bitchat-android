@@ -191,8 +191,10 @@ class MainActivity : OrientationAwareActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        intentHandled = savedInstanceState?.getBoolean(STATE_INTENT_HANDLED) ?: false
+        // State saved before a panic whose wipe this launch finished names the ended identity.
+        val restored = savedInstanceState.takeUnless { (application as BitchatApplication).takeDiscardSavedScreens() }
+        super.onCreate(restored)
+        intentHandled = restored?.getBoolean(STATE_INTENT_HANDLED) ?: false
         foregroundServiceStart = ForegroundServiceStartRetry(lifecycle) {
             com.bitchat.android.service.MeshForegroundService.start(applicationContext)
         }

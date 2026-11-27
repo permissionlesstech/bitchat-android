@@ -21,6 +21,16 @@ import javax.inject.Inject
 @HiltAndroidApp
 class BitchatApplication : Application() {
 
+    /**
+     * Set when this launch finished a panic's wipe. The system keeps an Activity's saved state
+     * outside the sandbox, so state saved before the panic (the back stack, composer drafts)
+     * would come back over the wiped identity; the first Activity takes this and starts clean.
+     */
+    private val discardSavedScreens = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    /** True once, for the first Activity after a launch that finished a panic's wipe. */
+    fun takeDiscardSavedScreens(): Boolean = discardSavedScreens.getAndSet(false)
+
     // Lazy, so each is first touched where onCreate touches it: Hilt injects these fields inside
     // super.onCreate(), before the init calls below. That matters most for the stores that read
     // persisted state.
@@ -38,6 +48,7 @@ class BitchatApplication : Application() {
         // inside super.onCreate(), or anything else reads storage. If it cannot, the app goes on
         // and IdentityHolder refuses to build.
         val pendingWipe = StartupWipe.finishPendingWipe(this)
+        discardSavedScreens.set(pendingWipe.foundPending)
 
         super.onCreate()
 

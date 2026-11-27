@@ -236,7 +236,7 @@ private abstract class ActivityLifecycleCallbacksAdapter : Application.ActivityL
  * A returning user with everything ready: radios on, battery optimization off,
  * every permission granted and nothing left to ask. Each test changes one thing.
  */
-private fun ready() = Readiness(
+internal fun ready() = Readiness(
     bluetooth = BluetoothStatus.ENABLED,
     location = LocationStatus.ENABLED,
     batteryOptimization = BatteryOptimizationStatus.DISABLED,
