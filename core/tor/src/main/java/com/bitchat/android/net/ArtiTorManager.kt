@@ -165,6 +165,16 @@ class ArtiTorManager internal constructor(
      */
     val routeChanges: SharedFlow<Unit> = _routeChanges.asSharedFlow()
 
+    private val routeGenerationCounter = AtomicLong(0)
+
+    /**
+     * Counts route changes, advanced once [OkHttpProvider] has dropped the old route's clients
+     * and before [routeChanges] emits. A connection reads it before it takes a client and sends
+     * only while it still matches, so nothing leaves on the old route in the time between a mode
+     * change returning and the holder of the connection closing it.
+     */
+    val routeGeneration: Long get() = routeGenerationCounter.get()
+
     private val stateChangeDeferred = AtomicReference<CompletableDeferred<TorState>?>(null)
 
     private val artiLogListener = ArtiLogListener { logLine ->
@@ -485,6 +495,7 @@ class ArtiTorManager internal constructor(
             okHttp.get().reset()
         } catch (_: Throwable) {
         }
+        routeGenerationCounter.incrementAndGet()
         _routeChanges.tryEmit(Unit)
     }
 

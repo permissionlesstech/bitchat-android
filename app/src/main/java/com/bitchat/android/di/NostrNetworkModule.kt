@@ -29,6 +29,7 @@ object NostrNetworkModule {
             override fun webSocketClient() = okHttp.webSocketClient()
             override val routeChanges = tor.routeChanges
             override suspend fun awaitRoute(timeoutMs: Long) = tor.awaitSelectedRoute(timeoutMs)
+            override fun routeGeneration() = tor.routeGeneration
         }
 
     /** Tor goes soft-dormant while the app is in the background, as the power policy says. */

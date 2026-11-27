@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 class NostrRelayRouteChangeTest {
 
     private val routeChanges = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val routeGeneration = java.util.concurrent.atomic.AtomicLong(0)
     private val opened = LinkedBlockingQueue<RecordingWebSocket>()
     private val failNextClose = AtomicBoolean(false)
     private val anyCloseAttempted = CountDownLatch(1)
@@ -37,8 +38,38 @@ class NostrRelayRouteChangeTest {
             override fun webSocketClient() = this@NostrRelayRouteChangeTest.webSocketClient
             override val routeChanges = this@NostrRelayRouteChangeTest.routeChanges
             override suspend fun awaitRoute(timeoutMs: Long) = true
+            override fun routeGeneration() = this@NostrRelayRouteChangeTest.routeGeneration.get()
         }
     )
+
+    @Test
+    fun `nothing is sent on an old route's socket before its reset has run`() {
+        val relayCount = manager.getRelayStatuses().size
+        manager.connect()
+        val oldRouteSockets = takeSockets(relayCount)
+
+        // The route has changed (Tor turned on) but the reset that routeChanges starts has not
+        // run yet: the mode change has already returned.
+        routeGeneration.incrementAndGet()
+        val identity = NostrIdentity.fromSeed("route-change-fixture")
+        manager.sendEvent(
+            NostrEvent(
+                pubkey = identity.publicKeyHex,
+                createdAt = 1_800_000_000,
+                kind = NostrKind.GEOHASH_PRESENCE,
+                tags = listOf(listOf("g", "u0")),
+                content = "",
+            ).sign(identity.privateKeyHex)
+        )
+
+        oldRouteSockets.forEach { socket ->
+            assertTrue(
+                "socket to ${socket.request().url} was not refused",
+                socket.closed.await(5, TimeUnit.SECONDS)
+            )
+            assertEquals("sent on the old route", emptyList<String>(), socket.sent.toList())
+        }
+    }
 
     @Test
     fun `a reset that throws does not stop the next route change from resetting`() {
@@ -101,9 +132,10 @@ class NostrRelayRouteChangeTest {
         private val closeAttempted: CountDownLatch
     ) : WebSocket {
         val closed = CountDownLatch(1)
+        val sent = LinkedBlockingQueue<String>()
         override fun request() = request
         override fun queueSize() = 0L
-        override fun send(text: String) = true
+        override fun send(text: String) = sent.add(text)
         override fun send(bytes: ByteString) = true
         override fun close(code: Int, reason: String?): Boolean {
             closeAttempted.countDown()

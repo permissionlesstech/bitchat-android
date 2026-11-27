@@ -40,6 +40,7 @@ class NostrRelayManagerPanicReconnectRobolectricTest {
         override fun httpClient() = error("not called")
         override fun webSocketClient(): OkHttpClient = factory
         override val routeChanges = this@NostrRelayManagerPanicReconnectRobolectricTest.routeChanges
+        override fun routeGeneration() = 0L
         override suspend fun awaitRoute(timeoutMs: Long) = torReady.get()
     }
     private val manager = newRelayManager(

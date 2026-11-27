@@ -32,6 +32,14 @@ interface NostrHttpClients {
     val routeChanges: Flow<Unit>
 
     /**
+     * The current route's generation, advanced on every route change after the clients for the
+     * new route are in place and before [routeChanges] emits. A relay socket records it before
+     * taking a client and sends only while it still matches, so the reset that follows
+     * [routeChanges] can run late without anything leaving on the old route.
+     */
+    fun routeGeneration(): Long
+
+    /**
      * Suspends until the selected route can carry traffic, for at most [timeoutMs], and reports
      * whether it can. With Tor on but still bootstrapping, the clients already point at Tor's
      * SOCKS port (so nothing leaks around Tor), but that port is not listening yet; a relay

@@ -18,6 +18,7 @@ internal object NoHttpClients : NostrHttpClients {
     override fun httpClient() = error("no HTTP in this test")
     override fun webSocketClient() = error("no relay sockets in this test")
     override val routeChanges = emptyFlow<Unit>()
+    override fun routeGeneration() = 0L
     override suspend fun awaitRoute(timeoutMs: Long) = true
 }
 

@@ -35,6 +35,7 @@ class NostrRelayManagerClientsTest {
                 override fun httpClient() = error("not called")
                 override fun webSocketClient() = webSocketClient
                 override val routeChanges = emptyFlow<Unit>()
+                override fun routeGeneration() = 0L
                 override suspend fun awaitRoute(timeoutMs: Long) = true
             }
         )

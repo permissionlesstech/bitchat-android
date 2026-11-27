@@ -127,6 +127,11 @@ class NostrRelayManager internal constructor(
     // Internal state
     private val relaysList = mutableListOf<Relay>()
     private val connections = ConcurrentHashMap<String, WebSocket>()
+
+    // The route generation each socket was opened on; see [sendOnCurrentRoute]. Weak, so a socket
+    // gone from [connections] leaves nothing behind, and by identity, as OkHttp's sockets compare.
+    private val socketRoutes: MutableMap<WebSocket, Long> =
+        java.util.Collections.synchronizedMap(java.util.WeakHashMap())
     private val reconnectJobs = ConcurrentHashMap<String, Job>()
     private val backgroundThrottledRelays = ConcurrentHashMap.newKeySet<String>()
     private val desiredConnected = AtomicBoolean(false)
@@ -502,7 +507,7 @@ class NostrRelayManager internal constructor(
             for (subscriptionId in relaySubscriptionIds) {
                 val request = NostrRequest.Close(subscriptionId)
                 val message = gson.toJson(request, NostrRequest::class.java)
-                val closeQueued = runCatching { webSocket.send(message) }
+                val closeQueued = runCatching { sendOnCurrentRoute(webSocket, message) }
                     .getOrDefault(false)
                 if (!closeQueued) {
                     connections.remove(relayUrl, webSocket)
@@ -769,7 +774,7 @@ class NostrRelayManager internal constructor(
                     try {
                         var success = false
                         runNetworkAction(subscriptionInfo.liveLocationToken) {
-                            success = webSocket.send(message)
+                            success = sendOnCurrentRoute(webSocket, message)
                             if (success) {
                                 val currentSubs = subscriptions[relayUrl] ?: emptySet()
                                 subscriptions[relayUrl] =
@@ -825,7 +830,7 @@ class NostrRelayManager internal constructor(
                 if (currentSubs?.contains(id) == true) {
                     try {
                         runNetworkAction(subscriptionInfo.liveLocationToken) {
-                            webSocket.send(message)
+                            sendOnCurrentRoute(webSocket, message)
                         }
                         subscriptions[relayUrl] = currentSubs - id
                     } catch (e: Exception) {
@@ -902,6 +907,21 @@ class NostrRelayManager internal constructor(
      * Reset all relay connections
      * This will automatically restore all subscriptions when reconnected
      */
+    /**
+     * Sends [message] on [webSocket] only if the socket was opened on the current route. One opened
+     * on an older route (Tor switched since) is cancelled instead, and the send reports failure as
+     * a failed send does; the reset [routeChanges] starts reconnects it on the new route. This is
+     * what keeps the route fail-closed while that reset is still on its way.
+     */
+    private fun sendOnCurrentRoute(webSocket: WebSocket, message: String): Boolean {
+        if (socketRoutes[webSocket] != httpClients.routeGeneration()) {
+            Log.w(TAG, "Refused a send on a relay socket of an earlier network route")
+            webSocket.cancel()
+            return false
+        }
+        return webSocket.send(message)
+    }
+
     fun resetAllConnections() {
         val shouldReconnect = desiredConnected.get()
         disconnect()
@@ -1162,10 +1182,14 @@ class NostrRelayManager internal constructor(
 
             val started = runNetworkAction(currentToken) {
                 if (!authorizeRelayConnection(urlString, currentToken).first) return@runNetworkAction
+                // Read before the client is taken: a client of the old route then carries the old
+                // generation, and its socket never sends.
+                val route = httpClients.routeGeneration()
                 val webSocket = httpClient.newWebSocket(
                     request,
                     RelayWebSocketListener(urlString, currentToken)
                 )
+                socketRoutes[webSocket] = route
                 val existing = connections.putIfAbsent(urlString, webSocket)
                 when {
                     existing != null -> webSocket.close(1000, "Duplicate connection")
@@ -1196,7 +1220,7 @@ class NostrRelayManager internal constructor(
 
             var success = false
             runNetworkAction(liveLocationToken) {
-                success = webSocket.send(message)
+                success = sendOnCurrentRoute(webSocket, message)
             }
             if (success) {
                 // Update relay stats without copying and re-emitting _relays on every event
@@ -1527,7 +1551,7 @@ class NostrRelayManager internal constructor(
 
                 var success = false
                 runNetworkAction(subscriptionInfo.liveLocationToken) {
-                    success = webSocket.send(message)
+                    success = sendOnCurrentRoute(webSocket, message)
                     if (success) {
                         val currentSubs = subscriptions[relayUrl] ?: emptySet()
                         subscriptions[relayUrl] =

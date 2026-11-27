@@ -163,6 +163,7 @@ class NostrRelayBackgroundRecoveryRobolectricTest {
             override fun httpClient() = error("not called")
             override fun webSocketClient(): OkHttpClient = factory
             override val routeChanges = emptyFlow<Unit>()
+            override fun routeGeneration() = 0L
             override suspend fun awaitRoute(timeoutMs: Long) = true
         },
         dispatcher = dispatcher,
