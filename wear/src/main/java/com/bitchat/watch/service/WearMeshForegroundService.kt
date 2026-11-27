@@ -1,5 +1,6 @@
 package com.bitchat.watch.service
 
+import dagger.hilt.android.AndroidEntryPoint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -14,10 +15,12 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.wear.ongoing.OngoingActivity
 import androidx.wear.ongoing.Status
+import com.bitchat.android.identity.scope.CurrentIdentity
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.watch.MainActivity
 import com.bitchat.watch.R
+import com.bitchat.watch.mesh.WearMeshHolder
 import com.bitchat.watch.mesh.WearMeshService
 import com.bitchat.watch.notification.WearNotificationCoordinator
 import com.bitchat.watch.notification.WearNotificationPolicy
@@ -30,11 +33,14 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import javax.inject.Inject
+import javax.inject.Provider
 
 /**
  * Keeps the BLE mesh (scan + advertise + GATT) alive while the app is backgrounded or the watch
  * goes ambient. Bluetooth mesh only; no internet connectivity is used or declared.
  */
+@AndroidEntryPoint
 class WearMeshForegroundService : Service() {
 
     companion object {
@@ -45,16 +51,18 @@ class WearMeshForegroundService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var notificationBuilder: NotificationCompat.Builder
     private lateinit var ongoingActivity: OngoingActivity
-    private lateinit var notificationCoordinator: WearNotificationCoordinator
+    @Inject lateinit var notificationCoordinator: WearNotificationCoordinator
+    @Inject @CurrentIdentity lateinit var appStateStore: Provider<AppStateStore>
+    @Inject @CurrentIdentity lateinit var chatState: Provider<WearChatState>
+    @Inject @CurrentIdentity lateinit var meshHolder: Provider<WearMeshHolder>
     private lateinit var mesh: WearMeshService
     private var peerCountJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
-        notificationCoordinator = WearNotificationCoordinator.getInstance(applicationContext)
-        mesh = WearMeshService.getOrCreate(applicationContext)
+        mesh = meshHolder.get().getOrCreate()
         createChannel()
-        startForeground(WearNotificationPolicy.activePeerCount(AppStateStore.peers.value))
+        startForeground(WearNotificationPolicy.activePeerCount(appStateStore.get().peers.value))
         observePeerCount()
         mesh.onPrivateMessage = ::handlePrivateMessage
         mesh.startServices()
@@ -62,7 +70,7 @@ class WearMeshForegroundService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         updateForegroundNotification(
-            WearNotificationPolicy.activePeerCount(AppStateStore.peers.value)
+            WearNotificationPolicy.activePeerCount(appStateStore.get().peers.value)
         )
         return START_STICKY
     }
@@ -104,7 +112,7 @@ class WearMeshForegroundService : Service() {
 
     private fun observePeerCount() {
         peerCountJob = serviceScope.launch {
-            AppStateStore.peers
+            appStateStore.get().peers
                 .map(WearNotificationPolicy::activePeerCount)
                 .distinctUntilChanged()
                 .collect(::updateForegroundNotification)
@@ -126,7 +134,7 @@ class WearMeshForegroundService : Service() {
         val senderPeerID = message.senderPeerID ?: return
         if (message.sender == "system") return
 
-        WearChatState.onPrivateMessageArrived(senderPeerID)
+        chatState.get().onPrivateMessageArrived(senderPeerID)
         val senderNickname = mesh.getPeerNickname(senderPeerID)
             ?: message.sender.takeIf { it.isNotBlank() && it != senderPeerID }
             ?: senderPeerID.take(8)

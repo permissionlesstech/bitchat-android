@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+
+    <string name="send_message">ส่ง</string>
+    <string name="back">กลับ</string>
+    <string name="cd_teleported">เทเลพอร์ตแล้ว</string>
+    <string name="close_plain">ปิด</string>
+    <string name="open_settings">เปิดการตั้งค่า</string>
+  <string name="fingerprint_verified_label">verified</string>
+    <string name="cancel">ยกเลิก</string>
+
+  <string name="nearby_notes_one">มี 1 โน้ตทิ้งไว้ที่นี่ — แตะเพื่ออ่าน</string>
+  <string name="nearby_notes_many">มี %d โน้ตทิ้งไว้ที่นี่ — แตะเพื่ออ่าน</string>
+</resources>

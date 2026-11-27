@@ -1,21 +1,28 @@
 package com.bitchat.watch.ui
 
+import com.bitchat.android.mesh.MeshMessaging
+import com.bitchat.android.mesh.MeshPeers
 import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.services.AppStateStore
-import com.bitchat.watch.mesh.WearMeshService
 import java.io.File
 import java.util.Date
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-internal fun sendPublicMessage(mesh: WearMeshService, content: String) {
-    mesh.sendMessage(content)
-    AppStateStore.addPublicMessage(
+internal fun <M> sendPublicMessage(
+    appStateStore: AppStateStore,
+    mesh: M,
+    nickname: String,
+    content: String
+) where M : MeshMessaging, M : MeshPeers {
+    mesh.sendMessage(content, emptyList(), null)
+    appStateStore.addPublicMessage(
         BitchatMessage(
-            sender = mesh.nickname,
+            sender = nickname,
             content = content,
             timestamp = Date(),
             senderPeerID = mesh.myPeerID,
@@ -29,30 +36,35 @@ internal fun sendPublicMessage(mesh: WearMeshService, content: String) {
  * off the Noise handshake), so when no session exists we must not echo "Sent": the echo
  * stays "Sending" while a retry loop waits for the session and completes the send.
  *
- * The retry loop runs in the mesh service's scope because the caller's screen usually closes
- * right after sending; it ends with the 15 s deadline or when the mesh stops.
+ * The retry loop runs in [scope], which callers pass as the mesh service's scope because the
+ * caller's screen usually closes right after sending; it ends with the 15 s deadline or when
+ * [isRunning] turns false.
  */
-internal fun sendPrivateMessage(
-    mesh: WearMeshService,
+internal fun <M> sendPrivateMessage(
+    appStateStore: AppStateStore,
+    mesh: M,
+    nickname: String,
     peerID: String,
     recipientNickname: String,
     content: String,
+    scope: CoroutineScope,
+    isRunning: () -> Boolean = { true },
     nowMs: () -> Long = System::currentTimeMillis
-) {
+) where M : MeshMessaging, M : MeshPeers {
     val established = mesh.hasEstablishedSession(peerID)
     val messageID = java.util.UUID.randomUUID().toString()
     if (established) {
-        mesh.sendPrivateMessageWithId(content, peerID, recipientNickname, messageID)
+        mesh.sendPrivateMessage(content, peerID, recipientNickname, messageID)
     } else {
         mesh.initiateNoiseHandshake(peerID)
     }
     // Store the echo before the retry loop starts: the loop can finish on another thread at
     // once, and a status update for a message that is not stored yet is lost.
-    AppStateStore.addPrivateMessage(
+    appStateStore.addPrivateMessage(
         peerID,
         BitchatMessage(
             id = messageID,
-            sender = mesh.nickname,
+            sender = nickname,
             content = content,
             timestamp = Date(),
             isPrivate = true,
@@ -62,12 +74,12 @@ internal fun sendPrivateMessage(
         )
     )
     if (established) return
-    mesh.serviceScope.launch {
+    scope.launch {
         val deadline = nowMs() + 15_000
-        while (mesh.isRunning() && nowMs() < deadline) {
+        while (isRunning() && nowMs() < deadline) {
             if (mesh.hasEstablishedSession(peerID)) {
-                mesh.sendPrivateMessageWithId(content, peerID, recipientNickname, messageID)
-                AppStateStore.updatePrivateMessageStatus(messageID, DeliveryStatus.Sent)
+                mesh.sendPrivateMessage(content, peerID, recipientNickname, messageID)
+                appStateStore.updatePrivateMessageStatus(messageID, DeliveryStatus.Sent)
                 return@launch
             }
             delay(400)
@@ -79,9 +91,16 @@ internal fun sendPrivateMessage(
 
 /**
  * Send a recorded voice note. Global chat: broadcast file packet. DM thread: Noise-encrypted
- * private file transfer. Local echo renders immediately (content = local path, type = Audio).
+ * private file transfer ([sendFilePrivateEncrypted], which only the watch has). Local echo renders immediately (content = local path, type = Audio).
  */
-internal fun sendVoiceNote(mesh: WearMeshService, peerID: String?, path: String) {
+internal fun <M> sendVoiceNote(
+    appStateStore: AppStateStore,
+    mesh: M,
+    nickname: String,
+    peerID: String?,
+    path: String,
+    sendFilePrivateEncrypted: (recipientPeerID: String, file: BitchatFilePacket) -> Unit
+) where M : MeshMessaging, M : MeshPeers {
     val file = File(path)
     if (!file.isFile) return
     val packet = BitchatFilePacket(
@@ -93,10 +112,10 @@ internal fun sendVoiceNote(mesh: WearMeshService, peerID: String?, path: String)
     if (peerID == null) {
         mesh.sendFileBroadcast(packet)
     } else {
-        mesh.sendFilePrivateEncrypted(peerID, packet)
+        sendFilePrivateEncrypted(peerID, packet)
     }
     val echo = BitchatMessage(
-        sender = mesh.nickname,
+        sender = nickname,
         content = path,
         type = BitchatMessageType.Audio,
         timestamp = Date(),
@@ -105,8 +124,8 @@ internal fun sendVoiceNote(mesh: WearMeshService, peerID: String?, path: String)
         deliveryStatus = DeliveryStatus.Sent
     )
     if (peerID == null) {
-        AppStateStore.addPublicMessage(echo)
+        appStateStore.addPublicMessage(echo)
     } else {
-        AppStateStore.addPrivateMessage(peerID, echo)
+        appStateStore.addPrivateMessage(peerID, echo)
     }
 }

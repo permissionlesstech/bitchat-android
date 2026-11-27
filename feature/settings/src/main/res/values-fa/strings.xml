@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- برگهٔ درباره -->
+    <string name="about_offline_mesh_title">گفت‌وگوی مِش آفلاین</string>
+    <string name="about_offline_mesh_desc">بدون اینترنت یا سرور، مستقیماً از طریق Bluetooth LE ارتباط برقرار کنید. پیام‌ها از طریق دستگاه‌های نزدیک رله می‌شوند تا بُرد افزایش یابد.</string>
+    <string name="about_online_geohash_title">کانال‌های geohash آنلاین</string>
+    <string name="about_online_geohash_desc">از طریق کانال‌های مبتنی بر geohash با افراد منطقهٔ خود ارتباط برقرار کنید. مِش را از طریق رله‌های عمومی اینترنت گسترش دهید.</string>
+    <string name="about_e2e_title">رمزگذاری سرتاسری</string>
+    <string name="about_e2e_desc">پیام‌های خصوصی رمزگذاری می‌شوند. پیام‌های کانال عمومی هستند.</string>
+    <string name="about_system">سامانه</string>
+    <string name="about_light">روشن</string>
+    <string name="about_dark">تیره</string>
+    <string name="about_pow">گواه کار (Proof of Work)</string>
+    <string name="about_pow_tip">برای دشوارتر کردن هرزنامه، به پیام‌های geohash گواه کار بیفزایید.</string>
+    <string name="about_pow_desc_none">نیازی به گواه کار نیست</string>
+    <string name="about_pow_desc_very_low">بسیار کم – کمینهٔ حفاظت در برابر هرزنامه</string>
+    <string name="about_pow_desc_low">کم – حفاظت پایه در برابر هرزنامه</string>
+    <string name="about_pow_desc_medium">متوسط – حفاظت خوب</string>
+    <string name="about_pow_desc_high">زیاد – حفاظت قوی</string>
+    <string name="about_pow_desc_very_high">بسیار زیاد – ممکن است تأخیر ایجاد کند</string>
+    <string name="about_pow_desc_extreme">فوق‌العاده – به توان محاسباتی قابل توجه نیاز دارد</string>
+    <string name="about_tor_route">برای حفظ بیشتر حریم خصوصی، ترافیک اینترنت را از طریق Tor مسیریابی کنید.</string>
+    <string name="about_debug_settings">تنظیمات اشکال‌زدایی</string>
+    <string name="about_footer">متن‌باز • حریم خصوصی در اولویت • غیرمتمرکز</string>
+    <string name="unknown">نامشخص</string>
+
+    <!-- اشکال‌زدایی / عیب‌یابی -->
+    <string name="debug_tools">ابزارهای اشکال‌زدایی</string>
+    <string name="debug_tools_desc">ابزارهای توسعه‌دهنده برای عیب‌یابی و کنترل</string>
+    <string name="debug_verbose_logging">گزارش‌گیری مفصل</string>
+    <string name="debug_verbose_hint">پیوستن/ترک همتا، جهت اتصال، رلهٔ بسته‌ها و مسیرها را ثبت می‌کند</string>
+    <string name="debug_bluetooth_roles">نقش‌های بلوتوث</string>
+    <string name="debug_gatt_server">سرور GATT</string>
+    <string name="debug_connections_fmt">اتصال‌ها: %1$d / %2$d</string>
+    <string name="debug_max_server">حداکثر سرور</string>
+    <string name="debug_gatt_client">کلاینت GATT</string>
+    <string name="debug_max_client">حداکثر کلاینت</string>
+    <string name="debug_overall_connections_fmt">اتصال‌ها: %1$d / %2$d</string>
+    <string name="debug_max_overall">حداکثر کل</string>
+    <string name="debug_packet_relay">رلهٔ بسته</string>
+    <string name="debug_roles_hint">روشن/خاموش‌کردن نقش‌ها و بستن همهٔ اتصال‌ها هنگام غیرفعالسازی</string>
+    <string name="debug_max_packets_per_sync_fmt">حداکثر بسته در هر همگام‌سازی: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">حداکثر اندازهٔ فیلتر GCS: %1$d بایت (128–1024)</string>
+    <string name="debug_target_fpr_fmt">FPR هدف: %1$.2f%%</string>
+    <string name="debug_connected_devices">دستگاه‌های متصل</string>
+    <string name="debug_our_device_id_fmt">شناسهٔ دستگاه ما: %1$s</string>
+    <string name="debug_none">هیچ</string>
+    <string name="debug_disconnect">قطع اتصال</string>
+    <string name="debug_recent_scan_results">دستگاه‌های اخیراً اسکن‌شده</string>
+    <string name="debug_connect">اتصال</string>
+    <string name="debug_debug_console">کنسول اشکال‌زدایی</string>
+    <string name="debug_clear">پاک‌کردن</string>
+    <string name="debug_derived_p_fmt">P مشتق: %1$s • عناصر حداکثر تخمینی: %2$s</string>
+    <string name="debug_direct_suffix"> • مستقیم</string>
+    <string name="debug_role_server">به عنوان سرور (ما میزبانیم)</string>
+    <string name="debug_role_client">به عنوان کلاینت (ما متصل می‌شویم)</string>
+
+    <string name="version_prefix">v%1$s</string>
+    <string name="about_language">زبان</string>
+    <string name="about_app_language">زبان برنامه</string>
+    <string name="about_system_default">پیش‌فرض سیستم</string>
+    <string name="about_select_language">انتخاب زبان</string>
+    <string name="about_spam_filter_title">فیلتر هرزنامه</string>
+    <string name="about_spam_filter_desc">پیام‌های عمومی افرادی را که خیلی سریع پیام می‌فرستند، خود را تکرار می‌کنند یا پیوندهای زیادی می‌فرستند پنهان کن.</string>
+</resources>

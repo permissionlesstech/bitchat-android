@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="channels">Kanallar</string>
+    <string name="no_one_connected">Bağlı kimse yok</string>
+    <string name="your_network">Ağ</string>
+
+    <string name="cd_add_favorite">Sık kullanılanlara ekle</string>
+    <string name="cd_remove_favorite">Sık kullanılandan kaldır</string>
+    <string name="cd_nostr_reachable">Nostr üzerinden ulaşılabilir</string>
+    <string name="cd_unread_private_messages">Okunmamış özel mesaj</string>
+    <string name="cd_open_location_channels">Konum ve kanal ayarlarını aç</string>
+    <string name="cd_connected_peers">Bağlı eşler</string>
+    <string name="cd_geohash_participants">Geohash katılımcıları</string>
+    <string name="cd_ready_for_handshake">El sıkışmaya hazır</string>
+    <string name="cd_handshake_in_progress">El sıkışma sürüyor</string>
+    <string name="cd_encrypted">Uçtan uca şifreli</string>
+    <string name="cd_handshake_failed">El sıkışma başarısız</string>
+
+    <string name="file_viewer_title">📎 Dosya alındı</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="file_viewer_size">📏 Boyut: %1$s</string>
+    <string name="file_viewer_type">🏷️ Tür: %1$s</string>
+    <string name="file_viewer_open_save">📂 Aç / Kaydet</string>
+    <string name="close_with_emoji">❌ Kapat</string>
+    <string name="pick_image">Görsel seç</string>
+
+    <string name="cancel_lower">iptal</string>
+
+    <string name="cd_unread_message">Okunmamış mesaj</string>
+    <string name="cd_reachable_via_nostr">Nostr üzerinden erişilebilir</string>
+    <string name="cd_offline_favorite">Favori (çevrimdışı)</string>
+    <string name="cd_scroll_to_bottom">Alta kaydır</string>
+    <string name="cd_file">Dosya</string>
+    <string name="cd_image">Görsel</string>
+    <string name="cd_cancel">İptal</string>
+    <string name="cd_link">Bağlantı</string>
+    <string name="cd_pick_media">Medya seç</string>
+    <string name="cd_record_voice">Ses notu kaydet</string>
+    <string name="image_unavailable">Görsel kullanılamıyor</string>
+    <string name="file_unavailable">[dosya kullanılamıyor]</string>
+    <string name="choose_action_message_or_user">bu mesaj veya kullanıcı için bir işlem seç</string>
+    <string name="choose_action_user">bu kullanıcı için bir işlem seç</string>
+    <string name="action_copy_message_title">mesajı kopyala</string>
+    <string name="action_copy_message_subtitle">mesajı panoya kopyala</string>
+    <string name="action_slap_title">%1$s kişisine şaplak</string>
+    <string name="action_slap_subtitle">şakacı bir şaplak gönder</string>
+    <string name="action_hug_title">%1$s kişisine sarıl</string>
+    <string name="action_hug_subtitle">samimi bir sarılma gönder</string>
+    <string name="action_block_title">%1$s kişisini engelle</string>
+    <string name="action_block_subtitle">bu kullanıcıdan gelen tüm mesajları engelle</string>
+
+    <string name="mesh_label">mesh</string>
+    <string name="at_symbol">@</string>
+    <string name="channel_count_prefix"> · ⧉ </string>
+    <string name="nobody_around">yakında kimse yok…</string>
+    <string name="you_suffix"> (sen)</string>
+    <string name="type_a_message_placeholder">mesaj yaz…</string>
+    <string name="mention_suggestion_at">@%1$s</string>
+    <string name="mention">bahset</string>
+    <string name="image_counter">%1$d / %2$d</string>
+    <string name="at_nickname">@%1$s</string>
+    <string name="underscore">_</string>
+    <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
+    <string name="progress_filled">█</string>
+    <string name="progress_empty">░</string>
+    <string name="media_type_image">Görsel</string>
+    <string name="media_type_file">Dosya</string>
+
+    <string name="notification_sent_image">📷 görsel gönderdi</string>
+    <string name="notification_sent_voice">🎤 sesli mesaj gönderdi</string>
+    <string name="notification_sent_file">📎 dosya gönderdi</string>
+    <string name="pwd_prompt_title">Kanal parolasını gir</string>
+    <string name="pwd_prompt_message">%1$s kanalı parolalıdır. Katılmak için parola gir.</string>
+    <string name="pwd_label">Parola</string>
+    <string name="join">Katıl</string>
+  <string name="verify_title">verify</string>
+  <string name="verify_my_qr_title">scan to verify me</string>
+  <string name="verify_scan_prompt_friend">scan someone elses qr</string>
+  <string name="verify_remove">remove verification</string>
+  <string name="verify_qr_unavailable">qr unavailable</string>
+  <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
+  <string name="verify_request_camera">enable camera</string>
+  <string name="security_verification_title">security verification</string>
+  <string name="fingerprint_their">their fingerprint</string>
+  <string name="fingerprint_yours">your fingerprint</string>
+  <string name="fingerprint_pending">handshake pending</string>
+  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
+  <string name="fingerprint_status_encrypted">encrypted</string>
+  <string name="fingerprint_status_handshaking">handshaking</string>
+  <string name="fingerprint_status_failed">handshake failed</string>
+  <string name="fingerprint_status_uninitialized">not encrypted</string>
+  <string name="fingerprint_verified_message">you have verified this persons identity.</string>
+  <string name="fingerprint_not_verified_label">not verified</string>
+  <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
+  <string name="fingerprint_mark_verified">mark as verified</string>
+  <string name="fingerprint_start_handshake">start handshake</string>
+  <string name="fingerprint_copy">copy</string>
+    <string name="cd_open_about">Hakkında’yı aç</string>
+</resources>

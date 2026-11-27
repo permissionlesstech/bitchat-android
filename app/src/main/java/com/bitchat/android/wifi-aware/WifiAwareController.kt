@@ -3,9 +3,17 @@ package com.bitchat.android.wifiaware
 import android.content.Context
 import android.os.Build
 import android.util.Log
+import com.bitchat.android.di.IoDispatcher
+import com.bitchat.android.identity.scope.IdentityScoped
+import com.bitchat.android.identity.scope.IdentityTeardown
+import com.bitchat.android.service.MeshServiceHolder
+import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.ui.debug.DebugSettingsManager
+import dagger.Lazy
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,15 +23,30 @@ import androidx.annotation.VisibleForTesting
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
+import javax.inject.Inject
+import javax.inject.Provider
 
 /**
  * WifiAwareController manages lifecycle and debug surfacing for the WifiAwareMeshService.
  * It starts/stops the service based on debug preferences and exposes simple flows for UI.
+ *
+ * The only builder of [WifiAwareMeshService]: [newMesh] is asked for a fresh instance each time a
+ * start cannot reuse the current one.
  */
-object WifiAwareController {
-    private const val TAG = "WifiAwareController"
-    private const val MAX_RESTART_ATTEMPTS = 15
-    private const val RESTART_RETRY_DELAY_MS = 2_000L
+@IdentityScoped
+class WifiAwareController @Inject constructor(
+    private val newMesh: Provider<WifiAwareMeshService>,
+    private val meshServiceHolder: MeshServiceHolder,
+    private val debugSettingsManager: Lazy<DebugSettingsManager>,
+    private val appStateStore: AppStateStore,
+    @IoDispatcher ioDispatcher: CoroutineDispatcher,
+    teardown: IdentityTeardown,
+) {
+    private companion object {
+        const val TAG = "WifiAwareController"
+        const val MAX_RESTART_ATTEMPTS = 15
+        const val RESTART_RETRY_DELAY_MS = 2_000L
+    }
 
     private var service: WifiAwareMeshService? = null
     private var appContext: Context? = null
@@ -34,7 +57,10 @@ object WifiAwareController {
     // Monotonic. A deadline rather than a delay, so a request coalesced into a running loop
     // still holds that loop back; the latest deadline requested wins.
     private val restartNotBeforeMs = AtomicLong(Long.MIN_VALUE)
-    private var awareReceiverRegistered = false
+    private var awareReceiver: android.content.BroadcastReceiver? = null
+
+    /** Set once, under [lifecycleLock], when the identity ends; nothing starts or registers after it. */
+    private var closed = false
     private var lastBlockedReason: String? = null
 
     /**
@@ -57,7 +83,26 @@ object WifiAwareController {
 
     private fun heldForHotspot(): Boolean = isHeldForHotspot()
 
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val scope = CoroutineScope(ioDispatcher + SupervisorJob())
+
+    init {
+        teardown.register("WifiAwareController", ::close)
+    }
+
+    /** Ends this controller: stops its service, unregisters the system receiver, cancels its scope. */
+    internal fun close() {
+        scope.cancel()
+        // Under the lock that publishes a started service: a start already inside startServices()
+        // then finds the controller closed and stops what it built instead of publishing it.
+        val receiver = synchronized(lifecycleLock) {
+            closed = true
+            awareReceiver.also { awareReceiver = null }
+        }
+        if (receiver != null) {
+            try { appContext?.unregisterReceiver(receiver) } catch (_: Exception) { }
+        }
+        stop()
+    }
 
     private val _enabled = MutableStateFlow(false)
     val enabled: StateFlow<Boolean> = _enabled.asStateFlow()
@@ -85,6 +130,7 @@ object WifiAwareController {
     val discoveredPeers: StateFlow<Set<String>> = _discoveredPeers.asStateFlow()
 
     fun initialize(context: Context, enabledByDefault: Boolean) {
+        if (synchronized(lifecycleLock) { closed }) return
         appContext = context.applicationContext
         val status = refreshSupportStatus(appContext!!)
         if (status.supported) {
@@ -165,14 +211,9 @@ object WifiAwareController {
         restartIfStillEnabled()
     }
 
-    @VisibleForTesting
-    internal fun resetHotspotLeasesForTest() {
-        hotspotHolds.set(0)
-    }
-
     fun startIfPossible() {
         val reusableService = synchronized(lifecycleLock) {
-            if (!_enabled.value) return
+            if (closed || !_enabled.value) return
             if (heldForHotspot()) {
                 Log.d(TAG, "Not starting Wi-Fi Aware: held down for the hotspot")
                 return
@@ -243,7 +284,7 @@ object WifiAwareController {
         try {
             val startedService = reusableService ?: run {
                 Log.i(TAG, "Instantiating WifiAwareMeshService...")
-                WifiAwareMeshService(ctx)
+                newMesh.get()
             }
             startedService.startServices()
 
@@ -253,47 +294,29 @@ object WifiAwareController {
             // publishes anyway — resurrecting NAN while the hotspot owns the radio.
             // Ordering holds because acquireHotspotLease() increments before calling
             // stop(): either we see the flag here, or stop() sees our published service.
-            //
-            // stop() withdraws an instance by clearing `service`. A reused instance it took
-            // during this attempt is being torn down and must not be published again.
-            var retainedForRetry = false
-            val published = synchronized(lifecycleLock) {
-                val withdrawn = reusableService != null && service !== reusableService
-                val canPublish = !heldForHotspot() && !withdrawn && startedService.isRunning()
-                if (canPublish) {
-                    service = startedService
-                    _running.value = true
-                } else {
-                    if (heldForHotspot() && service === startedService) service = null
-                    // A reused instance can defer its start while recovery cleanup finishes.
-                    // Keep it for the next attempt: it was never shut down, so replacing it
-                    // would orphan it next to a second instance.
-                    retainedForRetry = service === startedService
-                    _running.value = false
-                }
-                canPublish
-            }
+            val outcome = publishStarted(startedService, reusableService)
+            val published = outcome == PublishOutcome.PUBLISHED
 
             if (published) {
-                try { com.bitchat.android.service.MeshServiceHolder.unifiedMeshService?.refreshDelegates() } catch (_: Exception) { }
+                try { meshServiceHolder.unifiedMeshService?.refreshDelegates() } catch (_: Exception) { }
                 clearBlockedDebugMessage()
-                try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware started")) } catch (_: Exception) {}
+                try { debugSettingsManager.get().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware started")) } catch (_: Exception) {}
             } else {
                 // stopServices() can block, so keep it out of the lock.
                 val heldForHotspot = heldForHotspot()
-                if (!retainedForRetry) {
+                if (outcome != PublishOutcome.RETAINED) {
                     try { startedService.stopServices() } catch (_: Exception) { }
                 }
                 if (heldForHotspot) {
                     Log.i(TAG, "Abandoned Wi-Fi Aware start: hotspot claimed the radio")
                 }
                 val detail = if (heldForHotspot) "held down for the hotspot" else "did not start"
-                try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware $detail")) } catch (_: Exception) {}
+                try { debugSettingsManager.get().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware $detail")) } catch (_: Exception) {}
             }
         } catch (e: Throwable) {
             Log.e(TAG, "Failed to start WifiAwareMeshService", e)
             _running.value = false
-            try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware failed to start: ${e.message}")) } catch (_: Exception) {}
+            try { debugSettingsManager.get().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware failed to start: ${e.message}")) } catch (_: Exception) {}
         } finally {
             synchronized(lifecycleLock) { starting = false }
         }
@@ -308,17 +331,54 @@ object WifiAwareController {
             current
         }
         try { stopped?.stopServices() } catch (_: Exception) { }
-        try { com.bitchat.android.services.AppStateStore.clearTransportPeers("WIFI") } catch (_: Exception) { }
+        try { appStateStore.clearTransportPeers("WIFI") } catch (_: Exception) { }
         clearDebugSnapshot()
-        try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware stopped")) } catch (_: Exception) {}
+        try { debugSettingsManager.get().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware stopped")) } catch (_: Exception) {}
     }
+
+    /** What [publishStarted] did with a started service. */
+    internal enum class PublishOutcome {
+        PUBLISHED,
+        /** Not published, but kept as the service for the next attempt; not to be stopped. */
+        RETAINED,
+        /** Not published and not kept; the caller stops it. */
+        ABANDONED,
+    }
+
+    /**
+     * Publishes [startedService] if nothing has claimed the radio and the controller is still
+     * open, under the lock [stop] and [close] take. [reusableService] is the instance this
+     * attempt resumed, if any.
+     */
+    internal fun publishStarted(
+        startedService: WifiAwareMeshService,
+        reusableService: WifiAwareMeshService? = null,
+    ): PublishOutcome =
+        synchronized(lifecycleLock) {
+            // stop() withdraws an instance by clearing `service`. A reused instance it took
+            // during this attempt is being torn down and must not be published again.
+            val withdrawn = reusableService != null && service !== reusableService
+            val canPublish = !closed && !heldForHotspot() && !withdrawn && startedService.isRunning()
+            if (canPublish) {
+                service = startedService
+                _running.value = true
+                PublishOutcome.PUBLISHED
+            } else {
+                if ((closed || heldForHotspot()) && service === startedService) service = null
+                _running.value = false
+                // A reused instance can defer its start while recovery cleanup finishes.
+                // Keep it for the next attempt: it was never shut down, so replacing it
+                // would orphan it next to a second instance.
+                if (service === startedService) PublishOutcome.RETAINED else PublishOutcome.ABANDONED
+            }
+        }
 
     internal fun onServiceStopped(stoppedService: WifiAwareMeshService) {
         synchronized(lifecycleLock) {
             if (service !== stoppedService) return
             service = null
             _running.value = false
-            try { com.bitchat.android.services.AppStateStore.clearTransportPeers("WIFI") } catch (_: Exception) { }
+            try { appStateStore.clearTransportPeers("WIFI") } catch (_: Exception) { }
             clearDebugSnapshot()
         }
     }
@@ -412,13 +472,12 @@ object WifiAwareController {
      * an unrelated trigger.
      */
     private fun registerAwareStateReceiver(ctx: Context) {
-        if (awareReceiverRegistered) return
         if (!refreshSupportStatus(ctx).supported) return
         try {
             val filter = android.content.IntentFilter(
                 android.net.wifi.aware.WifiAwareManager.ACTION_WIFI_AWARE_STATE_CHANGED
             )
-            ctx.registerReceiver(object : android.content.BroadcastReceiver() {
+            val receiver = object : android.content.BroadcastReceiver() {
                 override fun onReceive(c: Context?, intent: android.content.Intent?) {
                     val status = refreshSupportStatus(ctx)
                     Log.i(TAG, "Wi-Fi Aware availability changed: supported=${status.supported} available=${status.available} enabled=${_enabled.value} running=${_running.value}")
@@ -430,8 +489,12 @@ object WifiAwareController {
                         stop()
                     }
                 }
-            }, filter)
-            awareReceiverRegistered = true
+            }
+            synchronized(lifecycleLock) {
+                if (closed || awareReceiver != null) return
+                ctx.registerReceiver(receiver, filter)
+                awareReceiver = receiver
+            }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to register Wi-Fi Aware state receiver: ${e.message}")
         }
@@ -449,7 +512,7 @@ object WifiAwareController {
         if (lastBlockedReason == key) return
         lastBlockedReason = key
         try {
-            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
+            debugSettingsManager.get()
                 .addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage(message))
         } catch (_: Exception) { }
     }

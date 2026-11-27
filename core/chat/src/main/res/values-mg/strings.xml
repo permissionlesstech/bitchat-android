@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="notification_messages_from_people">%1$d hafatra avy amin\'ny olona %2$d</string>
+    <string name="notification_more_conversations">ary %1$d resaka hafa</string>
+    <string name="notification_new_messages">Hafatra vaovao</string>
+    <string name="notification_new_location_messages">Hafatra Toerana Vaovao</string>
+    <string name="notification_mentions_in">Voatonona ao amin\'ny %1$s</string>
+    <string name="notification_mentions_in_more">Voatonona ao amin\'ny %1$s (+%2$d hafa)</string>
+    <string name="notification_mentions_in_plural">%1$d fanaovana tsiahy ao amin\'ny %2$s</string>
+    <string name="notification_new_activity_in">Hetsika vaovao ao amin\'ny %1$s</string>
+    <string name="notification_messages_in">Hafatra ao amin\'ny %1$s</string>
+    <string name="notification_joined_conversation">%1$s dia niditra tamin\'ny resaka</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat - %1$d fanaovana tsiahy</string>
+    <string name="notification_geohash_summary_title">bitchat - resaka toerana</string>
+    <string name="notification_geohash_summary_text">%1$d hafatra avy amin\'ny toerana %2$d</string>
+    <string name="notification_mesh_mention_title_singular">Voatonona ao amin\'ny Mesh Chat</string>
+    <string name="notification_mesh_mention_title_plural">%1$d fanaovana tsiahy ao amin\'ny Mesh Chat</string>
+    <string name="notification_more_locations">ary %1$d toerana hafa</string>
+    <plurals name="notification_and_more">
+        <item quantity="one">ary %d hafa</item>
+        <item quantity="other">ary %d hafa</item>
+    </plurals>
+  <string name="verify_mutual_match_title">Mutual verification</string>
+  <string name="verify_mutual_match_body">You and %1$s verified each other</string>
+  <string name="verify_mutual_system_message">mutual verification with %1$s</string>
+  <string name="verify_success_title">Verified</string>
+  <string name="verify_success_body">You verified %1$s</string>
+  <string name="verify_success_system_message">verified %1$s</string>
+</resources>

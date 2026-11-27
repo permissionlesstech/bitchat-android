@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Sheet tentang -->
+    <string name="about_offline_mesh_title">Chat Mesh Offline</string>
+    <string name="about_offline_mesh_desc">Berkomunikasi langsung melalui Bluetooth LE tanpa Internet atau server. Pesan diteruskan melalui perangkat terdekat untuk memperluas jangkauan.</string>
+    <string name="about_online_geohash_title">Channel Geohash Online</string>
+    <string name="about_online_geohash_desc">Terhubung dengan orang-orang di area Anda melalui channel berbasis geohash. Perluas mesh melalui relay Internet publik.</string>
+    <string name="about_e2e_title">Enkripsi end-to-end</string>
+    <string name="about_e2e_desc">Pesan pribadi dienkripsi. Pesan channel bersifat publik.</string>
+    <string name="about_system">Sistem</string>
+    <string name="about_light">Terang</string>
+    <string name="about_dark">Gelap</string>
+    <string name="about_pow">Proof of Work</string>
+    <string name="about_pow_tip">Tambahkan proof of work ke pesan geohash untuk mempersulit spam.</string>
+    <string name="about_pow_desc_none">tidak ada proof of work yang diperlukan</string>
+    <string name="about_pow_desc_very_low">sangat rendah – perlindungan spam minimal</string>
+    <string name="about_pow_desc_low">rendah – perlindungan spam dasar</string>
+    <string name="about_pow_desc_medium">sedang – perlindungan spam yang baik</string>
+    <string name="about_pow_desc_high">tinggi – perlindungan spam yang kuat</string>
+    <string name="about_pow_desc_very_high">sangat tinggi – dapat menyebabkan keterlambatan</string>
+    <string name="about_pow_desc_extreme">ekstrem – memerlukan daya komputasi yang signifikan</string>
+    <string name="about_tor_route">Rutekan lalu lintas Internet melalui Tor untuk privasi ekstra.</string>
+    <string name="about_debug_settings">Pengaturan debug</string>
+    <string name="about_footer">Sumber Terbuka • Privasi Pertama • Terdesentralisasi</string>
+    <string name="unknown">tidak diketahui</string>
+
+    <!-- Debug / Diagnostik -->
+    <string name="debug_tools">Alat debug</string>
+    <string name="debug_tools_desc">Alat pengembang untuk diagnostik dan kontrol</string>
+    <string name="debug_verbose_logging">logging verbose</string>
+    <string name="debug_verbose_hint">Log bergabung/keluar peer, arah koneksi, penerusan paket dan relay</string>
+    <string name="debug_bluetooth_roles">Peran Bluetooth</string>
+    <string name="debug_gatt_server">GATT Server</string>
+    <string name="debug_connections_fmt">Koneksi: %1$d / %2$d</string>
+    <string name="debug_max_server">server maks</string>
+    <string name="debug_gatt_client">GATT Client</string>
+    <string name="debug_max_client">client maks</string>
+    <string name="debug_overall_connections_fmt">Koneksi: %1$d / %2$d</string>
+    <string name="debug_max_overall">maks keseluruhan</string>
+    <string name="debug_packet_relay">Packet Relay</string>
+    <string name="debug_roles_hint">Aktifkan/nonaktifkan peran dan tutup semua koneksi saat menonaktifkan</string>
+    <string name="debug_max_packets_per_sync_fmt">paket maks per sinkronisasi: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">ukuran filter GCS maks: %1$d Byte (128–1024)</string>
+    <string name="debug_target_fpr_fmt">FPR target: %1$.2f%%</string>
+    <string name="debug_connected_devices">perangkat terhubung</string>
+    <string name="debug_our_device_id_fmt">ID perangkat kami: %1$s</string>
+    <string name="debug_none">tidak ada</string>
+    <string name="debug_disconnect">putuskan koneksi</string>
+    <string name="debug_recent_scan_results">perangkat yang baru dipindai</string>
+    <string name="debug_connect">hubungkan</string>
+    <string name="debug_debug_console">Konsol debug</string>
+    <string name="debug_clear">hapus</string>
+    <string name="debug_derived_p_fmt">P turunan: %1$s • elemen maks perkiraan: %2$s</string>
+    <string name="debug_direct_suffix"> • langsung</string>
+    <string name="debug_role_server">sebagai server (kami host)</string>
+    <string name="debug_role_client">sebagai client (kami hubungkan)</string>
+
+    <string name="version_prefix">v%1$s</string>
+    <string name="about_language">Bahasa</string>
+    <string name="about_app_language">Bahasa aplikasi</string>
+    <string name="about_system_default">Default sistem</string>
+    <string name="about_select_language">Pilih bahasa</string>
+    <string name="about_spam_filter_title">Filter spam</string>
+    <string name="about_spam_filter_desc">Sembunyikan pesan publik dari orang yang mengirim terlalu cepat, mengulang pesan, atau membanjiri obrolan dengan tautan.</string>
+</resources>

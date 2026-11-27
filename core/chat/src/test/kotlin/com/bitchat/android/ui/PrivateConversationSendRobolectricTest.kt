@@ -1,0 +1,342 @@
+package com.bitchat.android.ui
+
+import android.app.Application
+import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.mesh.PeerFingerprintManager
+import com.bitchat.android.services.ConversationRepository
+import com.bitchat.android.services.InMemoryConversationStorageCipher
+import com.bitchat.android.services.MessageRouter
+import com.bitchat.android.services.TestMeshStores
+import java.util.UUID
+import javax.inject.Provider
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.runBlocking
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.isNull
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+
+/**
+ * Text typed into a private chat is addressed to that chat's peer. It must reach that peer or be
+ * refused, whatever the selected private chat happens to be at that moment (upstream's
+ * PrivateChatSheetSendRobolectricTest, on this branch's MessageSender and PrivateChatSession).
+ * Text typed into the main chat goes to what the main chat shows, never to the selected chat.
+ */
+@RunWith(RobolectricTestRunner::class)
+class PrivateConversationSendRobolectricTest {
+    private val application: Application = RuntimeEnvironment.getApplication()
+    private val blockedPeerID = "1111111111111111"
+    private val otherPeerID = "2222222222222222"
+    private val previousPeerID = "3333333333333333"
+    private val blockedFingerprint = "synthetic-blocked-fingerprint"
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+    private val conversationDatabaseName = "private-conversation-send-${UUID.randomUUID()}.db"
+    private lateinit var conversationRepository: ConversationRepository
+    private lateinit var stores: TestMeshStores
+    private lateinit var state: ChatState
+    private lateinit var mesh: MeshService
+    private lateinit var privateChatManager: PrivateChatManager
+    private lateinit var privateChatSession: PrivateChatSession
+    private val notifications = mock<NotificationManager>()
+    private val geohashSession = mock<GeohashSession>()
+    private lateinit var sender: MessageSender
+
+    @Before
+    fun setUp() {
+        conversationRepository = ConversationRepository(
+            context = application,
+            dispatcher = Dispatchers.Unconfined,
+            databaseName = conversationDatabaseName,
+            storageCipher = InMemoryConversationStorageCipher()
+        )
+        stores = TestMeshStores(application, conversationRepository)
+        state = ChatState(scope, stores.appStateStore)
+        state.setNickname("synthetic-self")
+        mesh = mock()
+        whenever(mesh.myPeerID).thenReturn("aaaaaaaaaaaaaaaa")
+        whenever(mesh.getPeerNicknames()).thenReturn(emptyMap())
+        val dataManager = DataManager(application)
+        dataManager.addBlockedUser(blockedFingerprint)
+        val fingerprints = PeerFingerprintManager()
+        fingerprints.updatePeerIDMapping(oldPeerID = null, newPeerID = blockedPeerID, fingerprint = blockedFingerprint)
+        val messageManager = MessageManager(state, stores.appStateStore, stores.contactDirectory)
+        val channelManager = ChannelManager(state, messageManager, dataManager, scope)
+        privateChatManager = PrivateChatManager(
+            state = state,
+            messageManager = messageManager,
+            dataManager = dataManager,
+            noiseSessionDelegate = mock<NoiseSessionDelegate>(),
+            contactDirectory = stores.contactDirectory,
+            appStateStore = stores.appStateStore,
+            favorites = Provider { stores.favorites },
+            peerFingerprints = fingerprints,
+        )
+        val sessionMesh = ChatSessionMesh(mesh)
+        val router = mock<MessageRouter>()
+        sender = MessageSender(
+            state = state,
+            messageManager = messageManager,
+            channelManager = channelManager,
+            privateChatManager = privateChatManager,
+            commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager),
+            geohashSession = geohashSession,
+            sessionMesh = sessionMesh,
+            messageRouterProvider = Provider { router },
+            contactDirectory = stores.contactDirectory,
+            favorites = Provider { stores.favorites },
+            geohashAliases = stores.geohashAliases,
+            scope = scope,
+        )
+        privateChatSession = PrivateChatSession(
+            state = state,
+            privateChatManager = privateChatManager,
+            notificationManager = notifications,
+            geohashSession = geohashSession,
+            sessionMesh = sessionMesh,
+            appStateStore = stores.appStateStore,
+            contactDirectory = stores.contactDirectory,
+        )
+    }
+
+    @After
+    fun tearDown() {
+        scope.cancel()
+        conversationRepository.closeForTest()
+        application.deleteDatabase(conversationDatabaseName)
+    }
+
+    @Test
+    fun `text sent from a blocked peer's chat never reaches the public mesh`() {
+        var accepted: Boolean? = null
+
+        sender.sendToConversation(blockedPeerID, "for this chat only") { accepted = it }
+
+        verify(mesh, never()).sendMessage(any(), any(), anyOrNull())
+        assertEquals(false, accepted)
+    }
+
+    @Test
+    fun `slash action from a chat is refused while another conversation is selected`() {
+        var accepted: Boolean? = null
+
+        sender.sendToConversation(blockedPeerID, "/hug someone") { accepted = it }
+
+        verify(mesh, never()).sendMessage(any(), any(), anyOrNull())
+        assertEquals(false, accepted)
+    }
+
+    @Test
+    fun `msg typed in an open chat reports the conversation it selected`() {
+        whenever(mesh.getPeerNicknames()).thenReturn(mapOf(otherPeerID to "bob"))
+        assertTrue(privateChatManager.startPrivateChat(previousPeerID, mesh))
+        val selectedOther = mutableListOf<String>()
+
+        sender.sendToConversation(
+            previousPeerID,
+            "/msg bob",
+            onSelectedOther = { selectedOther += it },
+        )
+
+        assertEquals(otherPeerID, state.getSelectedPrivateChatPeerValue())
+        assertEquals(listOf(otherPeerID), selectedOther)
+    }
+
+    @Test
+    fun `a command that keeps this chat selected reports no other conversation`() {
+        assertTrue(privateChatManager.startPrivateChat(previousPeerID, mesh))
+        val selectedOther = mutableListOf<String>()
+
+        sender.sendToConversation(
+            previousPeerID,
+            "/clear",
+            onSelectedOther = { selectedOther += it },
+        )
+
+        assertEquals(emptyList<String>(), selectedOther)
+    }
+
+    @Test
+    fun `join typed in an open chat reports that it left the chat`() {
+        assertTrue(privateChatManager.startPrivateChat(previousPeerID, mesh))
+        var left = 0
+
+        sender.sendToConversation(previousPeerID, "/join #synthetic", onLeft = { left++ })
+
+        assertEquals("#synthetic", state.getCurrentChannelValue())
+        assertEquals(null, state.getSelectedPrivateChatPeerValue())
+        assertEquals(1, left)
+    }
+
+    @Test
+    fun `a chat closed after join left it gives up notification focus`() {
+        val route = Any()
+        assertTrue(runBlocking { privateChatSession.start(previousPeerID, route) })
+        sender.sendToConversation(previousPeerID, "/join #synthetic")
+
+        privateChatSession.end(route)
+
+        verify(notifications).setCurrentPrivateChatPeer(null)
+    }
+
+    @Test
+    fun `a chat closed after another was opened leaves that chat's focus alone`() {
+        val replaced = Any()
+        assertTrue(runBlocking { privateChatSession.start(previousPeerID, replaced) })
+        assertTrue(runBlocking { privateChatSession.start(otherPeerID, Any()) })
+
+        privateChatSession.end(replaced)
+
+        verify(notifications, never()).setCurrentPrivateChatPeer(null)
+        assertEquals(otherPeerID, state.getSelectedPrivateChatPeerValue())
+    }
+
+    @Test
+    fun `a start that another route took over selects nothing`() {
+        val departing = "nostr_0123456789abcdef"
+        // The departing route's start is still under way when the replacing route starts its chat.
+        whenever(geohashSession.ensureGeohashDMSubscriptionForConversation(departing)).then {
+            assertTrue(runBlocking { privateChatSession.start(otherPeerID, Any()) })
+            Unit
+        }
+
+        assertTrue(runBlocking { privateChatSession.start(departing, Any()) })
+
+        assertEquals(otherPeerID, state.getSelectedPrivateChatPeerValue())
+        verify(notifications, never()).setCurrentPrivateChatPeer(departing)
+    }
+
+    @Test
+    fun `a route closed after the same chat reopened in another leaves it open`() {
+        val replaced = Any()
+        assertTrue(runBlocking { privateChatSession.start(previousPeerID, replaced) })
+        assertTrue(runBlocking { privateChatSession.start(previousPeerID, Any()) })
+
+        privateChatSession.end(replaced)
+
+        verify(notifications, never()).setCurrentPrivateChatPeer(null)
+        assertEquals(previousPeerID, state.getSelectedPrivateChatPeerValue())
+    }
+
+    @Test
+    fun `a command that keeps this chat selected does not report leaving it`() {
+        assertTrue(privateChatManager.startPrivateChat(previousPeerID, mesh))
+        var left = 0
+
+        sender.sendToConversation(previousPeerID, "/clear", onLeft = { left++ })
+
+        assertEquals(0, left)
+    }
+
+    @Test
+    fun `main chat text after msg goes to the public mesh, not the chat msg selected`() {
+        whenever(mesh.getPeerNicknames()).thenReturn(mapOf(otherPeerID to "bob"))
+        sender.send("/msg bob")
+        assertEquals(otherPeerID, state.getSelectedPrivateChatPeerValue())
+        var accepted: Boolean? = null
+
+        sender.send("synthetic public text") { accepted = it }
+
+        assertEquals(true, accepted)
+        verify(mesh).sendMessage(eq("synthetic public text"), any(), isNull())
+        assertTrue(state.messages.value.any { it.content == "synthetic public text" })
+        assertEquals(emptyList<String>(), sentTextIn(otherPeerID))
+    }
+
+    @Test
+    fun `msg typed in the main chat reports the conversation it selected`() {
+        whenever(mesh.getPeerNicknames()).thenReturn(mapOf(otherPeerID to "bob"))
+        val selectedOther = mutableListOf<String>()
+
+        sender.send("/msg bob", onSelectedOther = { selectedOther += it })
+
+        assertEquals(listOf(otherPeerID), selectedOther)
+    }
+
+    @Test
+    fun `msg with text typed in the main chat still sends it privately`() {
+        whenever(mesh.getPeerNicknames()).thenReturn(mapOf(otherPeerID to "bob"))
+        val selectedOther = mutableListOf<String>()
+
+        sender.send("/msg bob synthetic hello", onSelectedOther = { selectedOther += it })
+
+        verify(mesh).sendPrivateMessage(eq("synthetic hello"), eq(otherPeerID), eq("bob"), any())
+        verify(mesh, never()).sendMessage(any(), any(), anyOrNull())
+        assertEquals(listOf(otherPeerID), selectedOther)
+    }
+
+    @Test
+    fun `a main chat command that selects no chat reports none`() {
+        val selectedOther = mutableListOf<String>()
+
+        sender.send("/w", onSelectedOther = { selectedOther += it })
+
+        assertEquals(emptyList<String>(), selectedOther)
+    }
+
+    @Test
+    fun `chat text goes to its own peer before the chat has started`() {
+        sender.sendToConversation(otherPeerID, "draft sent early")
+
+        verify(mesh, never()).sendMessage(any(), any(), anyOrNull())
+        assertEquals(listOf("draft sent early"), sentTextIn(otherPeerID))
+    }
+
+    @Test
+    fun `chat text goes to its own peer while another chat is still selected`() {
+        assertTrue(privateChatManager.startPrivateChat(previousPeerID, mesh))
+
+        sender.sendToConversation(otherPeerID, "meant for the new chat")
+
+        verify(mesh, never()).sendMessage(any(), any(), anyOrNull())
+        assertEquals(listOf("meant for the new chat"), sentTextIn(otherPeerID))
+        assertEquals(emptyList<String>(), sentTextIn(previousPeerID))
+    }
+
+    @Test
+    fun `refused send reports a chat whose peer was blocked after it opened`() {
+        var refusedBlocked = false
+
+        sender.sendToConversation(blockedPeerID, "too late", onRefusedBlocked = { refusedBlocked = true })
+
+        assertTrue(refusedBlocked)
+    }
+
+    @Test
+    fun `a refused send for a peer that is not blocked does not close the chat`() {
+        var refusedBlocked = false
+
+        sender.sendToConversation(otherPeerID, "", onRefusedBlocked = { refusedBlocked = true })
+
+        assertFalse(refusedBlocked)
+    }
+
+    @Test
+    fun `a chat that cannot start reports it and selects nothing`() = runBlocking {
+        val started = privateChatSession.start(blockedPeerID, Any())
+
+        assertFalse(started)
+        assertNull(state.getSelectedPrivateChatPeerValue())
+    }
+
+    private fun sentTextIn(conversationID: String): List<String> =
+        stores.appStateStore.privateMessages.value[conversationID].orEmpty()
+            .filter { it.sender != "system" }
+            .map { it.content }
+}

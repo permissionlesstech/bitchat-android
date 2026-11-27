@@ -1,0 +1,753 @@
+package com.bitchat.android.identity
+
+import androidx.annotation.VisibleForTesting
+import android.annotation.SuppressLint
+import android.content.Context
+import android.content.SharedPreferences
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
+import java.security.MessageDigest
+import android.util.Base64
+import android.util.Log
+import com.bitchat.android.model.AuthenticatedPeerState
+import com.bitchat.android.model.PeerCapabilities
+import com.bitchat.android.util.dataFromHexString
+import com.bitchat.android.util.hexEncodedString
+import androidx.core.content.edit
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
+import kotlin.concurrent.write
+
+/**
+ * Manages persistent identity storage and peer ID rotation - 100% compatible with iOS implementation
+ * 
+ * Handles:
+ * - Static identity key persistence across app sessions
+ * - Secure storage using Android EncryptedSharedPreferences
+ * - Fingerprint calculation and identity validation
+ */
+class SecureIdentityStateManager {
+    
+    companion object {
+        private const val TAG = "SecureIdentityStateManager"
+        private const val PREFS_NAME = "bitchat_identity"
+        private const val KEY_STATIC_PRIVATE_KEY = "static_private_key"
+        private const val KEY_STATIC_PUBLIC_KEY = "static_public_key"
+        private const val KEY_SIGNING_PRIVATE_KEY = "signing_private_key"
+        private const val KEY_SIGNING_PUBLIC_KEY = "signing_public_key"
+        private const val KEY_VERIFIED_FINGERPRINTS = "verified_fingerprints"
+        private const val KEY_CACHED_PEER_FINGERPRINTS = "cached_peer_fingerprints"
+        private const val KEY_CACHED_PEER_NOISE_KEYS = "cached_peer_noise_keys"
+        private const val KEY_CACHED_NOISE_FINGERPRINTS = "cached_noise_fingerprints"
+        private const val KEY_CACHED_FINGERPRINT_NICKNAMES = "cached_fingerprint_nicknames"
+        private const val KEY_PRIVATE_MEDIA_CAPABILITY_PINS = "private_media_capability_pins_v1"
+        private const val KEY_AUTHENTICATED_PEER_STATES = "authenticated_peer_states_v1"
+
+        // BLE, Wi-Fi Aware, and Noise services each hold their own manager
+        // instance over the same encrypted preferences. Serialize pin updates
+        // process-wide so concurrent promotions cannot lose one another or
+        // race a panic wipe.
+        private val privateMediaPinsLock = Any()
+        private var privateMediaPinsEpoch = 0L
+
+        /**
+         * Taken for writing while a panic ends the identity and wipes the sandbox, and for reading
+         * around every build of a manager and every write to its storage. Kept apart from
+         * [privateMediaPinsLock], and a write only ever tries it, so neither can wait on the other.
+         */
+        private val storageLock = ReentrantReadWriteLock()
+
+        /**
+         * Stops every manager built before this call from writing to its storage again, without
+         * touching storage. A panic calls it before it wipes the sandbox, so a write still queued
+         * on an old identity's manager cannot put that identity's state back into the storage the
+         * next identity starts on. [clearIdentityData] fences the same way.
+         */
+        fun fenceEarlierInstances() {
+            synchronized(privateMediaPinsLock) { privateMediaPinsEpoch += 1 }
+        }
+
+        /**
+         * Runs [block] with every other thread kept out of the identity's storage: a manager being
+         * built elsewhere waits until [block] returns, and a write from elsewhere is refused. The
+         * panic runs the end of the identity, the wipe and the build of the next identity inside
+         * it, so work of the ended identity still finishing on another thread can neither write
+         * into the wipe nor build encrypted storage over a key the wipe is deleting.
+         *
+         * Every manager built before the lock is taken is fenced inside it, so one that finished
+         * building just before the panic took the lock never writes again either.
+         *
+         * Nothing [block] runs may wait on work that builds a manager on another thread: that build
+         * waits on this lock, so the two would wait on each other. The panic's identity teardown
+         * runs in here, `ConversationRepository`'s blocking close included.
+         */
+        fun <T> excludingOtherThreads(block: () -> T): T = storageLock.write {
+            fenceEarlierInstances()
+            block()
+        }
+
+        private val sha256ThreadLocal = ThreadLocal.withInitial { MessageDigest.getInstance("SHA-256") }
+
+        private fun isHex64(value: String, lowercaseOnly: Boolean = false): Boolean {
+            if (value.length != 64) return false
+            for (i in 0 until 64) {
+                val c = value[i]
+                val valid = if (lowercaseOnly) {
+                    (c in '0'..'9') || (c in 'a'..'f')
+                } else {
+                    (c in '0'..'9') || (c in 'a'..'f') || (c in 'A'..'F')
+                }
+                if (!valid) return false
+            }
+            return true
+        }
+
+        /**
+         * The identity storage opened once and shared by every manager built over it, with the
+         * string sets read from it, so a manager built per call skips the master key and keyset
+         * load. [stringSets] is guarded by [privateMediaPinsLock].
+         */
+        private class SharedStorage(val appContext: Context, val prefs: SharedPreferences) {
+            val stringSets = mutableMapOf<String, Set<String>>()
+        }
+
+        private val sharedStorageLock = Any()
+        private var sharedStorage: SharedStorage? = null
+
+        private fun sharedStorage(context: Context): SharedStorage {
+            val appContext = context.applicationContext ?: context
+            return storageLock.read {
+                synchronized(sharedStorageLock) {
+                    sharedStorage?.takeIf { it.appContext === appContext }
+                        ?: SharedStorage(appContext, openEncryptedPreferences(appContext, PREFS_NAME))
+                            .also { sharedStorage = it }
+                }
+            }
+        }
+
+        /**
+         * Forgets the shared storage, so the next manager opens storage again. The sandbox wipe
+         * calls it once it has deleted the storage: a storage opened before the wipe holds the
+         * keyset it deleted and the ended identity's string sets, which a manager built on it
+         * afterwards would write under (AEADBadTagException on the next open) or read back.
+         */
+        fun dropSharedStorage() {
+            val dropped = synchronized(sharedStorageLock) { sharedStorage.also { sharedStorage = null } }
+            // Managers built before the wipe still hold it; they must not read the ended identity back.
+            if (dropped != null) synchronized(privateMediaPinsLock) { dropped.stringSets.clear() }
+        }
+
+        /**
+         * Opens the encrypted preferences [name] under the app's master key, waiting out a panic's
+         * wipe. The master key is loaded or generated inside the lock as well as the keyset: the
+         * wipe deletes it, and two generators that do not exclude each other can then create it,
+         * androidx's when the master key is built and Tink's when a keyset is built with none
+         * there. A master key built before the wipe and a keyset built after it let both run at
+         * once, and the later key replaced the one the keyset was just encrypted under, so the
+         * storage never opened again (AEADBadTagException).
+         */
+        internal fun openEncryptedPreferences(context: Context, name: String): SharedPreferences =
+            storageLock.read {
+                val masterKey = MasterKey.Builder(context, MasterKey.DEFAULT_MASTER_KEY_ALIAS)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build()
+                EncryptedSharedPreferences.create(
+                    context,
+                    name,
+                    masterKey,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                )
+            }
+    }
+
+    private val prefs: SharedPreferences
+    /** Null for test-only plain storage, which reads through to its preferences on every call. */
+    private val storage: SharedStorage?
+    private val lock = Any()
+    private var privateMediaPinsEpochAtCreation: Long
+
+    constructor(context: Context) {
+        privateMediaPinsEpochAtCreation = synchronized(privateMediaPinsLock) {
+            privateMediaPinsEpoch
+        }
+        val shared = sharedStorage(context)
+        storage = shared
+        prefs = GatedPreferences(shared.prefs)
+    }
+
+    /** A manager fenced by a panic reads its storage directly, never a cache it may share with others. */
+    private fun readCachedStringSet(key: String): Set<String> = synchronized(privateMediaPinsLock) {
+        val shared = storage?.takeIf { mayWrite() }
+            ?: return@synchronized prefs.getStringSet(key, emptySet())?.toSet() ?: emptySet()
+        shared.stringSets[key]?.let { return@synchronized it }
+        val loaded = prefs.getStringSet(key, emptySet())?.toSet() ?: emptySet()
+        shared.stringSets[key] = loaded
+        loaded
+    }
+
+    /** A fenced manager's write was refused, so it forgets the key rather than caching the refused value. */
+    private fun writeCachedStringSetLocked(key: String, value: Set<String>) {
+        val shared = storage ?: return
+        if (mayWrite()) shared.stringSets[key] = value.toSet() else shared.stringSets.remove(key)
+    }
+
+    private fun invalidateAllCachedSetsLocked() {
+        storage?.stringSets?.clear()
+    }
+
+    /** Test-only storage injection; production always uses encrypted prefs. */
+    @VisibleForTesting
+    constructor(prefs: SharedPreferences, testOnly: Boolean) {
+        require(testOnly) { "Plain SharedPreferences are test-only" }
+        privateMediaPinsEpochAtCreation = synchronized(privateMediaPinsLock) {
+            privateMediaPinsEpoch
+        }
+        this.prefs = GatedPreferences(prefs)
+        this.storage = null
+    }
+
+    /** Whether no panic has fenced this manager since it was built or last cleared its own storage. */
+    private fun mayWrite(): Boolean =
+        synchronized(privateMediaPinsLock) { privateMediaPinsEpochAtCreation == privateMediaPinsEpoch }
+
+    /**
+     * The storage, with every commit and apply gated: refused once a panic has fenced this manager,
+     * and while a panic on another thread holds [storageLock]. A refused commit returns false, as a
+     * failed one does.
+     */
+    private inner class GatedPreferences(private val delegate: SharedPreferences) : SharedPreferences by delegate {
+        override fun edit(): SharedPreferences.Editor = GatedEditor(delegate.edit())
+    }
+
+    private inner class GatedEditor(private val delegate: SharedPreferences.Editor) : SharedPreferences.Editor by delegate {
+        private fun gated(write: () -> Boolean): Boolean {
+            if (!storageLock.readLock().tryLock()) {
+                Log.w(TAG, "Identity storage write refused while a panic wipes it")
+                return false
+            }
+            return try {
+                if (mayWrite()) write() else false
+            } finally {
+                storageLock.readLock().unlock()
+            }
+        }
+
+        override fun commit(): Boolean = gated(delegate::commit)
+
+        override fun apply() {
+            gated {
+                delegate.apply()
+                true
+            }
+        }
+
+        // Each put returns this editor, so a chained commit or apply is gated too.
+        private fun chain(edit: () -> Unit): SharedPreferences.Editor {
+            edit()
+            return this
+        }
+
+        override fun putString(key: String?, value: String?) = chain { delegate.putString(key, value) }
+        override fun putStringSet(key: String?, values: MutableSet<String>?) = chain { delegate.putStringSet(key, values) }
+        override fun putInt(key: String?, value: Int) = chain { delegate.putInt(key, value) }
+        override fun putLong(key: String?, value: Long) = chain { delegate.putLong(key, value) }
+        override fun putFloat(key: String?, value: Float) = chain { delegate.putFloat(key, value) }
+        override fun putBoolean(key: String?, value: Boolean) = chain { delegate.putBoolean(key, value) }
+        override fun remove(key: String?) = chain { delegate.remove(key) }
+        override fun clear() = chain { delegate.clear() }
+    }
+    
+    // MARK: - Static Key Management
+    
+    /**
+     * Load saved static key pair
+     * Returns (privateKey, publicKey) or null if none exists
+     */
+    fun loadStaticKey(): Pair<ByteArray, ByteArray>? {
+        return try {
+            val privateKeyString = prefs.getString(KEY_STATIC_PRIVATE_KEY, null)
+            val publicKeyString = prefs.getString(KEY_STATIC_PUBLIC_KEY, null)
+            
+            if (privateKeyString != null && publicKeyString != null) {
+                val privateKey = android.util.Base64.decode(privateKeyString, android.util.Base64.DEFAULT)
+                val publicKey = android.util.Base64.decode(publicKeyString, android.util.Base64.DEFAULT)
+                
+                // Validate key sizes
+                if (privateKey.size == 32 && publicKey.size == 32) {
+                    Log.d(TAG, "Loaded static identity key from secure storage")
+                    Pair(privateKey, publicKey)
+                } else {
+                    Log.w(TAG, "Invalid key sizes in storage, returning null")
+                    null
+                }
+            } else {
+                Log.d(TAG, "No static identity key found in storage")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load static key: ${e.message}")
+            null
+        }
+    }
+    
+    /**
+     * Save static key pair to secure storage
+     */
+    fun saveStaticKey(privateKey: ByteArray, publicKey: ByteArray) {
+        try {
+            // Validate key sizes
+            if (privateKey.size != 32 || publicKey.size != 32) {
+                throw IllegalArgumentException("Invalid key sizes: private=${privateKey.size}, public=${publicKey.size}")
+            }
+            
+            val privateKeyString = android.util.Base64.encodeToString(privateKey, android.util.Base64.DEFAULT)
+            val publicKeyString = android.util.Base64.encodeToString(publicKey, android.util.Base64.DEFAULT)
+            
+            prefs.edit()
+                .putString(KEY_STATIC_PRIVATE_KEY, privateKeyString)
+                .putString(KEY_STATIC_PUBLIC_KEY, publicKeyString)
+                .apply()
+            
+            Log.d(TAG, "Saved static identity key to secure storage")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save static key: ${e.message}")
+            throw e
+        }
+    }
+
+    // MARK: - Signing Key Management
+
+    /**
+     * Load saved signing key pair
+     * Returns (privateKey, publicKey) or null if none exists
+     */
+    fun loadSigningKey(): Pair<ByteArray, ByteArray>? {
+        return try {
+            val privateKeyString = prefs.getString(KEY_SIGNING_PRIVATE_KEY, null)
+            val publicKeyString = prefs.getString(KEY_SIGNING_PUBLIC_KEY, null)
+            
+            if (privateKeyString != null && publicKeyString != null) {
+                val privateKey = android.util.Base64.decode(privateKeyString, android.util.Base64.DEFAULT)
+                val publicKey = android.util.Base64.decode(publicKeyString, android.util.Base64.DEFAULT)
+                
+                // Validate key sizes
+                if (privateKey.size == 32 && publicKey.size == 32) {
+                    Log.d(TAG, "Loaded Ed25519 signing key from secure storage")
+                    Pair(privateKey, publicKey)
+                } else {
+                    Log.w(TAG, "Invalid signing key sizes in storage, returning null")
+                    null
+                }
+            } else {
+                Log.d(TAG, "No Ed25519 signing key found in storage")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load signing key: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Save signing key pair to secure storage
+     */
+    fun saveSigningKey(privateKey: ByteArray, publicKey: ByteArray) {
+        try {
+            // Validate key sizes
+            if (privateKey.size != 32 || publicKey.size != 32) {
+                throw IllegalArgumentException("Invalid signing key sizes: private=${privateKey.size}, public=${publicKey.size}")
+            }
+            
+            val privateKeyString = android.util.Base64.encodeToString(privateKey, android.util.Base64.DEFAULT)
+            val publicKeyString = android.util.Base64.encodeToString(publicKey, android.util.Base64.DEFAULT)
+            
+            prefs.edit()
+                .putString(KEY_SIGNING_PRIVATE_KEY, privateKeyString)
+                .putString(KEY_SIGNING_PUBLIC_KEY, publicKeyString)
+                .apply()
+            
+            Log.d(TAG, "Saved Ed25519 signing key to secure storage")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save signing key: ${e.message}")
+            throw e
+        }
+    }
+    
+    // MARK: - Fingerprint Generation
+    
+    /**
+     * Generate fingerprint from public key (SHA-256 hash)
+     */
+    fun generateFingerprint(publicKeyData: ByteArray): String {
+        val digest = sha256ThreadLocal.get()!!
+        digest.reset()
+        val hash = digest.digest(publicKeyData)
+        return hash.hexEncodedString()
+    }
+    
+    /**
+     * Validate fingerprint format
+     */
+    fun isValidFingerprint(fingerprint: String): Boolean {
+        // SHA-256 fingerprint should be 64 hex characters
+        return isHex64(fingerprint)
+    }
+
+    // MARK: - Verified Fingerprints
+
+    fun getVerifiedFingerprints(): Set<String> {
+        return readCachedStringSet(KEY_VERIFIED_FINGERPRINTS)
+    }
+
+    fun isVerifiedFingerprint(fingerprint: String): Boolean {
+        return getVerifiedFingerprints().contains(fingerprint)
+    }
+
+    fun setVerifiedFingerprint(fingerprint: String, verified: Boolean) {
+        if (!isValidFingerprint(fingerprint)) return
+        synchronized(privateMediaPinsLock) {
+            val current = readCachedStringSet(KEY_VERIFIED_FINGERPRINTS).toMutableSet()
+            val changed = if (verified) {
+                current.add(fingerprint)
+            } else {
+                current.remove(fingerprint)
+            }
+            if (changed) {
+                prefs.edit { putStringSet(KEY_VERIFIED_FINGERPRINTS, current) }
+                writeCachedStringSetLocked(KEY_VERIFIED_FINGERPRINTS, current)
+            }
+        }
+    }
+
+    fun getCachedPeerFingerprint(peerID: String): String? {
+        val pid = peerID.lowercase()
+        val entries = readCachedStringSet(KEY_CACHED_PEER_FINGERPRINTS)
+        val entry = entries.firstOrNull { it.startsWith("$pid:") } ?: return null
+        return entry.substringAfter(':').takeIf { isValidFingerprint(it) }
+    }
+
+    fun cachePeerFingerprint(peerID: String, fingerprint: String) {
+        if (!isValidFingerprint(fingerprint)) return
+        updateCache(KEY_CACHED_PEER_FINGERPRINTS, ':', mapOf(peerID.lowercase() to fingerprint))
+    }
+
+    fun getCachedNoiseKey(peerID: String): String? {
+        val pid = peerID.lowercase()
+        val entries = readCachedStringSet(KEY_CACHED_PEER_NOISE_KEYS)
+        val entry = entries.firstOrNull { it.startsWith("$pid=") } ?: return null
+        return entry.substringAfter('=').takeIf { isHex64(it) }
+    }
+
+    fun cachePeerNoiseKey(peerID: String, noiseKeyHex: String) {
+        if (!isHex64(noiseKeyHex)) return
+        updateCache(KEY_CACHED_PEER_NOISE_KEYS, '=', mapOf(peerID.lowercase() to noiseKeyHex.lowercase()))
+    }
+
+    fun getCachedNoiseFingerprint(noiseKeyHex: String): String? {
+        val key = noiseKeyHex.lowercase()
+        val entries = readCachedStringSet(KEY_CACHED_NOISE_FINGERPRINTS)
+        val entry = entries.firstOrNull { it.startsWith("$key=") } ?: return null
+        return entry.substringAfter('=').takeIf { isValidFingerprint(it) }
+    }
+
+    fun cacheNoiseFingerprint(noiseKeyHex: String, fingerprint: String) {
+        if (!isValidFingerprint(fingerprint)) return
+        if (!isHex64(noiseKeyHex)) return
+        updateCache(KEY_CACHED_NOISE_FINGERPRINTS, '=', mapOf(noiseKeyHex.lowercase() to fingerprint))
+    }
+
+    fun getCachedFingerprintNickname(fingerprint: String): String? {
+        if (!isValidFingerprint(fingerprint)) return null
+        val key = fingerprint.lowercase()
+        val entries = readCachedStringSet(KEY_CACHED_FINGERPRINT_NICKNAMES)
+        val entry = entries.firstOrNull { it.startsWith("$key=") } ?: return null
+        val encoded = entry.substringAfter('=')
+        return runCatching {
+            val bytes = Base64.decode(encoded, Base64.NO_WRAP)
+            String(bytes, Charsets.UTF_8)
+        }.getOrNull()
+    }
+
+    fun cacheFingerprintNickname(fingerprint: String, nickname: String) {
+        if (!isValidFingerprint(fingerprint)) return
+        val encoded = Base64.encodeToString(nickname.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+        updateCache(KEY_CACHED_FINGERPRINT_NICKNAMES, '=', mapOf(fingerprint.lowercase() to encoded))
+    }
+
+    data class CachedPeerIdentity(
+        val peerID: String,
+        val fingerprint: String,
+        val noiseKeyHex: String?,
+        val nickname: String?
+    )
+
+    /** Capture before collecting a snapshot that will be persisted on another dispatcher. */
+    fun cacheGeneration(): Long = synchronized(privateMediaPinsLock) { privateMediaPinsEpoch }
+
+    /** One read and at most one write per cache, fenced against a concurrent panic wipe. */
+    fun cachePeerIdentities(
+        identities: List<CachedPeerIdentity>,
+        generation: Long = cacheGeneration()
+    ) = synchronized(privateMediaPinsLock) {
+        if (generation != privateMediaPinsEpoch) return@synchronized
+        val valid = identities.filter { isValidFingerprint(it.fingerprint) }
+        updateCache(KEY_CACHED_PEER_FINGERPRINTS, ':', valid.associate {
+            it.peerID.lowercase() to it.fingerprint
+        })
+        val withKeys = valid.filter { it.noiseKeyHex != null && isHex64(it.noiseKeyHex) }
+        updateCache(KEY_CACHED_PEER_NOISE_KEYS, '=', withKeys.associate {
+            it.peerID.lowercase() to it.noiseKeyHex!!.lowercase()
+        })
+        updateCache(KEY_CACHED_NOISE_FINGERPRINTS, '=', withKeys.associate {
+            it.noiseKeyHex!!.lowercase() to it.fingerprint
+        })
+        updateCache(KEY_CACHED_FINGERPRINT_NICKNAMES, '=', valid.mapNotNull {
+            it.nickname?.takeIf(String::isNotBlank)?.let { nickname ->
+                it.fingerprint.lowercase() to Base64.encodeToString(nickname.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+            }
+        }.toMap())
+    }
+
+    private fun updateCache(preferenceKey: String, separator: Char, updates: Map<String, String>) {
+        if (updates.isEmpty()) return
+        synchronized(privateMediaPinsLock) {
+            val current = readCachedStringSet(preferenceKey)
+            val updated = current.filterNotTo(mutableSetOf()) {
+                it.substringBefore(separator) in updates
+            }
+            updates.forEach { (key, value) -> updated.add("$key$separator$value") }
+            if (updated != current) {
+                prefs.edit { putStringSet(preferenceKey, updated) }
+                writeCachedStringSetLocked(preferenceKey, updated)
+            }
+        }
+    }
+
+    // MARK: - Authenticated private-media capability pins
+
+    fun isPrivateMediaCapable(fingerprint: String): Boolean {
+        if (!isValidFingerprint(fingerprint)) return false
+        return synchronized(privateMediaPinsLock) {
+            if (privateMediaPinsEpochAtCreation != privateMediaPinsEpoch) {
+                return@synchronized false
+            }
+            readCachedStringSet(KEY_PRIVATE_MEDIA_CAPABILITY_PINS)
+                .any { it.equals(fingerprint, ignoreCase = true) }
+        }
+    }
+
+    /** Persist capabilities and Ed25519 key from a decoded Noise 0x21 proof in one edit. */
+    @SuppressLint("UseKtx")
+    fun storeAuthenticatedPeerState(
+        fingerprint: String,
+        state: AuthenticatedPeerState,
+        onCommitted: () -> Unit = {}
+    ): Boolean {
+        if (!isValidFingerprint(fingerprint) || state.signingPublicKey.size != 32) return false
+        val normalizedFingerprint = fingerprint.lowercase()
+        return synchronized(privateMediaPinsLock) {
+            // A controller that survived panic must not republish pre-wipe proof state.
+            if (privateMediaPinsEpochAtCreation != privateMediaPinsEpoch) return@synchronized false
+            val records = readCachedStringSet(KEY_AUTHENTICATED_PEER_STATES).toMutableSet()
+            records.removeAll { it.startsWith("$normalizedFingerprint:") }
+            val capabilitiesHex = java.lang.Long.toUnsignedString(state.capabilities.rawValue, 16)
+            records.add(
+                "$normalizedFingerprint:$capabilitiesHex:${state.signingPublicKey.hexEncodedString()}"
+            )
+
+            val editor = prefs.edit().putStringSet(KEY_AUTHENTICATED_PEER_STATES, records)
+            var updatedPins: Set<String>? = null
+            if (state.capabilities.contains(PeerCapabilities.PRIVATE_MEDIA)) {
+                val pins = readCachedStringSet(KEY_PRIVATE_MEDIA_CAPABILITY_PINS)
+                    .mapTo(mutableSetOf()) { it.lowercase() }
+                pins.add(normalizedFingerprint)
+                editor.putStringSet(KEY_PRIVATE_MEDIA_CAPABILITY_PINS, pins)
+                updatedPins = pins
+            }
+            // This result is a security boundary: do not publish the Ed key in memory unless the
+            // encrypted identity record and its HSTS pin were durably committed together.
+            editor.commit().also { committed ->
+                if (committed) {
+                    writeCachedStringSetLocked(KEY_AUTHENTICATED_PEER_STATES, records)
+                    updatedPins?.let { writeCachedStringSetLocked(KEY_PRIVATE_MEDIA_CAPABILITY_PINS, it) }
+                    onCommitted()
+                }
+            }
+        }
+    }
+
+    fun getAuthenticatedPeerState(fingerprint: String): AuthenticatedPeerState? {
+        if (!isValidFingerprint(fingerprint)) return null
+        return synchronized(privateMediaPinsLock) {
+            if (privateMediaPinsEpochAtCreation != privateMediaPinsEpoch) return@synchronized null
+            val prefix = "${fingerprint.lowercase()}:"
+            val record = readCachedStringSet(KEY_AUTHENTICATED_PEER_STATES)
+                .firstOrNull { it.startsWith(prefix) } ?: return@synchronized null
+            val fields = record.split(':', limit = 3)
+            if (fields.size != 3) return@synchronized null
+            val capabilities = runCatching {
+                PeerCapabilities(java.lang.Long.parseUnsignedLong(fields[1], 16))
+            }.getOrNull() ?: return@synchronized null
+            val signingKeyHex = fields[2]
+            if (!isHex64(signingKeyHex, lowercaseOnly = true)) return@synchronized null
+            val signingKey = signingKeyHex.dataFromHexString()
+                ?: return@synchronized null
+            AuthenticatedPeerState(capabilities, signingKey)
+        }
+    }
+
+    fun getAuthenticatedSigningKey(fingerprint: String): ByteArray? =
+        getAuthenticatedPeerState(fingerprint)?.signingPublicKey?.copyOf()
+    
+    // MARK: - Peer ID Rotation Management (removed)
+    // Android now derives peer ID from the persisted Noise identity fingerprint.
+    // No timed peer ID rotation is performed here.
+    
+    // MARK: - Identity Validation
+    
+    /**
+     * Validate that a public key is valid for Curve25519
+     */
+    fun validatePublicKey(publicKey: ByteArray): Boolean {
+        if (publicKey.size != 32) return false
+        
+        // Check for all-zero key (invalid point)
+        if (publicKey.all { it == 0.toByte() }) return false
+        
+        // Check for other known invalid points
+        val invalidPoints = setOf(
+            ByteArray(32) { 0x00.toByte() }, // All zeros
+            ByteArray(32) { 0xFF.toByte() }, // All ones
+            // Add other known invalid Curve25519 points if needed
+        )
+        
+        return !invalidPoints.any { it.contentEquals(publicKey) }
+    }
+    
+    /**
+     * Validate that a private key is valid for Curve25519
+     */
+    fun validatePrivateKey(privateKey: ByteArray): Boolean {
+        if (privateKey.size != 32) return false
+        
+        // Check for all-zero key
+        if (privateKey.all { it == 0.toByte() }) return false
+        
+        // Check that clamping bits are correct for Curve25519
+        val clampedKey = privateKey.clone()
+        clampedKey[0] = (clampedKey[0].toInt() and 248).toByte()
+        clampedKey[31] = (clampedKey[31].toInt() and 127).toByte()
+        clampedKey[31] = (clampedKey[31].toInt() or 64).toByte()
+        
+        // After clamping, the key should not be all zeros
+        return !clampedKey.all { it == 0.toByte() }
+    }
+    
+    // MARK: - Debug Information
+    
+    /**
+     * Get debug information about identity state
+     */
+    fun getDebugInfo(): String = buildString {
+        appendLine("=== Identity State Manager Debug ===")
+        
+        val hasIdentity = prefs.contains(KEY_STATIC_PRIVATE_KEY)
+        appendLine("Has identity: $hasIdentity")
+        
+        if (hasIdentity) {
+            try {
+                val keyPair = loadStaticKey()
+                if (keyPair != null) {
+                    val fingerprint = generateFingerprint(keyPair.second)
+                    appendLine("Identity fingerprint: ${fingerprint.take(16)}...")
+                    appendLine("Key validation: private=${validatePrivateKey(keyPair.first)}, public=${validatePublicKey(keyPair.second)}")
+                }
+            } catch (e: Exception) {
+                appendLine("Key validation failed: ${e.message}")
+            }
+        }
+    }
+    
+    // MARK: - Emergency Clear
+    
+    /**
+     * Clear all identity data (for panic mode)
+     */
+    @SuppressLint("UseKtx")
+    /** Returns true only when the wipe was committed to disk. */
+    fun clearIdentityData(): Boolean {
+        try {
+            val committed = synchronized(privateMediaPinsLock) {
+                privateMediaPinsEpoch += 1
+                privateMediaPinsEpochAtCreation = privateMediaPinsEpoch
+                invalidateAllCachedSetsLocked()
+                prefs.edit().clear().commit()
+            }
+            if (!committed) {
+                Log.e(TAG, "Identity preference wipe could not be committed")
+                return false
+            }
+            Log.w(TAG, "All identity data cleared")
+            return true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to clear identity data: ${e.message}")
+            return false
+        }
+    }
+    
+    /**
+     * Check if identity data exists
+     */
+    fun hasIdentityData(): Boolean {
+        return prefs.contains(KEY_STATIC_PRIVATE_KEY) && prefs.contains(KEY_STATIC_PUBLIC_KEY)
+    }
+    
+    // MARK: - Public SharedPreferences Access (for favorites and Nostr data)
+    
+    /**
+     * Store a string value in secure preferences
+     */
+    fun storeSecureValue(key: String, value: String) {
+        prefs.edit().putString(key, value).apply()
+    }
+    
+    /**
+     * Retrieve a string value from secure preferences
+     */
+    fun getSecureValue(key: String): String? {
+        return prefs.getString(key, null)
+    }
+    
+    /**
+     * Remove a value from secure preferences
+     */
+    fun removeSecureValue(key: String) {
+        prefs.edit().remove(key).apply()
+    }
+    
+    /**
+     * Check if a key exists in secure preferences
+     */
+    fun hasSecureValue(key: String): Boolean {
+        return prefs.contains(key)
+    }
+    
+    /**
+     * Clear specific keys from secure preferences
+     */
+    fun clearSecureValues(vararg keys: String) {
+        val editor = prefs.edit()
+        keys.forEach { key ->
+            editor.remove(key)
+        }
+        editor.apply()
+    }
+
+    /** Use for panic paths that must finish the disk mutation before identity reset continues. */
+    fun clearSecureValuesSynchronously(vararg keys: String): Boolean {
+        val editor = prefs.edit()
+        keys.forEach(editor::remove)
+        return editor.commit()
+    }
+}

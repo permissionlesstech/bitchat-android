@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="battery_optimization_not_required">Hindi kailangan ang pag‑optimize ng baterya</string>
+    <string name="battery_optimization_not_supported_message">Hindi kailangan ng iyong device ng mga setting ng pag‑optimize ng baterya. Normal na gagana ang bitchat.</string>
+    <string name="battery_optimization_success_message">Maaasahang tatakbo ang bitchat sa background</string>
+    <string name="battery_optimization_skip">Laktawan muna</string>
+    <string name="skip">Laktawan</string>
+
+    <string name="cd_location_services">Mga serbisyo sa lokasyon</string>
+    <string name="cd_privacy">Privacy</string>
+    <string name="cd_error">Error</string>
+    <string name="cd_battery_optimization">Pag‑optimize ng baterya</string>
+    <string name="cd_benefits">Mga benepisyo</string>
+    <string name="cd_checking_battery_optimization">Sinusuri ang pag‑optimize</string>
+    <string name="cd_not_supported_battery_optimization">Hindi suportado</string>
+    <string name="cd_bluetooth">Bluetooth</string>
+    <!-- Onboarding screens -->
+    <string name="location_services_required">Kailangang‑kailangan ang Location Services</string>
+    <string name="privacy_first">Privacy muna</string>
+    <string name="location_explanation">HINDI sinusubaybayan ng bitchat ang iyong lokasyon.\n\nKailangan ang location services para sa Bluetooth scanning at Geohash chat.</string>
+    <string name="location_needs_for">Kailangan ng bitchat ang location services para sa:</string>
+    <string name="location_needs_bullets">• Bluetooth device scanning\n• Pagtuklas ng kalapit na user sa mesh\n• Geohash chat\n• Walang tracking o koleksiyon ng lokasyon</string>
+    <string name="open_location_settings">Buksan ang Location Settings</string>
+    <string name="check_again">Suriin muli</string>
+    <string name="location_services_unavailable">Hindi available ang Location Services</string>
+    <string name="location_unavailable_explanation">Hindi available ang location services sa device na ito. Hindi ito karaniwan dahil standard ito sa Android.\n\nKailangan ito para maayos ang Bluetooth scanning. Kung wala ito, hindi matutuklasan ang mga kalapit na user.</string>
+    <string name="checking_location_services">Sinusuri ang location services…</string>
+    <string name="bluetooth_needs_for">Kailangan ng bitchat ang Bluetooth para sa:</string>
+    <string name="bluetooth_needs_bullets">• Tuklasin ang mga kalapit na user\n• Gumawa ng mesh na koneksyon\n• Magpadala at tumanggap ng mensahe\n• Gumana kahit walang internet o server</string>
+    <string name="enable_bluetooth">I‑enable ang Bluetooth</string>
+    <string name="bluetooth_not_supported">Hindi suportado ang Bluetooth</string>
+    <string name="bluetooth_unsupported_explanation">Hindi sinusuportahan ng device na ito ang Bluetooth Low Energy (BLE) na kailangan para gumana ang bitchat.\n\nKailangan ang BLE para bumuo ng mesh at makipag‑ugnayan sa kalapit na device kahit walang internet.</string>
+    <string name="checking_bluetooth_status">Sinusuri ang status ng Bluetooth…</string>
+    <string name="battery_optimization_detected_title">natukoy ang pag‑optimize ng baterya</string>
+    <string name="battery_optimization_enabled_title">Naka‑enable ang pag‑optimize</string>
+    <string name="battery_optimization_explanation_short">kailangang tumakbo ang bitchat sa background para sa mesh; maaaring putulin ito ng pag‑optimize.</string>
+    <string name="benefits_of_disabling">Mga benepisyo ng pag‑disable</string>
+    <string name="battery_benefits_short">• maaasahang paghatid\n• panatilihin ang koneksyon\n• iwas putol</string>
+    <string name="disable_battery_optimization">I‑disable ang pag‑optimize</string>
+    <string name="battery_optimization_disabled_title">na‑disable ang pag‑optimize</string>
+    <string name="continue_btn">Magpatuloy</string>
+    <string name="initializing_mesh_network">Ine‑initialize ang mesh network</string>
+    <string name="dot">.</string>
+    <string name="setting_up_bluetooth">Ise‑set up ang Bluetooth mesh…</string>
+    <string name="should_take_seconds">Ilang segundo lang ito</string>
+    <string name="warning_emoji">⚠️</string>
+    <string name="setup_not_complete">Hindi kumpleto ang setup</string>
+    <string name="try_again">Subukang muli</string>
+    <string name="privacy_protected">Protektado ang iyong privacy</string>
+    <string name="privacy_bullets">• walang tracking o koleksiyon\n• offline ang mesh chat sa Bluetooth\n• gumagamit ng internet ang geohash chat</string>
+    <string name="permissions_header">mga permiso</string>
+    <string name="grant_permissions">Payagan</string>
+    <string name="bluetooth_recommended">Bluetooth Recommended</string>
+</resources>

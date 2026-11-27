@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d notatka</item>
+    <item quantity="other">#%1$s ± 1 • %2$d notatek</item>
+  </plurals>
+  <string name="location_notes_description">dodaj krótkie stałe notatki do tej lokalizacji, aby inni odwiedzający mogli je znaleźć.</string>
+  <string name="location_notes_relays_unavailable">przekaźniki geo niedostępne; notatki wstrzymane</string>
+  <string name="location_notes_no_relays_title">brak przekaźników geo w pobliżu</string>
+  <string name="location_notes_no_relays_desc">notatki zależą od przekaźników geo. sprawdź połączenie i spróbuj ponownie.</string>
+  <string name="loading_location_notes">ładowanie notatek…</string>
+  <string name="location_notes_empty_title">brak notatek</string>
+  <string name="location_notes_empty_desc">bądź pierwszy, który doda notatkę dla tego miejsca.</string>
+  <string name="dismiss">zamknij</string>
+  <string name="location_notes_input_placeholder">dodaj notatkę dla tego miejsca</string>
+    <string name="retry">Ponów</string>
+    <string name="cd_add_bookmark">Dodaj zakładkę</string>
+    <string name="about_network">sieć</string>
+    <string name="cd_open_map">Otwórz mapę</string>
+    <string name="cd_remove_bookmark">Usuń zakładkę</string>
+    <string name="cd_decrease_precision">Zmniejsz precyzję</string>
+    <string name="cd_increase_precision">Zwiększ precyzję</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+    <string name="location_channels_title">#kanały lokalizacyjne</string>
+    <string name="location_channels_desc">rozmawiaj z osobami w pobliżu za pomocą kanałów geohash. udostępniany jest tylko przybliżony geohash, nigdy dokładne GPS. nie rób zrzutów ekranu ani nie udostępniaj tego ekranu, aby chronić swoją prywatność.</string>
+    <string name="location_permission_denied">odmówiono uprawnienia lokalizacji. włącz je w ustawieniach, aby korzystać z kanałów lokalizacyjnych.</string>
+    <string name="finding_nearby_channels">wyszukiwanie pobliskich kanałów…</string>
+    <string name="bookmarked">dodano do zakładek</string>
+    <string name="geohash_placeholder">geohash</string>
+    <string name="invalid_geohash">nieprawidłowy geohash</string>
+    <string name="teleport">teleportuj</string>
+    <string name="disable_location_services">wyłącz usługi lokalizacji</string>
+    <string name="enable_location_services">włącz usługi lokalizacji</string>
+    <string name="location_level_block">blok</string>
+    <string name="location_level_neighborhood">dzielnica</string>
+    <string name="location_level_city">miasto</string>
+    <string name="location_level_province">województwo</string>
+    <string name="location_level_region">region</string>
+    <string name="hash_symbol">#</string>
+    <plurals name="people_count">
+        <item quantity="one">%1$d osoba</item>
+        <item quantity="few">%1$d osoby</item>
+        <item quantity="many">%1$d osób</item>
+        <item quantity="other">%1$d osoby</item>
+    </plurals>
+    <string name="globe_live">na żywo</string>
+    <string name="globe_connecting">łączenie</string>
+    <string name="globe_offline">offline</string>
+    <string name="globe_hint_drag">obracaj</string>
+    <string name="globe_hint_pinch">przybliż</string>
+    <string name="globe_hint_tap">dotknij kropki</string>
+    <string name="globe_no_activity">brak ostatniej aktywności</string>
+    <string name="cd_show_whole_globe">Pokaż cały glob</string>
+    <string name="cd_globe_activity">Aktywne czaty: %1$d, osoby online: %2$d</string>
+    <string name="cd_channel_activity">Osoby: %1$d, wiadomości w ostatniej godzinie: %2$d</string>
+    <string name="join">Dołącz</string>
+    <string name="cd_close">Zamknij</string>
+</resources>

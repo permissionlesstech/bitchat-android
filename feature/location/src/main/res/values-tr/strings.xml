@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retry">Yeniden dene</string>
+    <string name="cd_add_bookmark">Yer imi ekle</string>
+
+    <string name="about_network">ağ</string>
+    <string name="cd_open_map">Haritayı aç</string>
+    <string name="cd_remove_bookmark">Yer imini kaldır</string>
+    <string name="cd_decrease_precision">Hassasiyeti azalt</string>
+    <string name="cd_increase_precision">Hassasiyeti artır</string>
+    <string name="location_channels_title">#konum kanalları</string>
+    <string name="location_channels_desc">yakındaki insanlarla geohash kanallarıyla sohbet et. yalnızca kabaca geohash paylaşılır, kesin gps asla değil. gizliliğin için ekran görüntüsü alma ve paylaşma.</string>
+    <string name="location_permission_denied">konum izni reddedildi. konum kanalları için ayarlardan etkinleştir.</string>
+    <string name="finding_nearby_channels">yakın kanallar aranıyor…</string>
+    <string name="bookmarked">yer imli</string>
+    <string name="geohash_placeholder">geohash</string>
+    <string name="invalid_geohash">geçersiz geohash</string>
+    <string name="teleport">teleport</string>
+    <string name="disable_location_services">konum servislerini kapat</string>
+    <string name="enable_location_services">konum servislerini aç</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+    <string name="location_level_block">blok</string>
+    <string name="location_level_neighborhood">mahalle</string>
+    <string name="location_level_city">şehir</string>
+    <string name="location_level_province">eyalet</string>
+    <string name="location_level_region">bölge</string>
+
+    <string name="hash_symbol">#</string>
+    <plurals name="people_count">
+        <item quantity="one">1 kişi</item>
+        <item quantity="other">%d kişi</item>
+    </plurals>
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d not</item>
+    <item quantity="other">#%1$s ± 1 • %2$d not</item>
+  </plurals>
+  <string name="location_notes_description">Diğer ziyaretçilerin bulabilmesi için bu konuma kısa kalıcı notlar ekleyin.</string>
+  <string name="location_notes_relays_unavailable">coğrafi röleler kullanılamıyor; notlar duraklatıldı</string>
+  <string name="location_notes_no_relays_title">yakınlarda coğrafi röle yok</string>
+  <string name="location_notes_no_relays_desc">notlar coğrafi rölelere bağlıdır. bağlantıyı kontrol edip tekrar deneyin.</string>
+  <string name="loading_location_notes">notlar yükleniyor…</string>
+  <string name="location_notes_empty_title">henüz not yok</string>
+  <string name="location_notes_empty_desc">bu yer için ilk notu ekleyen siz olun.</string>
+  <string name="dismiss">kapat</string>
+  <string name="location_notes_input_placeholder">bu yer için bir not ekleyin</string>
+  <string name="nearby_notes_reveal">buraya bırakılan notlara bak</string>
+    <string name="globe_live">canlı</string>
+    <string name="globe_connecting">bağlanıyor</string>
+    <string name="globe_offline">çevrimdışı</string>
+    <string name="globe_hint_drag">döndür</string>
+    <string name="globe_hint_pinch">yakınlaştır</string>
+    <string name="globe_hint_tap">bir noktaya dokun</string>
+    <string name="globe_no_activity">yakın zamanda etkinlik yok</string>
+    <string name="cd_show_whole_globe">Tüm küreyi göster</string>
+    <string name="cd_globe_activity">%1$d etkin sohbet, %2$d kişi çevrimiçi</string>
+    <string name="cd_channel_activity">%1$d kişi, son bir saatte %2$d mesaj</string>
+    <string name="join">Katıl</string>
+</resources>

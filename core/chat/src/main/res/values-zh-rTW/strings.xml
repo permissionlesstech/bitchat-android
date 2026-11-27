@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+  <string name="verify_mutual_match_title">相互驗證</string>
+  <string name="verify_mutual_match_body">你和 %1$s 已相互驗證</string>
+  <string name="verify_mutual_system_message">與 %1$s 相互驗證</string>
+  <string name="verify_success_title">已驗證</string>
+  <string name="verify_success_body">你已驗證 %1$s</string>
+  <string name="verify_success_system_message">已驗證 %1$s</string>
+  <string name="notification_messages_from_people">來自 %2$d 位使用者的 %1$d 則訊息</string>
+  <string name="notification_more_conversations">還有 %1$d 個對話</string>
+  <string name="notification_new_messages">新訊息</string>
+  <string name="notification_new_location_messages">新位置訊息</string>
+  <string name="notification_mentions_in">在 %1$s 中被提及</string>
+  <string name="notification_mentions_in_more">在 %1$s 中被提及（還有 %2$d 則）</string>
+  <string name="notification_mentions_in_plural">在 %2$s 中有 %1$d 則提及</string>
+  <string name="notification_new_activity_in">%1$s 中有新動態</string>
+  <string name="notification_messages_in">%1$s 中的訊息</string>
+  <string name="notification_joined_conversation">%1$s 加入了對話</string>
+  <string name="notification_geohash_summary_title_mentions">bitchat - %1$d 則提及</string>
+  <string name="notification_geohash_summary_title">bitchat - 位置聊天</string>
+  <string name="notification_geohash_summary_text">來自 %2$d 個位置的 %1$d 則訊息</string>
+  <string name="notification_mesh_mention_title_singular">在 Mesh 聊天中被提及</string>
+  <string name="notification_mesh_mention_title_plural">在 Mesh 聊天中有 %1$d 則提及</string>
+  <string name="notification_more_locations">還有 %1$d 個位置</string>
+  <plurals name="notification_and_more">
+    <item quantity="other">還有 %1$d 則</item>
+  </plurals>
+</resources>

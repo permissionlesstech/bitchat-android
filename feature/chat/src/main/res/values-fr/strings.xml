@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="channels">Canaux</string>
+    <string name="no_one_connected">Personne connecté</string>
+    <string name="your_network">Réseau</string>
+
+    <!-- Favoris / accessibilité -->
+    <string name="cd_add_favorite">Ajouter aux favoris</string>
+    <string name="cd_remove_favorite">Retirer des favoris</string>
+    <!-- En‑tête de chat &amp; accessibilité -->
+    <string name="cd_nostr_reachable">Joignable via Nostr</string>
+    <string name="cd_unread_private_messages">Messages privés non lus</string>
+    <string name="cd_open_location_channels">Ouvrir les réglages de localisation et des canaux</string>
+    <string name="cd_connected_peers">Pairs connectés</string>
+    <string name="cd_geohash_participants">Participants geohash</string>
+    <string name="cd_ready_for_handshake">Prêt pour l’échange de clés</string>
+    <string name="cd_handshake_in_progress">Échange de clés en cours</string>
+    <string name="cd_encrypted">Chiffré de bout en bout</string>
+    <string name="cd_handshake_failed">Échec de l’échange</string>
+
+    <!-- Dialogue de fichier -->
+    <string name="file_viewer_title">📎 Fichier reçu</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="file_viewer_size">📏 Taille : %1$s</string>
+    <string name="file_viewer_type">🏷️ Type : %1$s</string>
+    <string name="file_viewer_open_save">📂 Ouvrir / Enregistrer</string>
+    <string name="close_with_emoji">❌ Fermer</string>
+    <string name="pick_image">Choisir une image</string>
+
+    <string name="cancel_lower">annuler</string>
+
+    <string name="cd_unread_message">Message non lu</string>
+    <string name="cd_reachable_via_nostr">Joignable via Nostr</string>
+    <string name="cd_offline_favorite">Favori (hors‑ligne)</string>
+    <string name="cd_scroll_to_bottom">Aller en bas</string>
+    <string name="cd_file">Fichier</string>
+    <string name="cd_image">Image</string>
+    <string name="cd_cancel">Annuler</string>
+    <string name="cd_link">Lien</string>
+    <string name="cd_pick_media">Choisir un média</string>
+    <string name="cd_record_voice">Enregistrer un message vocal</string>
+    <string name="image_unavailable">Image indisponible</string>
+    <string name="file_unavailable">[fichier indisponible]</string>
+    <!-- Feuille d’actions utilisateur -->
+    <string name="choose_action_message_or_user">choisis une action pour ce message ou cet utilisateur</string>
+    <string name="choose_action_user">choisis une action pour cet utilisateur</string>
+    <string name="action_copy_message_title">copier le message</string>
+    <string name="action_copy_message_subtitle">copier ce message dans le presse‑papiers</string>
+    <string name="action_slap_title">gifler %1$s</string>
+    <string name="action_slap_subtitle">envoyer une gifle amicale</string>
+    <string name="action_hug_title">prendre %1$s dans les bras</string>
+    <string name="action_hug_subtitle">envoyer une accolade amicale</string>
+    <string name="action_block_title">bloquer %1$s</string>
+    <string name="action_block_subtitle">bloquer tous les messages de cet utilisateur</string>
+
+    <string name="mesh_label">mesh</string>
+    <string name="at_symbol">@</string>
+    <string name="channel_count_prefix"> · ⧉ </string>
+    <string name="nobody_around">personne aux alentours…</string>
+    <string name="you_suffix"> (toi)</string>
+    <string name="type_a_message_placeholder">écrire un message…</string>
+    <string name="mention_suggestion_at">@%1$s</string>
+    <string name="mention">mention</string>
+    <string name="image_counter">%1$d / %2$d</string>
+    <string name="at_nickname">@%1$s</string>
+    <string name="underscore">_</string>
+    <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
+    <string name="progress_filled">█</string>
+    <string name="progress_empty">░</string>
+    <string name="media_type_image">Image</string>
+    <string name="media_type_file">Fichier</string>
+
+    <!-- Aide de texte de notification -->
+    <string name="notification_sent_image">📷 a envoyé une image</string>
+    <string name="notification_sent_voice">🎤 a envoyé un message vocal</string>
+    <string name="notification_sent_file">📎 a envoyé un fichier</string>
+    <!-- Dialogue de mot de passe -->
+    <string name="pwd_prompt_title">Entrer le mot de passe du canal</string>
+    <string name="pwd_prompt_message">Le canal %1$s est protégé par mot de passe. Entre le mot de passe pour rejoindre.</string>
+    <string name="pwd_label">Mot de passe</string>
+    <string name="join">Rejoindre</string>
+  <string name="verify_title">vérifier</string>
+  <string name="verify_my_qr_title">scanner pour me vérifier</string>
+  <string name="verify_scan_prompt_friend">scanner un autre qr</string>
+  <string name="verify_remove">supprimer la vérification</string>
+  <string name="verify_qr_unavailable">qr indisponible</string>
+  <string name="verify_camera_permission">permission caméra requise</string>
+  <string name="verify_request_camera">activer caméra</string>
+  <string name="security_verification_title">vérification de sécurité</string>
+  <string name="fingerprint_their">leur empreinte</string>
+  <string name="fingerprint_yours">votre empreinte</string>
+  <string name="fingerprint_pending">négociation en cours</string>
+  <string name="fingerprint_status_verified">chiffré &amp; vérifié</string>
+  <string name="fingerprint_status_encrypted">chiffré</string>
+  <string name="fingerprint_status_handshaking">négociation</string>
+  <string name="fingerprint_status_failed">échec négociation</string>
+  <string name="fingerprint_status_uninitialized">non chiffré</string>
+  <string name="fingerprint_verified_message">vous avez vérifié cette personne.</string>
+  <string name="fingerprint_not_verified_label">non vérifié</string>
+  <string name="fingerprint_not_verified_message_fmt">comparez avec %1$s via canal sûr.</string>
+  <string name="fingerprint_mark_verified">marquer vérifié</string>
+  <string name="fingerprint_start_handshake">lancer handshake</string>
+  <string name="fingerprint_copy">copier</string>
+    <string name="cd_open_about">Ouvrir À propos</string>
+</resources>

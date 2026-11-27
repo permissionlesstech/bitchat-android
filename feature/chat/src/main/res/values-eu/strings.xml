@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cashu_pay_via">ordaindu Cashu bidez</string>
+    <string name="cashu_payment_description">Cashu ordainketa</string>
+    <string name="cashu_copy_token">Kopiatu tokena</string>
+    <string name="cashu_redeem_wallet">Trukatu zorroan</string>
+    <string name="cashu_redeem_web">Trukatu webean</string>
+    <string name="channels">Kanalak</string>
+    <string name="no_one_connected">Ez dago inor konektatuta</string>
+    <string name="your_network">Sarea</string>
+
+    <!-- Favorites accessibility -->
+    <string name="cd_add_favorite">Gehitu gogokoetara</string>
+    <string name="cd_remove_favorite">Kendu gogokoetatik</string>
+    <!-- Chat header &amp; accessibility -->
+    <string name="cd_nostr_reachable">Nostr bidez eskuragarri</string>
+    <string name="cd_unread_private_messages">Mezuak</string>
+    <string name="conversations">Elkarrizketak</string>
+    <string name="offline_not_in_mesh">Lineaz kanpo · ez dago mesh sarean</string>
+    <string name="offline_reachable_via_nostr">Mesh saretik kanpo · Nostr erabilgarri</string>
+    <string name="delete">Ezabatu</string>
+    <string name="delete_conversation_action">Ezabatu elkarrizketa</string>
+    <string name="delete_conversation_title">Elkarrizketa ezabatu?</string>
+    <string name="delete_conversation_message">%1$s erabiltzailearekin duzun elkarrizketa gailu honetatik ezabatu?</string>
+    <string name="search_conversations">Bilatu elkarrizketetan</string>
+    <string name="clear">Garbitu</string>
+    <string name="loading_conversations">Elkarrizketa pribatuak kargatzen…</string>
+    <string name="conversation_storage_error">Ezin izan dira elkarrizketa pribatuak kargatu</string>
+    <string name="no_conversations_yet">Elkarrizketa pribatuak hemen agertuko dira</string>
+    <string name="no_conversation_results">Ez dago bat datorren elkarrizketarik</string>
+    <string name="online_conversations">LINEAN</string>
+    <string name="offline_conversations">LINEAZ KANPO</string>
+    <string name="mark_read">Markatu irakurritako gisa</string>
+    <string name="mark_unread">Markatu irakurri gabeko gisa</string>
+    <string name="pin_conversation">Ainguratu elkarrizketa</string>
+    <string name="unpin_conversation">Askatu elkarrizketa</string>
+    <string name="mute_conversation">Isilarazi elkarrizketa</string>
+    <string name="unmute_conversation">Aktibatu elkarrizketaren soinua</string>
+    <string name="conversation_actions">Elkarrizketaren ekintzak</string>
+    <string name="conversation_unread_count">%1$d mezu irakurri gabe</string>
+    <string name="conversation_read">Irakurrita</string>
+    <string name="conversation_draft_preview">Zirriborroa: %1$s</string>
+    <string name="conversation_you_preview">Zu: %1$s</string>
+    <string name="conversation_delete_failed">Ezin izan da elkarrizketa ezabatu</string>
+    <string name="conversation_deleted">%1$s erabiltzailearekiko elkarrizketa ezabatu da</string>
+    <string name="undo">Desegin</string>
+    <string name="conversation_restore_failed">Ezin izan da elkarrizketa leheneratu</string>
+    <string name="cd_open_location_channels">Ireki kokapenaren eta kanalen ezarpenak</string>
+    <string name="cd_connected_peers">Konektatutako kideak</string>
+    <string name="cd_geohash_participants">Geohash parte-hartzaileak</string>
+    <string name="cd_ready_for_handshake">Gako-trukerako prest</string>
+    <string name="cd_handshake_in_progress">Gako-trukea abian</string>
+    <string name="cd_encrypted">Muturretik muturrera zifratua</string>
+    <string name="cd_handshake_failed">Gako-truketak huts egin du</string>
+
+    <!-- One-shot private-media downgrade consent -->
+    <string name="private_media_legacy_title">Muturretik muturrerako zifratzerik gabe bidali?</string>
+    <string name="private_media_legacy_body">Ezin da %1$s zifratuta bidali %2$s erabiltzaileari, haren bezeroa zaharragoa delako. %3$s</string>
+    <string name="private_media_legacy_send_once">Bidali fitxategi hau behin</string>
+
+    <!-- File viewer dialog -->
+    <string name="file_viewer_title">📎 Fitxategia jaso da</string>
+    <string name="file_viewer_size">📏 Tamaina: %1$s</string>
+    <string name="file_viewer_type">🏷️ Mota: %1$s</string>
+    <string name="file_viewer_open_save">📂 Ireki / Gorde</string>
+    <string name="close_with_emoji">❌ Itxi</string>
+    <string name="pick_image">Aukeratu irudia</string>
+    <string name="cd_save_current_image">Gorde uneko irudia</string>
+    <string name="cd_close">Itxi</string>
+    <string name="toast_image_saved">Irudia Deskargak karpetan gorde da</string>
+    <string name="toast_failed_to_save_image">Ezin izan da irudia gorde</string>
+    <string name="cd_image_index_of">%1$d. irudia / %2$d</string>
+    <string name="cd_pick_file">Aukeratu fitxategia</string>
+
+    <string name="cancel_lower">Utzi</string>
+
+    <string name="cd_direct_wifi_aware">Wi-Fi Aware zuzena</string>
+    <string name="cd_direct_bluetooth">Bluetooth zuzena</string>
+    <string name="cd_routed_mesh">Bideratutako mesh sarea</string>
+    <string name="cd_unread_message">Irakurri gabeko mezua</string>
+    <string name="cd_reachable_via_nostr">Nostr bidez eskuragarri</string>
+    <string name="cd_offline_favorite">Lineaz kanpoko gogokoa</string>
+    <string name="cd_scroll_to_bottom">Joan behera</string>
+    <string name="cd_file">Fitxategia</string>
+    <string name="cd_image">Irudia</string>
+    <string name="cd_cancel">Utzi</string>
+    <string name="cd_link">Esteka</string>
+    <string name="cd_record_voice">Grabatu ahots-oharra</string>
+    <string name="cd_pick_media">Aukeratu multimedia</string>
+    <string name="image_unavailable">Irudia ez dago erabilgarri</string>
+    <string name="file_unavailable">[fitxategia ez dago erabilgarri]</string>
+    <!-- Chat user sheet actions -->
+    <string name="choose_action_message_or_user">Aukeratu ekintza bat mezu edo erabiltzaile honetarako</string>
+    <string name="choose_action_user">Aukeratu ekintza bat erabiltzaile honetarako</string>
+    <string name="action_copy_message_title">Kopiatu mezua</string>
+    <string name="action_copy_message_subtitle">Kopiatu mezu hau arbelean</string>
+    <string name="action_slap_title">Zaplaztekoa %1$s erabiltzaileari</string>
+    <string name="action_slap_subtitle">Bidali txantxetako zaplazteko-mezu bat</string>
+    <string name="action_hug_title">Besarkatu %1$s</string>
+    <string name="action_hug_subtitle">Bidali besarkada-mezu atsegin bat</string>
+    <string name="action_block_title">Blokeatu %1$s</string>
+    <string name="action_block_subtitle">Blokeatu erabiltzaile honen mezu guztiak</string>
+    <string name="action_private_message_title">Mezua %1$s erabiltzaileari</string>
+    <string name="action_private_message_subtitle">Bidali mezu pribatu bat</string>
+
+    <!-- People sheet -->
+    <string name="people_count_title">Jendea (%1$d)</string>
+    <string name="section_on_location">Kokapenean</string>
+    <string name="section_teleported_in">Teleportatuak</string>
+
+    <string name="mesh_label">mesh</string>
+    <string name="verify_title">Egiaztatu</string>
+    <string name="verify_my_qr_title">Eskaneatu ni egiaztatzeko</string>
+    <string name="verify_scan_prompt_friend">Eskaneatu beste norbaiten QRa</string>
+    <string name="verify_remove">Kendu egiaztapena</string>
+    <string name="verify_qr_unavailable">QRa ez dago erabilgarri</string>
+    <string name="verify_camera_permission">Kamera baimena behar da QR kodeak eskaneatzeko</string>
+    <string name="verify_request_camera">Gaitu kamera</string>
+    <string name="security_verification_title">Segurtasun-egiaztapena</string>
+    <string name="fingerprint_their">Haren hatz-marka</string>
+    <string name="fingerprint_yours">Zure hatz-marka</string>
+    <string name="fingerprint_pending">Gako-trukea zain</string>
+    <string name="fingerprint_status_verified">Zifratua eta egiaztatua</string>
+    <string name="fingerprint_status_encrypted">Zifratua</string>
+    <string name="fingerprint_status_handshaking">Gakoak trukatzen</string>
+    <string name="fingerprint_status_failed">Gako-truketak huts egin du</string>
+    <string name="fingerprint_status_uninitialized">Zifratu gabea</string>
+    <string name="fingerprint_verified_message">Pertsona honen identitatea egiaztatu duzu.</string>
+    <string name="fingerprint_not_verified_label">Egiaztatu gabea</string>
+    <string name="fingerprint_not_verified_message_fmt">Konparatu hatz-marka hauek %1$s erabiltzailearekin kanal seguru baten bidez.</string>
+    <string name="fingerprint_mark_verified">Markatu egiaztatutzat</string>
+    <string name="fingerprint_start_handshake">Hasi gako-trukea</string>
+    <string name="fingerprint_copy">Kopiatu</string>
+
+    <string name="cd_open_about">Ireki Honi buruz</string>
+    <string name="nobody_around">Ez dago inor inguruan…</string>
+    <string name="you_suffix"> (zu)</string>
+    <string name="type_a_message_placeholder">Idatzi mezu bat…</string>
+    <string name="mention">Aipatu</string>
+    <string name="media_type_image">Irudia</string>
+    <string name="media_type_file">Fitxategia</string>
+
+    <!-- Notification text helpers -->
+    <string name="notification_sent_image">📷 irudi bat bidali du</string>
+    <string name="notification_sent_voice">🎤 ahots-mezu bat bidali du</string>
+    <string name="notification_sent_file">📎 fitxategi bat bidali du</string>
+
+    <!-- Password prompt dialog -->
+    <string name="pwd_prompt_title">Idatzi kanalaren pasahitza</string>
+    <string name="pwd_prompt_message">%1$s kanala pasahitz bidez babestuta dago. Idatzi pasahitza sartzeko.</string>
+    <string name="pwd_label">Pasahitza</string>
+    <string name="join">Sartu</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+</resources>

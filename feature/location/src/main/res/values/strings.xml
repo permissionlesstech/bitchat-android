@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="retry">Retry</string>
+  <string name="cd_add_bookmark">Add bookmark</string>
+
+  <string name="about_network">Network</string>
+  <string name="cd_open_map">Open map</string>
+  <string name="cd_remove_bookmark">Remove bookmark</string>
+  <string name="cd_decrease_precision">Decrease precision</string>
+  <string name="cd_increase_precision">Increase precision</string>
+  <string name="location_bluetooth_subtitle">Bluetooth • %1$s</string>
+  <string name="location_bluetooth_wifi_subtitle">Bluetooth • Wifi • %1$s</string>
+
+  <!-- Location channels sheet -->
+  <string name="location_channels_title">Channels</string>
+  <string name="location_channels_heading">Location Channels</string>
+  <string name="location_channels_desc">Chat by coarse location. Never shares exact GPS.</string>
+  <string name="location_channels_nearby">Nearby</string>
+  <string name="mesh_section_subtitle">Offline mesh. No internet required.</string>
+
+  <string name="location_tor_routing_title">Tor Routing</string>
+  <string name="location_tor_routing_desc">Hides your IP for location channels.</string>
+  <string name="badge_recommended">Recommended</string>
+
+  <string name="location_permission_denied">Location permission denied. Enable in settings to use location channels.</string>
+
+  <string name="finding_nearby_channels">Finding nearby channels…</string>
+  <string name="bookmarked">Bookmarked</string>
+  <string name="geohash_placeholder">geohash</string>
+  <string name="invalid_geohash">Invalid geohash</string>
+  <string name="teleport">Teleport</string>
+  <string name="disable_location_services">Remove location access</string>
+  <string name="enable_location_services">Enable location services</string>
+  <string name="mesh_title">Mesh</string>
+  <string name="location_level_block">Block</string>
+  <string name="location_level_neighborhood">Neighborhood</string>
+  <string name="location_level_city">City</string>
+  <string name="location_level_province">Province</string>
+  <string name="location_level_region">Region</string>
+
+  <!-- Location notes sheet -->
+  <string name="nearby_notes_reveal">check for notes left here</string>
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d note</item>
+    <item quantity="other">#%1$s ± 1 • %2$d notes</item>
+  </plurals>
+  <string name="location_notes_description">Add short permanent notes to this location for other visitors to find.</string>
+  <string name="location_notes_relays_unavailable">Geo relays unavailable; notes paused</string>
+  <string name="location_notes_no_relays_title">No geo relays nearby</string>
+  <string name="location_notes_no_relays_desc">Notes rely on geo relays. Check connection and try again.</string>
+  <string name="loading_location_notes">Loading notes…</string>
+  <string name="location_notes_empty_title">No notes yet</string>
+  <string name="location_notes_empty_desc">Be the first to add one for this spot.</string>
+  <string name="dismiss">Dismiss</string>
+  <string name="location_notes_input_placeholder">Add a note for this place</string>
+
+  <string name="hash_symbol">#</string>
+  <plurals name="people_count">
+    <item quantity="one">1 person</item>
+    <item quantity="other">%d people</item>
+  </plurals>
+
+    <string name="globe_live">live</string>
+    <string name="globe_connecting">connecting</string>
+    <string name="globe_offline">offline</string>
+    <string name="globe_hint_drag">spin</string>
+    <string name="globe_hint_pinch">zoom</string>
+    <string name="globe_hint_tap">tap a dot</string>
+    <string name="globe_no_activity">no recent activity</string>
+    <string name="cd_show_whole_globe">Show the whole globe</string>
+    <string name="cd_globe_activity">%1$d active chats, %2$d people online</string>
+    <string name="cd_channel_activity">%1$d people, %2$d messages in the last hour</string>
+    <string name="join">Join</string>
+    <string name="cd_close">Close</string>
+</resources>

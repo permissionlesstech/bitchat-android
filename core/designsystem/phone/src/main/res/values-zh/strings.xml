@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+
+    <string name="send_message">发送</string>
+    <string name="back">返回</string>
+    <string name="cd_teleported">已传送</string>
+    <string name="close_plain">关闭</string>
+    <string name="open_settings">打开设置</string>
+  <string name="fingerprint_verified_label">已验证</string>
+    <string name="cancel">取消</string>
+
+  <string name="nearby_notes_one">这里留有 1 条留言 — 点按阅读</string>
+  <string name="nearby_notes_many">这里留有 %d 条留言 — 点按阅读</string>
+</resources>

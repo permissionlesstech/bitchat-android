@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retry">再試行</string>
+    <string name="cd_add_bookmark">ブックマークに追加</string>
+
+    <string name="about_network">ネットワーク</string>
+    <string name="cd_open_map">地図を開く</string>
+    <string name="cd_remove_bookmark">ブックマークを削除</string>
+    <string name="cd_decrease_precision">精度を下げる</string>
+    <string name="cd_increase_precision">精度を上げる</string>
+    <!-- Geohash チャンネル シート -->
+    <string name="location_channels_title">#ロケーション・チャンネル</string>
+    <string name="location_channels_desc">Geohash チャンネルで近くの人とチャットしましょう。共有されるのは大まかな geohash のみで、正確な GPS データは共有されません。プライバシー保護のため、この画面のスクリーンショットや共有は行わないでください。</string>
+    <string name="location_permission_denied">位置情報の許可が拒否されました。ロケーション・チャンネルを使用するには設定で有効にしてください。</string>
+    <string name="finding_nearby_channels">近くのチャンネルを検索中…</string>
+    <string name="bookmarked">ブックマーク</string>
+    <string name="geohash_placeholder">Geohash</string>
+    <string name="invalid_geohash">無効な geohash</string>
+    <string name="teleport">テレポート</string>
+    <string name="disable_location_services">位置情報サービスを無効にする</string>
+    <string name="enable_location_services">位置情報サービスを有効にする</string>
+    <string name="location_level_block">ブロック</string>
+    <string name="location_level_neighborhood">近隣</string>
+    <string name="location_level_city">市</string>
+    <string name="location_level_province">州 / 県</string>
+    <string name="location_level_region">地域</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <plurals name="people_count">
+        <item quantity="one">1 人</item>
+        <item quantity="other">%d 人</item>
+    </plurals>
+
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d 件のメモ</item>
+    <item quantity="other">#%1$s ± 1 • %2$d 件のメモ</item>
+  </plurals>
+  <string name="location_notes_description">他の訪問者が見つけられるよう、この場所に短いメモを追加しましょう。</string>
+  <string name="location_notes_relays_unavailable">ジオリレーが利用できません。メモを一時停止中</string>
+  <string name="location_notes_no_relays_title">近くにジオリレーがありません</string>
+  <string name="location_notes_no_relays_desc">メモはジオリレーに依存します。接続を確認して再試行してください。</string>
+  <string name="loading_location_notes">メモを読み込み中…</string>
+  <string name="location_notes_empty_title">まだメモはありません</string>
+  <string name="location_notes_empty_desc">この場所の最初のメモを追加しましょう。</string>
+  <string name="dismiss">閉じる</string>
+  <string name="location_notes_input_placeholder">この場所へのメモを追加</string>
+  <string name="nearby_notes_reveal">ここに残されたメモを確認</string>
+    <string name="globe_live">ライブ</string>
+    <string name="globe_connecting">接続中</string>
+    <string name="globe_offline">オフライン</string>
+    <string name="globe_hint_drag">回転</string>
+    <string name="globe_hint_pinch">ズーム</string>
+    <string name="globe_hint_tap">ドットをタップ</string>
+    <string name="globe_no_activity">最近のアクティビティなし</string>
+    <string name="cd_show_whole_globe">地球全体を表示</string>
+    <string name="cd_globe_activity">アクティブなチャット %1$d 件、オンライン %2$d 人</string>
+    <string name="cd_channel_activity">%1$d 人、過去1時間のメッセージ %2$d 件</string>
+    <string name="join">参加</string>
+    <string name="cd_close">閉じる</string>
+</resources>

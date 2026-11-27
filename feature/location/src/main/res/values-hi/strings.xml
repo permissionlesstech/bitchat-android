@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retry">दोबारा प्रयास करें</string>
+    <string name="cd_add_bookmark">बुकमार्क जोड़ें</string>
+
+    <string name="about_network">नेटवर्क</string>
+    <string name="cd_open_map">मानचित्र खोलें</string>
+    <string name="cd_remove_bookmark">बुकमार्क हटाएँ</string>
+    <string name="cd_decrease_precision">सटीकता घटाएँ</string>
+    <string name="cd_increase_precision">सटीकता बढ़ाएँ</string>
+    <!-- geohash चैनल शीट -->
+    <string name="location_channels_title">#स्थान चैनल</string>
+    <string name="location_channels_desc">geohash चैनलों के माध्यम से अपने पास के लोगों के साथ चैट करें। केवल एक मोटा geohash साझा किया जाता है, कभी भी सटीक GPS डेटा नहीं। अपनी गोपनीयता के लिए, स्क्रीनशॉट न लें और इस स्क्रीन को साझा न करें।</string>
+    <string name="location_permission_denied">स्थान अनुमति अस्वीकार कर दी गई। स्थान चैनल उपयोग करने के लिए सेटिंग्स में सक्षम करें।</string>
+    <string name="finding_nearby_channels">पास के चैनल ढूँढ़ रहे हैं…</string>
+    <string name="bookmarked">बुकमार्क</string>
+    <string name="geohash_placeholder">Geohash</string>
+    <string name="invalid_geohash">अमान्य geohash</string>
+    <string name="teleport">टेलीपोर्ट</string>
+    <string name="disable_location_services">स्थान सेवाएँ बंद करें</string>
+    <string name="enable_location_services">स्थान सेवाएँ चालू करें</string>
+    <string name="location_level_block">ब्लॉक</string>
+    <string name="location_level_neighborhood">पड़ोस</string>
+    <string name="location_level_city">शहर</string>
+    <string name="location_level_province">प्रांत</string>
+    <string name="location_level_region">क्षेत्र</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <plurals name="people_count">
+        <item quantity="one">1 व्यक्ति</item>
+        <item quantity="other">%d लोग</item>
+    </plurals>
+
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d नोट</item>
+    <item quantity="other">#%1$s ± 1 • %2$d नोट्स</item>
+  </plurals>
+  <string name="location_notes_description">अन्य आगंतुकों के लिए इस स्थान पर छोटी स्थायी नोट्स जोड़ें।</string>
+  <string name="location_notes_relays_unavailable">जियो रिले उपलब्ध नहीं; नोट्स विरामित</string>
+  <string name="location_notes_no_relays_title">आसपास कोई जियो रिले नहीं</string>
+  <string name="location_notes_no_relays_desc">नोट्स जियो रिले पर निर्भर हैं। कनेक्शन जांचें और फिर से प्रयास करें।</string>
+  <string name="loading_location_notes">नोट्स लोड हो रहे हैं…</string>
+  <string name="location_notes_empty_title">अभी कोई नोट नहीं</string>
+  <string name="location_notes_empty_desc">इस स्थान के लिए पहला नोट जोड़ें।</string>
+  <string name="dismiss">बंद करें</string>
+  <string name="location_notes_input_placeholder">इस स्थान के लिए एक नोट जोड़ें</string>
+  <string name="nearby_notes_reveal">देखें कि यहाँ नोट छोड़े गए हैं या नहीं</string>
+    <string name="globe_live">लाइव</string>
+    <string name="globe_connecting">कनेक्ट हो रहा है</string>
+    <string name="globe_offline">ऑफ़लाइन</string>
+    <string name="globe_hint_drag">घुमाएँ</string>
+    <string name="globe_hint_pinch">ज़ूम</string>
+    <string name="globe_hint_tap">किसी बिंदु पर टैप करें</string>
+    <string name="globe_no_activity">हाल की कोई गतिविधि नहीं</string>
+    <string name="cd_show_whole_globe">पूरा ग्लोब दिखाएँ</string>
+    <string name="cd_globe_activity">%1$d सक्रिय चैट, %2$d लोग ऑनलाइन</string>
+    <string name="cd_channel_activity">%1$d लोग, पिछले घंटे में %2$d संदेश</string>
+    <string name="join">शामिल हों</string>
+    <string name="cd_close">बंद करें</string>
+</resources>

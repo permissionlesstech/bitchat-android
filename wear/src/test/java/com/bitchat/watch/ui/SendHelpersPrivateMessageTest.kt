@@ -1,8 +1,8 @@
 package com.bitchat.watch.ui
 
+import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.model.DeliveryStatus
-import com.bitchat.android.services.AppStateStore
-import com.bitchat.watch.mesh.WearMeshService
+import com.bitchat.android.services.TestMeshStores
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -11,135 +11,109 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Before
+import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.mockito.kotlin.any
-import org.mockito.kotlin.anyOrNull
-import org.mockito.kotlin.doAnswer
-import org.mockito.kotlin.doReturn
-import org.mockito.kotlin.eq
-import org.mockito.kotlin.mock
-import org.mockito.kotlin.never
-import org.mockito.kotlin.verify
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+/**
+ * The DM's session wait runs in the scope the caller passes (the mesh service's), so it outlives
+ * the input screen, and it stops at the deadline or when the mesh stops.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
 class SendHelpersPrivateMessageTest {
 
-    private var sessionEstablished = false
+    private val store = TestMeshStores(ApplicationProvider.getApplicationContext()).appStateStore
     private var meshRunning = true
-    private var handshakeCompletesImmediately = false
-
-    private fun meshMock(scope: CoroutineScope) = mock<WearMeshService> {
-        on { serviceScope } doReturn scope
-        on { nickname } doReturn "synthetic-self"
-        on { myPeerID } doReturn "aaaaaaaaaaaaaaaa"
-        on { isRunning() } doAnswer { meshRunning }
-        on { hasEstablishedSession(any()) } doAnswer { sessionEstablished }
-        on { initiateNoiseHandshake(any()) } doAnswer {
-            if (handshakeCompletesImmediately) sessionEstablished = true
-        }
-    }
 
     private fun TestScope.serviceScope() =
         CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler))
 
-    private fun TestScope.send(mesh: WearMeshService) =
-        sendPrivateMessage(mesh, PEER_ID, PEER_NICKNAME, CONTENT) { testScheduler.currentTime }
-
-    @Before
-    fun setUp() {
-        AppStateStore.clear()
-    }
-
-    @After
-    fun tearDown() {
-        AppStateStore.clear()
-    }
+    private fun TestScope.send(mesh: FakeWearMesh, scope: CoroutineScope = serviceScope()) =
+        sendPrivateMessage(
+            store, mesh, "synthetic-self", PEER_ID, PEER_NICKNAME, CONTENT,
+            scope = scope,
+            isRunning = { meshRunning },
+            nowMs = { testScheduler.currentTime },
+        )
 
     @Test
     fun `dm typed before the session exists is sent once the session is established`() = runTest {
-        val mesh = meshMock(serviceScope())
+        val mesh = FakeWearMesh()
 
         send(mesh)
-        verify(mesh).initiateNoiseHandshake(PEER_ID)
+        assertEquals(listOf(PEER_ID), mesh.handshakes)
         assertEquals(DeliveryStatus.Sending, onlyEcho().deliveryStatus)
 
-        sessionEstablished = true
+        mesh.established = true
         advanceTimeBy(1_000)
         runCurrent()
 
-        verifySent(mesh)
+        assertEquals(CONTENT, mesh.privateSends.single().content)
         assertEquals(DeliveryStatus.Sent, onlyEcho().deliveryStatus)
     }
 
     @Test
     fun `echo is marked sent when the session is ready as soon as the wait starts`() = runTest {
-        handshakeCompletesImmediately = true
+        val mesh = object : FakeWearMesh() {
+            override fun initiateNoiseHandshake(peerID: String) {
+                super.initiateNoiseHandshake(peerID)
+                established = true
+            }
+        }
         val eagerScope = CoroutineScope(
             backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler)
         )
-        val mesh = meshMock(eagerScope)
 
-        send(mesh)
+        send(mesh, eagerScope)
 
-        verifySent(mesh)
+        assertEquals(CONTENT, mesh.privateSends.single().content)
         assertEquals(DeliveryStatus.Sent, onlyEcho().deliveryStatus)
     }
 
     @Test
     fun `dm is not sent after the wait deadline passes`() = runTest {
-        val mesh = meshMock(serviceScope())
+        val mesh = FakeWearMesh()
 
         send(mesh)
         advanceTimeBy(15_500)
-        sessionEstablished = true
+        mesh.established = true
         advanceTimeBy(1_000)
         runCurrent()
 
-        verifyNotSent(mesh)
+        assertTrue(mesh.privateSends.isEmpty())
         assertEquals(DeliveryStatus.Sending, onlyEcho().deliveryStatus)
     }
 
     @Test
     fun `dm is not reported sent when the mesh stops during the wait`() = runTest {
-        val mesh = meshMock(serviceScope())
+        val mesh = FakeWearMesh()
 
         send(mesh)
         runCurrent()
         meshRunning = false
-        sessionEstablished = true
+        mesh.established = true
         advanceTimeBy(1_000)
         runCurrent()
 
-        verifyNotSent(mesh)
+        assertTrue(mesh.privateSends.isEmpty())
         assertEquals(DeliveryStatus.Sending, onlyEcho().deliveryStatus)
     }
 
     @Test
     fun `dm with an established session is sent immediately`() = runTest {
-        sessionEstablished = true
-        val mesh = meshMock(serviceScope())
+        val mesh = FakeWearMesh().apply { established = true }
 
         send(mesh)
 
-        verifySent(mesh)
-        verify(mesh, never()).initiateNoiseHandshake(any())
+        assertEquals(CONTENT, mesh.privateSends.single().content)
+        assertTrue(mesh.handshakes.isEmpty())
         assertEquals(DeliveryStatus.Sent, onlyEcho().deliveryStatus)
     }
 
-    private fun verifySent(mesh: WearMeshService) {
-        verify(mesh).sendPrivateMessageWithId(
-            eq(CONTENT), eq(PEER_ID), eq(PEER_NICKNAME), anyOrNull()
-        )
-    }
-
-    private fun verifyNotSent(mesh: WearMeshService) {
-        verify(mesh, never()).sendPrivateMessageWithId(any(), any(), any(), anyOrNull())
-    }
-
-    private fun onlyEcho() = AppStateStore.privateMessages.value.getValue(PEER_ID).single()
+    private fun onlyEcho() = store.privateMessages.value.getValue(PEER_ID).single()
 
     private companion object {
         const val PEER_ID = "bbbbbbbbbbbbbbbb"

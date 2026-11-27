@@ -1,0 +1,50 @@
+package com.bitchat.android.nostr
+
+import kotlinx.coroutines.flow.Flow
+import okhttp3.OkHttpClient
+
+/**
+ * Where the Nostr and geohash layers get their HTTP and WebSocket clients.
+ *
+ * The app binds one that routes through Tor when Tor is on. Each call asks
+ * again rather than caching, because the app rebuilds its clients when the Tor
+ * mode changes.
+ *
+ * Fails closed: this module has no default, so without the app's binding nothing
+ * that needs clients compiles. A default plain client would quietly send relay
+ * traffic around Tor.
+ */
+interface NostrHttpClients {
+    fun httpClient(): OkHttpClient
+    fun webSocketClient(): OkHttpClient
+
+    /**
+     * Emits whenever the network route changes, for example when Tor turns on
+     * or off or moves to another SOCKS port. On each emission every relay
+     * socket opened on the old route is closed, and relays reconnect through
+     * the clients this interface hands out next.
+     *
+     * That reset runs on the relay manager's own coroutine after the emission,
+     * so callers must not assume relays have reset when the mode change
+     * returns; the app resets its OkHttp clients before emitting, so new
+     * connections already use the new route.
+     */
+    val routeChanges: Flow<Unit>
+
+    /**
+     * The current route's generation, advanced on every route change after the clients for the
+     * new route are in place and before [routeChanges] emits. A relay socket records it before
+     * taking a client and sends only while it still matches, so the reset that follows
+     * [routeChanges] can run late without anything leaving on the old route.
+     */
+    fun routeGeneration(): Long
+
+    /**
+     * Suspends until the selected route can carry traffic, for at most [timeoutMs], and reports
+     * whether it can. With Tor on but still bootstrapping, the clients already point at Tor's
+     * SOCKS port (so nothing leaks around Tor), but that port is not listening yet; a relay
+     * connection waits here instead of failing into a reconnect storm. Returns true at once when
+     * the route is ready or Tor is off.
+     */
+    suspend fun awaitRoute(timeoutMs: Long): Boolean
+}

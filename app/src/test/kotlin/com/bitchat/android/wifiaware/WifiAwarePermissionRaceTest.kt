@@ -14,8 +14,9 @@ import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.mesh.FragmentManager
 import com.bitchat.android.mesh.MeshCore
-import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.service.TransportBridgeService
+import com.bitchat.android.service.testMeshServiceHolder
+import com.bitchat.android.service.testWifiAwareController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -40,6 +41,9 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [32, 34], application = Application::class)
 class WifiAwarePermissionRaceTest {
+    private val holder = testMeshServiceHolder()
+    private val controller = testWifiAwareController(meshServiceHolder = holder)
+    private val transportBridge = TransportBridgeService()
     @Test
     fun `permission revoked after attach is checked before discovery`() = withService { service, callback, session, scheduler ->
         shadowOf(RuntimeEnvironment.getApplication()).denyPermissions(
@@ -47,8 +51,8 @@ class WifiAwarePermissionRaceTest {
         callback.onAttached(session)
         scheduler.runCurrent()
         assertFalse(service.isRunning())
-        assertFalse(WifiAwareController.running.value)
-        assertSame(service, WifiAwareController.getService())
+        assertFalse(controller.running.value)
+        assertSame(service, controller.getService())
         verify(session, never()).publish(any(), any(), any())
         verify(session).close()
     }
@@ -59,8 +63,8 @@ class WifiAwarePermissionRaceTest {
         callback.onAttached(session)
         scheduler.runCurrent()
         assertFalse(service.isRunning())
-        assertFalse(WifiAwareController.running.value)
-        assertSame(service, WifiAwareController.getService())
+        assertFalse(controller.running.value)
+        assertSame(service, controller.getService())
         verify(session).close()
         verify(session, never()).subscribe(any(), any(), any())
     }
@@ -76,8 +80,8 @@ class WifiAwarePermissionRaceTest {
         callback.onAttached(session)
         scheduler.runCurrent()
         assertFalse(service.isRunning())
-        assertFalse(WifiAwareController.running.value)
-        assertSame(service, WifiAwareController.getService())
+        assertFalse(controller.running.value)
+        assertSame(service, controller.getService())
         verify(session).close()
         verify(publisher).close()
     }
@@ -86,7 +90,7 @@ class WifiAwarePermissionRaceTest {
     fun `attach permission denial does not start mesh work`() = withService(denyAttach = true) { service, _, _, scheduler ->
         scheduler.runCurrent()
         assertFalse(service.isRunning())
-        assertFalse(WifiAwareController.running.value)
+        assertFalse(controller.running.value)
     }
 
     @Test
@@ -96,8 +100,8 @@ class WifiAwarePermissionRaceTest {
             Manifest.permission.NEARBY_WIFI_DEVICES, Manifest.permission.ACCESS_FINE_LOCATION)
         callback.onAttached(session)
         scheduler.runCurrent()
-        assertFalse(WifiAwareController.running.value)
-        assertSame(service, WifiAwareController.getService())
+        assertFalse(controller.running.value)
+        assertSame(service, controller.getService())
 
         scheduler.advanceTimeBy(30_000)
         scheduler.runCurrent()
@@ -105,11 +109,11 @@ class WifiAwarePermissionRaceTest {
 
         shadowOf(app).grantPermissions(
             Manifest.permission.NEARBY_WIFI_DEVICES, Manifest.permission.ACCESS_FINE_LOCATION)
-        WifiAwareController.startIfPossible()
+        controller.startIfPossible()
 
         assertTrue(service.isRunning())
-        assertTrue(WifiAwareController.running.value)
-        assertSame(service, WifiAwareController.getService())
+        assertTrue(controller.running.value)
+        assertSame(service, controller.getService())
     }
 
     @Test
@@ -123,17 +127,17 @@ class WifiAwarePermissionRaceTest {
         // Deliver the sole start request before the test dispatcher can finish cleanup.
         shadowOf(app).grantPermissions(
             Manifest.permission.NEARBY_WIFI_DEVICES, Manifest.permission.ACCESS_FINE_LOCATION)
-        WifiAwareController.startIfPossible()
+        controller.startIfPossible()
 
-        assertFalse(WifiAwareController.running.value)
-        assertSame(service, WifiAwareController.getService())
+        assertFalse(controller.running.value)
+        assertSame(service, controller.getService())
         scheduler.runCurrent()
         runBlocking {
-            withTimeout(10_000L) { WifiAwareController.running.first { it } }
+            withTimeout(10_000L) { controller.running.first { it } }
         }
         assertTrue(service.isRunning())
-        assertTrue(WifiAwareController.running.value)
-        assertSame(service, WifiAwareController.getService())
+        assertTrue(controller.running.value)
+        assertSame(service, controller.getService())
     }
 
     @Test
@@ -146,8 +150,8 @@ class WifiAwarePermissionRaceTest {
 
         scheduler.runCurrent()
 
-        assertTrue(WifiAwareController.running.value)
-        assertSame(replacement, WifiAwareController.getService())
+        assertTrue(controller.running.value)
+        assertSame(replacement, controller.getService())
     }
 
     private fun withService(denyAttach: Boolean = false,
@@ -163,13 +167,12 @@ class WifiAwarePermissionRaceTest {
         val locationManager = mock<LocationManager> { on { isLocationEnabled } doReturn true }
         doReturn(locationManager).whenever(context).getSystemService(Context.LOCATION_SERVICE)
         val contextField = WifiAwareController::class.java.getDeclaredField("appContext").apply { isAccessible = true }
-        val previousContext = contextField.get(null)
-        contextField.set(null, context)
+        contextField.set(controller, context)
         val enabledField = WifiAwareController::class.java.getDeclaredField("_enabled").apply { isAccessible = true }
         @Suppress("UNCHECKED_CAST")
-        val enabled = enabledField.get(null) as MutableStateFlow<Boolean>
+        val enabled = enabledField.get(controller) as MutableStateFlow<Boolean>
         enabled.value = true
-        MeshServiceHolder.attach(mock<BluetoothMeshService> { on { isReusable() } doReturn true })
+        holder.attach(mock<BluetoothMeshService> { on { isReusable() } doReturn true })
         val scheduler = TestCoroutineScheduler()
         val scope = CoroutineScope(StandardTestDispatcher(scheduler) + SupervisorJob())
         var callback: AttachCallback? = null
@@ -186,12 +189,13 @@ class WifiAwarePermissionRaceTest {
                     mockConstruction(MeshCore::class.java) { core, _ ->
                         whenever(core.fragmentManager).thenReturn(FragmentManager())
                     }.use { cores ->
-                        val service = WifiAwareMeshService(context)
-                        WifiAwareMeshService::class.java.getDeclaredField("serviceScope").apply {
-                            isAccessible = true
-                            (get(service) as CoroutineScope).cancel()
-                            set(service, scope)
-                        }
+                        val service = testWifiAwareMesh(
+                            context,
+                            controller,
+                            holder,
+                            StandardTestDispatcher(scheduler),
+                            transportBridge,
+                        )
                         service.startServices()
                         checkNotNull(callback) { "Expected a real attach request" }
                         if (!denyAttach) {
@@ -206,22 +210,20 @@ class WifiAwarePermissionRaceTest {
         } finally {
             enabled.value = false
             publishService(null)
-            contextField.set(null, previousContext)
             scope.cancel()
-            TransportBridgeService.unregister("WIFI")
-            MeshServiceHolder.clear()
+            transportBridge.unregister("WIFI")
         }
     }
 
     private fun publishService(service: WifiAwareMeshService?) {
         WifiAwareController::class.java.getDeclaredField("service").apply {
             isAccessible = true
-            set(null, service)
+            set(controller, service)
         }
         @Suppress("UNCHECKED_CAST")
         val running = WifiAwareController::class.java.getDeclaredField("_running").apply {
             isAccessible = true
-        }.get(null) as MutableStateFlow<Boolean>
+        }.get(controller) as MutableStateFlow<Boolean>
         running.value = service?.isRunning() == true
     }
 }

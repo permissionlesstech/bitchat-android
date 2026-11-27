@@ -1,0 +1,296 @@
+package com.bitchat.android.nostr
+
+import android.content.Context
+import android.util.Log
+import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.identity.SecureIdentityStateManager
+import java.security.MessageDigest
+import java.security.SecureRandom
+import java.util.concurrent.ConcurrentHashMap
+import javax.inject.Inject
+import com.bitchat.android.identity.scope.IdentityScoped
+
+/**
+ * Manages Nostr identity (secp256k1 keypair) for NIP-17 private messaging
+ * Compatible with iOS implementation
+ */
+data class NostrIdentity(
+    val privateKeyHex: String,
+    val publicKeyHex: String,
+    val npub: String,
+    val createdAt: Long
+) {
+    
+    companion object {
+        private const val TAG = "NostrIdentity"
+        
+        /**
+         * Generate a new Nostr identity
+         */
+        fun generate(): NostrIdentity {
+            val (privateKeyHex, publicKeyHex) = NostrCrypto.generateKeyPair()
+            val npub = Bech32.encode("npub", publicKeyHex.hexToByteArray())
+            
+            Log.d(TAG, "Generated new Nostr identity: npub=$npub")
+            
+            return NostrIdentity(
+                privateKeyHex = privateKeyHex,
+                publicKeyHex = publicKeyHex,
+                npub = npub,
+                createdAt = System.currentTimeMillis()
+            )
+        }
+        
+        /**
+         * Create from existing private key
+         */
+        fun fromPrivateKey(privateKeyHex: String): NostrIdentity {
+            require(NostrCrypto.isValidPrivateKey(privateKeyHex)) { 
+                "Invalid private key" 
+            }
+            
+            val publicKeyHex = NostrCrypto.derivePublicKey(privateKeyHex)
+            val npub = Bech32.encode("npub", publicKeyHex.hexToByteArray())
+            
+            return NostrIdentity(
+                privateKeyHex = privateKeyHex,
+                publicKeyHex = publicKeyHex,
+                npub = npub,
+                createdAt = System.currentTimeMillis()
+            )
+        }
+        
+        /**
+         * Create from a deterministic seed (for demo purposes)
+         */
+        fun fromSeed(seed: String): NostrIdentity {
+            // Hash the seed to create a private key
+            val digest = MessageDigest.getInstance("SHA-256")
+            val seedBytes = seed.toByteArray(Charsets.UTF_8)
+            val privateKeyBytes = digest.digest(seedBytes)
+            val privateKeyHex = privateKeyBytes.joinToString("") { "%02x".format(it) }
+            
+            return fromPrivateKey(privateKeyHex)
+        }
+    }
+    
+    /**
+     * Sign a Nostr event
+     */
+    fun signEvent(event: NostrEvent): NostrEvent {
+        return event.sign(privateKeyHex)
+    }
+    
+    /**
+     * Get short display format
+     */
+    fun getShortNpub(): String {
+        return if (npub.length > 16) {
+            "${npub.take(8)}...${npub.takeLast(8)}"
+        } else {
+            npub
+        }
+    }
+}
+
+/**
+ * Bridge between Noise and Nostr identities
+ * Manages persistent storage and per-geohash identity derivation
+ */
+@IdentityScoped
+class NostrIdentityBridge @Inject constructor(
+    private val favorites: FavoritesPersistenceService,
+) {
+    private companion object {
+        const val TAG = "NostrIdentityBridge"
+        const val NOSTR_PRIVATE_KEY = "nostr_private_key"
+        const val DEVICE_SEED_KEY = "nostr_device_seed"
+    }
+    
+    // Cache for derived geohash identities to avoid repeated crypto operations
+    private val geohashIdentityCache = ConcurrentHashMap<String, NostrIdentity>()
+    // Lives as long as this identity: a panic ends the identity and the next one builds its own.
+    @Volatile
+    private var cachedCurrentIdentity: NostrIdentity? = null
+    private val currentIdentityInitLock = Any()
+    private val deviceSeedInitLock = Any()
+
+    /**
+     * Lock-free lookup of an already-derived geohash identity (safe to call on the main thread).
+     */
+    fun getCachedIdentity(forGeohash: String): NostrIdentity? = geohashIdentityCache[forGeohash]
+
+    /**
+     * Get or create the current Nostr identity
+     */
+    fun getCurrentNostrIdentity(context: Context): NostrIdentity? {
+        cachedCurrentIdentity?.let { return it }
+        return synchronized(currentIdentityInitLock) {
+            cachedCurrentIdentity?.let { return@synchronized it }
+            val stateManager = SecureIdentityStateManager(context)
+
+            // Try to load existing Nostr private key
+            val existingKey = loadNostrPrivateKey(stateManager)
+            if (existingKey != null) {
+                return@synchronized try {
+                    NostrIdentity.fromPrivateKey(existingKey).also { cachedCurrentIdentity = it }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to create identity from stored key: ${e.message}")
+                    null
+                }
+            }
+
+            // Generate new identity
+            val newIdentity = NostrIdentity.generate()
+            saveNostrPrivateKey(stateManager, newIdentity.privateKeyHex)
+            cachedCurrentIdentity = newIdentity
+
+            Log.i(TAG, "Created new Nostr identity: ${newIdentity.getShortNpub()}")
+            newIdentity
+        }
+    }
+
+    /**
+     * Derive a deterministic, unlinkable Nostr identity for a given geohash
+     * Uses HMAC-SHA256(deviceSeed, geohash) as private key material with fallback rehashing
+     * if the candidate is not a valid secp256k1 private key.
+     *
+     * Cached for UI responsiveness.
+     */
+    fun deriveIdentity(forGeohash: String, context: Context): NostrIdentity {
+        // Lock-free fast path on cache hit
+        geohashIdentityCache[forGeohash]?.let { cachedIdentity ->
+            return cachedIdentity
+        }
+
+        return run {
+
+            val stateManager = SecureIdentityStateManager(context)
+            val seed = getOrCreateDeviceSeed(stateManager)
+
+            val geohashBytes = forGeohash.toByteArray(Charsets.UTF_8)
+
+            // Try a few iterations to ensure a valid key can be formed (exactly like iOS)
+            for (i in 0 until 10) {
+                val candidateKey = candidateKey(seed, geohashBytes, i.toUInt())
+                val candidateKeyHex = candidateKey.toHexString()
+
+                if (NostrCrypto.isValidPrivateKey(candidateKeyHex)) {
+                    val identity = NostrIdentity.fromPrivateKey(candidateKeyHex)
+                    geohashIdentityCache[forGeohash] = identity
+                    Log.d(TAG, "Derived geohash identity")
+                    return@run identity
+                }
+            }
+
+            // As a final fallback, hash the seed+msg and try again (exactly like iOS)
+            val combined = seed + geohashBytes
+            val digest = MessageDigest.getInstance("SHA-256")
+            val fallbackKey = digest.digest(combined)
+
+            val fallbackIdentity = NostrIdentity.fromPrivateKey(fallbackKey.toHexString())
+            geohashIdentityCache[forGeohash] = fallbackIdentity
+
+            Log.d(TAG, "Used fallback geohash identity derivation")
+            fallbackIdentity
+        }
+    }
+    
+    /**
+     * Generate candidate key for a specific iteration (matches iOS implementation)
+     */
+    private fun candidateKey(seed: ByteArray, message: ByteArray, iteration: UInt): ByteArray {
+        val input = message + iteration.toLittleEndianBytes()
+        return hmacSha256(seed, input)
+    }
+    
+    /**
+     * Associate a Nostr identity with a Noise public key (for favorites)
+     */
+    fun associateNostrIdentity(nostrPubkey: String, noisePublicKey: ByteArray, context: Context) {
+        favorites.initialize()
+        favorites.updateNostrPublicKey(noisePublicKey, nostrPubkey)
+        Log.d(TAG, "Associated Nostr pubkey ${nostrPubkey.take(16)}... with Noise key")
+    }
+    
+    /**
+     * Get Nostr public key associated with a Noise public key
+     */
+    fun getNostrPublicKey(noisePublicKey: ByteArray, context: Context): String? {
+        favorites.initialize()
+        return favorites.findNostrPubkey(noisePublicKey)
+    }
+    
+    fun clearGeohashIdentityCache(geohashes: Collection<String>) {
+        geohashes.forEach(geohashIdentityCache::remove)
+    }
+    
+    // MARK: - Private Methods
+    
+    private fun loadNostrPrivateKey(stateManager: SecureIdentityStateManager): String? {
+        return try {
+            // Use public methods instead of reflection to access the encrypted preferences
+            stateManager.getSecureValue(NOSTR_PRIVATE_KEY)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load Nostr private key: ${e.message}")
+            null
+        }
+    }
+    
+    private fun saveNostrPrivateKey(stateManager: SecureIdentityStateManager, privateKeyHex: String) {
+        try {
+            // Use public methods instead of reflection to access the encrypted preferences
+            stateManager.storeSecureValue(NOSTR_PRIVATE_KEY, privateKeyHex)
+                
+            Log.d(TAG, "Saved Nostr private key to secure storage")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save Nostr private key: ${e.message}")
+            throw e
+        }
+    }
+    
+    private fun getOrCreateDeviceSeed(stateManager: SecureIdentityStateManager): ByteArray {
+        try {
+            val existingSeed = stateManager.getSecureValue(DEVICE_SEED_KEY)
+            if (existingSeed != null) {
+                return android.util.Base64.decode(existingSeed, android.util.Base64.DEFAULT)
+            }
+
+            return synchronized(deviceSeedInitLock) {
+                val recheckedSeed = stateManager.getSecureValue(DEVICE_SEED_KEY)
+                if (recheckedSeed != null) {
+                    return@synchronized android.util.Base64.decode(recheckedSeed, android.util.Base64.DEFAULT)
+                }
+
+                // Generate new seed
+                val seed = ByteArray(32)
+                SecureRandom().nextBytes(seed)
+
+                val seedBase64 = android.util.Base64.encodeToString(seed, android.util.Base64.DEFAULT)
+                stateManager.storeSecureValue(DEVICE_SEED_KEY, seedBase64)
+
+                Log.d(TAG, "Generated new device seed for geohash identity derivation")
+                seed
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get/create device seed: ${e.message}")
+            throw e
+        }
+    }
+    
+    private fun hmacSha256(key: ByteArray, message: ByteArray): ByteArray {
+        val mac = javax.crypto.Mac.getInstance("HmacSHA256")
+        val secretKeySpec = javax.crypto.spec.SecretKeySpec(key, "HmacSHA256")
+        mac.init(secretKeySpec)
+        return mac.doFinal(message)
+    }
+}
+
+private fun UInt.toLittleEndianBytes(): ByteArray {
+    val bytes = ByteArray(4)
+    bytes[0] = (this and 0xFFu).toByte()
+    bytes[1] = ((this shr 8) and 0xFFu).toByte()
+    bytes[2] = ((this shr 16) and 0xFFu).toByte()
+    bytes[3] = ((this shr 24) and 0xFFu).toByte()
+    return bytes
+}

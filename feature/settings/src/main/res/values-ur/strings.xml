@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- تفصیلات شیٹ -->
+    <string name="about_offline_mesh_title">آف لائن میش چیٹ</string>
+    <string name="about_offline_mesh_desc">انٹرنیٹ یا سرورز کے بغیر Bluetooth LE کے ذریعے براہ راست بات چیت کریں۔ پیغامات قریبی آلات کے ذریعے ریلے ہوتے ہیں تاکہ رسائی بڑھے۔</string>
+    <string name="about_online_geohash_title">آن لائن geohash چینلز</string>
+    <string name="about_online_geohash_desc">geohash پر مبنی چینلز کے ذریعے اپنے قریب کے لوگوں سے جڑیں۔ عوامی انٹرنیٹ ریلے کے ذریعے میش کو پھیلائیں۔</string>
+    <string name="about_e2e_title">اینڈ‑ٹو‑اینڈ انکرپشن</string>
+    <string name="about_e2e_desc">نجی پیغامات انکرپٹڈ ہیں۔ چینل پیغامات عوامی ہیں۔</string>
+    <string name="about_system">سسٹم</string>
+    <string name="about_light">ہلکا</string>
+    <string name="about_dark">گہرا</string>
+    <string name="about_pow">پروف آف ورک</string>
+    <string name="about_pow_tip">اسپام کو مشکل بنانے کے لیے geohash پیغامات میں Proof of Work شامل کریں۔</string>
+    <string name="about_pow_desc_none">Proof of Work ضروری نہیں</string>
+    <string name="about_pow_desc_very_low">بہت کم – کم سے کم اسپام تحفظ</string>
+    <string name="about_pow_desc_low">کم – بنیادی اسپام تحفظ</string>
+    <string name="about_pow_desc_medium">درمیانہ – اچھا اسپام تحفظ</string>
+    <string name="about_pow_desc_high">اعلیٰ – مضبوط اسپام تحفظ</string>
+    <string name="about_pow_desc_very_high">بہت اعلیٰ – تاخیر ہو سکتی ہے</string>
+    <string name="about_pow_desc_extreme">انتہائی – اہم کمپیوٹیشنل طاقت درکار</string>
+    <string name="about_tor_route">زیادہ پرائیویسی کے لیے انٹرنیٹ ٹریفک کو Tor کے ذریعے بھیجیں۔</string>
+    <string name="about_debug_settings">ڈیبگ سیٹنگز</string>
+    <string name="about_footer">اوپن سورس • پرائیویسی پہلے • غیر مرکزی</string>
+    <string name="unknown">نامعلوم</string>
+
+    <!-- ڈیبگ / تشخیص -->
+    <string name="debug_tools">ڈیبگ ٹولز</string>
+    <string name="debug_tools_desc">تشخیص اور کنٹرول کے لیے ڈیولپر ٹولز</string>
+    <string name="debug_verbose_logging">تفصیلی لاگنگ</string>
+    <string name="debug_verbose_hint">پیئر جوائن/لیو، کنیکشن ڈائریکشن، پیکٹ ریلے اور ریلے لاگ کرتا ہے</string>
+    <string name="debug_bluetooth_roles">Bluetooth کردار</string>
+    <string name="debug_gatt_server">GATT سرور</string>
+    <string name="debug_connections_fmt">کنیکشنز: %1$d / %2$d</string>
+    <string name="debug_max_server">زیادہ سے زیادہ سرور</string>
+    <string name="debug_gatt_client">GATT کلائنٹ</string>
+    <string name="debug_max_client">زیادہ سے زیادہ کلائنٹ</string>
+    <string name="debug_overall_connections_fmt">کنیکشنز: %1$d / %2$d</string>
+    <string name="debug_max_overall">زیادہ سے زیادہ کل</string>
+    <string name="debug_packet_relay">پیکٹ ریلے</string>
+    <string name="debug_roles_hint">کردار آن/آف ٹوگل کریں اور بند کرتے وقت تمام کنیکشنز بند کریں</string>
+    <string name="debug_max_packets_per_sync_fmt">فی سنک زیادہ سے زیادہ پیکٹس: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">زیادہ سے زیادہ GCS فلٹر سائز: %1$d بائٹس (128–1024)</string>
+    <string name="debug_target_fpr_fmt">ہدف FPR: %1$.2f%%</string>
+    <string name="debug_connected_devices">منسلک آلات</string>
+    <string name="debug_our_device_id_fmt">ہمارا آلہ ID: %1$s</string>
+    <string name="debug_none">کوئی نہیں</string>
+    <string name="debug_disconnect">منقطع کریں</string>
+    <string name="debug_recent_scan_results">حال ہی میں اسکین شدہ آلات</string>
+    <string name="debug_connect">کنیکٹ</string>
+    <string name="debug_debug_console">ڈیبگ کنسول</string>
+    <string name="debug_clear">صاف کریں</string>
+    <string name="debug_derived_p_fmt">ماخوذ P: %1$s • تخمینی زیادہ سے زیادہ آئٹمز: %2$s</string>
+    <string name="debug_direct_suffix"> • براہ راست</string>
+    <string name="debug_role_server">سرور کے طور پر (ہم ہوسٹ کرتے ہیں)</string>
+    <string name="debug_role_client">کلائنٹ کے طور پر (ہم کنیکٹ کرتے ہیں)</string>
+
+    <string name="version_prefix">v%1$s</string>
+    <string name="about_language">زبان</string>
+    <string name="about_app_language">ایپ کی زبان</string>
+    <string name="about_system_default">سسٹم ڈیفالٹ</string>
+    <string name="about_select_language">زبان منتخب کریں</string>
+    <string name="about_spam_filter_title">اسپام فلٹر</string>
+    <string name="about_spam_filter_desc">ایسے لوگوں کے عوامی پیغامات چھپائیں جو بہت تیزی سے پیغامات بھیجتے ہیں، اپنی بات دہراتے ہیں یا بہت زیادہ لنکس بھیجتے ہیں۔</string>
+</resources>
