@@ -54,6 +54,7 @@ class PrivateConversationSendRobolectricTest {
     private lateinit var mesh: MeshService
     private lateinit var privateChatManager: PrivateChatManager
     private lateinit var privateChatSession: PrivateChatSession
+    private val notifications = mock<NotificationManager>()
     private lateinit var sender: MessageSender
 
     @Before
@@ -106,7 +107,7 @@ class PrivateConversationSendRobolectricTest {
         privateChatSession = PrivateChatSession(
             state = state,
             privateChatManager = privateChatManager,
-            notificationManager = mock(),
+            notificationManager = notifications,
             geohashSession = geohashSession,
             sessionMesh = sessionMesh,
             appStateStore = stores.appStateStore,
@@ -181,6 +182,27 @@ class PrivateConversationSendRobolectricTest {
         assertEquals("#synthetic", state.getCurrentChannelValue())
         assertEquals(null, state.getSelectedPrivateChatPeerValue())
         assertEquals(1, left)
+    }
+
+    @Test
+    fun `a chat closed after join left it gives up notification focus`() {
+        assertTrue(privateChatManager.startPrivateChat(previousPeerID, mesh))
+        sender.sendToConversation(previousPeerID, "/join #synthetic")
+
+        privateChatSession.end(previousPeerID)
+
+        verify(notifications).setCurrentPrivateChatPeer(null)
+    }
+
+    @Test
+    fun `a chat closed after another was opened leaves that chat's focus alone`() {
+        assertTrue(privateChatManager.startPrivateChat(previousPeerID, mesh))
+        assertTrue(privateChatManager.startPrivateChat(otherPeerID, mesh))
+
+        privateChatSession.end(previousPeerID)
+
+        verify(notifications, never()).setCurrentPrivateChatPeer(null)
+        assertEquals(otherPeerID, state.getSelectedPrivateChatPeerValue())
     }
 
     @Test

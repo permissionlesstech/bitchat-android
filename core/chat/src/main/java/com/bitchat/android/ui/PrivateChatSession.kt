@@ -60,8 +60,9 @@ class PrivateChatSession @Inject constructor(
         return success
     }
 
-    fun end() {
-        val conversationID = state.getSelectedPrivateChatPeerValue()
+    fun end() = endConversation(state.getSelectedPrivateChatPeerValue())
+
+    private fun endConversation(conversationID: String?) {
         privateChatManager.endPrivateChat()
         if (conversationID != null) {
             appStateStore.releasePrivateConversationHistory(conversationID)
@@ -83,10 +84,13 @@ class PrivateChatSession @Inject constructor(
      *
      * A private chat route calls this as it leaves. Opening one chat from
      * another can select the new one before the old route is disposed, and
-     * that late call must not end the chat now on screen.
+     * that late call must not end the chat now on screen. A command such as `/join` can instead
+     * have left private chat before the route goes; with nothing selected, the route still ends
+     * its own chat, or the departed peer would keep notification focus and its history.
      */
     fun end(conversationID: String) {
-        val selected = state.getSelectedPrivateChatPeerValue() ?: return
+        val selected = state.getSelectedPrivateChatPeerValue()
+            ?: return endConversation(contactDirectory.canonicalConversationId(conversationID))
         if (
             contactDirectory.canonicalConversationId(selected).equals(
                 contactDirectory.canonicalConversationId(conversationID),
