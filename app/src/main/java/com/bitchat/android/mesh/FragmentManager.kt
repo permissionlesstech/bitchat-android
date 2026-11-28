@@ -3,7 +3,6 @@ package com.bitchat.android.mesh
 import android.util.Log
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
-import com.bitchat.android.protocol.MessagePadding
 import com.bitchat.android.model.FragmentPayload
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
@@ -69,6 +68,12 @@ class FragmentManager {
                 return emptyList()
             }
             // Fragment the unpadded frame directly; each fragment is encoded/padded independently.
+            // Ask the encoder to skip padding rather than un-padding afterwards:
+            // pad() declines a request needing more than 255 bytes and
+            // optimalBlockSize() returns the input size above 2048, so frames of
+            // 513-768, 1009-1792 and >=2033 bytes are never padded. Those end
+            // with the last byte of the signature, and unpad() reads a value of
+            // 0x01 as a one-byte pad and strips a real signature byte.
             val fullData = packet.toBinaryData(padding = false)
             if (fullData == null) {
                 Log.e(TAG, "Failed to encode packet to binary data")
