@@ -1791,6 +1791,10 @@ class ChatViewModel(
         geohashViewModel.blockUserInGeohash(targetNickname, pubkeyHex)
     }
 
+    fun unblockUserInGeohash(targetNickname: String) {
+        geohashViewModel.unblockUserInGeohash(targetNickname)
+    }
+
     // MARK: - Navigation Management
     
     fun showAppInfo() {

@@ -46,8 +46,8 @@ class CommandProcessor(
             "/w" -> handleWhoCommand(meshService, viewModel)
             "/clear" -> handleClearCommand()
             "/pass" -> handlePassCommand(parts, myPeerID)
-            "/block" -> handleBlockCommand(parts, meshService)
-            "/unblock" -> handleUnblockCommand(parts, meshService)
+            "/block", "/ban" -> handleBlockCommand(parts, meshService, viewModel)
+            "/unblock" -> handleUnblockCommand(parts, meshService, viewModel)
             "/hug" -> handleActionCommand(parts, "gives", "a warm hug 🫂", meshService, myPeerID, onSendMessage, viewModel)
             "/slap" -> handleActionCommand(parts, "slaps", "around a bit with a large trout 🐟", meshService, myPeerID, onSendMessage, viewModel)
             "/channels" -> handleChannelsCommand()
@@ -259,10 +259,22 @@ class CommandProcessor(
         }
     }
     
-    private fun handleBlockCommand(parts: List<String>, meshService: MeshService) {
+    private fun isGeohashBlockContext(): Boolean {
+        val privatePeer = state.getSelectedPrivateChatPeerValue()
+        if (privatePeer != null) {
+            return privatePeer.startsWith("nostr_")
+        }
+        return state.selectedLocationChannel.value is com.bitchat.android.geohash.ChannelID.Location
+    }
+
+    private fun handleBlockCommand(parts: List<String>, meshService: MeshService, viewModel: ChatViewModel? = null) {
         if (parts.size > 1) {
             val targetName = parts[1].removePrefix("@")
-            privateChatManager.blockPeerByNickname(targetName, meshService)
+            if (isGeohashBlockContext() && viewModel != null) {
+                viewModel.blockUserInGeohash(targetName)
+            } else {
+                privateChatManager.blockPeerByNickname(targetName, meshService)
+            }
         } else {
             // List blocked users
             val blockedInfo = privateChatManager.listBlockedUsers()
@@ -276,10 +288,14 @@ class CommandProcessor(
         }
     }
     
-    private fun handleUnblockCommand(parts: List<String>, meshService: MeshService) {
+    private fun handleUnblockCommand(parts: List<String>, meshService: MeshService, viewModel: ChatViewModel? = null) {
         if (parts.size > 1) {
             val targetName = parts[1].removePrefix("@")
-            privateChatManager.unblockPeerByNickname(targetName, meshService)
+            if (isGeohashBlockContext() && viewModel != null) {
+                viewModel.unblockUserInGeohash(targetName)
+            } else {
+                privateChatManager.unblockPeerByNickname(targetName, meshService)
+            }
         } else {
             val systemMessage = BitchatMessage(
                 sender = "system",
