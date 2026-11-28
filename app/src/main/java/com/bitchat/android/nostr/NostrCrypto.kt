@@ -364,14 +364,20 @@ object NostrCrypto {
     // BIP-340 Schnorr Signatures Implementation
     // ==============================================================================
     
+    private val sha256ThreadLocal = ThreadLocal.withInitial { MessageDigest.getInstance("SHA-256") }
+    private val tagHashCache = java.util.concurrent.ConcurrentHashMap<String, ByteArray>()
+
     /**
      * Tagged hash function for BIP-340
      */
     private fun taggedHash(tag: String, data: ByteArray): ByteArray {
-        val tagBytes = tag.toByteArray(Charsets.UTF_8)
-        val tagHash = MessageDigest.getInstance("SHA-256").digest(tagBytes)
-        
-        val digest = MessageDigest.getInstance("SHA-256")
+        val tagHash = tagHashCache.computeIfAbsent(tag) { key ->
+            val md = sha256ThreadLocal.get()!!
+            md.reset()
+            md.digest(key.toByteArray(Charsets.UTF_8))
+        }
+        val digest = sha256ThreadLocal.get()!!
+        digest.reset()
         digest.update(tagHash)
         digest.update(tagHash)
         digest.update(data)

@@ -69,7 +69,7 @@ Encode/Decode implementation: `com.bitchat.android.model.RequestSyncPacket`.
 ## Behavior
 
 Sender behavior:
-- Periodic: every 30 seconds, send REQUEST_SYNC with a freshly computed GCS snapshot, broadcast to immediate neighbors, and mark as local‑only (TTL=0 recommended; do not relay).
+- Periodic: every 30 seconds by default in the foreground, send REQUEST_SYNC with a freshly computed GCS snapshot, broadcast to immediate neighbors, and mark as local‑only (TTL=0 recommended; do not relay). As local cadence policy (see "Consensus vs. Configurable"), clients may skip periodic sends when no peers are connected and scale the periodic interval on battery/background profiles (e.g., 60 s in foreground low-battery modes; 120–300 s while backgrounded), immediately restoring foreground cadence on return to the foreground.
 - Initial per-peer: upon receiving the first ANNOUNCE from a new directly connected peer, send a REQUEST_SYNC only to that peer after ~5 seconds (unicast; TTL=0 recommended; do not relay).
 
 Receiver behavior:

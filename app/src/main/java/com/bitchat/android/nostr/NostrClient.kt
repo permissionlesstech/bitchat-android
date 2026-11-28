@@ -234,6 +234,11 @@ class NostrClient private constructor(private val context: Context) {
      * Get relay information
      */
     val relayInfo: StateFlow<List<NostrRelayManager.Relay>> = relayManager.relays
+
+    /**
+     * Get a fresh snapshot of all relays including live message counters.
+     */
+    fun getLiveRelayStatuses(): List<NostrRelayManager.Relay> = relayManager.getRelayStatuses()
     
     // MARK: - Private Methods
     

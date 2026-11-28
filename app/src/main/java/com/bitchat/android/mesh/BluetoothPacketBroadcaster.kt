@@ -54,6 +54,7 @@ class BluetoothPacketBroadcaster(
         private const val MAX_PENDING_SENDS_PER_LINK = 256
         private const val MAX_PENDING_BYTES_PER_LINK = 1_048_576
         private const val SEND_RETRY_DELAY_MS = 15L
+        private const val MAX_START_RETRY_DELAY_MS = 250L
         private const val MAX_CALLBACK_RETRIES = 3
     }
 
@@ -80,9 +81,9 @@ class BluetoothPacketBroadcaster(
         routeInfo: String? = null
     ) {
         try {
-            val fromNick = incomingPeer?.let { nicknameResolver?.invoke(it) }
-            val toNick = toPeer?.let { nicknameResolver?.invoke(it) }
             val manager = com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
+            val verbose = manager.verboseLoggingEnabled.value
+            val toNick = if (verbose) toPeer?.let { nicknameResolver?.invoke(it) } else null
             // Always log outgoing for the actual transmission target
             manager.logOutgoing(
                 packetType = typeName,
@@ -94,21 +95,24 @@ class BluetoothPacketBroadcaster(
                 routeInfo = routeInfo
             )
             // Keep the verbose relay message for human readability
-            manager.logPacketRelayDetailed(
-                packetType = typeName,
-                senderPeerID = senderPeerID,
-                senderNickname = senderNick,
-                fromPeerID = incomingPeer,
-                fromNickname = fromNick,
-                fromDeviceAddress = incomingAddr,
-                toPeerID = toPeer,
-                toNickname = toNick,
-                toDeviceAddress = toDeviceAddress,
-                ttl = ttl,
-                isRelay = true,
-                packetVersion = packetVersion,
-                routeInfo = routeInfo
-            )
+            if (verbose) {
+                val fromNick = incomingPeer?.let { nicknameResolver?.invoke(it) }
+                manager.logPacketRelayDetailed(
+                    packetType = typeName,
+                    senderPeerID = senderPeerID,
+                    senderNickname = senderNick,
+                    fromPeerID = incomingPeer,
+                    fromNickname = fromNick,
+                    fromDeviceAddress = incomingAddr,
+                    toPeerID = toPeer,
+                    toNickname = toNick,
+                    toDeviceAddress = toDeviceAddress,
+                    ttl = ttl,
+                    isRelay = true,
+                    packetVersion = packetVersion,
+                    routeInfo = routeInfo
+                )
+            }
         } catch (_: Exception) { 
             // Silently ignore debug logging failures
         }
@@ -140,7 +144,8 @@ class BluetoothPacketBroadcaster(
         val gatt: BluetoothGatt? = null,
         val gattServer: BluetoothGattServer? = null,
         val characteristic: BluetoothGattCharacteristic,
-        var callbackFailures: Int = 0
+        var callbackFailures: Int = 0,
+        var startRetries: Int = 0
     )
 
     private class LinkSendState {
@@ -276,10 +281,13 @@ class BluetoothPacketBroadcaster(
         gattServer: BluetoothGattServer?,
         characteristic: BluetoothGattCharacteristic?
     ) {
-        // Submit broadcast request to actor for serialized processing
+        val request = BroadcastRequest(routed, gattServer, characteristic)
+        // Fast path: enqueue directly without spawning a coroutine per packet.
+        if (broadcasterActor.trySend(request).isSuccess) return
+        // Slow path: channel full or closed; suspend or fall back.
         broadcasterScope.launch {
             try {
-                broadcasterActor.send(BroadcastRequest(routed, gattServer, characteristic))
+                broadcasterActor.send(request)
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to send broadcast request to actor: ${e.message}")
                 // Fallback to direct processing if actor fails
@@ -349,16 +357,20 @@ class BluetoothPacketBroadcaster(
         val padForBLE = BLEPacketPaddingPolicy.shouldPadForBLE(packet.type)
         val data = packet.toBinaryData(padding = padForBLE) ?: return false
         val typeName = MessageType.fromValue(packet.type)?.name ?: packet.type.toString()
-        val senderPeerID = routed.peerID ?: packet.senderID.toHexString()
+        val packetSenderHex = packet.senderID.toHexString()
+        val senderPeerID = routed.peerID ?: packetSenderHex
         val incomingAddr = routed.relayAddress
         val incomingPeer = incomingAddr?.let { connectionTracker.addressPeerMap[it] }
-        val senderNick = senderPeerID.let { pid -> nicknameResolver?.invoke(pid) }
+        val verbose = try {
+            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().verboseLoggingEnabled.value
+        } catch (_: Exception) { false }
+        val senderNick = if (verbose) nicknameResolver?.invoke(senderPeerID) else null
         val route = packet.route
-        val routeInfo = if (!route.isNullOrEmpty()) "routed: ${route.size} hops" else null
+        val routeInfo = if (verbose && !route.isNullOrEmpty()) "routed: ${route.size} hops" else null
 
         // Source Routing for Originating Packets
         // If we are the sender and a source route is defined, we must send ONLY to the first hop.
-        if (packet.senderID.toHexString() == myPeerID && !packet.route.isNullOrEmpty()) {
+        if (packetSenderHex == myPeerID && !packet.route.isNullOrEmpty()) {
             val firstHop = packet.route!![0].toHexString()
 
             var sent = false
@@ -428,7 +440,7 @@ class BluetoothPacketBroadcaster(
         val subscribedDevices = connectionTracker.getSubscribedDevices()
         val connectedDevices = connectionTracker.getConnectedDevices()
 
-        val senderID = packet.senderID.toHexString()
+        val senderID = packetSenderHex
         var accepted = false
 
         // Send to server connections (devices connected to our GATT server)
@@ -484,7 +496,7 @@ class BluetoothPacketBroadcaster(
             ?: return false
         return enqueueSend(
             SendKey(device.address, linkID, SendDirection.SERVER_NOTIFICATION),
-            PendingSend(data.copyOf(), device, gattServer = server, characteristic = char)
+            PendingSend(data, device, gattServer = server, characteristic = char)
         )
     }
 
@@ -499,7 +511,7 @@ class BluetoothPacketBroadcaster(
         val char = deviceConn.characteristic ?: return false
         return enqueueSend(
             SendKey(deviceConn.device.address, deviceConn.linkID, SendDirection.CLIENT_WRITE),
-            PendingSend(data.copyOf(), deviceConn.device, gatt = gatt, characteristic = char)
+            PendingSend(data, deviceConn.device, gatt = gatt, characteristic = char)
         )
     }
 
@@ -577,22 +589,54 @@ class BluetoothPacketBroadcaster(
         if (!accepted) rejectStart(key)
     }
 
+    private fun isLinkStillConnected(key: SendKey): Boolean {
+        val current = connectionTracker.getDeviceConnection(key.deviceAddress) ?: return false
+        if (current.linkID != key.linkID) return false
+        return when (key.direction) {
+            SendDirection.CLIENT_WRITE -> current.isClient
+            SendDirection.SERVER_NOTIFICATION -> !current.isClient
+        }
+    }
+
     private fun rejectStart(key: SendKey): Boolean {
+        val linkAlive = isLinkStillConnected(key)
+        var nextDelayMs = SEND_RETRY_DELAY_MS
         val schedule = synchronized(sendLock) {
             val state = sendStates[key] ?: return false
             state.inFlight = false
-            if (state.retryScheduled || state.pending.isEmpty()) false else {
+            val head = state.pending.peekFirst() ?: run {
+                sendStates.remove(key)
+                return false
+            }
+            if (!linkAlive) {
+                Log.d(TAG, "BLE ${key.direction} link disconnected or replaced; clearing ${state.pending.size} pending sends")
+                sendStates.remove(key)
+                return false
+            }
+            head.startRetries++
+            if (state.retryScheduled) {
+                false
+            } else {
+                // Bounded exponential backoff (15ms -> 30ms -> 60ms -> 120ms -> 250ms) so transient
+                // GATT busy never spins CPU and accepted file transfers are never silently dropped
+                // while this link generation remains connected.
+                val shift = (head.startRetries - 1).coerceAtMost(4)
+                nextDelayMs = (SEND_RETRY_DELAY_MS shl shift).coerceAtMost(MAX_START_RETRY_DELAY_MS)
                 state.retryScheduled = true
                 true
             }
         }
         if (schedule) {
             connectionScope.launch {
-                delay(SEND_RETRY_DELAY_MS)
+                delay(nextDelayMs)
+                val stillConnected = isLinkStillConnected(key)
                 val retry = synchronized(sendLock) {
                     val state = sendStates[key] ?: return@synchronized false
                     state.retryScheduled = false
-                    if (!state.inFlight && state.pending.isNotEmpty()) {
+                    if (!stillConnected) {
+                        sendStates.remove(key)
+                        false
+                    } else if (!state.inFlight && state.pending.isNotEmpty()) {
                         state.inFlight = true
                         true
                     } else false

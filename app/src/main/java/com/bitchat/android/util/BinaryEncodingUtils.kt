@@ -11,36 +11,38 @@ import java.util.*
 
 // MARK: - Hex Encoding/Decoding Extensions
 
-fun ByteArray.hexEncodedString(): String {
-    if (this.isEmpty()) {
-        return ""
-    }
-    return this.joinToString("") { "%02x".format(it) }
-}
+fun ByteArray.hexEncodedString(): String = toHexString()
 
 fun String.dataFromHexString(): ByteArray? {
-    // Match iOS Data(hexString:): trim, optional 0x/0X prefix, reject odd length.
-    var hex = this.trim()
-    if (hex.startsWith("0x", ignoreCase = true)) {
-        hex = hex.substring(2)
+    // Match iOS Data(hexString:) and Kotlin String.trim(): Unicode whitespace only (never NUL),
+    // optional 0x/0X prefix, reject odd length.
+    var start = 0
+    var end = length
+    while (start < end && this[start].isWhitespace()) start++
+    while (end > start && this[end - 1].isWhitespace()) end--
+    if (end - start >= 2 && this[start] == '0' && (this[start + 1] == 'x' || this[start + 1] == 'X')) {
+        start += 2
     }
-    if (hex.isEmpty()) {
+    val hexLen = end - start
+    if (hexLen == 0) {
         return ByteArray(0)
     }
-    // Radix parsing accepts signs and Unicode digits; encoded bytes require ASCII hex.
-    if (hex.length % 2 != 0 || hex.any { it !in '0'..'9' && it !in 'a'..'f' && it !in 'A'..'F' }) {
+    if ((hexLen and 1) != 0) {
         return null
     }
 
-    val len = hex.length / 2
+    val len = hexLen ushr 1
     val data = ByteArray(len)
-
-    for (i in 0 until len) {
-        val hexByte = hex.substring(i * 2, i * 2 + 2)
-        val byte = hexByte.toIntOrNull(16)?.toByte() ?: return null
-        data[i] = byte
+    var i = 0
+    var pos = start
+    while (i < len) {
+        val hi = hexNibbleOrNegative(this[pos])
+        val lo = hexNibbleOrNegative(this[pos + 1])
+        if (hi < 0 || lo < 0) return null
+        data[i] = ((hi shl 4) or lo).toByte()
+        i++
+        pos += 2
     }
-
     return data
 }
 

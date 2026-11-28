@@ -63,46 +63,64 @@ class NoiseSession(
         }
         
         /**
-         * Mark nonce as seen in replay window (matching iOS implementation)
+         * Copying wrapper so tests can observe the window without sharing the session buffer.
          */
         internal fun markNonceAsSeen(receivedNonce: Long, highestReceivedNonce: Long, replayWindow: ByteArray): Pair<Long, ByteArray> {
+            val copy = replayWindow.copyOf()
+            val highest = markNonceAsSeenInPlace(receivedNonce, highestReceivedNonce, copy)
+            return Pair(highest, copy)
+        }
+
+        /**
+         * Mark nonce as seen in replay window in-place (caller must hold cipherLock).
+         * Returns the updated highestReceivedNonce.
+         * Older seen bits shift left as highestReceivedNonce advances.
+         */
+        private fun markNonceAsSeenInPlace(receivedNonce: Long, highestReceivedNonce: Long, replayWindow: ByteArray): Long {
             var newHighestReceivedNonce = highestReceivedNonce
-            val newReplayWindow = replayWindow.copyOf()
-            
+
             if (receivedNonce > highestReceivedNonce) {
                 val shift = (receivedNonce - highestReceivedNonce).toInt()
-                
+
                 if (shift >= REPLAY_WINDOW_SIZE) {
-                    // Clear entire window - shift is too large
-                    newReplayWindow.fill(0)
+                    replayWindow.fill(0)
                 } else {
-                    // Shift window left by `shift` bits: offset o becomes o + shift.
-                    // Bit 0 of byte 0 is the newest nonce, so older flags move up.
+                    val byteShift = shift ushr 3
+                    val bitShift = shift and 7
                     for (i in (REPLAY_WINDOW_BYTES - 1) downTo 0) {
-                        val sourceByteIndex = i - shift / 8
+                        val sourceByteIndex = i - byteShift
                         var newByte = 0
-                        
                         if (sourceByteIndex >= 0) {
-                            newByte = (newReplayWindow[sourceByteIndex].toInt() and 0xFF) shl (shift % 8)
-                            if (sourceByteIndex > 0 && shift % 8 != 0) {
-                                newByte = newByte or ((newReplayWindow[sourceByteIndex - 1].toInt() and 0xFF) ushr (8 - shift % 8))
+                            // Bit index (offset = highestReceivedNonce - nonce) increases as
+                            // highestReceivedNonce advances, so older seen bits shift LEFT toward
+                            // higher bit/byte offsets and carry from lower bytes.
+                            newByte = (replayWindow[sourceByteIndex].toInt() and 0xFF) shl bitShift
+                            if (sourceByteIndex > 0 && bitShift != 0) {
+                                newByte = newByte or ((replayWindow[sourceByteIndex - 1].toInt() and 0xFF) ushr (8 - bitShift))
                             }
                         }
-                        
-                        newReplayWindow[i] = (newByte and 0xFF).toByte()
+                        replayWindow[i] = (newByte and 0xFF).toByte()
                     }
                 }
-                
+
                 newHighestReceivedNonce = receivedNonce
-                newReplayWindow[0] = (newReplayWindow[0].toInt() or 1).toByte()  // Mark most recent bit as seen
+                replayWindow[0] = (replayWindow[0].toInt() or 1).toByte()
             } else {
                 val offset = (highestReceivedNonce - receivedNonce).toInt()
-                val byteIndex = offset / 8
-                val bitIndex = offset % 8
-                newReplayWindow[byteIndex] = (newReplayWindow[byteIndex].toInt() or (1 shl bitIndex)).toByte()
+                val byteIndex = offset ushr 3
+                val bitIndex = offset and 7
+                replayWindow[byteIndex] = (replayWindow[byteIndex].toInt() or (1 shl bitIndex)).toByte()
             }
-            
-            return Pair(newHighestReceivedNonce, newReplayWindow)
+
+            return newHighestReceivedNonce
+        }
+
+        private fun extractNonce(combinedPayload: ByteArray): Long {
+            var extractedNonce = 0L
+            for (i in 0 until NONCE_SIZE_BYTES) {
+                extractedNonce = (extractedNonce shl 8) or (combinedPayload[i].toLong() and 0xFF)
+            }
+            return extractedNonce
         }
         
         /**
@@ -463,36 +481,41 @@ class NoiseSession(
             }
             
             try {
-                // assert that sendCipher!!.macLength is 16:
-                if (sendCipher!!.macLength != 16) {
+                // Single allocation: write 4-byte big-endian nonce and encrypt directly into combinedPayload.
+                val macLength = sendCipher!!.macLength
+                if (macLength != 16) {
                     throw IllegalStateException("Send cipher MAC length is not 16")
                 }
-                
-                // Encrypt the data first
-                val ciphertext = ByteArray(data.size + sendCipher!!.macLength) // Add space for MAC tag
-                sendCipher!!.setNonce(messagesSent)
-                val ciphertextLength = sendCipher!!.encryptWithAd(null, data, 0, ciphertext, 0, data.size)
-                
-                // Get the current nonce before incrementing
+
                 val currentNonce = messagesSent
+                val combinedPayload = ByteArray(NONCE_SIZE_BYTES + data.size + macLength)
+                combinedPayload[0] = ((currentNonce ushr 24) and 0xFF).toByte()
+                combinedPayload[1] = ((currentNonce ushr 16) and 0xFF).toByte()
+                combinedPayload[2] = ((currentNonce ushr 8) and 0xFF).toByte()
+                combinedPayload[3] = (currentNonce and 0xFF).toByte()
+
+                sendCipher!!.setNonce(currentNonce)
+                val ciphertextLength = sendCipher!!.encryptWithAd(
+                    null,
+                    data,
+                    0,
+                    combinedPayload,
+                    NONCE_SIZE_BYTES,
+                    data.size
+                )
                 messagesSent++
-                
-                // Create combined payload: <nonce><ciphertext> (4 bytes for nonce)
-                val nonceBytes = nonceToBytes(currentNonce)
-                val combinedPayload = ByteArray(NONCE_SIZE_BYTES + ciphertextLength)
-                
-                // Copy nonce (first 4 bytes)
-                System.arraycopy(nonceBytes, 0, combinedPayload, 0, NONCE_SIZE_BYTES)
-                
-                // Copy ciphertext (remaining bytes)
-                System.arraycopy(ciphertext, 0, combinedPayload, NONCE_SIZE_BYTES, ciphertextLength)
-                
+
                 // Log high nonce values that might indicate issues
                 if (currentNonce > HIGH_NONCE_WARNING_THRESHOLD) {
                     Log.w(TAG, "High send nonce $currentNonce for $peerID - rekey recommended")
                 }
 
-                return combinedPayload
+                val totalLen = NONCE_SIZE_BYTES + ciphertextLength
+                return if (totalLen == combinedPayload.size) {
+                    combinedPayload
+                } else {
+                    combinedPayload.copyOf(totalLen)
+                }
 
             } catch (e: Exception) {
                 Log.e(TAG, "Encryption failed for $peerID: ${e.message}")
@@ -523,17 +546,16 @@ class NoiseSession(
             }
 
             try {
-                // Extract nonce and ciphertext from combined payload
-                val nonceAndCiphertext = extractNonceFromCiphertextPayload(combinedPayload)
-                if (nonceAndCiphertext == null) {
+                if (combinedPayload.size < NONCE_SIZE_BYTES) {
                     Log.e(TAG, "Failed to extract nonce from payload for $peerID")
                     throw SessionError.DecryptionFailed
                 }
-                
-                val (extractedNonce, ciphertext) = nonceAndCiphertext
 
-                if (ciphertext.size < receiveCipher!!.macLength) {
-                    Log.w(TAG, "Ciphertext too short: ${ciphertext.size} < ${receiveCipher!!.macLength}")
+                val extractedNonce = extractNonce(combinedPayload)
+                val ciphertextLength = combinedPayload.size - NONCE_SIZE_BYTES
+                val macLength = receiveCipher!!.macLength
+                if (ciphertextLength < macLength) {
+                    Log.w(TAG, "Ciphertext too short: $ciphertextLength < $macLength")
                     throw SessionError.DecryptionFailed
                 }
 
@@ -543,23 +565,32 @@ class NoiseSession(
                     throw SessionError.DecryptionFailed
                 }
                 
-                // Use the extracted nonce for decryption
-                val plaintext = ByteArray(ciphertext.size) 
+                // Decrypt directly from combinedPayload at offset NONCE_SIZE_BYTES (zero intermediate copy)
+                val plaintext = ByteArray(ciphertextLength - macLength)
 
-                 receiveCipher!!.setNonce(extractedNonce)
-                val plaintextLength = receiveCipher!!.decryptWithAd(null, ciphertext, 0, plaintext, 0, ciphertext.size)
+                receiveCipher!!.setNonce(extractedNonce)
+                val plaintextLength = receiveCipher!!.decryptWithAd(
+                    null,
+                    combinedPayload,
+                    NONCE_SIZE_BYTES,
+                    plaintext,
+                    0,
+                    ciphertextLength
+                )
                 
-                // Mark nonce as seen after successful decryption
-                val (newHighestReceivedNonce, newReplayWindow) = markNonceAsSeen(extractedNonce, highestReceivedNonce, replayWindow)
-                highestReceivedNonce = newHighestReceivedNonce
-                replayWindow = newReplayWindow
+                // Mark nonce as seen in-place under cipherLock after successful decryption
+                highestReceivedNonce = markNonceAsSeenInPlace(extractedNonce, highestReceivedNonce, replayWindow)
 
                 // Log high nonce values that might indicate issues
                 if (extractedNonce > HIGH_NONCE_WARNING_THRESHOLD) {
                     Log.w(TAG, "High receive nonce $extractedNonce for $peerID - rekey recommended")
                 }
 
-                return plaintext.copyOf(plaintextLength)
+                return if (plaintextLength == plaintext.size) {
+                    plaintext
+                } else {
+                    plaintext.copyOf(plaintextLength)
+                }
 
             } catch (e: Exception) {
                 Log.w(TAG, "Decrypt failed for $peerID: ${e.message} (state=$state, highestNonce=$highestReceivedNonce)")
