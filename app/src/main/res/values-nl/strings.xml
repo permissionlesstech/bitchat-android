@@ -49,6 +49,7 @@
     <string name="notification_active_peers_title">bitchatters in de buurt!</string>
     <string name="notification_active_peers_one">1 persoon in de buurt</string>
     <string name="notification_active_peers_many">%1$d personen in de buurt</string>
+    <string name="notification_wave">Zwaaien 👋</string>
     <string name="notification_new_messages">Nieuwe berichten</string>
     <string name="notification_new_location_messages">Nieuwe locatieberichten</string>
     <string name="notification_mentions_in">Vermeld in %1$s</string>

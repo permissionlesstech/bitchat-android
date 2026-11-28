@@ -49,6 +49,7 @@
     <string name="notification_active_peers_title">کاربران bitchat در نزدیکی!</string>
     <string name="notification_active_peers_one">۱ نفر در نزدیکی</string>
     <string name="notification_active_peers_many">%1$d نفر در نزدیکی</string>
+    <string name="notification_wave">دست تکان دادن 👋</string>
     <string name="notification_new_messages">پیام‌های جدید</string>
     <string name="notification_new_location_messages">پیام‌های مکانی جدید</string>
     <string name="notification_mentions_in">ذکر شده در %1$s</string>

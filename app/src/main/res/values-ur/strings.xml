@@ -49,6 +49,7 @@
     <string name="notification_active_peers_title">قریب میں bitchatter!</string>
     <string name="notification_active_peers_one">قریب میں 1 شخص</string>
     <string name="notification_active_peers_many">قریب میں %1$d لوگ</string>
+    <string name="notification_wave">ہاتھ ہلائیں 👋</string>
     <string name="notification_new_messages">نئے پیغامات</string>
     <string name="notification_new_location_messages">نئے مقام کے پیغامات</string>
     <string name="notification_mentions_in">%1$s میں ذکر</string>

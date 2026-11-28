@@ -50,6 +50,7 @@
   <string name="notification_active_peers_title">bitchatters nearby!</string>
   <string name="notification_active_peers_one">1 person around</string>
   <string name="notification_active_peers_many">%1$d people around</string>
+  <string name="notification_wave">Wave 👋</string>
   <string name="notification_new_messages">New Messages</string>
   <string name="notification_new_location_messages">New Location Messages</string>
   <string name="notification_mentions_in">Mentioned in %1$s</string>

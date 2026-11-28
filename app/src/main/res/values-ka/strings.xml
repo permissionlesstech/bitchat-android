@@ -49,6 +49,7 @@
     <string name="notification_active_peers_title">bitchatter-ები ახლოს!</string>
     <string name="notification_active_peers_one">1 ადამიანი ახლოს</string>
     <string name="notification_active_peers_many">ახლოს %1$d ადამიანი</string>
+    <string name="notification_wave">ხელის დაქნევა 👋</string>
     <string name="notification_new_messages">ახალი შეტყობინებები</string>
     <string name="notification_new_location_messages">მდებარეობის ახალი შეტყობინებები</string>
     <string name="notification_mentions_in">ხსენება %1$s-ში</string>

@@ -95,6 +95,7 @@
   <string name="notification_active_peers_title">👥 יש בצ׳אטרים בקרבת מקום!</string>
   <string name="notification_active_peers_one">אדם אחד בסביבה</string>
   <string name="notification_active_peers_many">%1$d אנשים בסביבה</string>
+  <string name="notification_wave">לנופף 👋</string>
   <string name="notification_new_messages">הודעות חדשות</string>
   <string name="notification_new_location_messages">הודעות מיקום חדשות</string>
   <string name="notification_mentions_in">אוזכרת ב-%1$s</string>

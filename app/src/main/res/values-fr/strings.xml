@@ -49,6 +49,7 @@
     <string name="notification_active_peers_title">bitchatters à proximité !</string>
     <string name="notification_active_peers_one">1 personne à proximité</string>
     <string name="notification_active_peers_many">%1$d personnes à proximité</string>
+    <string name="notification_wave">Saluer 👋</string>
     <string name="notification_new_messages">Nouveaux messages</string>
     <string name="notification_new_location_messages">Nouveaux messages de lieu</string>
     <string name="notification_mentions_in">Mentionné dans %1$s</string>

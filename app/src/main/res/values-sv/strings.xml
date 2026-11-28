@@ -43,6 +43,7 @@
     <string name="notification_active_peers_title">bitchatter i närheten!</string>
     <string name="notification_active_peers_one">1 person i närheten</string>
     <string name="notification_active_peers_many">%1$d personer i närheten</string>
+    <string name="notification_wave">Vinka 👋</string>
     <string name="notification_new_messages">Nya meddelanden</string>
     <string name="notification_new_location_messages">Nya platsmeddelanden</string>
     <string name="notification_mentions_in">Nämnd i %1$s</string>

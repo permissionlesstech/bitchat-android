@@ -97,6 +97,7 @@
     <string name="notification_active_peers_title">👥 bitchatowicze w pobliżu!</string>
     <string name="notification_active_peers_one">1 osoba w pobliżu</string>
     <string name="notification_active_peers_many">%1$d osób w pobliżu</string>
+    <string name="notification_wave">Pomachaj 👋</string>
     <string name="notification_new_messages">Nowe wiadomości</string>
     <string name="notification_new_location_messages">Nowe wiadomości lokalizacyjne</string>
     <string name="notification_mentions_in">Wzmianka w %1$s</string>

@@ -142,6 +142,11 @@
             android:enabled="true"
             android:exported="false" />
 
+        <receiver
+            android:name=".service.PeerAvailabilityWaveReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
         <!-- Auto-start mesh service after boot if enabled -->
         <receiver
             android:name=".service.BootCompletedReceiver"

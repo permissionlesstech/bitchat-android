@@ -49,6 +49,7 @@
     <string name="notification_active_peers_title">pessoas do bitchat por perto!</string>
     <string name="notification_active_peers_one">1 pessoa por perto</string>
     <string name="notification_active_peers_many">%1$d pessoas por perto</string>
+    <string name="notification_wave">Acenar 👋</string>
     <string name="notification_new_messages">Novas mensagens</string>
     <string name="notification_new_location_messages">Novas mensagens de localização</string>
     <string name="notification_mentions_in">Mencionado em %1$s</string>
