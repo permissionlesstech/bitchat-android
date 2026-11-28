@@ -163,13 +163,17 @@ open class EncryptionService(private val context: Context) {
     /**
      * Clear persistent identity (for panic mode)
      */
-    fun clearPersistentIdentity() {
-        noiseService.clearPersistentIdentity()
+    /** Returns true only when both the Noise identity and the signing key were wiped from disk. */
+    fun clearPersistentIdentity(): Boolean {
+        val noiseCleared = noiseService.clearPersistentIdentity()
         establishedSessions.clear()
         
         // Clear Ed25519 signing key from preferences
         try {
-            prefs.edit { remove(ED25519_PRIVATE_KEY_PREF) }
+            if (!prefs.edit().remove(ED25519_PRIVATE_KEY_PREF).commit()) {
+                Log.e(TAG, "❌ Ed25519 signing key wipe could not be committed")
+                return false
+            }
             Log.d(TAG, "🗑️ Cleared Ed25519 signing keys from preferences")
 
             // Generate new keys immediately
@@ -179,7 +183,9 @@ open class EncryptionService(private val context: Context) {
             Log.d(TAG, "✅ Rotated Ed25519 signing keys in memory")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to clear Ed25519 keys: ${e.message}")
+            return false
         }
+        return noiseCleared
     }
     
     /**

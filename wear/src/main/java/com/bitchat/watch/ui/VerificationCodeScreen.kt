@@ -13,22 +13,21 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
-import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
 import com.bitchat.watch.mesh.WearMeshService
+import com.bitchat.watch.ui.theme.BitchatFontFamily
 import com.bitchat.watch.ui.theme.ChatVisualTokens
 import com.bitchat.watch.ui.theme.LocalBitchatPalette
 
@@ -40,21 +39,39 @@ fun VerificationCodeScreen(peerID: String) {
         WearPeerIdentityState.snapshot(peerID, mesh)
     }
     val myFingerprint = WearPeerIdentityState.myFingerprint(mesh)
-    val listState = rememberScalingLazyListState(initialCenterItemIndex = 0)
+    val listState = rememberScalingLazyListState()
     val palette = LocalBitchatPalette.current
+    // Icon and title share one state color, so the header reads as a single status.
+    val statusColor =
+        if (identity.isVerified) MaterialTheme.colorScheme.primary else palette.accentOrange
 
-    ScreenScaffold(scrollState = listState) { scaffoldPadding ->
+    // The decision is the screen's edge button: it grows out of the bottom edge once both
+    // codes have been scrolled past, the Wear pattern for a list's primary action.
+    ScreenScaffold(
+        scrollState = listState,
+        edgeButton = {
+            FormEdgeButton(
+                label = if (identity.isVerified) "Unverify" else "Verify",
+                enabled = identity.fingerprint != null,
+                onClick = {
+                    WearPeerIdentityState.setVerified(
+                        peerID = peerID,
+                        verified = !identity.isVerified,
+                        mesh = mesh
+                    )
+                }
+            )
+        }
+    ) { scaffoldPadding ->
         val layoutDirection = LocalLayoutDirection.current
         ScalingLazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            autoCentering = null,
             contentPadding = scaffoldPadding
                 .withAdditionalPadding(
                     layoutDirection = layoutDirection,
                     horizontal = 10.dp
                 )
-                .withVerticalClearance(layoutDirection, top = 28.dp, bottom = 28.dp)
         ) {
             item {
                 ListHeader {
@@ -69,68 +86,42 @@ fun VerificationCodeScreen(peerID: String) {
                                 Icons.Outlined.Warning
                             },
                             contentDescription = null,
-                            tint = if (identity.isVerified) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                palette.accentOrange
-                            }
+                            tint = statusColor
                         )
                         Text(
-                            text = if (identity.isVerified) "Verified" else "Verify identity",
+                            text = if (identity.isVerified) "Verified" else "Unverified",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            color = statusColor
                         )
                     }
                 }
             }
 
             item {
+                Text(
+                    text = "Match codes in person",
+                    style = ChatVisualTokens.SystemActionStyle,
+                    color = palette.textTertiary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 4.dp)
+                )
+            }
+
+            item {
                 FingerprintCard(
-                    title = "Their code",
+                    title = "Theirs",
                     fingerprint = identity.fingerprint
                 )
             }
 
             item {
                 FingerprintCard(
-                    title = "Your code",
+                    title = "Yours",
                     fingerprint = myFingerprint
                 )
-            }
-
-            item {
-                Text(
-                    text = "Compare both full codes in person or over a trusted channel.",
-                    style = ChatVisualTokens.SystemActionStyle,
-                    color = palette.textTertiary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                )
-            }
-
-            item {
-                Button(
-                    onClick = {
-                        WearPeerIdentityState.setVerified(
-                            peerID = peerID,
-                            verified = !identity.isVerified,
-                            mesh = mesh
-                        )
-                    },
-                    enabled = identity.fingerprint != null
-                ) {
-                    Text(
-                        if (identity.isVerified) {
-                            "Remove verification"
-                        } else {
-                            "Mark verified"
-                        },
-                        textAlign = TextAlign.Center
-                    )
-                }
             }
         }
     }
@@ -157,9 +148,9 @@ private fun FingerprintCard(
             fontWeight = FontWeight.Bold
         )
         Text(
-            text = fingerprint?.let(::formatVerificationCode) ?: "Handshake pending",
+            text = fingerprint?.let(::formatVerificationCode) ?: "Pending…",
             style = MaterialTheme.typography.bodySmall.copy(
-                fontFamily = FontFamily.Monospace,
+                fontFamily = BitchatFontFamily,
                 fontSize = 12.sp,
                 lineHeight = 16.sp
             ),

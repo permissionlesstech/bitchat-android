@@ -112,21 +112,20 @@ class PacketProcessorAnnounceSideEffectTest {
         override fun getPeerNickname(peerID: String): String? = null
         override fun getNetworkSize() = 1
         override fun getBroadcastRecipient(): ByteArray = SpecialRecipients.BROADCAST
-        override fun handleNoiseHandshake(routed: RoutedPacket): Boolean {
+        override suspend fun handleNoiseHandshake(routed: RoutedPacket): Boolean {
             handshakeHandled.complete(Unit)
             return acceptHandshake
         }
-        override fun handleNoiseEncrypted(routed: RoutedPacket) = true
+        override suspend fun handleNoiseEncrypted(routed: RoutedPacket) = true
         override suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
             handled.complete(Unit)
             return acceptAnnounce
         }
-        override fun handleMessage(routed: RoutedPacket) = Unit
-        override fun handleLeave(routed: RoutedPacket) = Unit
+        override suspend fun handleMessage(routed: RoutedPacket) = Unit
+        override suspend fun handleLeave(routed: RoutedPacket) = Unit
         override fun handleFragment(packet: BitchatPacket): BitchatPacket? = null
         override fun handleRequestSync(routed: RoutedPacket) = Unit
         override fun sendAnnouncementToPeer(peerID: String) = Unit
-        override fun sendCachedMessages(peerID: String) = Unit
         override fun relayPacket(routed: RoutedPacket) {
             relayCount += 1
         }

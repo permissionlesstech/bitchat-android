@@ -92,6 +92,9 @@ class CommandProcessor(
                 val success = privateChatManager.startPrivateChat(peerID, meshService)
                 
                 if (success) {
+                    // The selected peer routes composer sends, and private chats are only
+                    // visible in the sheet, so a selection must never exist without it.
+                    state.setPrivateChatSheetPeer(state.getSelectedPrivateChatPeerValue())
                     if (parts.size > 2) {
                         val messageContent = parts.drop(2).joinToString(" ")
                         val recipientNickname = getPeerNickname(peerID, meshService)
@@ -321,6 +324,9 @@ class CommandProcessor(
                 // Let the transport layer add the echo; just send it out
                 onSendMessage(actionMessage, emptyList(), null)
             } else {
+                state.getCurrentChannelValue()?.let { channel ->
+                    if (channelManager.refuseSendIfPasswordProtected(channel)) return
+                }
                 val message = BitchatMessage(
                     sender = state.getNicknameValue() ?: myPeerID,
                     content = actionMessage,
@@ -410,6 +416,9 @@ class CommandProcessor(
             val isLocationChannel =
                 state.selectedLocationChannel.value is com.bitchat.android.geohash.ChannelID.Location
             if (!isLocationChannel) {
+                state.getCurrentChannelValue()?.let { channel ->
+                    if (channelManager.refuseSendIfPasswordProtected(channel)) return
+                }
                 val message = BitchatMessage(
                     sender = state.getNicknameValue() ?: myPeerID,
                     content = token,
@@ -431,28 +440,7 @@ class CommandProcessor(
     }
 
     private fun addSystemMessage(content: String) {
-        val message = BitchatMessage(
-            sender = "system",
-            content = content,
-            timestamp = Date(),
-            isRelay = false
-        )
-        val selectedPeer = state.getSelectedPrivateChatPeerValue()
-        val selectedLocationChannel = state.selectedLocationChannel.value
-        val channel = state.getCurrentChannelValue()
-        when {
-            selectedPeer != null -> {
-                messageManager.addPrivateMessageNoUnread(selectedPeer, message.copy(isPrivate = true))
-            }
-            selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location -> {
-                messageManager.addChannelMessage(
-                    "geo:${selectedLocationChannel.channel.geohash}",
-                    message
-                )
-            }
-            channel != null -> channelManager.addChannelMessage(channel, message, null)
-            else -> messageManager.addMessage(message)
-        }
+        messageManager.addSystemMessageToActiveTimeline(content)
     }
     
     private fun handleUnknownCommand(cmd: String) {

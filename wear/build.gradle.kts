@@ -19,8 +19,8 @@ android {
         targetSdk = libs.versions.targetSdk.get().toInt()
         // Wear releases use a separate high range because Play requires every artifact in
         // one application ID to have a unique version code across all form factors.
-        versionCode = 1_000_000_005
-        versionName = "0.1.4"
+        versionCode = 1_000_000_008
+        versionName = "0.1.7"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -95,6 +95,7 @@ val sharedSourceIncludes = listOf(
     "com/bitchat/android/sync/**",
     "com/bitchat/android/favorites/**",
     "com/bitchat/android/services/AppStateStore.kt",
+    "com/bitchat/android/services/PeerConversationReconciler.kt",
     "com/bitchat/android/services/ContactDirectory.kt",
     "com/bitchat/android/services/ContactIdentityResolver.kt",
     "com/bitchat/android/services/ConversationRepository.kt",
@@ -104,6 +105,7 @@ val sharedSourceIncludes = listOf(
     "com/bitchat/android/services/VerificationService.kt",
     "com/bitchat/android/services/meshgraph/**",
     "com/bitchat/android/service/TransportBridgeService.kt",
+    "com/bitchat/android/spam/**",
     "com/bitchat/android/nostr/Bech32.kt",
     "com/bitchat/android/nostr/GeohashAliasRegistry.kt",
     "com/bitchat/android/features/file/FileUtils.kt",
@@ -118,6 +120,8 @@ val sharedSourceIncludes = listOf(
 )
 val sharedSourceExcludes = listOf(
     "com/bitchat/android/model/FileSharingManager.kt",
+    // The watch has no spam filter toggle, so it keeps the filter's default (on).
+    "com/bitchat/android/spam/SpamFilterPreferences.kt",
     // Legacy phone monolith and Wi-Fi Aware multiplexer; the watch composes its own service
     // (MeshCore-style) in M2 instead of reusing these.
     "com/bitchat/android/mesh/BluetoothMeshService.kt",

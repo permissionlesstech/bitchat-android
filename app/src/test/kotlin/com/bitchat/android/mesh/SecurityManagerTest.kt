@@ -10,6 +10,10 @@ import com.bitchat.android.noise.NoiseSessionError
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import kotlinx.coroutines.runBlocking
+import java.util.Collections
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -96,6 +100,75 @@ class SecurityManagerTest {
     fun tearDown() {
         if (::securityManager.isInitialized) {
             securityManager.shutdown()
+        }
+    }
+
+    @Test
+    fun `cleanup serializes timestamp traversal with concurrent packet tracking`() {
+        assertCleanupSerializesWrites("messageTimestamps")
+    }
+
+    @Test
+    fun `cleanup serializes timestamp traversal with concurrent handshake tracking`() {
+        assertCleanupSerializesWrites("keyExchangeTimestamps")
+    }
+
+    private fun assertCleanupSerializesWrites(fieldName: String) {
+        val allowWrite = CountDownLatch(1)
+        val writeFinished = CountDownLatch(1)
+        lateinit var timestamps: MutableMap<String, Long>
+        val backing = object : LinkedHashMap<String, Long>() {
+            override val entries: MutableSet<MutableMap.MutableEntry<String, Long>>
+                get() {
+                    val original = super.entries
+                    return object : AbstractMutableSet<MutableMap.MutableEntry<String, Long>>() {
+                        override val size get() = original.size
+                        override fun add(element: MutableMap.MutableEntry<String, Long>) =
+                            error("Not used")
+                        override fun iterator(): MutableIterator<MutableMap.MutableEntry<String, Long>> {
+                            val iterator = original.iterator()
+                            var first = true
+                            return object : MutableIterator<MutableMap.MutableEntry<String, Long>> {
+                                override fun hasNext() = iterator.hasNext()
+                                override fun remove() = iterator.remove()
+                                override fun next(): MutableMap.MutableEntry<String, Long> {
+                                    if (first) {
+                                        first = false
+                                        allowWrite.countDown()
+                                        // A correct synchronized traversal blocks the writer. An
+                                        // unguarded traversal deterministically exposes the CME.
+                                        if (!Thread.holdsLock(timestamps)) {
+                                            assertTrue(writeFinished.await(5, TimeUnit.SECONDS))
+                                        }
+                                    }
+                                    return iterator.next()
+                                }
+                            }
+                        }
+                    }
+                }
+        }
+        timestamps = Collections.synchronizedMap(backing)
+        timestamps["expired-a"] = 1L
+        timestamps["expired-b"] = 2L
+        SecurityManager::class.java.getDeclaredField(fieldName).apply {
+            isAccessible = true
+            set(securityManager, timestamps)
+        }
+        val now = 10_000_000L
+        val executor = Executors.newSingleThreadExecutor()
+        val writer = executor.submit {
+            check(allowWrite.await(5, TimeUnit.SECONDS))
+            timestamps["fresh"] = now
+            writeFinished.countDown()
+        }
+        try {
+            securityManager.cleanupOldData(now)
+            writer.get(5, TimeUnit.SECONDS)
+            assertTrue(timestamps.keys == setOf("fresh"))
+        } finally {
+            allowWrite.countDown()
+            executor.shutdownNow()
         }
     }
 

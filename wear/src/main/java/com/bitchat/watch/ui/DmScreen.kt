@@ -48,8 +48,10 @@ import com.bitchat.watch.ui.theme.colorForPeer
 @Composable
 fun DmScreen(
     peerID: String,
+    active: Boolean = true,
     onOpenUserDetail: () -> Unit,
-    onOpenTextInput: () -> Unit
+    onOpenTextInput: () -> Unit,
+    onHorizontalGestureActive: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val privateMessages by AppStateStore.privateMessages.collectAsState()
@@ -82,15 +84,23 @@ fun DmScreen(
         mutableStateOf(mesh?.hasEstablishedSession(peerID) == true)
     }
 
-    DisposableEffect(peerID) {
-        liveVoiceManager.showDirectMessage(peerID)
-        WearChatState.openDm(peerID)
-        WearNotificationCoordinator.getInstance(context).clearConversation(peerID)
-        onDispose {
-            WearChatState.closeDm()
-            liveVoiceManager.clearVisibleConversation()
+    // A copy revealed behind a swipe (from details or text input) stays passive, so a
+    // cancelled swipe leaves the open-thread and live-voice state exactly as it was.
+    if (active) {
+        DisposableEffect(peerID) {
+            liveVoiceManager.showDirectMessage(peerID)
+            WearChatState.openDm(peerID)
+            WearNotificationCoordinator.getInstance(context).clearConversation(peerID)
+            onDispose {
+                WearChatState.closeDm()
+                liveVoiceManager.clearVisibleConversation()
+            }
         }
     }
+
+    // Push-to-talk drags and the image viewer own the screen; swipe-back must not steal them.
+    val horizontalGestureActive = voice.recording || viewerPath != null
+    LaunchedEffect(horizontalGestureActive) { onHorizontalGestureActive(horizontalGestureActive) }
 
     LaunchedEffect(peerID) {
         if (mesh?.hasEstablishedSession(peerID) != true) {
@@ -105,8 +115,7 @@ fun DmScreen(
     ChatScaffold(
         messages = messages,
         myPeerID = myPeerID,
-        emptyText = if (sessionEstablished) "Encrypted channel ready\nSay hi"
-        else "Setting up encryption…",
+        emptyText = if (sessionEstablished) "Encrypted\nSay hi" else "Securing…",
         voice = voice,
         onOpenImage = { viewerPath = it },
         header = { expanded ->

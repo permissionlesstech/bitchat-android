@@ -48,28 +48,52 @@ fun GeohashPeopleList(
 
     val palette = LocalBitchatPalette.current
     val colorScheme = MaterialTheme.colorScheme
-    val myHex = remember(selectedLocationChannel) {
-        when (val channel = selectedLocationChannel) {
-            is com.bitchat.android.geohash.ChannelID.Location -> {
-                try {
-                    val identity = com.bitchat.android.nostr.NostrIdentityBridge.deriveIdentity(
-                        forGeohash = channel.channel.geohash,
-                        context = viewModel.getApplication()
-                    )
-                    identity.publicKeyHex.lowercase(Locale.ROOT)
-                } catch (e: Exception) {
-                    Log.e("GeohashPeopleList", "Failed to derive identity: ${e.message}")
-                    null
-                }
-            }
-            else -> null
+    val currentGeohash = (selectedLocationChannel as? com.bitchat.android.geohash.ChannelID.Location)
+        ?.channel?.geohash
+    val derivedSelfIdentity by produceState<Pair<String, String?>?>(
+        initialValue = currentGeohash?.let { geo ->
+            geo to com.bitchat.android.nostr.NostrIdentityBridge
+                .getCachedIdentity(geo)
+                ?.publicKeyHex
+                ?.lowercase(Locale.ROOT)
+        },
+        key1 = currentGeohash
+    ) {
+        if (currentGeohash == null) {
+            value = null
+            return@produceState
         }
+        val cachedHex = com.bitchat.android.nostr.NostrIdentityBridge
+            .getCachedIdentity(currentGeohash)
+            ?.publicKeyHex
+            ?.lowercase(Locale.ROOT)
+        // Immediately bind state to the newly selected channel so a previous channel's pubkey
+        // can never appear as self while a cold derivation runs on Dispatchers.IO.
+        value = currentGeohash to cachedHex
+        if (cachedHex != null) return@produceState
+
+        val derivedHex = try {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.bitchat.android.nostr.NostrIdentityBridge.deriveIdentity(
+                    forGeohash = currentGeohash,
+                    context = viewModel.getApplication()
+                ).publicKeyHex.lowercase(Locale.ROOT)
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e("GeohashPeopleList", "Failed to derive identity: ${e.message}")
+            null
+        }
+        value = currentGeohash to derivedHex
     }
+    val myHex = derivedSelfIdentity?.takeIf { it.first == currentGeohash }?.second
     val peopleIncludingSelf = remember(geohashPeople, myHex, nickname) {
-        if (myHex != null && geohashPeople.none { it.id.equals(myHex, ignoreCase = true) }) {
+        val currentMyHex = myHex
+        if (currentMyHex != null && geohashPeople.none { it.id.equals(currentMyHex, ignoreCase = true) }) {
             listOf(
                 GeoPerson(
-                    id = myHex,
+                    id = currentMyHex,
                     displayName = nickname.ifBlank { "anon" },
                     lastSeen = Date(0)
                 )

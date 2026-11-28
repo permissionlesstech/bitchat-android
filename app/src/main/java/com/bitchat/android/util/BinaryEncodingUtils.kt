@@ -11,24 +11,38 @@ import java.util.*
 
 // MARK: - Hex Encoding/Decoding Extensions
 
-fun ByteArray.hexEncodedString(): String {
-    if (this.isEmpty()) {
-        return ""
-    }
-    return this.joinToString("") { "%02x".format(it) }
-}
+fun ByteArray.hexEncodedString(): String = toHexString()
 
 fun String.dataFromHexString(): ByteArray? {
-    val len = this.length / 2
-    val data = ByteArray(len)
-    var index = 0
-    
-    for (i in 0 until len) {
-        val hexByte = this.substring(i * 2, i * 2 + 2)
-        val byte = hexByte.toIntOrNull(16)?.toByte() ?: return null
-        data[index++] = byte
+    // Match iOS Data(hexString:) and Kotlin String.trim(): Unicode whitespace only (never NUL),
+    // optional 0x/0X prefix, reject odd length.
+    var start = 0
+    var end = length
+    while (start < end && this[start].isWhitespace()) start++
+    while (end > start && this[end - 1].isWhitespace()) end--
+    if (end - start >= 2 && this[start] == '0' && (this[start + 1] == 'x' || this[start + 1] == 'X')) {
+        start += 2
     }
-    
+    val hexLen = end - start
+    if (hexLen == 0) {
+        return ByteArray(0)
+    }
+    if ((hexLen and 1) != 0) {
+        return null
+    }
+
+    val len = hexLen ushr 1
+    val data = ByteArray(len)
+    var i = 0
+    var pos = start
+    while (i < len) {
+        val hi = hexNibbleOrNegative(this[pos])
+        val lo = hexNibbleOrNegative(this[pos + 1])
+        if (hi < 0 || lo < 0) return null
+        data[i] = ((hi shl 4) or lo).toByte()
+        i++
+        pos += 2
+    }
     return data
 }
 
