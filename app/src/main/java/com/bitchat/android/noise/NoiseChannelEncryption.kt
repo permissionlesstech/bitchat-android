@@ -1,7 +1,7 @@
 package com.bitchat.android.noise
 
 import android.util.Log
-import java.security.MessageDigest
+import com.bitchat.android.util.sha256Hex
 import java.util.concurrent.ConcurrentHashMap
 import javax.crypto.Cipher
 import javax.crypto.SecretKeyFactory
@@ -177,9 +177,7 @@ class NoiseChannelEncryption {
         val key = channelKeys[channel] ?: return null
         
         return try {
-            val digest = MessageDigest.getInstance("SHA-256")
-            val hash = digest.digest(key.encoded)
-            hash.joinToString("") { "%02x".format(it) }
+            key.encoded.sha256Hex()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to calculate key commitment: ${e.message}")
             null

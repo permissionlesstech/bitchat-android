@@ -4,7 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.identity.SecureIdentityStateManager
-import java.security.MessageDigest
+import com.bitchat.android.util.sha256Hex
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantReadWriteLock
@@ -66,10 +66,7 @@ data class NostrIdentity(
          */
         fun fromSeed(seed: String): NostrIdentity {
             // Hash the seed to create a private key
-            val digest = MessageDigest.getInstance("SHA-256")
-            val seedBytes = seed.toByteArray(Charsets.UTF_8)
-            val privateKeyBytes = digest.digest(seedBytes)
-            val privateKeyHex = privateKeyBytes.joinToString("") { "%02x".format(it) }
+            val privateKeyHex = seed.toByteArray(Charsets.UTF_8).sha256Hex()
             
             return fromPrivateKey(privateKeyHex)
         }
@@ -189,10 +186,7 @@ object NostrIdentityBridge {
 
             // As a final fallback, hash the seed+msg and try again (exactly like iOS)
             val combined = seed + geohashBytes
-            val digest = MessageDigest.getInstance("SHA-256")
-            val fallbackKey = digest.digest(combined)
-
-            val fallbackIdentity = NostrIdentity.fromPrivateKey(fallbackKey.toHexString())
+            val fallbackIdentity = NostrIdentity.fromPrivateKey(combined.sha256Hex())
             geohashIdentityCache[forGeohash] = fallbackIdentity
 
             Log.d(TAG, "Used fallback geohash identity derivation")

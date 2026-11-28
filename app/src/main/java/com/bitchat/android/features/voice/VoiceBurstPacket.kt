@@ -1,5 +1,6 @@
 package com.bitchat.android.features.voice
 
+import com.bitchat.android.util.toHexString
 import java.io.ByteArrayOutputStream
 import java.security.SecureRandom
 
@@ -143,8 +144,7 @@ class VoiceBurstPacket private constructor(
 
         fun makeBurstID(): ByteArray = ByteArray(BURST_ID_SIZE).also(random::nextBytes)
 
-        fun burstIDHex(burstID: ByteArray): String =
-            burstID.joinToString("") { byte -> "%02x".format(byte.toInt() and 0xFF) }
+        fun burstIDHex(burstID: ByteArray): String = burstID.toHexString()
     }
 }
 
