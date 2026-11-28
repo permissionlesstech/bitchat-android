@@ -5,14 +5,25 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,22 +37,35 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
+import androidx.wear.compose.material3.ripple
 import com.bitchat.watch.ui.media.WaveformBars
 import com.bitchat.watch.ui.theme.BitchatMotion
 import com.bitchat.watch.ui.theme.ChatVisualTokens
@@ -67,40 +91,51 @@ fun ChatActionBar(
         ActivityResultContracts.RequestPermission()
     ) { granted -> if (granted) voice.start() }
 
+    // Someone else holding the public channel tints the mic amber; recording fills it green.
+    val micContainer by animateColorAsState(
+        targetValue = when {
+            voice.recording -> MaterialTheme.colorScheme.primary
+            busyTalker != null -> palette.accentOrange.copy(alpha = 0.28f)
+            else -> palette.inputButton
+        },
+        animationSpec = tween(BitchatMotion.STANDARD_MS),
+        label = "micContainer"
+    )
+    val micTint by animateColorAsState(
+        targetValue = when {
+            voice.recording -> MaterialTheme.colorScheme.onPrimary
+            busyTalker != null -> palette.accentOrange
+            else -> MaterialTheme.colorScheme.primary
+        },
+        animationSpec = tween(BitchatMotion.STANDARD_MS),
+        label = "micTint"
+    )
+    var micPressed by remember { mutableStateOf(false) }
+
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(38.dp)
-                .clip(CircleShape)
-                .background(palette.inputButton)
-                .clickable { onKeyboard() },
-            contentAlignment = Alignment.Center
-        ) {
+        RoundActionButton(onClick = onKeyboard, container = palette.inputButton) {
             Icon(
                 imageVector = Icons.Filled.Keyboard,
-                contentDescription = "type message",
+                contentDescription = "Type message",
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(ActionIconSize)
             )
         }
         Box(
             modifier = Modifier
-                .size(38.dp)
+                .size(ActionButtonSize)
+                .pressScale(micPressed)
                 .clip(CircleShape)
-                .background(
-                    when {
-                        voice.recording -> MaterialTheme.colorScheme.primary
-                        busyTalker != null -> androidx.compose.ui.graphics.Color(0xFFFFB300).copy(alpha = 0.28f)
-                        else -> palette.inputButton
-                    }
-                )
+                .background(micContainer)
+                .semantics { role = Role.Button }
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onPress = {
+                            micPressed = true
                             val granted = ContextCompat.checkSelfPermission(
                                 context, Manifest.permission.RECORD_AUDIO
                             ) == PackageManager.PERMISSION_GRANTED
@@ -113,7 +148,9 @@ fun ChatActionBar(
                             // the pointer mid-drag (cancel), keep recording — the
                             // screen-level release watcher in ChatScaffold stops when the
                             // finger actually lifts, anywhere on the screen.
-                            if (tryAwaitRelease()) {
+                            val released = tryAwaitRelease()
+                            micPressed = false
+                            if (released) {
                                 voice.stop(send = true)
                             }
                         }
@@ -123,15 +160,58 @@ fun ChatActionBar(
         ) {
             Icon(
                 imageVector = Icons.Filled.Mic,
-                contentDescription = "push to talk",
-                tint = when {
-                    voice.recording -> MaterialTheme.colorScheme.onPrimary
-                    busyTalker != null -> androidx.compose.ui.graphics.Color(0xFFFFB300)
-                    else -> MaterialTheme.colorScheme.primary
-                },
-                modifier = Modifier.size(18.dp)
+                contentDescription = "Hold to talk",
+                tint = micTint,
+                modifier = Modifier.size(ActionIconSize)
             )
         }
+    }
+}
+
+private const val AMPLITUDE_POLL_EASE_MS = 100
+internal val ActionButtonSize = 48.dp
+internal val ActionIconSize = 22.dp
+
+/** Round 48dp action in the chat's visual language, with a soft press-down. */
+@Composable
+internal fun RoundActionButton(
+    onClick: () -> Unit,
+    container: Color,
+    enabled: Boolean = true,
+    content: @Composable () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    Box(
+        modifier = Modifier
+            .size(ActionButtonSize)
+            .pressScale(pressed)
+            .clip(CircleShape)
+            .background(container)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = ripple(),
+                enabled = enabled,
+                role = Role.Button,
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        content()
+    }
+}
+
+/** Buttons sink slightly under the finger and spring back on release. */
+@Composable
+internal fun Modifier.pressScale(pressed: Boolean): Modifier {
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.9f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium),
+        label = "pressScale"
+    )
+    return graphicsLayer {
+        scaleX = scale
+        scaleY = scale
     }
 }
 
@@ -150,7 +230,7 @@ fun VoiceRecordOverlay(
     hoveringCancel: Boolean,
     proximity: Float,
     magnetPull: Offset,
-    onCancelBounds: (androidx.compose.ui.geometry.Rect) -> Unit
+    onCancelBounds: (androidx.compose.ui.geometry.Rect) -> Unit,
 ) {
     val palette = LocalBitchatPalette.current
     // The cancel morph, choreographed for feel:
@@ -159,101 +239,197 @@ fun VoiceRecordOverlay(
     // - the button leans toward the approaching finger (magnetic pull), chasing it with a
     //   smooth spring so it lags and settles naturally
     // - scale blooms with a soft bounce on activation — no rotation, no wobble
-    val cancelScale by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (hoveringCancel) 1.32f else 1f + 0.1f * proximity,
-        animationSpec = androidx.compose.animation.core.spring(
-            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
-            stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
-        ),
-        label = "cancelSnap"
+    val cancelScale by
+        androidx.compose.animation.core.animateFloatAsState(
+            targetValue = if (hoveringCancel) 1.32f else 1f + 0.1f * proximity,
+            animationSpec =
+                androidx.compose.animation.core.spring(
+                    dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+                    stiffness = androidx.compose.animation.core.Spring.StiffnessMedium,
+                ),
+            label = "cancelSnap",
+        )
+    val pull by
+        androidx.compose.animation.core.animateOffsetAsState(
+            targetValue = magnetPull,
+            animationSpec =
+                androidx.compose.animation.core.spring(
+                    dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+                    stiffness = androidx.compose.animation.core.Spring.StiffnessMedium,
+                ),
+            label = "magnetPull",
+        )
+    // Green and red blend through olive, so the fill switches cleanly on activation and the
+    // approach is told by a red halo that thickens as the finger nears.
+    val cancelColor by animateColorAsState(
+        targetValue =
+            if (hoveringCancel) MaterialTheme.colorScheme.error
+            else MaterialTheme.colorScheme.primary,
+        animationSpec = tween(BitchatMotion.QUICK_MS),
+        label = "cancelFill",
     )
-    val pull by androidx.compose.animation.core.animateOffsetAsState(
-        targetValue = magnetPull,
-        animationSpec = androidx.compose.animation.core.spring(
-            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
-            stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
-        ),
-        label = "magnetPull"
+    val haloColor = MaterialTheme.colorScheme.error.copy(alpha = proximity)
+    // isLive drops as soon as recording stops; hold the label through the fade-out.
+    var showLive by remember { mutableStateOf(false) }
+    LaunchedEffect(voice.recording, voice.isLive) { if (voice.recording) showLive = voice.isLive }
+    // The 10 s budget runs around the display edge, the Wear idiom for a countdown; it warms
+    // to amber over the last seconds so the cap never arrives as a surprise.
+    // Amplitude polls land every ~80 ms; easing between them keeps the sweep continuous.
+    val budget by animateFloatAsState(
+        targetValue = (voice.elapsedMs / MAX_VOICE_NOTE_MS.toFloat()).coerceIn(0f, 1f),
+        animationSpec = tween(AMPLITUDE_POLL_EASE_MS, easing = LinearEasing),
+        label = "voiceBudget",
     )
-    val cancelColor = androidx.compose.ui.graphics.lerp(
-        MaterialTheme.colorScheme.primary,
-        MaterialTheme.colorScheme.error,
-        if (hoveringCancel) 1f else proximity * 0.85f
+    val ringColor by animateColorAsState(
+        targetValue = when {
+            hoveringCancel -> MaterialTheme.colorScheme.error
+            budget >= 0.8f -> palette.accentOrange
+            else -> MaterialTheme.colorScheme.primary
+        },
+        animationSpec = tween(BitchatMotion.STANDARD_MS),
+        label = "voiceBudgetRing",
     )
     AnimatedVisibility(
         visible = voice.recording,
-        enter = fadeIn(tween(BitchatMotion.EMPHASIZED_MS)),
-        exit = fadeOut(tween(BitchatMotion.EMPHASIZED_MS))
+        enter = fadeIn(tween(BitchatMotion.STANDARD_MS)) +
+            scaleIn(tween(BitchatMotion.EMPHASIZED_MS), initialScale = 0.96f),
+        exit = fadeOut(tween(BitchatMotion.STANDARD_MS)),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.96f))
-                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+        BoxWithConstraints(
+            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+            contentAlignment = Alignment.Center,
         ) {
-            Box(
-                modifier = Modifier
-                    .onGloballyPositioned { coords ->
-                        onCancelBounds(
-                            androidx.compose.ui.geometry.Rect(
-                                coords.localToRoot(androidx.compose.ui.geometry.Offset.Zero),
-                                coords.size.toSize()
-                            )
-                        )
-                    }
-                    .size(52.dp)
-                    .graphicsLayer {
-                        translationX = pull.x
-                        translationY = pull.y
-                        scaleX = cancelScale
-                        scaleY = cancelScale
-                    }
-                    .clip(CircleShape)
-                    .background(cancelColor),
-                contentAlignment = Alignment.Center
-            ) {
-                androidx.compose.animation.Crossfade(
-                    targetState = hoveringCancel,
-                    animationSpec = tween(BitchatMotion.STANDARD_MS),
-                    label = "cancelIcon"
-                ) { cancel ->
-                    Icon(
-                        imageVector = if (cancel) Icons.Filled.Close else Icons.Filled.Mic,
-                        contentDescription = if (cancel) "cancel recording" else null,
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(26.dp)
+            val trackColor = palette.inputButton
+            Canvas(Modifier.fillMaxSize().padding(4.dp)) {
+                val stroke = 5.dp.toPx()
+                val inset = stroke / 2
+                val arcSize = Size(size.width - stroke, size.height - stroke)
+                val topLeft = Offset(inset, inset)
+                drawArc(
+                    color = trackColor,
+                    startAngle = 0f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    topLeft = topLeft,
+                    size = arcSize,
+                    style = Stroke(stroke),
+                )
+                if (budget > 0f) {
+                    drawArc(
+                        color = ringColor,
+                        startAngle = -90f,
+                        sweepAngle = 360f * budget,
+                        useCenter = false,
+                        topLeft = topLeft,
+                        size = arcSize,
+                        style = Stroke(stroke, cap = StrokeCap.Round),
                     )
                 }
             }
-            WaveformBars(
-                samples = voice.liveSamples,
-                progress = 1f,
-                activeColor = MaterialTheme.colorScheme.primary,
-                inactiveColor = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .padding(top = 16.dp)
-                    .fillMaxWidth()
-                    .height(44.dp)
-            )
-            Text(
-                text = (if (voice.isLive) "LIVE · " else "") + "%d:%02d".format(
-                    voice.elapsedMs / 1000 / 60,
-                    voice.elapsedMs / 1000 % 60
-                ) + " / 0:10",
-                style = ChatVisualTokens.SenderStyle,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(top = 10.dp)
-            )
-            Text(
-                text = if (hoveringCancel) "Release to cancel" else "Lift finger to send",
-                style = ChatVisualTokens.SystemActionStyle,
-                color = if (hoveringCancel) MaterialTheme.colorScheme.error
-                else palette.textTertiary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 2.dp)
-            )
+            val side =
+                if (LocalConfiguration.current.isScreenRound) {
+                    roundContentSide(maxWidth.value, maxHeight.value).dp
+                } else {
+                    minOf(maxWidth, maxHeight) - 24.dp
+                }
+            Column(
+                modifier = Modifier.size(side),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                // Text gets its natural height first. The decorative waveform and cancel icon
+                // share the remaining room instead of pushing instructions off the display.
+                BoxWithConstraints(
+                    Modifier.weight(1f).fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val iconSize = minOf(52.dp, maxHeight / 1.32f, maxWidth / 1.32f)
+                    Box(
+                        modifier =
+                            Modifier.onGloballyPositioned { coords ->
+                                    onCancelBounds(
+                                        androidx.compose.ui.geometry.Rect(
+                                            coords.localToRoot(
+                                                androidx.compose.ui.geometry.Offset.Zero
+                                            ),
+                                            coords.size.toSize(),
+                                        )
+                                    )
+                                }
+                                .size(iconSize)
+                                .graphicsLayer {
+                                    translationX = pull.x
+                                    translationY = pull.y
+                                    scaleX = cancelScale
+                                    scaleY = cancelScale
+                                }
+                                .border(
+                                    width = (4f * proximity).dp,
+                                    color = haloColor,
+                                    shape = CircleShape,
+                                )
+                                .padding((4f * proximity).dp)
+                                .clip(CircleShape)
+                                .background(cancelColor),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        androidx.compose.animation.Crossfade(
+                            targetState = hoveringCancel,
+                            animationSpec = tween(BitchatMotion.STANDARD_MS),
+                            label = "cancelIcon",
+                        ) { cancel ->
+                            Icon(
+                                imageVector = if (cancel) Icons.Filled.Close else Icons.Filled.Mic,
+                                contentDescription = if (cancel) "Cancel recording" else null,
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(iconSize / 2),
+                            )
+                        }
+                    }
+                }
+                WaveformBars(
+                    samples = voice.liveSamples,
+                    progress = 1f,
+                    activeColor = MaterialTheme.colorScheme.primary,
+                    inactiveColor = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.fillMaxWidth(0.8f).height(14.dp),
+                )
+                Text(
+                    text =
+                        (if (showLive) "LIVE " else "") +
+                            "%d:%02d".format(
+                                voice.elapsedMs / 1000 / 60,
+                                voice.elapsedMs / 1000 % 60,
+                            ),
+                    style = ChatVisualTokens.SenderStyle,
+                    textAlign = TextAlign.Center,
+                    color =
+                        if (showLive) palette.accentOrange
+                        else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                )
+                Text(
+                    text = if (hoveringCancel) "Lift to cancel" else "Lift to send",
+                    style = ChatVisualTokens.SystemActionStyle,
+                    color =
+                        if (hoveringCancel) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                // Without this line the cancel gesture is invisible until discovered by luck.
+                Text(
+                    text = "Slide up to cancel",
+                    style = ChatVisualTokens.TimestampStyle,
+                    color = palette.textTertiary,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer { alpha = if (hoveringCancel) 0f else 1f },
+                )
+            }
         }
     }
 }

@@ -2,16 +2,20 @@ package com.bitchat.android.net
 
 import android.app.Application
 import android.util.Log
+import com.bitchat.android.mesh.PowerManager
 import com.bitchat.android.util.AppConstants
 import info.guardianproject.arti.ArtiLogListener
 import info.guardianproject.arti.ArtiProxy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -22,6 +26,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.CompletableDeferred
 
 import java.net.InetSocketAddress
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.atomic.AtomicLong
 
@@ -33,7 +38,23 @@ import java.util.concurrent.atomic.AtomicLong
  *
  * Based on the original TorManager implementation.
  */
-class ArtiTorManager private constructor() {
+class ArtiTorManager internal constructor(
+    private val appScope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob()),
+    private val proxyFactory: (Application, Int, ArtiLogListener) -> ArtiProxy =
+        { application, socksPort, logListener ->
+            ArtiProxy.Builder(application)
+                .setSocksPort(socksPort)
+                .setDnsPort(socksPort + 1)
+                .setLogListener(logListener)
+                .build()
+        },
+    private val backgroundStateProvider: (Application) -> Flow<Boolean> = { application ->
+        PowerManager.getInstance(application).profile
+            .map { it.isBackground }
+            .distinctUntilChanged()
+    },
+    private val backgroundDormantDelayMs: Long = BACKGROUND_DORMANT_DELAY_MS
+) {
     enum class TorState {
         OFF,
         STARTING,
@@ -58,6 +79,7 @@ class ArtiTorManager private constructor() {
         private const val INACTIVITY_TIMEOUT_MS = AppConstants.Tor.INACTIVITY_TIMEOUT_MS
         private const val MAX_RETRY_ATTEMPTS = AppConstants.Tor.MAX_RETRY_ATTEMPTS
         private const val STOP_TIMEOUT_MS = AppConstants.Tor.STOP_TIMEOUT_MS
+        internal const val BACKGROUND_DORMANT_DELAY_MS = 15_000L
 
         @Volatile
         private var INSTANCE: ArtiTorManager? = null
@@ -69,14 +91,14 @@ class ArtiTorManager private constructor() {
         }
     }
 
-    private val appScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-
     @Volatile
     private var initialized = false
     @Volatile
     private var socksAddr: InetSocketAddress? = null
     @Volatile
     private var artiProxy: ArtiProxy? = null
+    @Volatile
+    private var artiProxyPort: Int = DEFAULT_SOCKS_PORT
     @Volatile
     private var lastMode: TorMode = TorMode.OFF
     private val applyMutex = Mutex()
@@ -93,8 +115,15 @@ class ArtiTorManager private constructor() {
     private var inactivityJob: Job? = null
     private var retryJob: Job? = null
     private var restartJob: Job? = null
-    private var currentApplication: Application? = null
     private val circuitHealth = TorCircuitHealthPolicy()
+    private val dormantLock = Any()
+    private var dormantJob: Job? = null
+    private val restartInFlight = AtomicBoolean(false)
+    private var currentApplication: Application? = null
+    @Volatile
+    private var isAppInBackground = false
+    @Volatile
+    private var artiDormantApplied = false
 
     private enum class LifecycleState { STOPPED, STARTING, RUNNING, STOPPING }
 
@@ -115,6 +144,23 @@ class ArtiTorManager private constructor() {
 
     private val stateChangeDeferred = AtomicReference<CompletableDeferred<TorState>?>(null)
 
+    private val artiLogListener = ArtiLogListener { logLine ->
+        val text = logLine ?: return@ArtiLogListener
+        val s = text
+        lastLogTime.set(System.currentTimeMillis())
+        val current = _statusFlow.value
+        val alreadyRunning = current.state == TorState.RUNNING && current.bootstrapPercent >= 100
+        // Avoid allocating TorStatus copies and emitting StateFlow updates on every SOCKS log
+        // line once Tor is healthy and no UI (e.g. AboutSheet) is actively observing statusFlow.
+        if (!alreadyRunning || _statusFlow.subscriptionCount.value > 0) {
+            _statusFlow.update { it.copy(lastLogLine = s) }
+        }
+        handleArtiLogLine(s, alreadyRunning)
+        if (!alreadyRunning) {
+            armBootstrapInactivityWatchdog()
+        }
+    }
+
     fun isProxyEnabled(): Boolean {
         val s = _statusFlow.value
         return s.mode != TorMode.OFF && s.running && s.bootstrapPercent >= 100 &&
@@ -129,22 +175,7 @@ class ArtiTorManager private constructor() {
             currentApplication = application
             TorPreferenceManager.init(application)
 
-            val logListener = ArtiLogListener { logLine ->
-                val text = logLine ?: return@ArtiLogListener
-                val s = text
-                lastLogTime.set(System.currentTimeMillis())
-                _statusFlow.update { it.copy(lastLogLine = s) }
-                handleArtiLogLine(s)
-                if (_statusFlow.value.bootstrapPercent < 100) {
-                    armBootstrapInactivityWatchdog()
-                }
-            }
-
-            artiProxy = ArtiProxy.Builder(application)
-                .setSocksPort(currentSocksPort)
-                .setDnsPort(currentSocksPort + 1)
-                .setLogListener(logListener)
-                .build()
+            artiProxy = buildArtiProxy(application)
 
             val savedMode = TorPreferenceManager.get(application)
             if (savedMode == TorMode.ON) {
@@ -167,7 +198,71 @@ class ArtiTorManager private constructor() {
                     applyMode(application, mode)
                 }
             }
+
+            appScope.launch {
+                backgroundStateProvider(application).collect { inBackground ->
+                    onAppBackgroundStateChanged(inBackground)
+                }
+            }
         }
+    }
+
+    internal fun onAppBackgroundStateChanged(inBackground: Boolean) {
+        synchronized(dormantLock) {
+            isAppInBackground = inBackground
+            syncDormantModeLocked()
+        }
+    }
+
+    private fun cancelDormantTimer() {
+        synchronized(dormantLock) {
+            dormantJob?.cancel()
+            dormantJob = null
+            artiDormantApplied = false
+        }
+    }
+
+    /**
+     * Keep Arti in `DormantMode::Normal` while foregrounded or bootstrapping, and transition to
+     * `DormantMode::Soft` after [backgroundDormantDelayMs] once backgrounded and fully running.
+     * All state checks and `proxy.setDormant(...)` calls are serialized under [dormantLock] so a
+     * delayed background timer cannot apply `Soft` after a foreground wake has applied `Normal`.
+     */
+    private fun syncDormantMode() {
+        synchronized(dormantLock) {
+            syncDormantModeLocked()
+        }
+    }
+
+    private fun syncDormantModeLocked() {
+        dormantJob?.cancel()
+        dormantJob = null
+
+        val proxy = artiProxy ?: return
+        if (!isAppInBackground) {
+            if (artiDormantApplied) {
+                artiDormantApplied = false
+                proxy.setDormant(false)
+            }
+            return
+        }
+
+        if (!isProxyEnabled() || artiDormantApplied) {
+            return
+        }
+
+        val scheduledJob = appScope.launch {
+            if (backgroundDormantDelayMs > 0L) {
+                delay(backgroundDormantDelayMs)
+            }
+            synchronized(dormantLock) {
+                if (isAppInBackground && isProxyEnabled() && !artiDormantApplied) {
+                    artiDormantApplied = true
+                    artiProxy?.setDormant(true)
+                }
+            }
+        }
+        dormantJob = scheduledJob
     }
 
     fun currentSocksAddress(): InetSocketAddress? = socksAddr
@@ -245,18 +340,34 @@ class ArtiTorManager private constructor() {
                         socksAddr = InetSocketAddress("127.0.0.1", currentSocksPort)
                         resetNetworkConnections()
                         startArti(application, useDelay = false)
-                        appScope.launch {
-                            waitUntilBootstrapped()
-                            if (_statusFlow.value.running && desiredMode == TorMode.ON) {
-                                socksAddr = InetSocketAddress("127.0.0.1", currentSocksPort)
-                                Log.i(TAG, "Tor ON: proxy set to ${socksAddr}")
-                                resetNetworkConnections()
-                            }
-                        }
+                        launchPostBootstrapNetworkReset("Tor ON")
                     }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to apply Arti mode: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Wait for Tor bootstrap to reach RUNNING, then republish [socksAddr] and reset clients
+     * strictly under [applyMutex] so a concurrent `applyMode(TorMode.OFF)` can never be
+     * overwritten by a finishing startup or automatic restart.
+     */
+    private fun launchPostBootstrapNetworkReset(reason: String) {
+        appScope.launch {
+            waitUntilBootstrapped()
+            applyMutex.withLock {
+                if (
+                    desiredMode == TorMode.ON &&
+                    lifecycleState == LifecycleState.RUNNING &&
+                    _statusFlow.value.running &&
+                    _statusFlow.value.state == TorState.RUNNING
+                ) {
+                    socksAddr = InetSocketAddress("127.0.0.1", currentSocksPort)
+                    Log.i(TAG, "$reason: proxy set to $socksAddr")
+                    resetNetworkConnections()
+                }
             }
         }
     }
@@ -268,12 +379,13 @@ class ArtiTorManager private constructor() {
                 delay(RESTART_DELAY_MS)
             }
 
-            val proxy = artiProxy ?: run {
+            val proxy = proxyForCurrentPort(application) ?: run {
                 Log.e(TAG, "ArtiProxy not initialized! This should not happen.")
                 _statusFlow.update { it.copy(state = TorState.ERROR) }
                 return
             }
 
+            cancelDormantTimer()
             proxy.start()
             lastLogTime.set(System.currentTimeMillis())
 
@@ -315,6 +427,23 @@ class ArtiTorManager private constructor() {
         }
     }
 
+    private fun buildArtiProxy(application: Application): ArtiProxy {
+        val port = currentSocksPort
+        return proxyFactory(application, port, artiLogListener).also { artiProxyPort = port }
+    }
+
+    /**
+     * ArtiProxy fixes its ports at construction, so it must be rebuilt whenever
+     * [currentSocksPort] moves or Tor would bind a different port than [socksAddr].
+     * Call only after the previous proxy has been stopped.
+     */
+    private fun proxyForCurrentPort(application: Application): ArtiProxy? {
+        if (artiProxy != null && artiProxyPort != currentSocksPort) {
+            artiProxy = buildArtiProxy(application)
+        }
+        return artiProxy
+    }
+
     private fun isBindError(exception: Exception): Boolean {
         val message = exception.message?.lowercase() ?: ""
         return message.contains("bind") ||
@@ -341,6 +470,7 @@ class ArtiTorManager private constructor() {
 
     private fun stopArtiInternal() {
         try {
+            cancelDormantTimer()
             val proxy = artiProxy
             if (proxy != null) {
                 try {
@@ -381,6 +511,31 @@ class ArtiTorManager private constructor() {
         stopArtiAndWait()
         delay(RESTART_DELAY_MS)
         startArti(application, useDelay = false)
+        launchPostBootstrapNetworkReset("Tor restarted")
+    }
+
+    /**
+     * Runs an automatic restart in its own coroutine. The watchdog and retry jobs request restarts,
+     * and stopping Arti cancels both jobs, so a restart running inside either would cancel itself.
+     * Holding [applyMutex] serializes the restart with mode changes, so turning Tor off always
+     * ends with Arti stopped.
+     */
+    private fun launchRestart(application: Application) {
+        if (!restartInFlight.compareAndSet(false, true)) return
+        appScope.launch {
+            try {
+                applyMutex.withLock {
+                    if (
+                        desiredMode == TorMode.ON &&
+                        (lifecycleState == LifecycleState.STARTING || lifecycleState == LifecycleState.RUNNING)
+                    ) {
+                        restartArti(application)
+                    }
+                }
+            } finally {
+                restartInFlight.set(false)
+            }
+        }
     }
 
     /**
@@ -468,9 +623,15 @@ class ArtiTorManager private constructor() {
         }
     }
 
-    private fun handleArtiLogLine(s: String) {
-        val currentState = _statusFlow.value.state
+    private fun handleArtiLogLine(s: String, alreadyRunning: Boolean = false) {
         val currentLifecycle = lifecycleState
+        if (alreadyRunning && currentLifecycle == LifecycleState.RUNNING) {
+            // Fast path when steady-state RUNNING: only check for fatal lock errors.
+            if (s.contains("Another process has the lock on our state files", ignoreCase = true)) {
+                _statusFlow.update { it.copy(state = TorState.ERROR) }
+            }
+            return
+        }
 
         when {
             s.contains("AMEx: state changed to Initialized", ignoreCase = true) -> {
@@ -522,6 +683,7 @@ class ArtiTorManager private constructor() {
                 circuitHealth.reset()
                 stopInactivityMonitoring()
                 completeWaitersIf(TorState.RUNNING)
+                syncDormantMode()
             }
 
             // Bootstrap milestones only fire on the way up, so a session that loses every exit

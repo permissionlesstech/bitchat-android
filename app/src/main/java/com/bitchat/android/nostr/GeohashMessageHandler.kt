@@ -3,22 +3,29 @@ package com.bitchat.android.nostr
 import android.app.Application
 import android.util.Log
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.spam.SpamFilter
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Date
 
 /**
  * GeohashMessageHandler
  * - Processes kind=20000 Nostr events for geohash channels
  * - Updates repository for participants + nicknames
- * - Emits messages to MessageManager
+ * - Hides spam via [SpamFilter], then emits messages to MessageManager
  */
 class GeohashMessageHandler(
     private val application: Application,
     private val repo: GeohashRepository,
     private val scope: CoroutineScope,
     private val dataManager: com.bitchat.android.ui.DataManager,
-    private val addChannelMessage: (String, BitchatMessage) -> Unit
+    private val addChannelMessage: (String, BitchatMessage) -> Unit,
+    private val signatureVerificationDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    // The foreground handler runs on the main thread; the spam checks are CPU work.
+    private val spamFilterDispatcher: CoroutineDispatcher = signatureVerificationDispatcher
 ) {
     companion object { private const val TAG = "GeohashMessageHandler" }
 
@@ -44,6 +51,13 @@ class GeohashMessageHandler(
                 if (event.kind != NostrKind.EPHEMERAL_EVENT && event.kind != NostrKind.GEOHASH_PRESENCE) return@launch
                 val tagGeo = event.tags.firstOrNull { it.size >= 2 && it[0] == "g" }?.getOrNull(1)
                 if (tagGeo == null || !tagGeo.equals(subscribedGeohash, true)) return@launch
+                val hasValidSignature = withContext(signatureVerificationDispatcher) {
+                    event.isValidSignature()
+                }
+                if (!hasValidSignature) {
+                    Log.w(TAG, "Rejecting geohash event ${event.id.take(8)}... with invalid signature")
+                    return@launch
+                }
                 if (dedupe(event.id)) return@launch
 
                 // PoW validation (if enabled) - apply to chat messages primarily
@@ -60,10 +74,8 @@ class GeohashMessageHandler(
                 // Blocked users check (use injected DataManager which has loaded state)
                 if (dataManager.isGeohashUserBlocked(pubkey)) return@launch
 
-                // Update participant count (last seen) on BOTH Presence (20001) and Chat (20000) events
-                if (event.kind == NostrKind.GEOHASH_PRESENCE || event.kind == NostrKind.EPHEMERAL_EVENT) {
-                    repo.updateParticipant(subscribedGeohash, pubkey, Date(event.createdAt * 1000L))
-                }
+                // Presence (20001) and chat (20000) both count, under the rule the globe uses too.
+                repo.recordActivity(subscribedGeohash, event)
                 
                 event.tags.find { it.size >= 2 && it[0] == "n" }?.let { repo.cacheNickname(pubkey, it[1]) }
                 event.tags.find { it.size >= 2 && it[0] == "t" && it[1] == "teleport" }?.let { repo.markTeleported(pubkey) }
@@ -100,6 +112,13 @@ class GeohashMessageHandler(
                         if (hasNonce) NostrProofOfWork.calculateDifficulty(event.id).takeIf { it > 0 } else null
                     } catch (_: Exception) { null }
                 )
+                val hide = withContext(spamFilterDispatcher) {
+                    SpamFilter.shared.shouldHide(msg, SpamFilter.nostrSenderKey(pubkey))
+                }
+                if (hide) {
+                    Log.d(TAG, "Hiding geohash spam ${event.id.take(8)}...")
+                    return@launch
+                }
                 addChannelMessage("geo:$subscribedGeohash", msg)
             } catch (e: Exception) {
                 Log.e(TAG, "onEvent error: ${e.message}")

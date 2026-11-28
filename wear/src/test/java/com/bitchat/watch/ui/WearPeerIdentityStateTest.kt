@@ -32,7 +32,7 @@ class WearPeerIdentityStateTest {
         val formatted = formatVerificationCode(fingerprint)
 
         assertEquals(fingerprint.uppercase(), formatted.filterNot(Char::isWhitespace))
-        assertEquals(4, formatted.lines().size)
-        assertEquals(listOf(4, 4, 4, 4), formatted.lines().map { it.split(" ").size })
+        assertEquals(8, formatted.lines().size)
+        assertEquals(List(8) { 2 }, formatted.lines().map { it.split(" ").size })
     }
 }

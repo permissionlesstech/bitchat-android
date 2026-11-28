@@ -234,6 +234,11 @@ class NostrClient private constructor(private val context: Context) {
      * Get relay information
      */
     val relayInfo: StateFlow<List<NostrRelayManager.Relay>> = relayManager.relays
+
+    /**
+     * Get a fresh snapshot of all relays including live message counters.
+     */
+    fun getLiveRelayStatuses(): List<NostrRelayManager.Relay> = relayManager.getRelayStatuses()
     
     // MARK: - Private Methods
     
@@ -282,6 +287,11 @@ class NostrClient private constructor(private val context: Context) {
         handler: (content: String, senderPubkey: String, nickname: String?, timestamp: Int) -> Unit
     ) {
         try {
+            if (!event.isValidSignature()) {
+                Log.w(TAG, "🚫 Rejecting geohash event ${event.id.take(8)}... with invalid signature")
+                return
+            }
+
             // Check Proof of Work validation for incoming geohash events
             val powSettings = PoWPreferenceManager.getCurrentSettings()
             if (powSettings.enabled && powSettings.difficulty > 0) {

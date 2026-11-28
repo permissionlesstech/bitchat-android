@@ -15,6 +15,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -77,6 +78,7 @@ import com.bitchat.android.net.TorMode
 import com.bitchat.android.net.TorPreferenceManager
 import com.bitchat.android.nostr.NostrProofOfWork
 import com.bitchat.android.nostr.PoWPreferenceManager
+import com.bitchat.android.spam.SpamFilterPreferences
 import com.bitchat.android.ui.theme.BitchatMotion
 import com.bitchat.android.ui.theme.LocalBitchatPalette
 import com.bitchat.android.util.ShareableApkVariant
@@ -508,6 +510,7 @@ fun AboutSheet(
                         LaunchedEffect(Unit) { PoWPreferenceManager.init(context) }
                         val powEnabled by PoWPreferenceManager.powEnabled.collectAsState()
                         val powDifficulty by PoWPreferenceManager.powDifficulty.collectAsState()
+                        val spamFilterEnabled by SpamFilterPreferences.enabled.collectAsState()
                         var backgroundEnabled by remember { mutableStateOf(com.bitchat.android.service.MeshServicePreferences.isBackgroundEnabled(true)) }
                         var liveVoiceEnabled by remember {
                             mutableStateOf(com.bitchat.android.features.voice.LiveVoicePreferences.isEnabled(context))
@@ -574,6 +577,21 @@ fun AboutSheet(
                                         subtitle = stringResource(R.string.about_pow_tip),
                                         checked = powEnabled,
                                         onCheckedChange = { PoWPreferenceManager.setPowEnabled(it) }
+                                    )
+
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(start = 54.dp),
+                                        thickness = 1.dp,
+                                        color = colorScheme.outlineVariant
+                                    )
+
+                                    // Spam Filter Toggle
+                                    SettingsToggleRow(
+                                        icon = Icons.Filled.FilterAlt,
+                                        title = stringResource(R.string.about_spam_filter_title),
+                                        subtitle = stringResource(R.string.about_spam_filter_desc),
+                                        checked = spamFilterEnabled,
+                                        onCheckedChange = { SpamFilterPreferences.setEnabled(it) }
                                     )
 
                                     HorizontalDivider(

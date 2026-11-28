@@ -111,7 +111,7 @@ fun VoiceNotePlayer(
             onSeek = seekTo
         )
         val durText = if (durationMs > 0) String.format("%02d:%02d", (durationMs / 1000) / 60, (durationMs / 1000) % 60) else "--:--"
-        Text(text = durText, fontFamily = BitchatFontFamily, fontSize = 12.sp)
+        Text(text = durText, fontFamily = BitchatFontFamily, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 

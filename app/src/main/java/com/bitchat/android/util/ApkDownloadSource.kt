@@ -262,13 +262,55 @@ internal fun parseContentRange(value: String?): ContentRange? {
     val start = match.groupValues[1].toLongOrNull() ?: return null
     val end = match.groupValues[2].toLongOrNull() ?: return null
     if (end < start) return null
-    val total = match.groupValues[3].takeUnless { it == "*" }?.toLongOrNull()
+    val totalText = match.groupValues[3]
+    val total = if (totalText == "*") null else totalText.toLongOrNull() ?: return null
     if (total != null && end >= total) return null
     return ContentRange(
         start = start,
         endInclusive = end,
         total = total
     )
+}
+
+internal data class ApkResponseSize(val fileSize: Long, val responseBytes: Long?)
+
+/** Validate advertised sizes before opening a partial APK for append. */
+internal fun apkResponseSize(
+    range: ContentRange?,
+    contentLength: Long,
+    resumedBytes: Long,
+    previousSize: Long?
+): ApkResponseSize? {
+    if (resumedBytes < 0L || contentLength < -1L) return null
+    if (range != null && (range.start != resumedBytes || range.endInclusive < range.start)) return null
+    val rangeBytes = range?.let {
+        runCatching { Math.addExact(it.endInclusive - it.start, 1L) }.getOrNull() ?: return null
+    }
+    if (rangeBytes != null && contentLength >= 0L && contentLength != rangeBytes) return null
+    val responseBytes = rangeBytes ?: contentLength.takeIf { it >= 0L }
+    val fileSize = range?.total ?: if (contentLength >= 0L) {
+        runCatching { Math.addExact(resumedBytes, contentLength) }.getOrNull() ?: return null
+    } else {
+        previousSize?.takeIf { range != null && it > 0L } ?: 0L
+    }
+    if (fileSize > 0L && resumedBytes > fileSize) return null
+    val limit = responseBytes ?: fileSize.takeIf { it > 0L }?.let { it - resumedBytes }
+    return ApkResponseSize(fileSize, limit)
+}
+
+/** Count response bytes before disk writes, including chunked responses. */
+internal class ApkResponseByteBudget(private val limit: Long?) {
+    private var received = 0L
+
+    fun accept(count: Int): Boolean {
+        if (count < 0 || received > Long.MAX_VALUE - count) return false
+        val next = received + count
+        if (limit != null && next > limit) return false
+        received = next
+        return true
+    }
+
+    fun isComplete(): Boolean = limit == null || received == limit
 }
 
 internal fun parseUnsatisfiedContentRangeTotal(value: String?): Long? {
