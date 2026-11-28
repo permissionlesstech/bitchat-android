@@ -10,6 +10,7 @@ import android.util.Log
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.model.DeliveryStatus
+import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -1527,7 +1528,7 @@ internal class ConversationDatabase(
     private fun attachmentPathAad(messageID: String): ByteArray =
         "attachment:$messageID:path".toByteArray(Charsets.UTF_8)
 
-    private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
+    private fun ByteArray.toHex(): String = this.toHexString()
 
     private data class ConversationStorageStats(
         val messageCount: Long,

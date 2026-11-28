@@ -6,8 +6,8 @@ import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.mesh.PrivateMediaPreparation
+import com.bitchat.android.util.sha256Hex as digestHex
 import java.util.Date
-import java.security.MessageDigest
 import java.util.UUID
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -802,9 +802,7 @@ class MediaSendingManager(
     }
 
     private fun sha256Hex(bytes: ByteArray): String = try {
-        val md = MessageDigest.getInstance("SHA-256")
-        md.update(bytes)
-        md.digest().joinToString("") { "%02x".format(it) }
+        bytes.digestHex()
     } catch (_: Exception) {
         bytes.size.toString(16)
     }

@@ -56,6 +56,19 @@ class HexStringTest {
     }
 
     @Test
+    fun `encodes high bytes as two lowercase digits`() {
+        assertEquals("00abff", byteArrayOf(0x00, 0xAB.toByte(), 0xFF.toByte()).toHexString())
+    }
+
+    @Test
+    fun `sha256 hex matches the empty-input digest`() {
+        assertEquals(
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            ByteArray(0).sha256Hex()
+        )
+    }
+
+    @Test
     fun `round-trips with hexEncodedString`() {
         val original = byteArrayOf(0x00, 0x7f, 0xff.toByte())
         val encoded = original.hexEncodedString()

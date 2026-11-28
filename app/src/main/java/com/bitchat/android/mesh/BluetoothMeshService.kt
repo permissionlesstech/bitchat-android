@@ -13,6 +13,7 @@ import com.bitchat.android.model.NoisePayload
 import com.bitchat.android.model.NoisePayloadType
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
+import com.bitchat.android.util.sha256Hex as digestHex
 import com.bitchat.android.protocol.SpecialRecipients
 import com.bitchat.android.model.RequestSyncPacket
 import com.bitchat.android.sync.GossipSyncManager
@@ -1030,9 +1031,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
 
     // Local helper to hash payloads to a stable hex ID for progress mapping
     private fun sha256Hex(bytes: ByteArray): String = try {
-        val md = java.security.MessageDigest.getInstance("SHA-256")
-        md.update(bytes)
-        md.digest().joinToString("") { "%02x".format(it) }
+        bytes.digestHex()
     } catch (_: Exception) { bytes.size.toString(16) }
     
     /**

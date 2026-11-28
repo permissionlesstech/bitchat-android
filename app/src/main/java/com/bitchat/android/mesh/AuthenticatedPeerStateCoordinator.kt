@@ -5,7 +5,7 @@ import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.model.AuthenticatedPeerState
 import com.bitchat.android.noise.AuthenticatedNoiseSession
 import com.bitchat.android.noise.NoisePeerIdentity
-import java.security.MessageDigest
+import com.bitchat.android.util.sha256Hex
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -228,8 +228,5 @@ internal class AuthenticatedPeerStateCoordinator(
         synchronized(lock) { sessions.remove(peerID)?.timeoutJob?.cancel() }
     }
 
-    private fun fingerprint(publicKey: ByteArray): String =
-        MessageDigest.getInstance("SHA-256")
-            .digest(publicKey)
-            .joinToString("") { "%02x".format(it) }
+    private fun fingerprint(publicKey: ByteArray): String = publicKey.sha256Hex()
 }
