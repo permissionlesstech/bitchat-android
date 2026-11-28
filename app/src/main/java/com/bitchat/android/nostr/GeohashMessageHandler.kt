@@ -104,7 +104,7 @@ class GeohashMessageHandler(
                     timestamp = Date(event.createdAt * 1000L),
                     isRelay = false,
                     originalSender = repo.displayNameForNostrPubkey(pubkey),
-                    senderPeerID = "nostr:${pubkey.take(8)}",
+                    senderPeerID = "nostr:$pubkey",
                     senderNostrPubkey = pubkey,
                     mentions = null,
                     channel = "#$subscribedGeohash",
