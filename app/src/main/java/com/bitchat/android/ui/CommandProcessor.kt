@@ -414,7 +414,8 @@ class CommandProcessor(
                 return
             }
             val isLocationChannel =
-                state.selectedLocationChannel.value is com.bitchat.android.geohash.ChannelID.Location
+                state.getCurrentChannelValue() == null &&
+                    state.selectedLocationChannel.value is com.bitchat.android.geohash.ChannelID.Location
             if (!isLocationChannel) {
                 state.getCurrentChannelValue()?.let { channel ->
                     if (channelManager.refuseSendIfPasswordProtected(channel)) return
