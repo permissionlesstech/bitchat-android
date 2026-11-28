@@ -859,12 +859,21 @@ object AppStateStore {
         }
     }
 
-    private fun appendPublicMessage(messages: List<BitchatMessage>, message: BitchatMessage) =
-        buildList(minOf(MAX_PUBLIC_TIMELINE_MESSAGES, messages.size + 1)) {
-            val start = (messages.size - MAX_PUBLIC_TIMELINE_MESSAGES + 1).coerceAtLeast(0)
-            for (index in start until messages.size) add(messages[index])
-            add(message)
-        }
+    private fun appendPublicMessage(messages: List<BitchatMessage>, message: BitchatMessage): List<BitchatMessage> {
+        val start = (messages.size - MAX_PUBLIC_TIMELINE_MESSAGES + 1).coerceAtLeast(0)
+        val window = ArrayList<BitchatMessage>(messages.size - start + 1)
+        for (index in start until messages.size) window.add(messages[index])
+        window.add(message)
+        val receivedAtMs = System.currentTimeMillis()
+        window.sortWith(
+            com.bitchat.android.util.MessageTimestampOrdering.comparator(
+                packetTimestampMs = { it.timestamp.time },
+                receivedAtMs = { if (it === message) receivedAtMs else it.timestamp.time },
+                id = { it.id }
+            )
+        )
+        return window
+    }
 
     private fun appendToPublicTimeline(message: BitchatMessage) {
         val messages = _publicMessages.value
