@@ -121,6 +121,10 @@ android {
         buildConfig = true
     }
     packaging {
+        jniLibs {
+            // Required for 16 KB page-size alignment on Android 15+ / Google Play.
+            useLegacyPackaging = false
+        }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
