@@ -57,8 +57,8 @@ class GossipSyncManager(
     /**
      * Per-requester token buckets. `requestTokens` bounds how often we decode a peer's filter.
      * `responseTokens` bounds how many packets that peer can pull. Both refill with elapsed time.
-     * Keyed by the transport's ingress link when we have one: REQUEST_SYNC is unauthenticated,
-     * so a sender id on the wire is free to rotate.
+     * Keyed only by the transport's ingress link. REQUEST_SYNC is unauthenticated,
+     * so a sender id on the wire is free to rotate and is never a budget key.
      */
     private class RequesterBudget(
         var requestTokens: Double,
@@ -276,7 +276,11 @@ class GossipSyncManager(
         request: RequestSyncPacket,
         ingressLinkID: String? = null
     ) {
-        val budgetKey = ingressLinkID ?: fromPeerID
+        val budgetKey = ingressLinkID
+        if (budgetKey == null) {
+            Log.d(TAG, "Dropping REQUEST_SYNC from $fromPeerID: no ingress link")
+            return
+        }
         val allowance = admitRequest(budgetKey)
         if (allowance <= 0) {
             Log.d(TAG, "Dropping REQUEST_SYNC from $fromPeerID: over budget")

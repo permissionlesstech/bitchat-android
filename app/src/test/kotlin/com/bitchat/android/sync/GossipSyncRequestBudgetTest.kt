@@ -68,7 +68,7 @@ class GossipSyncRequestBudgetTest {
     private fun TestScope.request(
         peerID: String,
         filter: RequestSyncPacket = emptyFilter,
-        ingressLinkID: String? = null
+        ingressLinkID: String? = "link-default"
     ) {
         manager.handleRequestSync(peerID, filter, ingressLinkID)
         advanceUntilIdle()
@@ -152,7 +152,7 @@ class GossipSyncRequestBudgetTest {
         repeat(50) { request(REQUESTER) }
         sentTo.clear()
 
-        request("99aabbccddeeff00")
+        request("99aabbccddeeff00", ingressLinkID = "link-other")
 
         assertEquals(CAPACITY, sentTo.size)
     }
@@ -166,10 +166,20 @@ class GossipSyncRequestBudgetTest {
             request("%016x".format(i))
         }
 
-        assertEquals(
-            AppConstants.Sync.MAX_TRACKED_REQUESTERS,
-            manager.trackedRequesterCount()
-        )
+        assertEquals(1, manager.trackedRequesterCount())
+    }
+
+    @Test
+    fun `a request with no ingress link is dropped instead of keyed by sender id`() = runTest {
+        prepare()
+        storeMessages(1)
+
+        repeat(AppConstants.Sync.MAX_TRACKED_REQUESTERS + 1) { i ->
+            request("%016x".format(i), ingressLinkID = null)
+        }
+
+        assertTrue(sentTo.isEmpty())
+        assertEquals(0, manager.trackedRequesterCount())
     }
 
     @Test

@@ -19,7 +19,7 @@ class GossipSyncLoadTest {
         val manager = fixtureManager(this, sent)
         val build = GossipSyncManager::class.java.getDeclaredMethod("buildGcsPayload").apply { isAccessible = true }
         val request = RequestSyncPacket.decode(build.invoke(manager) as ByteArray)!!
-        manager.handleRequestSync("5555666677778888", request)
+        manager.handleRequestSync("5555666677778888", request, "load-link")
         advanceUntilIdle()
         assertTrue("Identical caches must converge to no response traffic", sent.isEmpty())
     }
@@ -28,7 +28,7 @@ class GossipSyncLoadTest {
     fun `empty requester receives a bounded paced recent window`() = runTest {
         val sent = mutableListOf<BitchatPacket>()
         val manager = fixtureManager(this, sent)
-        manager.handleRequestSync("5555666677778888", RequestSyncPacket(8, 1, ByteArray(0)))
+        manager.handleRequestSync("5555666677778888", RequestSyncPacket(8, 1, ByteArray(0)), "load-link")
         runCurrent()
         assertEquals("Do not submit the whole history before transport callbacks can run", 1, sent.size)
         advanceUntilIdle()
@@ -53,7 +53,7 @@ class GossipSyncLoadTest {
                 timestamp = (now + index + 1).toULong(), payload = byteArrayOf(2), ttl = 1u
             ))
         }
-        manager.handleRequestSync("5555666677778888", RequestSyncPacket(8, 1, ByteArray(0)))
+        manager.handleRequestSync("5555666677778888", RequestSyncPacket(8, 1, ByteArray(0)), "load-link")
         advanceUntilIdle()
         assertEquals(MessageType.ANNOUNCE.value, sent.first().type)
         assertTrue(sent.size in 2..355)
@@ -65,7 +65,7 @@ class GossipSyncLoadTest {
         val build = GossipSyncManager::class.java.getDeclaredMethod("buildGcsPayload").apply { isAccessible = true }
         val request = RequestSyncPacket.decode(build.invoke(manager) as ByteArray)!!
         sent.clear()
-        manager.handleRequestSync("5555666677778888", request)
+        manager.handleRequestSync("5555666677778888", request, "load-link")
         advanceUntilIdle()
         assertTrue(sent.isEmpty())
     }
@@ -74,7 +74,7 @@ class GossipSyncLoadTest {
     fun `many senders retain their announcement prerequisite within the response budget`() = runTest {
         val sent = mutableListOf<BitchatPacket>()
         val manager = fixtureManager(this, sent)
-        manager.handleRequestSync("5555666677778888", RequestSyncPacket(8, 1, ByteArray(0)))
+        manager.handleRequestSync("5555666677778888", RequestSyncPacket(8, 1, ByteArray(0)), "load-link")
         advanceUntilIdle()
         val announced = mutableSetOf<List<Byte>>()
         for (packet in sent) {
