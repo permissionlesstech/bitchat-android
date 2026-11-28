@@ -46,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -910,9 +911,10 @@ fun MentionSuggestionsBox(
                     easing = FastOutSlowInEasing
                 )
             )
+            .shadow(elevation = 4.dp, shape = MentionSuggestionsShape, clip = false)
             .clip(MentionSuggestionsShape)
-            .background(colorScheme.surface)
-            .border(1.dp, colorScheme.outlineVariant, MentionSuggestionsShape),
+            .background(colorScheme.surfaceContainerHigh)
+            .border(0.5.dp, colorScheme.outlineVariant.copy(alpha = 0.6f), MentionSuggestionsShape),
         contentPadding = PaddingValues(vertical = MentionSuggestionsVerticalPadding)
     ) {
         items(
@@ -1018,4 +1020,4 @@ private val MentionSuggestionRowHeight = 48.dp
 private val MentionSuggestionsVerticalPadding = 6.dp
 private val MentionSuggestionsMaxHeight =
     (48 * MaxVisibleMentionSuggestions + 12).dp
-private val MentionSuggestionsShape = RoundedCornerShape(8.dp)
+private val MentionSuggestionsShape = RoundedCornerShape(12.dp)
