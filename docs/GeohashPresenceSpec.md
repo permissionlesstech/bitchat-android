@@ -92,6 +92,10 @@ The presentation of the participant count depends on the geohash precision level
 *   **`LocationChannelsSheet`**:
     *   Implements the `[? people]` display logic for high-precision, zero-count channels.
 
+## Location-note deletion (NIP-09)
+
+Authors delete their own location notes with a NIP-09 kind `5` event. The request lists each target event id in an `e` tag (duplicates dropped, order preserved) and, when the note kind is known, one `k` tag with that kind as a decimal string (location notes are kind `1`). `content` is the optional reason, trimmed. Receivers treat the event as a deletion request only after a valid NIP-01 id and signature from the same pubkey that published the note. A kind `5` does not itself remove other authors' notes.
+
 ## Benefits
 
 *   **Accuracy:** Counts reflect both active listeners (via heartbeats) and active speakers (via messages).
