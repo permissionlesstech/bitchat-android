@@ -126,6 +126,25 @@ class MainActivity : OrientationAwareActivity() {
         // Enable edge-to-edge display for modern Android look
         enableEdgeToEdge()
 
+        // Initialize privacy preferences and keep FLAG_SECURE aligned with active private chats
+        com.bitchat.android.services.PrivacyPreferenceManager.init(this)
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                kotlinx.coroutines.flow.combine(
+                    com.bitchat.android.services.PrivacyPreferenceManager.screenshotBlockPrivateChats,
+                    com.bitchat.android.services.AppStateStore.selectedPrivateChatPeer
+                ) { blockEnabled, privatePeer ->
+                    com.bitchat.android.services.PrivacyPreferenceManager.shouldApplyFlagSecure(blockEnabled, privatePeer)
+                }.collect { shouldSecure ->
+                    if (shouldSecure) {
+                        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+                    } else {
+                        window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+                    }
+                }
+            }
+        }
+
         // Initialize permission management
         permissionManager = PermissionManager(this)
         // Start the foreground service when allowed, then get mesh instances from the holder.

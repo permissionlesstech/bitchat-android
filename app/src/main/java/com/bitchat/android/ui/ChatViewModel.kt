@@ -704,8 +704,12 @@ class ChatViewModel(
             ensureGeohashDMSubscriptionIfNeeded(peerID)
         }
 
+        val canonicalID = ContactDirectory.canonicalConversationId(peerID)
+        // FLAG_SECURE follows the selected-peer flow. Set it before history load so a slow
+        // read cannot show cached private messages on an unsecured window.
+        state.setSelectedPrivateChatPeer(canonicalID)
+
         val (conversationID, success) = withContext(Dispatchers.IO) {
-            val canonicalID = ContactDirectory.canonicalConversationId(peerID)
             com.bitchat.android.services.AppStateStore
                 .loadPrivateConversationHistory(canonicalID)
             state.setPrivateChats(
@@ -730,6 +734,9 @@ class ChatViewModel(
             // Clear notifications for this sender since user is now viewing the chat
             clearNotificationsForSender(conversationID)
         } else {
+            if (state.getSelectedPrivateChatPeerValue() == canonicalID) {
+                state.setSelectedPrivateChatPeer(null)
+            }
             closePrivateChatSheetIfShowing(conversationID)
         }
     }

@@ -1715,6 +1715,21 @@ fun PrivateChatSheet(
     val activeMeshPeerID = contactResolution.meshPeerID
     val isWifiAware = activeMeshPeerID in wifiAwareConnected.keys || peerID in wifiAwareConnected.keys
 
+    val screenshotBlockEnabled by com.bitchat.android.services.PrivacyPreferenceManager.screenshotBlockPrivateChats.collectAsStateWithLifecycle()
+    val localView = androidx.compose.ui.platform.LocalView.current
+    DisposableEffect(isPresented, screenshotBlockEnabled) {
+        val window = (localView.context as? android.app.Activity)?.window
+        if (isPresented && screenshotBlockEnabled) {
+            window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        }
+        onDispose {
+            val activePeer = com.bitchat.android.services.AppStateStore.selectedPrivateChatPeer.value
+            if (!com.bitchat.android.services.PrivacyPreferenceManager.shouldApplyFlagSecure(screenshotBlockEnabled, activePeer)) {
+                window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+            }
+        }
+    }
+
     // Start private chat when screen opens
     LaunchedEffect(peerID) {
         viewModel.startPrivateChat(peerID)
