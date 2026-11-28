@@ -27,7 +27,23 @@ class GeohashMessageHandler(
     // The foreground handler runs on the main thread; the spam checks are CPU work.
     private val spamFilterDispatcher: CoroutineDispatcher = signatureVerificationDispatcher
 ) {
-    companion object { private const val TAG = "GeohashMessageHandler" }
+    companion object {
+        private const val TAG = "GeohashMessageHandler"
+        internal const val MAX_GEOHASH_MESSAGE_CHARS = 4_000
+
+        internal fun capGeohashContent(
+            content: String,
+            maxChars: Int = MAX_GEOHASH_MESSAGE_CHARS
+        ): String {
+            if (content.length <= maxChars) return content
+            if (content.length <= com.bitchat.android.ui.CashuTokenDecoder.MAX_TOKEN_LENGTH &&
+                com.bitchat.android.ui.CashuTokenDecoder.decode(content) != null
+            ) {
+                return content
+            }
+            return content.take(maxChars) + "…"
+        }
+    }
 
     // Simple event deduplication
     private val processedIds = ArrayDeque<String>()
@@ -100,7 +116,7 @@ class GeohashMessageHandler(
                 val msg = BitchatMessage(
                     id = event.id,
                     sender = senderName,
-                    content = event.content,
+                    content = capGeohashContent(event.content),
                     timestamp = Date(event.createdAt * 1000L),
                     isRelay = false,
                     originalSender = repo.displayNameForNostrPubkey(pubkey),
