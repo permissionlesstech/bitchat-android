@@ -47,6 +47,19 @@ object ArtiNative {
     external fun startSocksProxy(port: Int): Int
 
     /**
+     * Toggle Arti's dormant power-saving mode (`DormantMode::Soft` when true,
+     * `DormantMode::Normal` when false).
+     *
+     * In soft-dormant mode Arti suspends background periodic tasks (preemptive circuits,
+     * directory refreshes, and channel padding) while keeping the SOCKS listener active;
+     * any new Tor connection wakes it automatically.
+     *
+     * @param dormant true to enter soft-dormant mode, false to return to normal mode
+     * @return 0 on success, -1 if Arti client is not initialized
+     */
+    external fun setDormant(dormant: Boolean): Int
+
+    /**
      * Stop Arti and cleanup
      * @return 0 on success, error code otherwise
      */

@@ -118,6 +118,29 @@ a command line, in a shell profile, or in a release-notes file.
 
 ## 1. Prepare and approve the release commit
 
+### Google Play target API compliance
+
+The phone and Wear modules both read `targetSdk` from
+`gradle/libs.versions.toml`, currently API 37. The root build rejects application
+targets below API 36, including lower product-flavor overrides. Keep the current
+target or raise it; increasing `compileSdk` alone does not change the target API.
+
+Google Play requires phone app updates to target Android 16 (API 36) or higher
+from August 31, 2026, with an extension deadline of November 1, 2026. Wear OS
+updates require API 35 or higher; this repository uses the stricter API 36 floor
+for both modules. See the
+[official target API requirements](https://support.google.com/googleplay/android-developer/answer/11926878).
+
+If Play reports that the published app targets API 34, changing or merging source
+alone will not clear that warning. Prepare a new release with an unused version
+code, verify the uploaded bundle's target API in App bundle explorer, test it on
+the appropriate internal track, and promote the same artifact to production.
+Confirm the production version and the policy status in Play Console after
+rollout. A GitHub release or an internal testing upload alone does not complete
+the production update.
+
+### Release preparation
+
 1. Update `versionCode` and `versionName` in `app/build.gradle.kts`. For a Wear
    release, also update them in `wear/build.gradle.kts` using the reserved Wear
    version-code range. Every code must be unique across both form factors.
@@ -494,7 +517,7 @@ Keep it as a draft until the Play internal-track checks below pass.
 4. Upload exactly:
    `release-X.Y.Z/bitchat-android-play-upload.aab`.
 5. Confirm Play accepts the upload signature and reports the expected package,
-   `versionCode`, and `versionName`.
+   `versionCode`, `versionName`, and target API (currently 37; at least 36).
 6. Add the user-visible Play release notes.
 7. Resolve blocking Play checks, save the release, and start the internal
    rollout.

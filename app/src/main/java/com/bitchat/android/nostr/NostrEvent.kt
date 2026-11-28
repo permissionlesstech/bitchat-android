@@ -1,5 +1,6 @@
 package com.bitchat.android.nostr
 
+import com.bitchat.android.util.toHexString as utilToHexString
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.annotations.SerializedName
@@ -20,6 +21,10 @@ data class NostrEvent(
 ) {
     
     companion object {
+        private val defaultGson = Gson()
+        private val compactGson = GsonBuilder().disableHtmlEscaping().create()
+        private val sha256ThreadLocal = ThreadLocal.withInitial { MessageDigest.getInstance("SHA-256") }
+
         /**
          * Create from JSON dictionary
          */
@@ -44,8 +49,7 @@ data class NostrEvent(
          */
         fun fromJsonString(jsonString: String): NostrEvent? {
             return try {
-                val gson = Gson()
-                gson.fromJson(jsonString, NostrEvent::class.java)
+                defaultGson.fromJson(jsonString, NostrEvent::class.java)
             } catch (e: Exception) {
                 null
             }
@@ -131,16 +135,16 @@ data class NostrEvent(
         )
         
         // Convert to JSON without escaping slashes (compact format)
-        val gson = GsonBuilder().disableHtmlEscaping().create()
-        val jsonString = gson.toJson(serialized)
+        val jsonString = compactGson.toJson(serialized)
         
         // SHA256 hash of the JSON string
-        val digest = MessageDigest.getInstance("SHA-256")
+        val digest = sha256ThreadLocal.get()!!
+        digest.reset()
         val jsonBytes = jsonString.toByteArray(Charsets.UTF_8)
         val hash = digest.digest(jsonBytes)
         
         // Convert to hex
-        val hexId = hash.joinToString("") { "%02x".format(it) }
+        val hexId = hash.toHexString()
         
         return Pair(hexId, hash)
     }
@@ -161,8 +165,7 @@ data class NostrEvent(
      * Convert to JSON string
      */
     fun toJsonString(): String {
-        val gson = Gson()
-        return gson.toJson(this)
+        return defaultGson.toJson(this)
     }
     
     /**
@@ -218,14 +221,25 @@ object NostrKind {
     const val GEOHASH_PRESENCE = 20001 // For geohash presence heartbeat
 }
 
+private fun nostrHexNibble(c: Char): Int {
+    val value = com.bitchat.android.util.hexNibbleOrNegative(c)
+    if (value < 0) throw NumberFormatException("Invalid hex char: $c")
+    return value
+}
+
 /**
  * Extension functions for hex encoding/decoding
  */
 fun String.hexToByteArray(): ByteArray {
     check(length % 2 == 0) { "Must have an even length" }
-    return chunked(2)
-        .map { it.toInt(16).toByte() }
-        .toByteArray()
+    val out = ByteArray(length ushr 1)
+    var i = 0
+    var pos = 0
+    while (pos < length) {
+        out[i++] = ((nostrHexNibble(this[pos]) shl 4) or nostrHexNibble(this[pos + 1])).toByte()
+        pos += 2
+    }
+    return out
 }
 
-fun ByteArray.toHexString(): String = joinToString("") { "%02x".format(it) }
+fun ByteArray.toHexString(): String = utilToHexString()
