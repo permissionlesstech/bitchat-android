@@ -60,13 +60,12 @@ class GeohashRepository(
      */
     @Synchronized
     fun findPubkeyByNickname(targetNickname: String): String? {
-        val targetBase = targetNickname.substringBefore("#")
-        val targetSuffix = targetNickname.substringAfter("#", "").takeIf { it.isNotEmpty() }
-        val matches = geoNicknames.entries.filter { (pubkey, nickname) ->
-            nickname.substringBefore("#") == targetBase &&
-                (targetSuffix == null || pubkey.endsWith(targetSuffix, ignoreCase = true))
-        }
-        return matches.singleOrNull()?.key
+        // Same unique-or-nil rule as mesh: colliding nicks must use the
+        // people-list suffix (last four hex characters of the pubkey).
+        return com.bitchat.android.ui.uniquePeerIDForNickname(
+            targetNickname,
+            geoNicknames,
+        ) { pubkey -> "#${pubkey.takeLast(4)}" }
     }
 
     @Synchronized
