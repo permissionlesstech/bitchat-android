@@ -57,6 +57,7 @@ The wrapper exports the native methods used by `ArtiNative`:
 - `setLogCallback`
 - `initialize`
 - `startSocksProxy`
+- `setDormant`
 - `stop`
 
 The build fails if any expected symbol is absent. The NDK `readelf` check also

@@ -5,15 +5,23 @@ import android.content.SharedPreferences
 import android.util.Log
 import com.bitchat.android.geohash.DEFAULT_LIVE_LOCATION_ENABLED
 import com.google.gson.Gson
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.random.Random
 
 /**
  * Handles data persistence operations for the chat system
  */
 class DataManager(private val context: Context) {
-    
+
     companion object {
         private const val TAG = "DataManager"
+        private val blockListVersion = AtomicLong(0L)
+
+        fun blockListGeneration(): Long = blockListVersion.get()
+
+        internal fun notifyBlockListChanged() {
+            blockListVersion.incrementAndGet()
+        }
     }
     
     private val prefs: SharedPreferences = context.getSharedPreferences("bitchat_prefs", Context.MODE_PRIVATE)
@@ -207,6 +215,7 @@ class DataManager(private val context: Context) {
     
     fun saveBlockedUsers() {
         prefs.edit().putStringSet("blocked_users", _blockedUsers).apply()
+        notifyBlockListChanged()
     }
     
     fun addBlockedUser(fingerprint: String) {
@@ -240,6 +249,7 @@ class DataManager(private val context: Context) {
         // Copy first. putStringSet keeps the set instance, so later adds would
         // mutate the stored set and SharedPreferences would skip the write.
         prefs.edit().putStringSet("geohash_blocked_users", HashSet(_geohashBlockedUsers)).apply()
+        notifyBlockListChanged()
     }
     
     @Synchronized
@@ -268,5 +278,6 @@ class DataManager(private val context: Context) {
         _geohashBlockedUsers.clear()
         _channelMembers.clear()
         prefs.edit().clear().apply()
+        notifyBlockListChanged()
     }
 }

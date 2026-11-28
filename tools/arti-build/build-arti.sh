@@ -517,6 +517,7 @@ verify_jni_symbols_for_lib() {
     "Java_org_torproject_arti_ArtiNative_setLogCallback"
     "Java_org_torproject_arti_ArtiNative_initialize"
     "Java_org_torproject_arti_ArtiNative_startSocksProxy"
+    "Java_org_torproject_arti_ArtiNative_setDormant"
     "Java_org_torproject_arti_ArtiNative_stop"
   )
 

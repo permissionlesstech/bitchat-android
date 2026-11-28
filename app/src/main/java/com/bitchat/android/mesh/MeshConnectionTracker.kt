@@ -4,6 +4,7 @@ import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
@@ -45,6 +46,7 @@ abstract class MeshConnectionTracker(
 
     private var isActive = false
     private var cleanupJob: Job? = null
+    private val cleanupWakeup = Channel<Unit>(Channel.CONFLATED)
 
     /**
      * Start the tracker and its cleanup loop
@@ -93,6 +95,7 @@ abstract class MeshConnectionTracker(
             // Reset to 1 if expired, otherwise increment
             val attempts = if (currentAttempt?.isExpired() == true) 1 else (currentAttempt?.attempts ?: 0) + 1
             pendingConnections[id] = ConnectionAttempt(attempts)
+            cleanupWakeup.trySend(Unit)
             Log.d(tag, "Added pending connection for $id (attempts: $attempts)")
             return true
         }
@@ -126,6 +129,10 @@ abstract class MeshConnectionTracker(
         cleanupJob = scope.launch {
             while (isActive) {
                 try {
+                    if (pendingConnections.isEmpty()) {
+                        cleanupWakeup.receive()
+                        continue
+                    }
                     delay(CLEANUP_INTERVAL)
                     if (!isActive) break
 

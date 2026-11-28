@@ -128,15 +128,21 @@ class BluetoothConnectionManager(
     init {
         connectionScope.launch {
             var previousMode: PowerManager.PowerMode? = null
+            var previousBleKey: Pair<PowerManager.PowerMode, PowerManager.BleSchedule>? = null
             powerManager.profile.collect { profile ->
                 val modeChanged = previousMode != null && previousMode != profile.mode
                 previousMode = profile.mode
+                val bleKey = profile.mode to profile.ble
+                val bleChanged = previousBleKey == null || previousBleKey != bleKey
+                previousBleKey = bleKey
                 if (!isActive || !isBleTransportEnabled()) return@collect
 
                 if (modeChanged && isGattServerEnabled()) {
                     serverManager.restartAdvertising()
                 }
-                clientManager.applyPowerProfile(profile)
+                if (bleChanged) {
+                    clientManager.applyPowerProfile(profile)
+                }
             }
         }
         // Observe debug settings to enforce role state while active
