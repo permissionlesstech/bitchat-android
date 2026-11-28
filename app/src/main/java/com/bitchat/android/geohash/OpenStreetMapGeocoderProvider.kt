@@ -5,7 +5,10 @@ import android.util.Log
 import com.bitchat.android.net.OkHttpProvider
 import com.google.gson.Gson
 import java.io.IOException
+import com.bitchat.android.net.ArtiTorManager
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.Request
@@ -13,7 +16,10 @@ import okhttp3.Response
 import java.util.Locale
 import kotlin.coroutines.resume
 
-class OpenStreetMapGeocoderProvider : GeocoderProvider {
+class OpenStreetMapGeocoderProvider(
+    private val waitForTor: Boolean = false,
+    private val torReady: suspend () -> Boolean = { awaitDefaultTorProxy() }
+) : GeocoderProvider {
     private val TAG = "OSMGeocoderProvider"
     private val gson = Gson()
     private val userAgent = "Bitchat-Android/1.0"
@@ -24,6 +30,7 @@ class OpenStreetMapGeocoderProvider : GeocoderProvider {
         maxResults: Int,
         liveLocationToken: Long?
     ): List<Address> {
+        if (waitForTor && !torReady()) return emptyList()
         return suspendCancellableCoroutine { continuation ->
             val lang = Locale.getDefault().toLanguageTag()
             val url = "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=$latitude&lon=$longitude&zoom=18&addressdetails=1&accept-language=$lang"
@@ -129,4 +136,13 @@ class OpenStreetMapGeocoderProvider : GeocoderProvider {
         val postcode: String?,
         val road: String?
     )
+}
+
+private suspend fun awaitDefaultTorProxy(): Boolean {
+    val tor = ArtiTorManager.getInstance()
+    if (tor.isProxyEnabled()) return true
+    return withTimeoutOrNull(30_000) {
+        while (!tor.isProxyEnabled()) delay(200)
+        true
+    } == true
 }
