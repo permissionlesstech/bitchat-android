@@ -115,7 +115,22 @@ sealed class NostrResponse {
     data class Notice(
         val message: String
     ) : NostrResponse()
-    
+
+    /**
+     * CLOSED response - relay closed a subscription (NIP-01)
+     */
+    data class Closed(
+        val subscriptionId: String,
+        val message: String
+    ) : NostrResponse()
+
+    /**
+     * AUTH response - relay authentication challenge (NIP-42)
+     */
+    data class Auth(
+        val challenge: String
+    ) : NostrResponse()
+
     /**
      * Unknown response type
      */
@@ -167,6 +182,24 @@ sealed class NostrResponse {
                         if (jsonArray.size() >= 2) {
                             val message = jsonArray[1].asString
                             Notice(message)
+                        } else {
+                            Unknown(jsonArray.toString())
+                        }
+                    }
+
+                    "CLOSED" -> {
+                        if (jsonArray.size() >= 2) {
+                            val subscriptionId = jsonArray[1].asString
+                            val message = if (jsonArray.size() >= 3) jsonArray[2].asString else ""
+                            Closed(subscriptionId, message)
+                        } else {
+                            Unknown(jsonArray.toString())
+                        }
+                    }
+
+                    "AUTH" -> {
+                        if (jsonArray.size() >= 2) {
+                            Auth(jsonArray[1].asString)
                         } else {
                             Unknown(jsonArray.toString())
                         }
