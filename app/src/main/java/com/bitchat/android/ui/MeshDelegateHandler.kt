@@ -16,6 +16,8 @@ import kotlinx.coroutines.CoroutineDispatcher
 import com.bitchat.android.services.PeerConversationReconciler
 import java.util.Date
 
+private val meshMentionPattern = Regex("@([\\p{L}0-9_]+)")
+
 /**
  * Handles all BluetoothMeshDelegate callbacks and routes them to appropriate managers
  */
@@ -239,10 +241,8 @@ class MeshDelegateHandler(
      * Check if the content mentions the current user with @username format (simple, no hash suffix)
      */
     private fun checkForMeshMention(content: String, currentNickname: String): Boolean {
-        // Simple mention pattern for mesh: @username (no hash suffix like geohash)
-        val mentionPattern = "@([\\p{L}0-9_]+)".toRegex()
-
-        return mentionPattern.findAll(content).any { match ->
+        if (content.indexOf('@') < 0) return false
+        return meshMentionPattern.findAll(content).any { match ->
             val mentionedUsername = match.groupValues[1]
             // Direct comparison for mesh mentions (no hash suffix to remove)
             mentionedUsername.equals(currentNickname, ignoreCase = true)
