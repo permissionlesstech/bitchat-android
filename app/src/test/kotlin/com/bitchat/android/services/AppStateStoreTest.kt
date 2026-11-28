@@ -63,6 +63,27 @@ class AppStateStoreTest {
     }
 
     @Test
+    fun `public timeline sorts an older delivery after a newer one by packet timestamp`() {
+        val newer = BitchatMessage(
+            id = "newer-id",
+            sender = "alice",
+            content = "second",
+            timestamp = Date(1_700_000_010_000L),
+            senderPeerID = "1122334455667788"
+        )
+        val older = newer.copy(
+            id = "older-id",
+            content = "first",
+            timestamp = Date(1_700_000_000_000L)
+        )
+
+        AppStateStore.addPublicMessage(newer)
+        AppStateStore.addPublicMessage(older)
+
+        assertEquals(listOf("first", "second"), AppStateStore.publicMessages.value.map { it.content })
+    }
+
+    @Test
     fun `peer list merges transport updates instead of overwriting`() {
         AppStateStore.setTransportPeers("WIFI", listOf("wifi-peer"))
         AppStateStore.setTransportPeers("BLE", emptyList())
