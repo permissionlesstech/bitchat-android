@@ -8,7 +8,6 @@ import com.bitchat.android.services.AppStateStore
 import com.bitchat.watch.mesh.WearMeshService
 import java.io.File
 import java.util.Date
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -29,13 +28,16 @@ internal fun sendPublicMessage(mesh: WearMeshService, content: String) {
  * DM send with honest delivery state. MeshCore drops pre-handshake content (it only kicks
  * off the Noise handshake), so when no session exists we must not echo "Sent": the echo
  * stays "Sending" while a retry loop waits for the session and completes the send.
+ *
+ * The retry loop runs in the mesh service's scope because the caller's screen usually closes
+ * right after sending; it ends with the 15 s deadline or when the mesh stops.
  */
 internal fun sendPrivateMessage(
     mesh: WearMeshService,
     peerID: String,
     recipientNickname: String,
     content: String,
-    scope: CoroutineScope
+    nowMs: () -> Long = System::currentTimeMillis
 ) {
     val established = mesh.hasEstablishedSession(peerID)
     val messageID = java.util.UUID.randomUUID().toString()
@@ -43,20 +45,9 @@ internal fun sendPrivateMessage(
         mesh.sendPrivateMessageWithId(content, peerID, recipientNickname, messageID)
     } else {
         mesh.initiateNoiseHandshake(peerID)
-        scope.launch {
-            val deadline = System.currentTimeMillis() + 15_000
-            while (System.currentTimeMillis() < deadline) {
-                if (mesh.hasEstablishedSession(peerID)) {
-                    mesh.sendPrivateMessageWithId(content, peerID, recipientNickname, messageID)
-                    AppStateStore.updatePrivateMessageStatus(messageID, DeliveryStatus.Sent)
-                    return@launch
-                }
-                delay(400)
-            }
-            // Session never came up: the echo honestly stays "Sending" (AppStateStore
-            // refuses status downgrades, so it cannot be marked Failed from here).
-        }
     }
+    // Store the echo before the retry loop starts: the loop can finish on another thread at
+    // once, and a status update for a message that is not stored yet is lost.
     AppStateStore.addPrivateMessage(
         peerID,
         BitchatMessage(
@@ -70,6 +61,20 @@ internal fun sendPrivateMessage(
             deliveryStatus = if (established) DeliveryStatus.Sent else DeliveryStatus.Sending
         )
     )
+    if (established) return
+    mesh.serviceScope.launch {
+        val deadline = nowMs() + 15_000
+        while (mesh.isRunning() && nowMs() < deadline) {
+            if (mesh.hasEstablishedSession(peerID)) {
+                mesh.sendPrivateMessageWithId(content, peerID, recipientNickname, messageID)
+                AppStateStore.updatePrivateMessageStatus(messageID, DeliveryStatus.Sent)
+                return@launch
+            }
+            delay(400)
+        }
+        // Session never came up: the echo honestly stays "Sending" (AppStateStore
+        // refuses status downgrades, so it cannot be marked Failed from here).
+    }
 }
 
 /**
