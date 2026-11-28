@@ -49,6 +49,7 @@
     <string name="notification_active_peers_title">কাছাকাছি bitchatter!</string>
     <string name="notification_active_peers_one">কাছাকাছি ১ জন</string>
     <string name="notification_active_peers_many">কাছাকাছি %1$d জন</string>
+    <string name="notification_wave">হাত নাড়ুন 👋</string>
     <string name="notification_new_messages">নতুন বার্তা</string>
     <string name="notification_new_location_messages">নতুন অবস্থান বার্তা</string>
     <string name="notification_mentions_in">%1$s এ উল্লিখিত</string>

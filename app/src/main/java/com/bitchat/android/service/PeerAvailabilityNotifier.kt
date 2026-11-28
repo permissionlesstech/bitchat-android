@@ -135,6 +135,7 @@ internal class PeerAvailabilityTracker(
 internal interface PeerAvailabilityTextProvider {
     fun title(): String
     fun body(peerCount: Int): String
+    fun waveActionTitle(): String
 }
 
 private class AndroidPeerAvailabilityTextProvider(
@@ -151,12 +152,17 @@ private class AndroidPeerAvailabilityTextProvider(
             context.getString(R.string.notification_active_peers_many, peerCount)
         }
     }
+
+    override fun waveActionTitle(): String {
+        return context.getString(R.string.notification_wave)
+    }
 }
 
 /**
  * Owns the user-visible "bitchatters nearby" notification independently of the UI delegate.
  * The first eligible peer starts a fixed aggregation window; arrivals within that window update
- * the count without postponing the alert indefinitely.
+ * the count without postponing the alert indefinitely. The notification carries a wave action
+ * that greets the nearby peers on the public mesh without opening the app.
  */
 internal class PeerAvailabilityNotifier(
     private val context: Context,
@@ -185,6 +191,7 @@ internal class PeerAvailabilityNotifier(
         internal const val CHANNEL_ID = "bitchat_peer_availability_notifications"
         internal const val NOTIFICATION_ID = 997
         internal const val AGGREGATION_WINDOW_MS = 10_000L
+        internal const val ACTION_WAVE = "com.bitchat.android.action.WAVE_TO_NEARBY_PEERS"
         private const val TAG = "PeerAvailability"
     }
 
@@ -255,6 +262,15 @@ internal class PeerAvailabilityNotifier(
             openAppIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
+        val waveIntent = Intent(context, PeerAvailabilityWaveReceiver::class.java).apply {
+            action = ACTION_WAVE
+        }
+        val wavePendingIntent = PendingIntent.getBroadcast(
+            context,
+            NOTIFICATION_ID,
+            waveIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
@@ -267,6 +283,13 @@ internal class PeerAvailabilityNotifier(
             .setCategory(NotificationCompat.CATEGORY_SOCIAL)
             .setShowWhen(true)
             .setWhen(System.currentTimeMillis())
+            .addAction(
+                NotificationCompat.Action.Builder(
+                    R.drawable.ic_notification,
+                    textProvider.waveActionTitle(),
+                    wavePendingIntent
+                ).build()
+            )
             .build()
 
         try {

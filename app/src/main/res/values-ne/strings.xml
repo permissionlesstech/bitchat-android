@@ -49,6 +49,7 @@
     <string name="notification_active_peers_title">नजिकै bitchatter हरू!</string>
     <string name="notification_active_peers_one">१ जना नजिकै</string>
     <string name="notification_active_peers_many">%1$d जना नजिकै</string>
+    <string name="notification_wave">हात हल्लाउनुहोस् 👋</string>
     <string name="notification_new_messages">नयाँ सन्देश</string>
     <string name="notification_new_location_messages">नयाँ स्थान सन्देश</string>
     <string name="notification_mentions_in">%1$s मा उल्लेख</string>

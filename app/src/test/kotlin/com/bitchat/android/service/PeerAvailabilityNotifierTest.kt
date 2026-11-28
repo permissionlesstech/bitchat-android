@@ -184,6 +184,37 @@ class PeerAvailabilityNotifierTest {
     }
 
     @Test
+    fun `availability notification offers a wave action handled by the wave receiver`() = runTest {
+        val textProvider = testTextProvider()
+        val notifier = createNotifier(
+            scope = this,
+            textProvider = textProvider
+        )
+
+        notifier.onPeerCountChanged(1, isAppInBackground = true)
+        advanceTimeBy(PeerAvailabilityNotifier.AGGREGATION_WINDOW_MS)
+        runCurrent()
+
+        val notification =
+            shadowOf(systemNotificationManager).getNotification(
+                PeerAvailabilityNotifier.NOTIFICATION_ID
+            )
+        assertNotNull(notification)
+        val waveAction = notification.actions.single()
+        assertEquals(textProvider.waveActionTitle(), waveAction.title.toString())
+        val wavePendingIntent = shadowOf(waveAction.actionIntent)
+        assertTrue(wavePendingIntent.isBroadcastIntent)
+        assertEquals(
+            PeerAvailabilityNotifier.ACTION_WAVE,
+            wavePendingIntent.savedIntent.action
+        )
+        assertEquals(
+            PeerAvailabilityWaveReceiver::class.java.name,
+            wavePendingIntent.savedIntent.component?.className
+        )
+    }
+
+    @Test
     fun `later peer arrivals are included without restarting aggregation window`() = runTest {
         val textProvider = testTextProvider()
         val notifier = createNotifier(
@@ -323,6 +354,8 @@ class PeerAvailabilityNotifierTest {
             override fun title(): String = "Bitchatters nearby"
 
             override fun body(peerCount: Int): String = "$peerCount people around"
+
+            override fun waveActionTitle(): String = "Wave"
         }
     }
 }

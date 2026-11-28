@@ -46,6 +46,7 @@
   <string name="notification_active_peers_title">👥 bitchatter berdekatan!</string>
   <string name="notification_active_peers_one">1 orang berdekatan</string>
   <string name="notification_active_peers_many">%1$d orang berdekatan</string>
+  <string name="notification_wave">Lambai 👋</string>
   <string name="notification_new_messages">Mesej Baharu</string>
   <string name="notification_new_location_messages">Mesej Lokasi Baharu</string>
   <string name="notification_mentions_in">Disebut dalam %1$s</string>

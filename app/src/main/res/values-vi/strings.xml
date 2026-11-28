@@ -49,6 +49,7 @@
     <string name="notification_active_peers_title">bitchatter gần đó!</string>
     <string name="notification_active_peers_one">1 người gần đó</string>
     <string name="notification_active_peers_many">%1$d người gần đó</string>
+    <string name="notification_wave">Vẫy tay 👋</string>
     <string name="notification_new_messages">Tin nhắn mới</string>
     <string name="notification_new_location_messages">Tin nhắn vị trí mới</string>
     <string name="notification_mentions_in">Được nhắc đến trong %1$s</string>

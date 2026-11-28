@@ -43,6 +43,7 @@
     <string name="notification_active_peers_title">bitchatter рядом!</string>
     <string name="notification_active_peers_one">Рядом 1 человек</string>
     <string name="notification_active_peers_many">Рядом %1$d человек</string>
+    <string name="notification_wave">Помахать 👋</string>
     <string name="notification_new_messages">Новые сообщения</string>
     <string name="notification_new_location_messages">Новые сообщения локаций</string>
     <string name="notification_mentions_in">Упоминание в %1$s</string>
