@@ -69,6 +69,7 @@ This matches the on‑wire 8‑byte `senderID`/`recipientID` encoding used in th
 
 ## Receiver Behavior
 
+- Accept an ANNOUNCE only when its packet timestamp is inside the symmetric, inclusive five-minute window (`MESSAGE_TIMEOUT`, the same bound as LEAVE). Skew is the absolute difference from local time. A timestamp exactly five minutes old or exactly five minutes ahead is admitted. Anything further is dropped and must not update presence, topology, or be relayed. See `docs/NOISE_PEER_ID_BINDING.md`.
 - Decompress payload if the packet’s compression flag is set, then parse TLVs in order.
 - Parse TLVs `0x01`..`0x03` as usual; ignore any unknown TLVs.
 - Parse TLV `0x05`, when present, as a little-endian bitfield. Absence and an
