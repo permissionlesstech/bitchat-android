@@ -28,6 +28,16 @@ class UrlTrackerSanitizerTest {
     }
 
     @Test
+    fun decodesPercentEncodedTrackerKeys() {
+        val url = "https://example.com/?%75tm_source=campaign&keep=1"
+        val result = UrlTrackerSanitizer.inspect(url)
+
+        assertTrue(result.hasTrackers)
+        assertEquals(listOf("utm_source"), result.removedTrackers)
+        assertEquals("https://example.com/?keep=1", result.sanitizedUrl)
+    }
+
+    @Test
     fun leavesCleanUrlsUnchanged() {
         val url = "https://example.com/search?q=bitchat&page=2"
         val result = UrlTrackerSanitizer.inspect(url)

@@ -1,6 +1,7 @@
 package com.bitchat.android.util
 
 import java.net.URI
+import java.net.URLDecoder
 
 /**
  * Detects and strips common URL tracking query parameters (e.g. `igsh`, `utm_*`,
@@ -66,7 +67,8 @@ object UrlTrackerSanitizer {
         val removed = mutableListOf<String>()
         for (pair in rawQuery.split("&")) {
             if (pair.isEmpty()) continue
-            val key = pair.substringBefore("=")
+            val rawKey = pair.substringBefore("=")
+            val key = decodeQueryKey(rawKey)
             if (isTrackingParameter(key)) {
                 removed.add(key)
             } else {
@@ -90,4 +92,7 @@ object UrlTrackerSanitizer {
             removedTrackers = removed
         )
     }
+
+    private fun decodeQueryKey(key: String): String =
+        runCatching { URLDecoder.decode(key, "UTF-8") }.getOrDefault(key)
 }
