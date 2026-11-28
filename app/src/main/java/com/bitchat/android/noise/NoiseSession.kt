@@ -46,7 +46,7 @@ class NoiseSession(
         /**
          * Check if nonce is valid for replay protection (matching iOS implementation)
          */
-        private fun isValidNonce(receivedNonce: Long, highestReceivedNonce: Long, replayWindow: ByteArray): Boolean {
+        internal fun isValidNonce(receivedNonce: Long, highestReceivedNonce: Long, replayWindow: ByteArray): Boolean {
             if (receivedNonce + REPLAY_WINDOW_SIZE <= highestReceivedNonce) {
                 return false  // Too old, outside window
             }
@@ -63,8 +63,18 @@ class NoiseSession(
         }
         
         /**
+         * Copying wrapper so tests can observe the window without sharing the session buffer.
+         */
+        internal fun markNonceAsSeen(receivedNonce: Long, highestReceivedNonce: Long, replayWindow: ByteArray): Pair<Long, ByteArray> {
+            val copy = replayWindow.copyOf()
+            val highest = markNonceAsSeenInPlace(receivedNonce, highestReceivedNonce, copy)
+            return Pair(highest, copy)
+        }
+
+        /**
          * Mark nonce as seen in replay window in-place (caller must hold cipherLock).
          * Returns the updated highestReceivedNonce.
+         * Older seen bits shift left as highestReceivedNonce advances.
          */
         private fun markNonceAsSeenInPlace(receivedNonce: Long, highestReceivedNonce: Long, replayWindow: ByteArray): Long {
             var newHighestReceivedNonce = highestReceivedNonce
