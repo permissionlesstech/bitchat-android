@@ -448,6 +448,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
           }
         }
 
+        val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+
         // Floating header - positioned absolutely at top, ignores keyboard
         ChatFloatingHeader(
             selectedPrivatePeer = null,
@@ -455,11 +457,24 @@ fun ChatScreen(viewModel: ChatViewModel) {
             nickname = nickname,
             viewModel = viewModel,
             colorScheme = colorScheme,
-            onSidebarToggle = { viewModel.showMeshPeerList() },
-            onShowAppInfo = { viewModel.showAppInfo() },
-            onPanicClear = { showPanicConfirmation = true },
-            onLocationChannelsClick = { showLocationChannelsSheet = true },
+            onSidebarToggle = {
+                focusManager.clearFocus()
+                viewModel.showMeshPeerList()
+            },
+            onShowAppInfo = {
+                focusManager.clearFocus()
+                viewModel.showAppInfo()
+            },
+            onPanicClear = {
+                focusManager.clearFocus()
+                showPanicConfirmation = true
+            },
+            onLocationChannelsClick = {
+                focusManager.clearFocus()
+                showLocationChannelsSheet = true
+            },
             onLocationNotesClick = {
+                focusManager.clearFocus()
                 nearbyNotesController.reveal()
                 showLocationNotesSheet = true
             }
