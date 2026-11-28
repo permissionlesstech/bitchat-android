@@ -148,6 +148,8 @@ class NostrDirectMessageHandler(
                     return
                 }
 
+                if (pm.content.isBlank()) return
+
                 val message = BitchatMessage(
                     id = pm.messageID,
                     sender = senderNickname,
