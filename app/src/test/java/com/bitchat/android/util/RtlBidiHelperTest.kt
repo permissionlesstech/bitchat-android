@@ -18,6 +18,24 @@ class RtlBidiHelperTest {
     }
 
     @Test
+    fun keepsDisambiguationSuffixInsideTheMentionIsolate() {
+        val output = RtlBidiHelper.isolateMixedChatTokens("@alice#abcd")
+        assertEquals("\u2066@alice#abcd\u2069", output)
+    }
+
+    @Test
+    fun doesNotIsolateEmailDomains() {
+        val input = "user@example.invalid"
+        assertEquals(input, RtlBidiHelper.isolateMixedChatTokens(input))
+    }
+
+    @Test
+    fun leavesParenthesesOutsideUrlIsolate() {
+        val output = RtlBidiHelper.isolateMixedChatTokens("(https://example.invalid).")
+        assertEquals("(\u2066https://example.invalid\u2069).", output)
+    }
+
+    @Test
     fun leavesEmptyStringUnchanged() {
         assertEquals("", RtlBidiHelper.isolateMixedChatTokens(""))
         assertEquals("", RtlBidiHelper.isolateLtr(""))

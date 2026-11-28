@@ -571,6 +571,26 @@ class ChatUIUtilsTest {
         assertEquals(PeerIdentity.nostr(pubkey), identity)
     }
 
+    @Test
+    fun `rendered body isolates mention suffix and leaves url punctuation outside`() {
+        val body = formatTextMessageBody(
+            message = message("hi @alice#abcd (https://example.invalid)."),
+            currentUserNickname = "bob",
+            palette = palette,
+            contentColor = colorScheme.onSurface,
+            linkColor = colorScheme.secondary,
+            timeFormatter = timeFormatter,
+            includeTimestamp = false,
+        )
+
+        assertTrue(body.text.contains("\u2066@alice#abcd\u2069"))
+        assertTrue(body.text.contains("(\u2066https://example.invalid\u2069)."))
+        assertFalse(body.text.contains("\u2066https://example.invalid)\u2069"))
+        val url = body.getStringAnnotations("url_click", 0, body.length).single()
+        assertEquals("https://example.invalid", url.item)
+        assertEquals("https://example.invalid", body.text.substring(url.start, url.end))
+    }
+
     private fun rgbToHsv(r: Float, g: Float, b: Float, out: FloatArray) {
         val max = maxOf(r, g, b)
         val min = minOf(r, g, b)
