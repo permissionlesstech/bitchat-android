@@ -285,30 +285,28 @@ class GeohashViewModel(
     fun getNostrKeyMapping(): Map<String, String> = repo.getNostrKeyMapping()
 
     fun blockUserInGeohash(targetNickname: String, pubkeyHex: String? = null) {
+        val selected = state.selectedLocationChannel.value as? com.bitchat.android.geohash.ChannelID.Location
+        val geohash = selected?.channel?.geohash
         val pubkey = pubkeyHex?.takeIf { it.isNotBlank() }?.lowercase()
-            ?: repo.findPubkeyByNickname(targetNickname)
-        if (pubkey != null) {
+            ?: geohash?.let { repo.findPubkeyForGeohashBlock(it, targetNickname) }
+        val feedback = if (pubkey != null) {
             dataManager.addGeohashBlockedUser(pubkey)
             messageManager.removeGeohashMessagesFromSender(pubkey)
             // Refresh people list and counts to remove blocked entry immediately
             repo.refreshGeohashPeople()
             repo.updateReactiveParticipantCounts()
-            val sysMsg = com.bitchat.android.model.BitchatMessage(
-                sender = "system",
-                content = "blocked $targetNickname in geohash channels",
-                timestamp = Date(),
-                isRelay = false
-            )
-            messageManager.addMessage(sysMsg)
+            "blocked $targetNickname in geohash channels"
         } else {
-            val sysMsg = com.bitchat.android.model.BitchatMessage(
-                sender = "system",
-                content = "user '$targetNickname' not found in current geohash",
-                timestamp = Date(),
-                isRelay = false
-            )
-            messageManager.addMessage(sysMsg)
+            "peer '$targetNickname' not found or ambiguous in this geohash"
         }
+        val message = com.bitchat.android.model.BitchatMessage(
+            sender = "system",
+            content = feedback,
+            timestamp = Date(),
+            isRelay = false
+        )
+        if (geohash != null) messageManager.addChannelMessage("geo:$geohash", message)
+        else messageManager.addMessage(message)
     }
 
     fun selectLocationChannel(channel: com.bitchat.android.geohash.ChannelID) {
