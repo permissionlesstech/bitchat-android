@@ -643,7 +643,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 // Decode request and respond with missing packets
                 val fromPeer = routed.peerID ?: return
                 val req = RequestSyncPacket.decode(routed.packet.payload) ?: return
-                gossipSyncManager.handleRequestSync(fromPeer, req)
+                gossipSyncManager.handleRequestSync(fromPeer, req, routed.ingressLinkID)
             }
         }
         

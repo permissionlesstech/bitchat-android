@@ -520,7 +520,7 @@ class MeshCore(
             override fun handleRequestSync(routed: RoutedPacket) {
                 val fromPeer = routed.peerID ?: return
                 val req = RequestSyncPacket.decode(routed.packet.payload) ?: return
-                gossipSyncManager.handleRequestSync(fromPeer, req)
+                gossipSyncManager.handleRequestSync(fromPeer, req, routed.ingressLinkID)
             }
         }
     }
