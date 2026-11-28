@@ -34,7 +34,8 @@ import com.bitchat.android.R
 fun PermissionExplanationScreen(
     modifier: Modifier,
     permissionCategories: List<PermissionCategory>,
-    onContinue: () -> Unit
+    onContinue: () -> Unit,
+    onSkip: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val scrollState = rememberScrollState()
@@ -132,6 +133,12 @@ fun PermissionExplanationScreen(
                 modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
             )
 
+            Text(
+                text = stringResource(R.string.internet_only_explanation),
+                style = MaterialTheme.typography.bodySmall,
+                color = colorScheme.onBackground.copy(alpha = 0.8f)
+            )
+
             // Permission categories
             permissionCategories.forEach { category ->
                 PermissionCategoryCard(
@@ -149,13 +156,16 @@ fun PermissionExplanationScreen(
                 containerColor = colorScheme.primary
             )
         ) {
-            Text(
-                text = stringResource(R.string.grant_permissions),
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = BitchatFontFamily,
-                    fontWeight = FontWeight.Bold
+                Text(
+                    text = stringResource(R.string.grant_permissions),
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = BitchatFontFamily,
+                        fontWeight = FontWeight.Bold
+                    )
                 )
-            )
+        }
+        TextButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.continue_internet_only))
         }
     }
 }
