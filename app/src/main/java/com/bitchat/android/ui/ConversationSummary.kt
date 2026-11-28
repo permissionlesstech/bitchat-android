@@ -138,10 +138,17 @@ internal fun resolveConversationDisplayName(
     connectedPeerID: String?,
     peerNicknames: Map<String, String>,
     resolvedContactName: String?,
-    persistedDisplayName: String?
+    persistedDisplayName: String?,
+    geohashNicknames: Map<String, String> = emptyMap(),
+    nostrPubkey: String? = null,
+    identityAliases: Set<String> = emptySet()
 ): String {
     fun String?.usableName(): String? = this?.takeUnless {
         it.isBlank() || it.equals("Unknown", ignoreCase = true)
+    }
+
+    fun String?.announcedName(): String? = usableName()?.takeUnless {
+        it.equals("anon", ignoreCase = true)
     }
 
     val liveName = connectedPeerID?.let { peerID ->
@@ -153,9 +160,56 @@ internal fun resolveConversationDisplayName(
                 ?.value
     }
     return liveName.usableName()
+        ?: geohashNickname(nostrPubkey, identityAliases, geohashNicknames).announcedName()
         ?: resolvedContactName.usableName()
         ?: persistedDisplayName.usableName()
         ?: fallbackName
+}
+
+internal fun projectGeohashConversationNames(people: List<GeoPerson>): Map<String, String> {
+    val duplicateNames = duplicateGeohashBaseNames(people)
+    return buildMap {
+        for (person in people) {
+            val name = disambiguatedGeohashDisplayName(person, duplicateNames)
+            val baseName = splitSuffix(name).first
+            if (baseName.isNotBlank() &&
+                !baseName.equals("anon", ignoreCase = true) &&
+                !baseName.equals("Unknown", ignoreCase = true)
+            ) {
+                put(person.id.lowercase(), name)
+            }
+        }
+    }
+}
+
+/**
+ * Location-channel nicknames live on the Nostr pubkey, not on the last private message.
+ * The open chat already reads that cache. The conversation row has to use it too, or a
+ * rename that never sent a new DM stays stuck on the old sender name.
+ */
+private fun geohashNickname(
+    nostrPubkey: String?,
+    identityAliases: Set<String>,
+    geohashNicknames: Map<String, String>
+): String? {
+    if (geohashNicknames.isEmpty()) return null
+    val keys = buildList {
+        nostrPubkey?.lowercase()?.let(::add)
+        identityAliases.forEach { alias ->
+            val normalized = alias.lowercase()
+            if (normalized.startsWith("nostr_")) add(normalized.removePrefix("nostr_"))
+        }
+    }
+    keys.forEach { key ->
+        geohashNicknames[key]?.let { return it }
+        if (key.length in 8..63) {
+            geohashNicknames.entries
+                .firstOrNull { (pubkey, _) -> pubkey.startsWith(key) }
+                ?.value
+                ?.let { return it }
+        }
+    }
+    return null
 }
 
 internal fun sortConversationSummaries(

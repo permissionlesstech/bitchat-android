@@ -49,7 +49,8 @@ import com.bitchat.android.features.voice.VoiceRecorder
 private data class ConversationLiveIdentityState(
     val connectedPeerIDs: List<String>,
     val peerNicknames: Map<String, String>,
-    val persistedDisplayNames: Map<String, String>
+    val persistedDisplayNames: Map<String, String>,
+    val geohashNicknames: Map<String, String>
 )
 
 /**
@@ -265,18 +266,23 @@ class ChatViewModel(
         }
     }
 
+    private val geohashConversationNames = state.geohashPeople
+        .map(::projectGeohashConversationNames)
+        .distinctUntilChanged()
+
     private val conversationLiveIdentityState = combine(
         conversationPresencePeers,
         state.peerNicknames,
-        state.peerFingerprints,
+        geohashConversationNames,
         conversationDirectoryRevision,
         com.bitchat.android.services.AppStateStore.privateConversationDisplayNames
-    ) { connectedPeerIDs, peerNicknames, _, _, persistedDisplayNames ->
+    ) { connectedPeerIDs, peerNicknames, geohashNames, _, persistedDisplayNames ->
         ConversationLiveIdentityState(
             connectedPeerIDs = connectedPeerIDs,
             peerNicknames = peerNicknames,
             persistedDisplayNames = persistedDisplayNames
-                .mapKeys { (conversationID, _) -> conversationID.lowercase() }
+                .mapKeys { (conversationID, _) -> conversationID.lowercase() },
+            geohashNicknames = geohashNames
         )
     }
     private val baseConversations = combine(
@@ -339,7 +345,10 @@ class ChatViewModel(
                     connectedPeerID = connectedPeerID,
                     peerNicknames = liveIdentity.peerNicknames,
                     resolvedContactName = resolution.displayName,
-                    persistedDisplayName = persistedDisplayName
+                    persistedDisplayName = persistedDisplayName,
+                    geohashNicknames = liveIdentity.geohashNicknames,
+                    nostrPubkey = resolvedNostrPubkey,
+                    identityAliases = aliases
                 ),
                 nostrPubkey = resolvedNostrPubkey,
                 transport = if (resolvedNostrPubkey != null) {
@@ -552,11 +561,17 @@ class ChatViewModel(
             combine(
                 state.peerNicknames,
                 state.connectedPeers,
-                state.peerFingerprints
-            ) { peerNicknames, connectedPeers, _ ->
-                connectedPeers.mapNotNull { peerID ->
+                geohashConversationNames,
+                state.peerFingerprints,
+                state.privateChats.map { it.keys }.distinctUntilChanged()
+            ) { peerNicknames, connectedPeers, geohashNames, _, _ ->
+                val meshNames = connectedPeers.mapNotNull { peerID ->
                     peerNicknames[peerID]?.let { peerID to it }
-                }.toMap()
+                }
+                val geohashAliases = geohashNames.entries.map { (pubkey, name) ->
+                    "nostr_${pubkey.take(16)}" to name
+                }
+                (meshNames + geohashAliases).toMap()
             }.collect { connectedNames ->
                 conversationListPreferences.canonicalizeAliases()
                 com.bitchat.android.services.AppStateStore
