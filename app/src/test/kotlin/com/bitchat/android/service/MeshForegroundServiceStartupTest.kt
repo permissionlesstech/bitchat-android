@@ -140,7 +140,11 @@ class MeshForegroundServiceStartupTest {
         mockConstruction(PeerAvailabilityNotifier::class.java).use {
             try {
                 service.onCreate()
-                verifyNoInteractions(bluetooth)
+                // The peer-count collector may read the count while building the first
+                // notification. Mesh transports must still stay down until promotion.
+                verify(bluetooth, atMost(1)).getActivePeerCount()
+                verify(bluetooth, never()).startServices()
+                assertEquals(bluetooth, MeshServiceHolder.meshService)
             } finally {
                 service.onDestroy()
             }
