@@ -258,7 +258,7 @@ class NostrTestManager(private val context: Context) {
             val isConnected = nostrClient.relayConnectionStatus.value ?: false
             appendLine("Relay Connected: $isConnected")
             
-            val relays = nostrClient.relayInfo.value ?: emptyList()
+            val relays = nostrClient.getLiveRelayStatuses()
             appendLine("Relays (${relays.size}):")
             relays.forEach { relay ->
                 appendLine("  ${relay.url}: ${if (relay.isConnected) "✅" else "❌"} (sent: ${relay.messagesSent}, received: ${relay.messagesReceived})")

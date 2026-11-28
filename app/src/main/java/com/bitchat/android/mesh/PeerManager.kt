@@ -4,6 +4,7 @@ import android.util.Log
 import com.bitchat.android.model.AuthenticatedPeerState
 import com.bitchat.android.model.PeerCapabilities
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -19,7 +20,7 @@ data class PeerInfo(
     var noisePublicKey: ByteArray?,
     var signingPublicKey: ByteArray?,      // NEW: Ed25519 public key for verification
     var isVerifiedNickname: Boolean,       // NEW: Verification status flag
-    var lastSeen: Long,  // Using Long instead of Date for simplicity
+    @Volatile var lastSeen: Long,  // Using Long instead of Date for simplicity
     var capabilities: PeerCapabilities? = null, // null means a signed old-client announce omitted TLV 0x05
     var hasVerifiedAnnouncement: Boolean = false,
     /** Noise key that the preserved capability state was actually signed alongside. */
@@ -80,7 +81,9 @@ data class PeerInfo(
  * Now includes centralized peer fingerprint management via PeerFingerprintManager singleton
  * and support for signed announcement verification
  */
-class PeerManager {
+class PeerManager(
+    cleanupDispatcher: CoroutineDispatcher = Dispatchers.IO
+) {
     
     companion object {
         private const val TAG = "PeerManager"
@@ -109,9 +112,10 @@ class PeerManager {
     // Callback to check if a peer is directly connected (injected by BluetoothMeshService)
     var isPeerDirectlyConnected: ((String) -> Boolean)? = null
 
-    // Coroutines
-    private val managerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    
+    // Coroutines (initialize cleanupWakeup BEFORE init launches startPeriodicCleanup)
+    private val managerScope = CoroutineScope(cleanupDispatcher + SupervisorJob())
+    private val cleanupWakeup = Channel<Unit>(Channel.CONFLATED)
+
     init {
         startPeriodicCleanup()
     }
@@ -210,6 +214,7 @@ class PeerManager {
                 .takeIf { announcementMatchesAuthenticatedState }
         )
         peers[peerID] = replacement
+        cleanupWakeup.trySend(Unit)
         if (existing == null || existing != replacement) notifyPeerListUpdate()
     }
 
@@ -259,6 +264,7 @@ class PeerManager {
         )
         
         peers[peerID] = peerInfo
+        cleanupWakeup.trySend(Unit)
         
         // Update derived state only
         // No legacy maps; peers map is the single source of truth
@@ -327,9 +333,7 @@ class PeerManager {
      */
     fun updatePeerLastSeen(peerID: String) {
         if (peerID != "unknown") {
-            peers[peerID]?.let { info ->
-                peers[peerID] = info.copy(lastSeen = System.currentTimeMillis())
-            }
+            peers[peerID]?.lastSeen = System.currentTimeMillis()
         }
     }
     
@@ -375,6 +379,7 @@ class PeerManager {
                 isVerifiedNickname = false,
                 lastSeen = now
             )
+            cleanupWakeup.trySend(Unit)
         }
         
         // Handle first announcement
@@ -560,11 +565,15 @@ class PeerManager {
     }
     
     /**
-     * Start periodic cleanup of stale peers
+     * Demand-driven cleanup of stale peers: sleeps with zero wakeups while no peers exist.
      */
     private fun startPeriodicCleanup() {
         managerScope.launch {
             while (isActive) {
+                if (peers.isEmpty()) {
+                    cleanupWakeup.receive()
+                    continue
+                }
                 delay(com.bitchat.android.util.AppConstants.Mesh.PEER_CLEANUP_INTERVAL_MS)
                 cleanupStalePeers()
             }

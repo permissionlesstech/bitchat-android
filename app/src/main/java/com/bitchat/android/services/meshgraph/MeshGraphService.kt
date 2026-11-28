@@ -30,11 +30,14 @@ class MeshGraphService private constructor() {
      */
     fun updateFromAnnouncement(originPeerID: String, originNickname: String?, neighborsOrNull: List<String>?, timestamp: ULong) {
         synchronized(this) {
+            // Nickname is part of the latest announce. Capture it for the snapshot
+            // check, but do not write it until this timestamp wins.
+            val prevNickname = nicknames[originPeerID]
+
             // 1. Check timestamp first to ensure this is the latest word from the peer.
-            // Nickname is part of that word: a delayed older announce must not roll it back.
+            // A delayed older announce must not roll the nickname back.
             val prevTs = lastUpdate[originPeerID]
             if (prevTs != null && prevTs >= timestamp) {
-                // Older or equal update: ignore
                 return
             }
             if (originNickname != null) nicknames[originPeerID] = originNickname
@@ -46,16 +49,23 @@ class MeshGraphService private constructor() {
             
             // Filter out self-loops just in case
             val newSet = neighbors.distinct().take(10).filter { it != originPeerID }.toSet()
-            announcements[originPeerID] = newSet
+            val prevNeighbors = announcements.put(originPeerID, newSet)
 
-            publishSnapshot()
+            // Avoid rebuilding and sorting the entire graph snapshot on periodic unchanged announces.
+            if (prevNeighbors == null || prevNeighbors != newSet || (originNickname != null && prevNickname != originNickname)) {
+                publishSnapshot()
+            }
         }
     }
 
     fun updateNickname(peerID: String, nickname: String?) {
         if (nickname == null) return
-        nicknames[peerID] = nickname
-        publishSnapshot()
+        synchronized(this) {
+            val prev = nicknames.put(peerID, nickname)
+            if (prev != nickname) {
+                publishSnapshot()
+            }
+        }
     }
 
     /**

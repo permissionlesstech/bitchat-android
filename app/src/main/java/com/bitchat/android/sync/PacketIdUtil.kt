@@ -1,6 +1,7 @@
 package com.bitchat.android.sync
 
 import com.bitchat.android.protocol.BitchatPacket
+import com.bitchat.android.util.toHexString
 import java.security.MessageDigest
 
 /**
@@ -10,8 +11,11 @@ import java.security.MessageDigest
  * Returns a 16-byte (128-bit) truncated hash for compactness.
  */
 object PacketIdUtil {
+    private val sha256ThreadLocal = ThreadLocal.withInitial { MessageDigest.getInstance("SHA-256") }
+
     fun computeIdBytes(packet: BitchatPacket): ByteArray {
-        val md = MessageDigest.getInstance("SHA-256")
+        val md = sha256ThreadLocal.get()!!
+        md.reset()
         md.update(packet.type.toByte())
         md.update(packet.senderID)
         // Timestamp as 8 bytes big-endian
@@ -25,7 +29,7 @@ object PacketIdUtil {
     }
 
     fun computeIdHex(packet: BitchatPacket): String {
-        return computeIdBytes(packet).joinToString("") { b -> "%02x".format(b) }
+        return computeIdBytes(packet).toHexString()
     }
 }
 
