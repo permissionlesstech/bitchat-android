@@ -487,7 +487,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
             val channelMessage = com.bitchat.android.model.ChannelMessageWire.decode(packet.payload)
             val message = if (channelMessage != null) {
                 BitchatMessage(
-                    id = channelMessage.id,
+                    id = PacketIdUtil.computeIdHex(packet).uppercase(),
                     sender = delegate?.getPeerNickname(peerID) ?: channelMessage.sender,
                     content = channelMessage.content,
                     senderPeerID = peerID,

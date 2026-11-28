@@ -31,6 +31,13 @@ Round-trip tests remain useful but are not sufficient on their own: an encoder
 and decoder can share the same defect. Each critical wire format therefore has
 at least one literal vector.
 
+A broadcast `MESSAGE` payload is public text when it is raw UTF-8. It is a
+channel message only when it is a canonical `BitchatMessage` binary with flag
+bit `0x40` and a channel of 1 to 255 UTF-8 bytes. Names that do not fit, and
+envelopes that do not fit the 4096-byte serializer, are not sent. The visible
+message id is the outer packet id, so a relay cannot reuse an inner id. The
+literal bytes are in `ChannelMessageWireTest`.
+
 NIP-17 receivers should reserve safety slack beyond the maximum timestamp
 randomization used by senders. Android caps outbound seal and gift-wrap
 randomization at 22h, leaving 2 hours of slack inside iOS's 24-hour
