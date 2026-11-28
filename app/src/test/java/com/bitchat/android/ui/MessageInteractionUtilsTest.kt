@@ -22,6 +22,17 @@ class MessageInteractionUtilsTest {
     }
 
     @Test
+    fun `self detection rejects different peer id even when nickname matches`() {
+        assertFalse(message(sender = "me", senderPeerId = "peer-b").isFromSelf("me", "peer-a"))
+        assertFalse(message(sender = "me#1a2b", senderPeerId = "peer-b").isFromSelf("me", "peer-a"))
+    }
+
+    @Test
+    fun `self detection preserves geohash local echo attribution`() {
+        assertTrue(message(sender = "me#1a2b", senderPeerId = "geohash:u4pru").isFromSelf("me", "peer-a"))
+    }
+
+    @Test
     fun `URL normalization preserves explicit HTTP schemes`() {
         assertEquals("http://example.com", normalizeMessageUrl("http://example.com"))
         assertEquals("HTTPS://example.com", normalizeMessageUrl("HTTPS://example.com"))
