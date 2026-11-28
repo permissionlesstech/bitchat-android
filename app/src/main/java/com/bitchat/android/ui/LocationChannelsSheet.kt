@@ -968,7 +968,9 @@ private fun CustomGeohashRow(
                         text = stringResource(R.string.geohash_placeholder),
                         fontSize = 14.sp,
                         fontFamily = BitchatFontFamily,
-                        color = palette.textTertiary
+                        color = palette.textTertiary,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                 }
                 inner()
@@ -1005,6 +1007,8 @@ private fun CustomGeohashRow(
                 fontWeight = FontWeight.Medium,
                 fontFamily = BitchatFontFamily,
                 color = teleportColor,
+                maxLines = 1,
+                softWrap = false,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
             )
         }
