@@ -90,10 +90,16 @@ internal enum class HeaderCrowdingMode {
     IconOnlyLocationChannel,
 }
 
-internal fun headerCrowdingMode(availableWidth: Dp): HeaderCrowdingMode = when {
-    availableWidth < 360.dp -> HeaderCrowdingMode.IconOnlyLocationChannel
-    availableWidth < 400.dp -> HeaderCrowdingMode.HideJoinedChannelCount
-    else -> HeaderCrowdingMode.Full
+internal fun headerCrowdingMode(
+    availableWidth: Dp,
+    fontScale: Float = 1f
+): HeaderCrowdingMode {
+    val effectiveWidth = availableWidth / fontScale.coerceAtLeast(1f)
+    return when {
+        effectiveWidth < 360.dp -> HeaderCrowdingMode.IconOnlyLocationChannel
+        effectiveWidth < 400.dp -> HeaderCrowdingMode.HideJoinedChannelCount
+        else -> HeaderCrowdingMode.Full
+    }
 }
 
 internal fun locationChannelContentDescription(
@@ -729,7 +735,10 @@ private fun MainHeader(
     val geohashPeople by viewModel.geohashPeople.collectAsStateWithLifecycle()
 
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        val crowdingMode = headerCrowdingMode(maxWidth)
+        val crowdingMode = headerCrowdingMode(
+            availableWidth = maxWidth,
+            fontScale = androidx.compose.ui.platform.LocalDensity.current.fontScale
+        )
 
         Row(
             modifier = Modifier
