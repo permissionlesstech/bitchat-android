@@ -10,6 +10,8 @@ import java.util.Collections
  * Handles all message-related operations including deduplication and organization
  */
 class MessageManager(private val state: ChatState) {
+    private val mentionRegex = Regex("@([a-zA-Z0-9_]+)")
+    private val channelRegex = Regex("#([a-zA-Z0-9_]+)")
     
     // Message deduplication for duplicate deliveries from multiple local transports.
     private val processedUIMessages = Collections.synchronizedSet(mutableSetOf<String>())
@@ -421,7 +423,6 @@ class MessageManager(private val state: ChatState) {
     // MARK: - Utility Functions
     
     fun parseMentions(content: String, peerNicknames: Set<String>, currentNickname: String?): List<String> {
-        val mentionRegex = "@([a-zA-Z0-9_]+)".toRegex()
         val allNicknames = peerNicknames + (currentNickname ?: "")
         
         return mentionRegex.findAll(content)
@@ -432,7 +433,6 @@ class MessageManager(private val state: ChatState) {
     }
     
     fun parseChannels(content: String): List<String> {
-        val channelRegex = "#([a-zA-Z0-9_]+)".toRegex()
         return channelRegex.findAll(content)
             .map { it.groupValues[0] } // Include the #
             .distinct()

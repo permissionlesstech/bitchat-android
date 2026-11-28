@@ -21,7 +21,7 @@ object MessageSpecialParser {
      * the '#' token is not part of another word (e.g., not in '@anon#9qk2').
      */
     fun findStandaloneGeohashes(text: String): List<GeohashMatch> {
-        if (text.isEmpty()) return emptyList()
+        if (text.isEmpty() || text.indexOf('#') < 0) return emptyList()
         val matches = mutableListOf<GeohashMatch>()
         var index = 0
         while (index < text.length) {
@@ -58,7 +58,7 @@ object MessageSpecialParser {
      * Trailing punctuation like '.', ',', ')', '!' is trimmed from the match.
      */
     fun findUrls(text: String): List<UrlMatch> {
-        if (text.isEmpty()) return emptyList()
+        if (text.isEmpty() || (text.indexOf('.') < 0 && text.indexOf(':') < 0)) return emptyList()
         val results = mutableListOf<UrlMatch>()
 
         // 1) Use Android's WEB_URL for robust detection of http(s) and www.*

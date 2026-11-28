@@ -48,6 +48,8 @@ internal const val MENTION_CHIP_ALPHA_SELF = ChatVisualTokens.HighlightAlpha
  */
 internal val MENTION_TOKEN_REGEX = Regex("@([\\p{L}0-9_]+(?:#[a-fA-F0-9]{4})?)")
 
+private val HASHTAG_TOKEN_REGEX = Regex("#([a-zA-Z0-9_]+)")
+
 /**
  * Get RSSI-based color for signal strength visualization
  */
@@ -482,9 +484,25 @@ private fun appendIOSFormattedContent(
     linkColor: Color,
     mentionPeerIdentities: Map<String, PeerIdentity>,
 ) {
-    val hashtagPattern = "#([a-zA-Z0-9_]+)".toRegex()
-    
-    val hashtagMatches = hashtagPattern.findAll(content).toList()
+    val plainStyle = SpanStyle(
+        color = contentColor,
+        fontSize = BASE_FONT_SIZE.sp,
+        fontWeight = FontWeight.Normal
+    )
+    // Plain sentences are the common case. Compiling a hashtag pattern and
+    // running the URL detector on them dominated row formatting.
+    if (content.indexOf('@') < 0 && content.indexOf('#') < 0 &&
+        content.indexOf('.') < 0 && content.indexOf(':') < 0
+    ) {
+        if (content.isNotEmpty()) {
+            builder.pushStyle(plainStyle)
+            builder.append(content)
+            builder.pop()
+        }
+        return
+    }
+
+    val hashtagMatches = HASHTAG_TOKEN_REGEX.findAll(content).toList()
     val mentionMatches = MENTION_TOKEN_REGEX.findAll(content).toList()
     
     // Combine and sort matches, but exclude hashtags that overlap with mentions
@@ -547,11 +565,6 @@ private fun appendIOSFormattedContent(
     
     allMatches.sortBy { it.first.first }
 
-    val plainStyle = SpanStyle(
-        color = contentColor,
-        fontSize = BASE_FONT_SIZE.sp,
-        fontWeight = FontWeight.Normal
-    )
     val linkStyle = SpanStyle(
         color = linkColor,
         fontSize = BASE_FONT_SIZE.sp,
