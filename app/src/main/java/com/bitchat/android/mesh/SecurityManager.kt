@@ -10,6 +10,7 @@ import com.bitchat.android.noise.AuthenticatedNoiseSession
 import com.bitchat.android.noise.NoiseDecryptionResult
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import java.util.*
 import kotlin.collections.mutableSetOf
 
@@ -27,6 +28,14 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         private const val MAX_PROCESSED_MESSAGES = com.bitchat.android.util.AppConstants.Security.MAX_PROCESSED_MESSAGES
         private const val MAX_PROCESSED_KEY_EXCHANGES = com.bitchat.android.util.AppConstants.Security.MAX_PROCESSED_KEY_EXCHANGES
         private const val KEY_EXCHANGE_DEDUP_TIMEOUT = com.bitchat.android.util.AppConstants.Security.KEY_EXCHANGE_DEDUP_TIMEOUT_MS
+        private val SIGNED_MESSAGE_TYPES = setOf(
+            MessageType.ANNOUNCE,
+            MessageType.MESSAGE,
+            MessageType.CHANNEL_MESSAGE,
+            MessageType.FILE_TRANSFER,
+            MessageType.VOICE_FRAME,
+            MessageType.LEAVE
+        )
     }
     
     // Security tracking
@@ -40,6 +49,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
     
     // Coroutines
     private val managerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val cleanupWakeup = Channel<Unit>(Channel.CONFLATED)
     
     init {
         startPeriodicCleanup()
@@ -101,6 +111,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             processedMessages.add(messageID)
             messageTimestamps[messageID] = currentTime
         }
+        cleanupWakeup.trySend(Unit)
 
         return true
     }
@@ -142,6 +153,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
                 processedKeyExchanges.add(exchangeKey)
                 keyExchangeTimestamps[exchangeKey] = System.currentTimeMillis()
             }
+            cleanupWakeup.trySend(Unit)
             
             if (result.response != null) {
                 // Send handshake response through delegate
@@ -254,27 +266,30 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
      */
     private fun verifyPacketSignature(packet: BitchatPacket, peerID: String): Boolean {
         try {
+            val msgType = MessageType.fromValue(packet.type)
             // Public packets that mutate identity, presence, or user-visible state must prove the
             // signing key learned from a verified announcement. LEAVE is included so an attacker
             // cannot evict a claimed peer or amplify a forged departure through relay.
-            if (MessageType.fromValue(packet.type) !in setOf(
-                    MessageType.ANNOUNCE,
-                    MessageType.MESSAGE,
-                    MessageType.CHANNEL_MESSAGE,
-                    MessageType.FILE_TRANSFER,
-                    MessageType.VOICE_FRAME,
-                    MessageType.LEAVE
-                )) {
+            if (msgType !in SIGNED_MESSAGE_TYPES) {
                 return true
             }
 
-            if (MessageType.fromValue(packet.type) == MessageType.ANNOUNCE) {
+            if (msgType == MessageType.ANNOUNCE) {
                 val announcement = AnnouncementIdentityValidator.verify(packet, peerID) { signature, data, key ->
                     encryptionService.verifyEd25519Signature(signature, data, key)
                 } ?: run {
                     Log.w(TAG, "Rejecting malformed, unbound, or invalidly signed ANNOUNCE from $peerID")
                     return false
                 }
+                // Cache verified announcement on this exact packet instance so MessageHandler
+                // avoids repeating TLV decoding + binary re-encoding + Ed25519 verification.
+                packet.cachedVerifiedAnnouncement = BitchatPacket.VerifiedAnnouncementCacheEntry(
+                    peerID = peerID,
+                    payloadRef = packet.payload,
+                    signatureRef = packet.signature,
+                    senderIDRef = packet.senderID,
+                    announcement = announcement
+                )
 
                 val persistedSigningKey = delegate?.getAuthenticatedSigningKey(announcement.noisePublicKey)
                 if (persistedSigningKey != null &&
@@ -377,11 +392,15 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
     }
     
     /**
-     * Start periodic cleanup
+     * Demand-driven periodic cleanup: suspends with zero wakeups while tracking maps are empty.
      */
     private fun startPeriodicCleanup() {
         managerScope.launch {
             while (isActive) {
+                if (processedMessages.isEmpty() && processedKeyExchanges.isEmpty()) {
+                    cleanupWakeup.receive()
+                    continue
+                }
                 delay(CLEANUP_INTERVAL)
                 cleanupOldData()
             }

@@ -10,6 +10,8 @@ object MessageSpecialParser {
     // Standalone geohash pattern like "#9q" or longer. Word boundaries enforced.
     // Geohash alphabet is base32: 0123456789bcdefghjkmnpqrstuvwxyz
     private val standaloneGeohashRegex = Regex("(^|[^A-Za-z0-9_#])#([0-9bcdefghjkmnpqrstuvwxyz]{2,})($|[^A-Za-z0-9_])", RegexOption.IGNORE_CASE)
+    private val bareDomainRegex = Regex("(?<!@)(?<![A-Za-z0-9_-])([A-Za-z0-9-]+\\.[A-Za-z]{2,}(?:/[A-Za-z0-9@:%._+~#=/?&!$'()*,-]*)?)")
+    private val trailingPunctuation = charArrayOf('.', ',', ';', ':', '!', '?', '\'', '"')
 
     data class GeohashMatch(val start: Int, val endExclusive: Int, val geohash: String)
     data class UrlMatch(val start: Int, val endExclusive: Int, val url: String)
@@ -68,7 +70,7 @@ object MessageSpecialParser {
             var token = text.substring(start, endExclusive)
 
             // Trim trailing punctuation
-            while (token.isNotEmpty() && token.last() in setOf('.', ',', ';', ':', '!', '?', '\'', '"')) {
+            while (token.isNotEmpty() && token.last() in trailingPunctuation) {
                 endExclusive -= 1
                 token = text.substring(start, endExclusive)
             }
@@ -76,8 +78,7 @@ object MessageSpecialParser {
         }
 
         // 2) Bare-domain fallback for things WEB_URL can miss (e.g., google.com)
-        val bare = Regex("(?<!@)(?<![A-Za-z0-9_-])([A-Za-z0-9-]+\\.[A-Za-z]{2,}(?:/[A-Za-z0-9@:%._+~#=/?&!$'()*,-]*)?)")
-        for (m in bare.findAll(text)) {
+        for (m in bareDomainRegex.findAll(text)) {
             val start = m.range.first
             var endExclusive = m.range.last + 1
             var token = text.substring(start, endExclusive)
@@ -90,7 +91,7 @@ object MessageSpecialParser {
             if (token.contains('@')) continue
 
             // Trim trailing punctuation
-            while (token.isNotEmpty() && token.last() in setOf('.', ',', ';', ':', '!', '?', '\'', '"')) {
+            while (token.isNotEmpty() && token.last() in trailingPunctuation) {
                 endExclusive -= 1
                 token = text.substring(start, endExclusive)
             }

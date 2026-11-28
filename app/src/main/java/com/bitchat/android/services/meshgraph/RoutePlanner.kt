@@ -1,11 +1,11 @@
 package com.bitchat.android.services.meshgraph
 
 import android.util.Log
-import java.util.PriorityQueue
+import java.util.ArrayDeque
 
 /**
- * Computes shortest paths on the current mesh graph snapshot using Dijkstra.
- * Assumes unit edge weights.
+ * Computes shortest paths on the current mesh graph snapshot using BFS
+ * (optimal for unit edge weights without PriorityQueue / Pair boxing).
  */
 object RoutePlanner {
     private const val TAG = "RoutePlanner"
@@ -16,46 +16,42 @@ object RoutePlanner {
     fun shortestPath(src: String, dst: String): List<String>? {
         if (src == dst) return listOf(src)
         val snapshot = MeshGraphService.getInstance().graphState.value
-        val neighbors = mutableMapOf<String, MutableSet<String>>()
-        
+        val neighbors = HashMap<String, MutableList<String>>(snapshot.nodes.size.coerceAtLeast(4))
+
         // Only consider confirmed edges for routing
-        snapshot.edges.filter { it.isConfirmed }.forEach { e ->
-            neighbors.getOrPut(e.a) { mutableSetOf() }.add(e.b)
-            neighbors.getOrPut(e.b) { mutableSetOf() }.add(e.a)
+        for (e in snapshot.edges) {
+            if (!e.isConfirmed) continue
+            neighbors.getOrPut(e.a) { ArrayList(4) }.add(e.b)
+            neighbors.getOrPut(e.b) { ArrayList(4) }.add(e.a)
         }
-        // Ensure nodes known even if isolated
-        snapshot.nodes.forEach { n -> neighbors.putIfAbsent(n.peerID, mutableSetOf()) }
 
         if (!neighbors.containsKey(src) || !neighbors.containsKey(dst)) return null
 
-        val dist = mutableMapOf<String, Int>()
-        val prev = mutableMapOf<String, String?>()
-        val pq = PriorityQueue<Pair<String, Int>>(compareBy { it.second })
+        val prev = HashMap<String, String?>()
+        val queue = ArrayDeque<String>()
+        prev[src] = null
+        queue.addLast(src)
 
-        neighbors.keys.forEach { v ->
-            dist[v] = if (v == src) 0 else Int.MAX_VALUE
-            prev[v] = null
-        }
-        pq.add(src to 0)
-
-        while (pq.isNotEmpty()) {
-            val top = pq.poll() ?: break
-            val (u, d) = top
-            if (d > (dist[u] ?: Int.MAX_VALUE)) continue
-            if (u == dst) break
-            neighbors[u]?.forEach { v ->
-                val alt = d + 1
-                if (alt < (dist[v] ?: Int.MAX_VALUE)) {
-                    dist[v] = alt
+        var found = false
+        while (queue.isNotEmpty()) {
+            val u = queue.removeFirst()
+            val adj = neighbors[u] ?: continue
+            for (v in adj) {
+                if (!prev.containsKey(v)) {
                     prev[v] = u
-                    pq.add(v to alt)
+                    if (v == dst) {
+                        found = true
+                        break
+                    }
+                    queue.addLast(v)
                 }
             }
+            if (found) break
         }
 
-        if ((dist[dst] ?: Int.MAX_VALUE) == Int.MAX_VALUE) return null
+        if (!found) return null
 
-        val path = mutableListOf<String>()
+        val path = ArrayList<String>()
         var cur: String? = dst
         while (cur != null) {
             path.add(cur)

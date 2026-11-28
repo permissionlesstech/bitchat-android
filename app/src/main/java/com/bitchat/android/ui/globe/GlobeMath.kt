@@ -40,6 +40,27 @@ object GlobeMath {
     }
 
     /**
+     * Frame-local projector for arbitrary coordinates in double precision, for geometry such
+     * as geohash cells that must stay steady at deep zoom. Writes x, y, cosC like
+     * [PreparedProjector] without allocating.
+     */
+    class PreciseProjector(centerLatDeg: Double, private val centerLonDeg: Double) {
+        private val sinCenterLat = sin(Math.toRadians(centerLatDeg))
+        private val cosCenterLat = cos(Math.toRadians(centerLatDeg))
+
+        fun project(latDeg: Double, lonDeg: Double, out: FloatArray, outOffset: Int) {
+            val phi = Math.toRadians(latDeg)
+            val dLambda = Math.toRadians(normalizeLon(lonDeg - centerLonDeg))
+            val sinPhi = sin(phi)
+            val cosPhi = cos(phi)
+            val cosDLambda = cos(dLambda)
+            out[outOffset] = (cosPhi * sin(dLambda)).toFloat()
+            out[outOffset + 1] = (-(cosCenterLat * sinPhi - sinCenterLat * cosPhi * cosDLambda)).toFloat()
+            out[outOffset + 2] = (sinCenterLat * sinPhi + cosCenterLat * cosPhi * cosDLambda).toFloat()
+        }
+    }
+
+    /**
      * Projects (lat, lon) onto the view disc of a globe centered at (centerLat, centerLon).
      * Returns x/y in units of globe radius (screen y down). [Projection.cosC] is negative
      * when the point is on the far side of the sphere.

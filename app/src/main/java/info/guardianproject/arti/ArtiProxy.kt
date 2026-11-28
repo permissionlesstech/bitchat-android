@@ -74,10 +74,17 @@ class ArtiProxy private constructor(
                     isRunning = true
                     Log.i(TAG, "Arti started successfully")
                 }
-                -1 -> throw ArtiException("Arti client not initialized")
-                -2 -> throw ArtiException("Tokio runtime not initialized")
-                -3 -> throw ArtiException("Failed to bind SOCKS proxy to port $socksPort (port already in use)")
-                else -> throw ArtiException("Failed to start SOCKS proxy: error code $startResult")
+                else -> {
+                    // Put the already-initialized resident TorClient into DormantMode::Soft so a
+                    // failed startup / exhausted bind retry never leaves background Tor tasks awake.
+                    runCatching { ArtiNative.stop() }
+                    when (startResult) {
+                        -1 -> throw ArtiException("Arti client not initialized")
+                        -2 -> throw ArtiException("Tokio runtime not initialized")
+                        -3 -> throw ArtiException("Failed to bind SOCKS proxy to port $socksPort (port already in use)")
+                        else -> throw ArtiException("Failed to start SOCKS proxy: error code $startResult")
+                    }
+                }
             }
 
         } catch (e: Exception) {
@@ -87,6 +94,32 @@ class ArtiProxy private constructor(
             } else {
                 throw ArtiException("Failed to start Arti: ${e.message}", e)
             }
+        }
+    }
+
+    /**
+     * Toggle Arti's soft-dormant power-saving mode.
+     *
+     * Entering soft-dormant mode suspends Arti's background periodic tasks (preemptive circuit
+     * building, directory refreshes, channel keepalive padding) while leaving the SOCKS listener
+     * ready to wake automatically on the next connection.
+     */
+    fun setDormant(dormant: Boolean) {
+        if (!isRunning) {
+            return
+        }
+
+        try {
+            val result = ArtiNative.setDormant(dormant)
+            if (result != 0) {
+                Log.w(TAG, "setDormant($dormant) returned error code: $result")
+            } else {
+                Log.d(TAG, "Arti dormant mode set to ${if (dormant) "Soft" else "Normal"}")
+            }
+        } catch (e: UnsatisfiedLinkError) {
+            Log.w(TAG, "Native setDormant unavailable: ${e.message}")
+        } catch (e: Exception) {
+            Log.w(TAG, "Error setting Arti dormant mode: ${e.message}")
         }
     }
 

@@ -48,7 +48,7 @@ class WearMeshService private constructor(private val context: Context) {
 
     val encryptionService = EncryptionService(context)
     val myPeerID: String = encryptionService.getIdentityFingerprint().take(16)
-    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    internal val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val bleTransport = BleTransport()
     private val meshCore: MeshCore

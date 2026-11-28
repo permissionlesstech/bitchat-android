@@ -595,7 +595,6 @@ private fun WearScreenContent(
         is WearScreen.Verification -> VerificationCodeScreen(peerID = screen.peerID)
         is WearScreen.TextInput -> {
             val mesh = WearMeshService.peek()
-            val sendScope = androidx.compose.runtime.rememberCoroutineScope()
             val recipient = screen.peerID?.let { peerID ->
                 mesh?.getPeerNickname(peerID) ?: peerID.take(8)
             }
@@ -608,7 +607,7 @@ private fun WearScreenContent(
                             sendPublicMessage(m, text)
                         } else {
                             val nick = m.getPeerNickname(screen.peerID) ?: screen.peerID
-                            sendPrivateMessage(m, screen.peerID, nick, text, sendScope)
+                            sendPrivateMessage(m, screen.peerID, nick, text)
                         }
                     }
                     onBack()
