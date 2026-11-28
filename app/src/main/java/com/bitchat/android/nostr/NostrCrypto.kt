@@ -21,7 +21,9 @@ import java.math.BigInteger
  * Includes secp256k1 operations, ECDH, and NIP-44 encryption
  */
 object NostrCrypto {
-    
+
+    internal const val NIP17_DEFAULT_MAX_PAST_SECONDS = 79_200
+
     private val secureRandom = SecureRandom()
     // NIP-44 v2 only
     
@@ -317,9 +319,9 @@ object NostrCrypto {
     }
     
     /**
-     * Random timestamp up to maxPastSeconds in the past (default 2 days)
+     * Random timestamp in the past, defaulting to 22 hours to leave 2 hours of slack inside iOS's 24-hour lookback.
      */
-    fun randomizeTimestampUpToPast(maxPastSeconds: Int = 172800): Int {
+    fun randomizeTimestampUpToPast(maxPastSeconds: Int = NIP17_DEFAULT_MAX_PAST_SECONDS): Int {
         val now = (System.currentTimeMillis() / 1000).toInt()
         val offset = if (maxPastSeconds > 0) secureRandom.nextInt(maxPastSeconds + 1) else 0
         return now - offset
@@ -362,14 +364,20 @@ object NostrCrypto {
     // BIP-340 Schnorr Signatures Implementation
     // ==============================================================================
     
+    private val sha256ThreadLocal = ThreadLocal.withInitial { MessageDigest.getInstance("SHA-256") }
+    private val tagHashCache = java.util.concurrent.ConcurrentHashMap<String, ByteArray>()
+
     /**
      * Tagged hash function for BIP-340
      */
     private fun taggedHash(tag: String, data: ByteArray): ByteArray {
-        val tagBytes = tag.toByteArray(Charsets.UTF_8)
-        val tagHash = MessageDigest.getInstance("SHA-256").digest(tagBytes)
-        
-        val digest = MessageDigest.getInstance("SHA-256")
+        val tagHash = tagHashCache.computeIfAbsent(tag) { key ->
+            val md = sha256ThreadLocal.get()!!
+            md.reset()
+            md.digest(key.toByteArray(Charsets.UTF_8))
+        }
+        val digest = sha256ThreadLocal.get()!!
+        digest.reset()
         digest.update(tagHash)
         digest.update(tagHash)
         digest.update(data)

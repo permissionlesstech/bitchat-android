@@ -14,6 +14,25 @@ import org.junit.Test
  */
 class MessageArrivalTrackerTest {
 
+    @Test
+    fun `one append to a long history only reads its boundaries and new suffix`() {
+        val tracker = MessageArrivalTracker()
+        val history = List(20_000) { msg("history-$it") }
+        tracker.arrivals(history)
+        val appended = history + msg("new")
+        var reads = 0
+        val counted = object : AbstractList<BitchatMessage>() {
+            override val size = appended.size
+            override fun get(index: Int): BitchatMessage {
+                reads++
+                return appended[index]
+            }
+        }
+
+        assertEquals(setOf("new"), tracker.arrivals(counted))
+        assertTrue("append must not rescan the old timeline", reads < 10)
+    }
+
     private var seq = 0
 
     private fun msg(id: String = "m${seq++}") = BitchatMessage(

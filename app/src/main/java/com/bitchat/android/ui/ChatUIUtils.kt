@@ -1,5 +1,11 @@
 package com.bitchat.android.ui
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -13,6 +19,8 @@ import com.bitchat.android.ui.theme.ChatVisualTokens
 import com.bitchat.android.ui.theme.colorForPeer
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Utility functions for ChatScreen UI components
@@ -352,7 +360,14 @@ fun splitSuffix(name: String): Pair<String, String> {
 internal fun buildMentionPeerIdentityMap(
     messages: List<BitchatMessage>,
     knownPeers: List<Pair<String, PeerIdentity>> = emptyList(),
-): Map<String, PeerIdentity> {
+): Map<String, PeerIdentity> = resolveMentionCandidates(
+    buildMentionCandidates(messages, knownPeers)
+)
+
+internal fun buildMentionCandidates(
+    messages: List<BitchatMessage>,
+    knownPeers: List<Pair<String, PeerIdentity>> = emptyList(),
+): Map<String, Set<PeerIdentity>> {
     val candidates = linkedMapOf<String, MutableSet<PeerIdentity>>()
 
     fun add(displayName: String, identity: PeerIdentity) {
@@ -375,9 +390,37 @@ internal fun buildMentionPeerIdentityMap(
         .forEach { add(it.sender, peerIdentityForMessage(it)) }
     knownPeers.forEach { (displayName, identity) -> add(displayName, identity) }
 
+    return candidates
+}
+
+internal fun resolveMentionCandidates(
+    history: Map<String, Set<PeerIdentity>>,
+    participants: Map<String, Set<PeerIdentity>> = emptyMap(),
+): Map<String, PeerIdentity> {
+    val candidates = history.toMutableMap()
+    participants.forEach { (token, identities) ->
+        candidates[token] = candidates[token].orEmpty() + identities
+    }
     return candidates.mapNotNull { (token, identities) ->
         identities.singleOrNull()?.let { token to it }
     }.toMap()
+}
+
+/** History scanning never runs during composition or because presence alone changed. */
+@Composable
+internal fun rememberMentionPeerIdentities(
+    messages: List<BitchatMessage>,
+    knownPeers: List<Pair<String, PeerIdentity>> = emptyList(),
+    conversationKey: Any? = null,
+): Map<String, PeerIdentity> {
+    var history by remember(conversationKey) {
+        mutableStateOf<Map<String, Set<PeerIdentity>>>(emptyMap())
+    }
+    LaunchedEffect(conversationKey, messages) {
+        history = withContext(Dispatchers.Default) { buildMentionCandidates(messages) }
+    }
+    val participants = remember(knownPeers) { buildMentionCandidates(emptyList(), knownPeers) }
+    return remember(history, participants) { resolveMentionCandidates(history, participants) }
 }
 
 internal fun resolveMentionPeerIdentity(

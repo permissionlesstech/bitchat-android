@@ -7,6 +7,8 @@ import com.bitchat.android.model.DeliveryStatus
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.cancel
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -33,10 +35,12 @@ class MeshDelegateHandlerStateContractTest {
     private lateinit var handler: MeshDelegateHandler
     private lateinit var haptics: AtomicInteger
     private lateinit var locallyReadMessageIDs: MutableList<String>
+    private lateinit var scope: TestScope
 
     @Before
     fun setUp() {
-        val scope = TestScope(UnconfinedTestDispatcher())
+        scope = TestScope(UnconfinedTestDispatcher())
+        com.bitchat.android.services.AppStateStore.clear()
         state = ChatState(scope)
         state.setNickname("Résumé")
         messages = MessageManager(state)
@@ -56,8 +60,15 @@ class MeshDelegateHandlerStateContractTest {
             onHapticFeedback = { haptics.incrementAndGet() },
             getMyPeerID = { "self" },
             getMeshService = { mesh },
-            markMessageReadLocally = locallyReadMessageIDs::add
+            markMessageReadLocally = locallyReadMessageIDs::add,
+            reconciliationDispatcher = UnconfinedTestDispatcher(scope.testScheduler),
         )
+    }
+
+    @After
+    fun tearDown() {
+        scope.cancel()
+        com.bitchat.android.services.AppStateStore.clear()
     }
 
     @Test

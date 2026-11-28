@@ -5,6 +5,7 @@ import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.model.FragmentPayload
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -41,6 +42,7 @@ class FragmentManager {
     
     // Coroutines
     private val managerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val cleanupWakeup = Channel<Unit>(Channel.CONFLATED)
     
     init {
         startPeriodicCleanup()
@@ -65,7 +67,7 @@ class FragmentManager {
                 Log.w(TAG, "Rejecting invalid outbound fragment limit: $maxFragments")
                 return emptyList()
             }
-            // Fragment the unpadded frame; each fragment will be encoded (and padded) independently - iOS fix.
+            // Fragment the unpadded frame directly; each fragment is encoded/padded independently.
             // Ask the encoder to skip padding rather than un-padding afterwards:
             // pad() declines a request needing more than 255 bytes and
             // optimalBlockSize() returns the input size above 2048, so frames of
@@ -195,8 +197,15 @@ class FragmentManager {
             synchronized(fragmentStateLock) {
                 fragmentMetadata[fragmentIDString]?.let { (expectedType, expectedTotal, _) ->
                     if (expectedTotal != fragmentPayload.total || expectedType != fragmentPayload.originalType) {
+                        // Reject the fragment, keep the stream. Fragment packets
+                        // are unauthenticated and both halves of the key are
+                        // attacker-choosable, so discarding the set here let one
+                        // crafted packet destroy a legitimate in-flight
+                        // reassembly. Nothing from a conflicting header is ever
+                        // stored, so keeping the set stays inside the same
+                        // memory bound; a stream that genuinely stalls is reaped
+                        // by the timeout sweep.
                         Log.w(TAG, "Rejecting fragment for $fragmentIDString: inconsistent metadata")
-                        removeFragmentSetLocked(fragmentIDString)
                         return null
                     }
                 }
@@ -232,12 +241,30 @@ class FragmentManager {
                     return null
                 }
 
-                val oldEntrySize = fragmentMap[fragmentPayload.index]?.size ?: 0
+                val heldEntry = fragmentMap[fragmentPayload.index]
+                if (heldEntry != null && !heldEntry.contentEquals(fragmentPayload.data)) {
+                    // Duplicate delivery is normal in a mesh, but one index of a
+                    // stream must always carry the same bytes. Overwriting
+                    // last-wins let a crafted duplicate replace bytes already
+                    // received from the real sender. This protects indices
+                    // already held; an index still empty when the injected
+                    // fragment arrives is filled by whichever copy wins the
+                    // race, and nothing here can tell them apart.
+                    Log.w(TAG, "Rejecting fragment for $fragmentIDString: index ${fragmentPayload.index} already holds different bytes")
+                    return null
+                }
+                val oldEntrySize = heldEntry?.size ?: 0
                 val newSize = currentSize - oldEntrySize + fragmentPayload.data.size
                 val maxTotalBytes = com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENT_TOTAL_BYTES
                 if (newSize > maxTotalBytes) {
                     Log.w(TAG, "Rejecting fragment for $fragmentIDString: cumulative size $newSize exceeds cap $maxTotalBytes")
-                    removeFragmentSetLocked(fragmentIDString)
+                    // Only a set this fragment itself created has nothing worth
+                    // preserving. An oversized fragment must not be able to
+                    // destroy an assembly it did not start — same reasoning the
+                    // global-cap branch below already applies.
+                    if (isNewSet) {
+                        removeFragmentSetLocked(fragmentIDString)
+                    }
                     return null
                 }
 
@@ -254,18 +281,27 @@ class FragmentManager {
                 fragmentMap[fragmentPayload.index] = fragmentPayload.data
                 fragmentCumulativeSize[fragmentIDString] = newSize
                 globalBufferedBytes += delta
+                if (isNewSet) {
+                    cleanupWakeup.trySend(Unit)
+                }
 
                 val expectedTotal = fragmentMetadata[fragmentIDString]?.second ?: fragmentPayload.total
                 if (fragmentMap.size == expectedTotal) {
-                    // iOS reassembly logic: for i in 0..<total { if let fragment = fragments[i] { reassembled.append(fragment) } }
-                    val reassembledData = mutableListOf<Byte>()
+                    // Reassemble directly into a single ByteArray without per-byte boxing
+                    var totalSize = 0
+                    for (i in 0 until expectedTotal) {
+                        fragmentMap[i]?.let { totalSize += it.size }
+                    }
+                    val reassembledData = ByteArray(totalSize)
+                    var offset = 0
                     for (i in 0 until expectedTotal) {
                         fragmentMap[i]?.let { data ->
-                            reassembledData.addAll(data.asIterable())
+                            System.arraycopy(data, 0, reassembledData, offset, data.size)
+                            offset += data.size
                         }
                     }
 
-                    val originalPacket = BitchatPacket.fromBinaryData(reassembledData.toByteArray())
+                    val originalPacket = BitchatPacket.fromBinaryData(reassembledData)
                     if (originalPacket != null) {
                         removeFragmentSetLocked(fragmentIDString)
 
@@ -350,11 +386,15 @@ class FragmentManager {
     }
     
     /**
-     * Start periodic cleanup of old fragments - matches iOS maintenance timer
+     * Demand-driven cleanup of old fragments: suspends with zero wakeups while idle.
      */
     private fun startPeriodicCleanup() {
         managerScope.launch {
             while (isActive) {
+                if (fragmentMetadata.isEmpty()) {
+                    cleanupWakeup.receive()
+                    continue
+                }
                 delay(CLEANUP_INTERVAL)
                 cleanupOldFragments()
             }

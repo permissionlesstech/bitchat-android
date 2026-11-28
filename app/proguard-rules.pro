@@ -24,6 +24,14 @@
     <init>();
 }
 
+# ML Kit discovers Firebase component registrars from manifest metadata and calls
+# their no-argument constructors reflectively. Keeping the class alone does not
+# retain that constructor in R8 full mode, leaving BarcodeScanning without its
+# registered components and crashing when the verification scanner opens.
+-keepclassmembers class * implements com.google.firebase.components.ComponentRegistrar {
+    public <init>();
+}
+
 # Keep Tor implementation (always included)
 -keep class com.bitchat.android.net.RealTorProvider { *; }
 
