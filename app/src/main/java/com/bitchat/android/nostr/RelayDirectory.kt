@@ -128,27 +128,36 @@ object RelayDirectory {
         return R * c
     }
 
-    internal fun canonicalRelayUrl(raw: String): String {
+    internal fun canonicalRelayUrl(raw: String): String = normalizeRelayUrl(raw)
+
+    internal fun normalizeRelayUrl(raw: String): String {
         val trimmed = raw.trim()
         if (trimmed.isEmpty()) return trimmed
         val withScheme = if ("://" in trimmed) trimmed else "wss://$trimmed"
-        val schemeEnd = withScheme.indexOf("://")
-        if (schemeEnd < 0) return withScheme
-        val scheme = withScheme.substring(0, schemeEnd).lowercase()
-        val rest = withScheme.substring(schemeEnd + 3)
-        val authority = rest.substringBefore('/').substringBefore('?').substringBefore('#')
-        val tail = rest.removePrefix(authority)
-        val host = authority.substringBefore(':').lowercase()
-        if (host.isEmpty()) return withScheme
-        val port = authority.substringAfter(':', "")
-        val authorityOut = if (port.isEmpty() || port == "443") host else "$host:$port"
-        return "$scheme://$authorityOut$tail"
+        return try {
+            val uri = java.net.URI(withScheme)
+            val scheme = (uri.scheme ?: "wss").lowercase(java.util.Locale.ROOT)
+            val rawPath = uri.rawPath ?: ""
+            val pathPart = if (rawPath == "/") "" else rawPath
+            val queryPart = uri.rawQuery?.let { "?$it" } ?: ""
+            val host = uri.host?.lowercase(java.util.Locale.ROOT)
+            if (host == null) {
+                val authority = uri.rawAuthority?.lowercase(java.util.Locale.ROOT)
+                    ?: return withScheme
+                return "$scheme://$authority$pathPart$queryPart"
+            }
+            val port = uri.port
+            val includePort = port != -1 &&
+                !((scheme == "wss" && port == 443) || (scheme == "ws" && port == 80))
+            val portPart = if (includePort) ":$port" else ""
+            "$scheme://$host$portPart$pathPart$queryPart"
+        } catch (_: Exception) {
+            withScheme
+        }
     }
 
     private fun relaySortKey(url: String): String =
         url.substringAfter("://", url).substringBefore('/').substringBefore(':')
-
-    private fun normalizeRelayUrl(raw: String): String = canonicalRelayUrl(raw)
 
     // ===== Implementation details =====
 
@@ -313,8 +322,9 @@ object RelayDirectory {
         Log.i(TAG, "📦 Loaded ${list.size} relay entries from assets/$ASSET_FILE, sha256=$hash")
     }
 
-    private fun parseCsv(input: InputStream): List<RelayInfo> {
+    internal fun parseCsv(input: InputStream): List<RelayInfo> {
         val result = mutableListOf<RelayInfo>()
+        val seen = mutableSetOf<String>()
         BufferedReader(InputStreamReader(input)).use { reader ->
             var line: String?
             while (true) {
@@ -329,7 +339,9 @@ object RelayDirectory {
                 val lat = parts[1].trim().toDoubleOrNull()
                 val lon = parts[2].trim().toDoubleOrNull()
                 if (url.isEmpty() || lat == null || lon == null) continue
-                result.add(RelayInfo(url = url, latitude = lat, longitude = lon))
+                if (seen.add(url)) {
+                    result.add(RelayInfo(url = url, latitude = lat, longitude = lon))
+                }
             }
         }
         return result
