@@ -13,6 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.util.RtlBidiHelper
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import com.bitchat.android.ui.theme.BitchatPalette
 import com.bitchat.android.ui.theme.ChatVisualTokens
@@ -47,6 +48,11 @@ internal const val MENTION_CHIP_ALPHA_SELF = ChatVisualTokens.HighlightAlpha
  * rendered transcript styles the complete token.
  */
 internal val MENTION_TOKEN_REGEX = Regex("@([\\p{L}0-9_]+(?:#[a-fA-F0-9]{4})?)")
+
+private const val LTR_ISOLATE = "\u2066"
+private const val POP_ISOLATE = "\u2069"
+private const val EMAIL_LOCAL_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._%+-"
+private const val URL_TRAILING_PUNCTUATION = ".,;:!?)]}'\""
 
 /**
  * Get RSSI-based color for signal strength visualization
@@ -504,9 +510,11 @@ private fun appendIOSFormattedContent(
         }
     }
     
-    // Add all mention matches
+    // Add mention matches that are not the domain half of an email address.
     for (match in mentionMatches) {
-        allMatches.add(match.range to "mention") 
+        val before = content.getOrNull(match.range.first - 1)
+        if (before != null && before in EMAIL_LOCAL_CHARS) continue
+        allMatches.add(match.range to "mention")
     }
 
     // Add standalone geohash matches (e.g., "#9q") that are not part of another word
@@ -597,6 +605,7 @@ private fun appendIOSFormattedContent(
                 // A single outer span carrying the background makes the chip render as one
                 // continuous rectangle. Pushing the background per-token would leave hairline
                 // seams between "@", the name and the "#abcd" suffix.
+                builder.append(LTR_ISOLATE)
                 builder.pushStyle(SpanStyle(background = mentionColor.copy(alpha = chipAlpha)))
 
                 builder.pushStyle(SpanStyle(
@@ -620,20 +629,22 @@ private fun appendIOSFormattedContent(
                 }
 
                 builder.pop() // background chip
+                builder.append(POP_ISOLATE)
             }
             "hashtag" -> {
                 // Render general hashtags like normal content
                 builder.pushStyle(plainStyle)
-                builder.append(matchText)
+                builder.append(RtlBidiHelper.isolateLtr(matchText))
                 builder.pop()
             }
             else -> {
                 if (type == "geohash") {
                     // Style geohash as a link and add click annotation
                     builder.pushStyle(linkStyle)
-                    val start = builder.length
-                    builder.append(matchText)
-                    val end = builder.length
+                    val isolated = RtlBidiHelper.isolateLtr(matchText)
+                    val start = builder.length + 1
+                    builder.append(isolated)
+                    val end = builder.length - 1
                     val geohash = matchText.removePrefix("#").lowercase()
                     builder.addStringAnnotation(
                         tag = "geohash_click",
@@ -643,17 +654,29 @@ private fun appendIOSFormattedContent(
                     )
                     builder.pop()
                 } else if (type == "url") {
-                    // Style URL as a link and add click annotation with the raw text
+                    // Keep wrapping punctuation outside the LTR isolate.
+                    var linkText = matchText
+                    var trailing = ""
+                    while (linkText.isNotEmpty() && linkText.last() in URL_TRAILING_PUNCTUATION) {
+                        trailing = linkText.last() + trailing
+                        linkText = linkText.dropLast(1)
+                    }
                     builder.pushStyle(linkStyle)
-                    val start = builder.length
-                    builder.append(matchText)
-                    val end = builder.length
-                    builder.addStringAnnotation(
-                        tag = "url_click",
-                        annotation = matchText,
-                        start = start,
-                        end = end
-                    )
+                    if (linkText.isEmpty()) {
+                        builder.append(matchText)
+                    } else {
+                        val isolated = RtlBidiHelper.isolateLtr(linkText)
+                        val start = builder.length + 1
+                        builder.append(isolated)
+                        val end = builder.length - 1
+                        builder.addStringAnnotation(
+                            tag = "url_click",
+                            annotation = linkText,
+                            start = start,
+                            end = end
+                        )
+                        if (trailing.isNotEmpty()) builder.append(trailing)
+                    }
                     builder.pop()
                 } else {
                     // Fallback: treat as normal text
