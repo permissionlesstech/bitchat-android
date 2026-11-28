@@ -24,6 +24,15 @@ object BlasterRelayConfig {
         return relays + blasterUrl.trim()
     }
 
-    private fun normalize(url: String): String =
-        url.trim().trimEnd('/').lowercase()
+    private fun normalize(url: String): String {
+        val trimmed = url.trim().trimEnd('/')
+        val schemeEnd = trimmed.indexOf("://")
+        if (schemeEnd < 0) return trimmed.lowercase()
+        val authorityStart = schemeEnd + 3
+        val pathStart = trimmed.indexOfAny(charArrayOf('/', '?', '#'), startIndex = authorityStart)
+        val hostEnd = if (pathStart < 0) trimmed.length else pathStart
+        val schemeAndHost = trimmed.substring(0, hostEnd).lowercase()
+        val rest = if (pathStart < 0) "" else trimmed.substring(pathStart)
+        return schemeAndHost + rest
+    }
 }
