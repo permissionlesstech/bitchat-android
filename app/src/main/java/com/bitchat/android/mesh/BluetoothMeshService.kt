@@ -363,6 +363,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             override fun getPeerInfo(peerID: String): PeerInfo? {
                 return peerManager.getPeerInfo(peerID)
             }
+
+            override fun acceptVerifiedAnnounceTimestamp(peerID: String, timestamp: ULong): Boolean {
+                return peerManager.acceptVerifiedAnnounceTimestamp(peerID, timestamp)
+            }
             
             override fun updatePeerInfoFromVerifiedAnnouncement(peerID: String, nickname: String, noisePublicKey: ByteArray, signingPublicKey: ByteArray, isVerified: Boolean, capabilities: com.bitchat.android.model.PeerCapabilities?): Boolean {
                 return peerManager.updatePeerInfoFromVerifiedAnnouncement(

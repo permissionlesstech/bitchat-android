@@ -30,19 +30,17 @@ class MeshGraphService private constructor() {
      */
     fun updateFromAnnouncement(originPeerID: String, originNickname: String?, neighborsOrNull: List<String>?, timestamp: ULong) {
         synchronized(this) {
-            // Capture previous nickname before mutating so we can detect actual state changes.
+            // Nickname is part of the latest announce. Capture it for the snapshot
+            // check, but do not write it until this timestamp wins.
             val prevNickname = nicknames[originPeerID]
-            if (originNickname != null) nicknames[originPeerID] = originNickname
 
-            // 1. Check timestamp first to ensure this is the latest word from the peer
+            // 1. Check timestamp first to ensure this is the latest word from the peer.
+            // A delayed older announce must not roll the nickname back.
             val prevTs = lastUpdate[originPeerID]
             if (prevTs != null && prevTs >= timestamp) {
-                // Older or equal update: ignore (but publish if nickname actually changed)
-                if (originNickname != null && prevNickname != originNickname) {
-                    publishSnapshot()
-                }
                 return
             }
+            if (originNickname != null) nicknames[originPeerID] = originNickname
             lastUpdate[originPeerID] = timestamp
 
             // 2. Latest announcement determines state.

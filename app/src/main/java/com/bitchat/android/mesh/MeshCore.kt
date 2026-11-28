@@ -311,6 +311,10 @@ class MeshCore(
                 return peerManager.getPeerInfo(peerID)
             }
 
+            override fun acceptVerifiedAnnounceTimestamp(peerID: String, timestamp: ULong): Boolean {
+                return peerManager.acceptVerifiedAnnounceTimestamp(peerID, timestamp)
+            }
+
             override fun updatePeerInfoFromVerifiedAnnouncement(
                 peerID: String,
                 nickname: String,

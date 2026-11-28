@@ -97,6 +97,9 @@ class PeerManager(
     private val peerRSSI = ConcurrentHashMap<String, Int>()
     private val announcedPeers = CopyOnWriteArrayList<String>()
     private val announcedToPeers = CopyOnWriteArrayList<String>()
+    // Sender timestamp of the newest accepted announce. Arrival time is not enough:
+    // a delayed sync reply can land after a newer announce and roll the nickname back.
+    private val announceTimestamps = ConcurrentHashMap<String, ULong>()
     
     // Legacy fields removed: use PeerInfo map exclusively
     
@@ -144,6 +147,19 @@ class PeerManager(
     }
 
     /**
+     * Returns false when [timestamp] is older than the newest announce already
+     * accepted for [peerID]. Equal timestamps still count as current.
+     */
+    @Synchronized
+    fun acceptVerifiedAnnounceTimestamp(peerID: String, timestamp: ULong): Boolean {
+        if (peerID == "unknown") return false
+        val previous = announceTimestamps[peerID]
+        if (previous != null && timestamp < previous) return false
+        announceTimestamps[peerID] = timestamp
+        return true
+    }
+
+    /**
      * Apply the exact capability state from a signature-verified announce.
      * A null value is meaningful: the peer signed an old-format announce that
      * omitted TLV 0x05. Normal peer refreshes use [updatePeerInfo] and retain
@@ -175,6 +191,9 @@ class PeerManager(
         state: AuthenticatedPeerState
     ) {
         val existing = peers[peerID]
+        if (existing?.signingPublicKey?.contentEquals(state.signingPublicKey) == false) {
+            announceTimestamps.remove(peerID)
+        }
         val announcementMatchesAuthenticatedState = existing?.hasVerifiedAnnouncement == true &&
             existing.verifiedAnnouncementNoisePublicKey?.contentEquals(authenticatedNoisePublicKey) == true &&
             existing.signingPublicKey?.contentEquals(state.signingPublicKey) == true
@@ -376,10 +395,12 @@ class PeerManager(
     /**
      * Remove peer
      */
+    @Synchronized
     fun removePeer(peerID: String, notifyPeerList: Boolean = true) {
         val removed = peers.remove(peerID)
         peerRSSI.remove(peerID)
         announcedPeers.remove(peerID)
+        announceTimestamps.remove(peerID)
         announcedToPeers.remove(peerID)
         
         // Also remove fingerprint mappings
@@ -469,11 +490,13 @@ class PeerManager(
     /**
      * Clear all peer data
      */
+    @Synchronized
     fun clearAllPeers() {
         peers.clear()
         peerRSSI.clear()
         announcedPeers.clear()
         announcedToPeers.clear()
+        announceTimestamps.clear()
         
         // Also clear fingerprint mappings
         fingerprintManager.clearAllFingerprints()
