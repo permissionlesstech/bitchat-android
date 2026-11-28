@@ -31,6 +31,18 @@ jobs:
       - name: Set up and validate Gradle
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
 
+      # Robolectric fetches its android-all jars outside Gradle, straight from
+      # Maven Central into ~/.m2/repository. Cold runners re-download every SDK
+      # jar on each run and hit HTTP 429, failing all Robolectric suites before
+      # a single assertion runs. Caching keeps those jars off the network.
+      - name: Cache Robolectric Android runtime jars
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: |
+            robolectric-${{ runner.os }}-
+
       - name: Verify native library inputs
         run: tools/arti-build/verify-checksums.sh
 
