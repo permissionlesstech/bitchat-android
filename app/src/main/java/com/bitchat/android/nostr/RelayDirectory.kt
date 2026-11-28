@@ -92,12 +92,31 @@ object RelayDirectory {
         }
 
         val (lat, lon) = center
-        return snapshot
-            .asSequence()
-            .sortedBy { haversineMeters(lat, lon, it.latitude, it.longitude) }
-            .take(nRelays.coerceAtLeast(0))
-            .map { it.url }
-            .toList()
+        return selectClosest(snapshot, lat, lon, nRelays)
+    }
+
+    /**
+     * Same distance order as iOS, with the host as the tie-break, after
+     * `host` and `host:443` have been collapsed to one URL.
+     */
+    internal fun selectClosest(
+        entries: List<RelayInfo>,
+        lat: Double,
+        lon: Double,
+        count: Int
+    ): List<String> {
+        if (entries.isEmpty() || count <= 0) return emptyList()
+        val seen = LinkedHashSet<String>()
+        entries
+            .map { it.copy(url = canonicalRelayUrl(it.url)) }
+            .sortedWith(
+                compareBy<RelayInfo> { haversineMeters(lat, lon, it.latitude, it.longitude) }
+                    .thenBy { relaySortKey(it.url) }
+            )
+            .forEach { entry ->
+                if (entry.url.isNotEmpty()) seen.add(entry.url)
+            }
+        return seen.take(count).toList()
     }
 
     private fun haversineMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
@@ -109,11 +128,36 @@ object RelayDirectory {
         return R * c
     }
 
-    private fun normalizeRelayUrl(raw: String): String {
+    internal fun canonicalRelayUrl(raw: String): String = normalizeRelayUrl(raw)
+
+    internal fun normalizeRelayUrl(raw: String): String {
         val trimmed = raw.trim()
         if (trimmed.isEmpty()) return trimmed
-        return if ("://" in trimmed) trimmed else "wss://$trimmed"
+        val withScheme = if ("://" in trimmed) trimmed else "wss://$trimmed"
+        return try {
+            val uri = java.net.URI(withScheme)
+            val scheme = (uri.scheme ?: "wss").lowercase(java.util.Locale.ROOT)
+            val rawPath = uri.rawPath ?: ""
+            val pathPart = if (rawPath == "/") "" else rawPath
+            val queryPart = uri.rawQuery?.let { "?$it" } ?: ""
+            val host = uri.host?.lowercase(java.util.Locale.ROOT)
+            if (host == null) {
+                val authority = uri.rawAuthority?.lowercase(java.util.Locale.ROOT)
+                    ?: return withScheme
+                return "$scheme://$authority$pathPart$queryPart"
+            }
+            val port = uri.port
+            val includePort = port != -1 &&
+                !((scheme == "wss" && port == 443) || (scheme == "ws" && port == 80))
+            val portPart = if (includePort) ":$port" else ""
+            "$scheme://$host$portPart$pathPart$queryPart"
+        } catch (_: Exception) {
+            withScheme
+        }
     }
+
+    private fun relaySortKey(url: String): String =
+        url.substringAfter("://", url).substringBefore('/').substringBefore(':')
 
     // ===== Implementation details =====
 
@@ -278,8 +322,9 @@ object RelayDirectory {
         Log.i(TAG, "📦 Loaded ${list.size} relay entries from assets/$ASSET_FILE, sha256=$hash")
     }
 
-    private fun parseCsv(input: InputStream): List<RelayInfo> {
+    internal fun parseCsv(input: InputStream): List<RelayInfo> {
         val result = mutableListOf<RelayInfo>()
+        val seen = mutableSetOf<String>()
         BufferedReader(InputStreamReader(input)).use { reader ->
             var line: String?
             while (true) {
@@ -294,7 +339,9 @@ object RelayDirectory {
                 val lat = parts[1].trim().toDoubleOrNull()
                 val lon = parts[2].trim().toDoubleOrNull()
                 if (url.isEmpty() || lat == null || lon == null) continue
-                result.add(RelayInfo(url = url, latitude = lat, longitude = lon))
+                if (seen.add(url)) {
+                    result.add(RelayInfo(url = url, latitude = lat, longitude = lon))
+                }
             }
         }
         return result
