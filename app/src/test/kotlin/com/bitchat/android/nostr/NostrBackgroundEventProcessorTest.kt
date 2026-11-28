@@ -23,6 +23,7 @@ class NostrBackgroundEventProcessorTest {
 
     @Before
     fun setUp() {
+        PoWPreferenceManager.setPowEnabled(false)
         AppStateStore.clear()
         // This test floods one sender to measure throughput; that is exactly what the spam
         // filter hides, so it is covered by SpamFilterTest instead.
@@ -33,6 +34,7 @@ class NostrBackgroundEventProcessorTest {
     @After
     fun tearDown() {
         scope.cancel()
+        PoWPreferenceManager.resetToDefaults()
         SpamFilter.shared.enabled = true
         SpamFilter.shared.reset()
         AppStateStore.clear()

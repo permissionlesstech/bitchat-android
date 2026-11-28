@@ -31,6 +31,7 @@ class GeohashMessageHandlerSpamTest {
 
     @Before
     fun setup() {
+        PoWPreferenceManager.setPowEnabled(false)
         com.bitchat.android.services.AppStateStore.clear()
         SpamFilter.shared.reset()
         chatState = ChatState(scope = testScope)
@@ -48,6 +49,7 @@ class GeohashMessageHandlerSpamTest {
 
     @After
     fun tearDown() {
+        PoWPreferenceManager.resetToDefaults()
         SpamFilter.shared.reset()
         com.bitchat.android.services.AppStateStore.clear()
     }
