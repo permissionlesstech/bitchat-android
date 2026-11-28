@@ -1438,8 +1438,8 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
      * @param mentions  Optional list of mentioned peer IDs
      * @param channel   Optional channel name
      */
-    override fun sendMessage(content: String, mentions: List<String>, channel: String?) {
-        meshCore.sendMessage(content, mentions, channel)
+    override fun sendMessage(content: String, mentions: List<String>, channel: String?): Boolean {
+        return meshCore.sendMessage(content, mentions, channel)
     }
 
     /**

@@ -31,6 +31,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         private val SIGNED_MESSAGE_TYPES = setOf(
             MessageType.ANNOUNCE,
             MessageType.MESSAGE,
+            MessageType.CHANNEL_MESSAGE,
             MessageType.FILE_TRANSFER,
             MessageType.VOICE_FRAME,
             MessageType.LEAVE
