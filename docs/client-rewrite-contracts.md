@@ -34,7 +34,10 @@ at least one literal vector.
 NIP-17 receivers should reserve safety slack beyond the maximum timestamp
 randomization used by senders. Android caps outbound seal and gift-wrap
 randomization at 22h, leaving 2 hours of slack inside iOS's 24-hour
-subscription window, while retaining its 48-hour receive lookback.
+subscription window. Inbound Android rumors retain a 48-hour lookback plus
+15 minutes of clock skew so the timestamp policy does not shorten offline
+delivery to one day. Outer receive filters also reserve the sender's full
+two-day randomization allowance; see [NIP17_TIMESTAMP_POLICY.md](NIP17_TIMESTAMP_POLICY.md).
 
 Geohash (recipient-less) `bitchat1:` envelopes and their acks carry 8 fresh
 random bytes in the embedded packet's sender field, never the mesh peer ID,
