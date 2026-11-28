@@ -847,13 +847,28 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         if (content.isEmpty()) return
         
         serviceScope.launch {
+            val sentAt = System.currentTimeMillis()
+            val nickname = try {
+                com.bitchat.android.services.NicknameProvider.getNickname(context, myPeerID)
+            } catch (_: Exception) {
+                myPeerID
+            }
+            val payload = com.bitchat.android.model.ChannelMessageWire.encode(
+                content = content,
+                mentions = mentions,
+                channel = channel,
+                sender = nickname,
+                senderPeerID = myPeerID,
+                messageId = java.util.UUID.randomUUID().toString().uppercase(),
+                timestampMillis = sentAt
+            ) ?: return@launch
             val packet = BitchatPacket(
                 version = 1u,
                 type = MessageType.MESSAGE.value,
                 senderID = hexStringToByteArray(myPeerID),
                 recipientID = SpecialRecipients.BROADCAST,
-                timestamp = System.currentTimeMillis().toULong(),
-                payload = content.toByteArray(Charsets.UTF_8),
+                timestamp = sentAt.toULong(),
+                payload = payload,
                 signature = null,
                 ttl = MAX_TTL
             )

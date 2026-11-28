@@ -31,7 +31,10 @@ class ChannelManager(
     
     fun joinChannel(channel: String, password: String? = null, myPeerID: String): Boolean {
         val channelTag = if (channel.startsWith("#")) channel else "#$channel"
-        
+        if (!com.bitchat.android.model.ChannelMessageWire.channelNameSupported(channelTag)) {
+            return false
+        }
+
         // Check if already joined
         if (state.getJoinedChannelsValue().contains(channelTag)) {
             if (state.getPasswordProtectedChannelsValue().contains(channelTag) && !channelKeys.containsKey(channelTag)) {
