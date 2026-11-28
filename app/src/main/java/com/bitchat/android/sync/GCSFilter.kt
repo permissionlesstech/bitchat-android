@@ -18,6 +18,14 @@ import kotlin.math.ln
  * - Bitstream is packed MSB-first in each byte.
  */
 object GCSFilter {
+    /**
+     * Highest Golomb-Rice parameter accepted from the wire. P maps to an FPR of
+     * ~1/2^P; beyond 32 the remainder width exceeds any practical filter, and
+     * the shifts in decode silently wrap (Kotlin shifts use the low 6 bits of
+     * the count) into garbage values.
+     */
+    const val MAX_P = 32
+
     data class Params(
         val p: Int,         // Golomb-Rice parameter (>= 1)
         val m: Long,        // Range M = N * 2^P
@@ -37,6 +45,8 @@ object GCSFilter {
         return (bits / per).coerceAtLeast(1)
     }
 
+    private val sha256ThreadLocal = ThreadLocal.withInitial { MessageDigest.getInstance("SHA-256") }
+
     fun buildFilter(
         ids: List<ByteArray>, // 16-byte PacketId bytes
         maxBytes: Int,
@@ -46,30 +56,46 @@ object GCSFilter {
         val nCap = estimateMaxElementsForSize(maxBytes, p)
         var trimmedN = ids.size.coerceAtMost(nCap)
 
-        var finalM = (trimmedN.toLong() shl p).coerceAtLeast(1L)
-        var selected = ids.take(trimmedN)
-        var mapped = selected.map { id ->
-            val v = h64(id) % finalM
-            if (v == 0L) 1L else v
-        }.distinct().sorted()
-        var encoded = encode(mapped, p)
+        // Precompute h64 once outside the trim loop so shrinking never re-hashes SHA-256.
+        val hashes = LongArray(trimmedN) { idx -> h64(ids[idx]) }
+
+        fun encodeForN(n: Int): Pair<Long, ByteArray> {
+            val m = (n.toLong() shl p).coerceAtLeast(1L)
+            if (n == 0) return m to ByteArray(0)
+            val raw = LongArray(n) { idx ->
+                val v = hashes[idx] % m
+                if (v == 0L) 1L else v
+            }
+            raw.sort()
+            // Deduplicate in-place on sorted LongArray (zero boxing)
+            var uniqueCount = 0
+            for (i in 0 until n) {
+                if (uniqueCount == 0 || raw[i] != raw[uniqueCount - 1]) {
+                    raw[uniqueCount++] = raw[i]
+                }
+            }
+            return m to encode(raw, uniqueCount, p)
+        }
+
+        var (finalM, encoded) = encodeForN(trimmedN)
 
         // If estimate was too optimistic, trim until it fits
         while (encoded.size > maxBytes && trimmedN > 0) {
             trimmedN = (trimmedN * 9) / 10 // drop 10%
-            finalM = (trimmedN.toLong() shl p).coerceAtLeast(1L)
-            selected = ids.take(trimmedN)
-            mapped = selected.map { id ->
-                val v = h64(id) % finalM
-                if (v == 0L) 1L else v
-            }.distinct().sorted()
-            encoded = encode(mapped, p)
+            val next = encodeForN(trimmedN)
+            finalM = next.first
+            encoded = next.second
         }
 
         return Params(p = p, m = finalM, data = encoded)
     }
 
     fun decodeToSortedSet(p: Int, m: Long, data: ByteArray): LongArray {
+        // p and m arrive off the wire. Reject out-of-range parameters rather
+        // than decoding garbage: callers read the result as "peer has nothing"
+        // and fall back to sending the data, which is the safe direction.
+        // Matches the iOS guard in GCSFilter.decodeToSortedSet.
+        if (p < 1 || p > MAX_P || m <= 1L) return LongArray(0)
         val values = ArrayList<Long>()
         val reader = BitReader(data)
         var acc = 0L
@@ -105,7 +131,8 @@ object GCSFilter {
     }
 
     internal fun h64(id16: ByteArray): Long {
-        val md = MessageDigest.getInstance("SHA-256")
+        val md = sha256ThreadLocal.get()!!
+        md.reset()
         md.update(id16)
         val d = md.digest()
         var x = 0L
@@ -115,11 +142,12 @@ object GCSFilter {
         return x and 0x7fff_ffff_ffff_ffffL // positive
     }
 
-    private fun encode(sorted: List<Long>, p: Int): ByteArray {
-        val bw = BitWriter()
+    private fun encode(sorted: LongArray, count: Int, p: Int): ByteArray {
+        val bw = BitWriter(initialCapacity = ((count * (p + 2)) ushr 3).coerceAtLeast(16))
         var prev = 0L
         val mask = (1L shl p) - 1L
-        for (v in sorted) {
+        for (i in 0 until count) {
+            val v = sorted[i]
             val delta = v - prev
             prev = v
             val x = delta
@@ -134,16 +162,25 @@ object GCSFilter {
         return bw.toByteArray()
     }
 
-    // Simple MSB-first bit writer
-    private class BitWriter {
-        private val buf = ArrayList<Byte>()
+    // Simple MSB-first bit writer backed by a primitive ByteArray (zero Byte boxing)
+    private class BitWriter(initialCapacity: Int = 64) {
+        private var buf = ByteArray(initialCapacity)
+        private var size = 0
         private var cur = 0
         private var nbits = 0
+
+        private fun appendByte(b: Byte) {
+            if (size == buf.size) {
+                buf = buf.copyOf(buf.size shl 1)
+            }
+            buf[size++] = b
+        }
+
         fun writeBit(bit: Int) {
             cur = (cur shl 1) or (bit and 1)
             nbits++
             if (nbits == 8) {
-                buf.add(cur.toByte())
+                appendByte(cur.toByte())
                 cur = 0; nbits = 0
             }
         }
@@ -157,10 +194,10 @@ object GCSFilter {
         fun toByteArray(): ByteArray {
             if (nbits > 0) {
                 val rem = cur shl (8 - nbits)
-                buf.add(rem.toByte())
+                appendByte(rem.toByte())
                 cur = 0; nbits = 0
             }
-            return buf.toByteArray()
+            return if (size == buf.size) buf else buf.copyOf(size)
         }
     }
 

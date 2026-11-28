@@ -38,6 +38,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.StateFlow
 import com.bitchat.android.R
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.GeohashChannelLevel
@@ -85,11 +86,11 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val legacyPrivateMediaConsent by viewModel.legacyPrivateMediaConsent.collectAsStateWithLifecycle()
 
     var messageText by remember { mutableStateOf(TextFieldValue("")) }
-    var showPasswordPrompt by remember { mutableStateOf(false) }
-    var showPasswordDialog by remember { mutableStateOf(false) }
-    var passwordInput by remember { mutableStateOf("") }
     var showLocationChannelsSheet by remember { mutableStateOf(false) }
     var showLocationNotesSheet by remember { mutableStateOf(false) }
+    // Triple-tapping the logo asks first: the same logo opens App Info on a
+    // single tap, so a fumbled tap must never be able to wipe the device.
+    var showPanicConfirmation by remember { mutableStateOf(false) }
     var showUserSheet by remember { mutableStateOf(false) }
     var selectedUserForSheet by remember { mutableStateOf("") }
     var selectedMessageForSheet by remember { mutableStateOf<BitchatMessage?>(null) }
@@ -107,13 +108,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
         )
     }
 
-    // Show password dialog when needed
-    LaunchedEffect(showPasswordPrompt) {
-        showPasswordDialog = showPasswordPrompt
-    }
-
     val isConnected by viewModel.isConnected.collectAsStateWithLifecycle()
-    val passwordPromptChannel by viewModel.passwordPromptChannel.collectAsStateWithLifecycle()
 
     // Get location channel info for timeline switching
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
@@ -223,15 +218,14 @@ fun ChatScreen(viewModel: ChatViewModel) {
         }
     }
 
-    val mentionPeerIdentities = remember(
-        displayMessages,
+    val knownMentionPeers = remember(
         currentChannel,
         selectedLocationChannel,
         connectedPeers,
         peerNicknames,
         geohashPeople,
     ) {
-        val knownPeers = if (
+        if (
             currentChannel == null && selectedLocationChannel is ChannelID.Location
         ) {
             val duplicateNames = duplicateGeohashBaseNames(geohashPeople)
@@ -247,8 +241,10 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 }
             }
         }
-        buildMentionPeerIdentityMap(displayMessages, knownPeers)
     }
+    val mentionPeerIdentities = rememberMentionPeerIdentities(
+        displayMessages, knownMentionPeers, conversationKey
+    )
 
     // Determine whether to show media buttons (only hide in geohash location chats)
     val showMediaButtons = when {
@@ -433,11 +429,15 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     )
                 },
                 onMentionSuggestionClick = { mention: String ->
-                    val mentionText = viewModel.selectMentionSuggestion(mention, messageText.text)
-                    messageText = TextFieldValue(
-                        text = mentionText,
-                        selection = TextRange(mentionText.length)
-                    )
+                    // A retained callback may run before visibility has recomposed.
+                    if (viewModel.showMentionSuggestions.value &&
+                        mention in viewModel.mentionSuggestions.value) {
+                        val mentionText = viewModel.selectMentionSuggestion(mention, messageText.text)
+                        messageText = TextFieldValue(
+                            text = mentionText,
+                            selection = TextRange(mentionText.length)
+                        )
+                    }
                 },
                 selectedPrivatePeer = null,
                 currentChannel = currentChannel,
@@ -457,7 +457,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             colorScheme = colorScheme,
             onSidebarToggle = { viewModel.showMeshPeerList() },
             onShowAppInfo = { viewModel.showAppInfo() },
-            onPanicClear = { viewModel.panicClearAllData() },
+            onPanicClear = { showPanicConfirmation = true },
             onLocationChannelsClick = { showLocationChannelsSheet = true },
             onLocationNotesClick = {
                 nearbyNotesController.reveal()
@@ -515,23 +515,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
 
     // Dialogs and Sheets
     ChatDialogs(
-        showPasswordDialog = showPasswordDialog,
-        passwordPromptChannel = passwordPromptChannel,
-        passwordInput = passwordInput,
-        onPasswordChange = { passwordInput = it },
-        onPasswordConfirm = {
-            if (passwordInput.isNotEmpty()) {
-                val success = viewModel.joinChannel(passwordPromptChannel!!, passwordInput)
-                if (success) {
-                    showPasswordDialog = false
-                    passwordInput = ""
-                }
-            }
-        },
-        onPasswordDismiss = {
-            showPasswordDialog = false
-            passwordInput = ""
-        },
         showAppInfo = showAppInfo,
         onAppInfoDismiss = { viewModel.hideAppInfo() },
         showLocationChannelsSheet = showLocationChannelsSheet,
@@ -557,6 +540,34 @@ fun ChatScreen(viewModel: ChatViewModel) {
         showMeshPeerListSheet = showMeshPeerListSheet,
         onMeshPeerListDismiss = viewModel::hideMeshPeerList,
     )
+
+    if (showPanicConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showPanicConfirmation = false },
+            title = { Text(stringResource(com.bitchat.android.R.string.panic_confirm_title)) },
+            text = { Text(stringResource(com.bitchat.android.R.string.panic_confirm_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showPanicConfirmation = false
+                        messageText = TextFieldValue("")
+                        viewModel.clearSuggestions()
+                        viewModel.panicClearAllData()
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text(stringResource(com.bitchat.android.R.string.panic_confirm_action))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPanicConfirmation = false }) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            }
+        )
+    }
 
     legacyPrivateMediaConsent?.let { request ->
         AlertDialog(
@@ -709,7 +720,9 @@ fun ChatInputSection(
                 MentionSuggestionsBox(
                     suggestions = displayedMentionSuggestions,
                     mentionPeerIdentities = mentionPeerIdentities,
-                    onSuggestionClick = onMentionSuggestionClick,
+                    onSuggestionClick = { nickname ->
+                        if (mentionPickerVisible) onMentionSuggestionClick(nickname)
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
                 HorizontalDivider(thickness = 1.dp, color = colorScheme.outlineVariant)
@@ -811,15 +824,49 @@ private fun ChatFloatingHeader(
     }
 }
 
+/**
+ * Shows the channel password dialog for as long as the prompt state asks for it. The typed
+ * password lives only while the prompt is open.
+ */
+@Composable
+internal fun ChannelPasswordPrompt(
+    showPrompt: StateFlow<Boolean>,
+    promptChannel: StateFlow<String?>,
+    onSubmit: (channel: String, password: String) -> Boolean,
+    onDismiss: () -> Unit,
+    dialog: @Composable (
+        show: Boolean,
+        channelName: String?,
+        passwordInput: String,
+        onPasswordChange: (String) -> Unit,
+        onConfirm: () -> Unit,
+        onDismiss: () -> Unit
+    ) -> Unit = { show, channelName, passwordInput, onPasswordChange, onConfirm, dismiss ->
+        PasswordPromptDialog(show, channelName, passwordInput, onPasswordChange, onConfirm, dismiss)
+    }
+) {
+    val show by showPrompt.collectAsStateWithLifecycle()
+    val channel by promptChannel.collectAsStateWithLifecycle()
+    var passwordInput by remember(show, channel) { mutableStateOf("") }
+
+    dialog(
+        show,
+        channel,
+        passwordInput,
+        { passwordInput = it },
+        {
+            val target = channel
+            if (target != null && passwordInput.isNotEmpty() && onSubmit(target, passwordInput)) {
+                onDismiss()
+            }
+        },
+        onDismiss
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChatDialogs(
-    showPasswordDialog: Boolean,
-    passwordPromptChannel: String?,
-    passwordInput: String,
-    onPasswordChange: (String) -> Unit,
-    onPasswordConfirm: () -> Unit,
-    onPasswordDismiss: () -> Unit,
     showAppInfo: Boolean,
     onAppInfoDismiss: () -> Unit,
     showLocationChannelsSheet: Boolean,
@@ -842,13 +889,11 @@ private fun ChatDialogs(
     val privateChatSheetPeer by viewModel.privateChatSheetPeer.collectAsStateWithLifecycle()
 
     // Password dialog
-    PasswordPromptDialog(
-        show = showPasswordDialog,
-        channelName = passwordPromptChannel,
-        passwordInput = passwordInput,
-        onPasswordChange = onPasswordChange,
-        onConfirm = onPasswordConfirm,
-        onDismiss = onPasswordDismiss
+    ChannelPasswordPrompt(
+        showPrompt = viewModel.showPasswordPrompt,
+        promptChannel = viewModel.passwordPromptChannel,
+        onSubmit = { channel, password -> viewModel.joinChannel(channel, password) },
+        onDismiss = viewModel::hidePasswordPrompt
     )
 
     // About sheet
@@ -900,10 +945,8 @@ private fun ChatDialogs(
             isPresented = showMeshPeerListSheet,
             viewModel = viewModel,
             onDismiss = onMeshPeerListDismiss,
-            onShowVerification = {
-                onMeshPeerListDismiss()
-                viewModel.showVerificationSheet(fromSidebar = true)
-            }
+            // Stacks on top of the network sheet, so dismissing it lands back here.
+            onShowVerification = viewModel::showVerificationSheet
         )
     }
 

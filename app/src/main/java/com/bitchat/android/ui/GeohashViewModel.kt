@@ -38,7 +38,9 @@ class GeohashViewModel(
 
     companion object { private const val TAG = "GeohashViewModel" }
 
-    private val repo = GeohashRepository(application, state, dataManager)
+    private val repo = GeohashRepository(
+        application, state, dataManager, viewModelScope, NostrBackgroundRuntime.participants
+    )
     private val uiSubscriptionOwner = "geohash-ui-${UUID.randomUUID()}"
     private val subscriptionManager = NostrSubscriptionManager(
         application,
@@ -55,6 +57,7 @@ class GeohashViewModel(
     // Presence heartbeat firehose (kind 20001). High-volume; paused while backgrounded.
     private var currentGeohashPresenceSubId: String? = null
     private var geoTimer: Job? = null
+    private val participantUpdatesJob = repo.observeParticipants()
     private var locationChannelManager: com.bitchat.android.geohash.LocationChannelManager? = null
     private val activeSamplingGeohashes = mutableSetOf<String>()
     private val samplingSubscriptionIds = mutableMapOf<String, String>()
@@ -108,7 +111,8 @@ class GeohashViewModel(
         }
     }
 
-    fun panicReset() {
+    /** Returns true only when the persisted Nostr identity was wiped; the rest is in-memory teardown. */
+    fun panicReset(reconnectRelays: Boolean): Boolean {
         repo.clearAll()
         GeohashAliasRegistry.clear()
         GeohashConversationRegistry.clear()
@@ -117,10 +121,15 @@ class GeohashViewModel(
         activeChannelGeohash = null
         geoTimer?.cancel()
         geoTimer = null
-        try { NostrIdentityBridge.clearAllAssociations(getApplication()) } catch (_: Exception) {}
+        val identityCleared = try {
+            NostrIdentityBridge.clearAllAssociations(getApplication())
+        } catch (_: Exception) {
+            false
+        }
         NostrBackgroundRuntime.resetSubscriptions()
-        try { com.bitchat.android.nostr.NostrRelayManager.getInstance(getApplication()).clearAllOnPanic() } catch (_: Exception) {}
+        try { com.bitchat.android.nostr.NostrRelayManager.getInstance(getApplication()).clearAllOnPanic(reconnect = reconnectRelays && identityCleared) } catch (_: Exception) {}
         try { com.bitchat.android.nostr.LocationNotesManager.getInstance().stop() } catch (_: Exception) {}
+        return identityCleared
     }
 
     fun sendGeohashMessage(content: String, channel: com.bitchat.android.geohash.GeohashChannel, myPeerID: String, nickname: String?) {
@@ -275,10 +284,12 @@ class GeohashViewModel(
 
     fun getNostrKeyMapping(): Map<String, String> = repo.getNostrKeyMapping()
 
-    fun blockUserInGeohash(targetNickname: String) {
-        val pubkey = repo.findPubkeyByNickname(targetNickname)
+    fun blockUserInGeohash(targetNickname: String, pubkeyHex: String? = null) {
+        val pubkey = pubkeyHex?.takeIf { it.isNotBlank() }?.lowercase()
+            ?: repo.findPubkeyByNickname(targetNickname)
         if (pubkey != null) {
             dataManager.addGeohashBlockedUser(pubkey)
+            messageManager.removeGeohashMessagesFromSender(pubkey)
             // Refresh people list and counts to remove blocked entry immediately
             repo.refreshGeohashPeople()
             repo.updateReactiveParticipantCounts()
@@ -359,19 +370,28 @@ class GeohashViewModel(
                 notificationManager.clearNotificationsForGeohash(channel.channel.geohash)
                 try { messageManager.clearChannelUnreadCount("geo:${channel.channel.geohash}") } catch (_: Exception) { }
 
-                try {
-                    val identity = NostrIdentityBridge.deriveIdentity(channel.channel.geohash, getApplication())
-                    // Count the local viewer immediately; waiting only on relay presence (kind 20001)
-                    // makes the participant counter show 0 or "?" until an external heartbeat arrives.
-                    repo.updateParticipant(
-                        channel.channel.geohash,
-                        identity.publicKeyHex,
-                        Date()
-                    )
-                    val teleported = locationChannelManager?.teleported?.value
-                        ?: state.isTeleported.value
-                    if (teleported) repo.markTeleported(identity.publicKeyHex)
-                } catch (e: Exception) { Log.w(TAG, "Failed identity setup: ${e.message}") }
+                val targetGeohash = channel.channel.geohash
+                val teleported = locationChannelManager?.teleported?.value
+                    ?: state.isTeleported.value
+                // Count the local viewer as soon as the identity exists. Waiting only on
+                // relay presence (kind 20001) leaves the counter at 0 or "?" .
+                val cachedIdentity = NostrIdentityBridge.getCachedIdentity(targetGeohash)
+                if (cachedIdentity != null) {
+                    repo.updateParticipant(targetGeohash, cachedIdentity.publicKeyHex, Date())
+                    if (teleported) repo.markTeleported(cachedIdentity.publicKeyHex)
+                } else {
+                    viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        try {
+                            val identity = NostrIdentityBridge.deriveIdentity(targetGeohash, getApplication())
+                            if (activeChannelGeohash == targetGeohash) {
+                                repo.updateParticipant(targetGeohash, identity.publicKeyHex, Date())
+                                if (teleported) repo.markTeleported(identity.publicKeyHex)
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Failed identity setup: ${e.message}")
+                        }
+                    }
+                }
 
                 startGeoParticipantsTimer()
                 val liveLocationToken = locationChannelManager
@@ -428,6 +448,7 @@ class GeohashViewModel(
     fun shutdownUiSubscriptions() {
         if (uiSubscriptionsShutdown) return
         uiSubscriptionsShutdown = true
+        participantUpdatesJob.cancel()
         subscriptionManager.unsubscribeAllOwned()
         geoTimer?.cancel()
         geoTimer = null

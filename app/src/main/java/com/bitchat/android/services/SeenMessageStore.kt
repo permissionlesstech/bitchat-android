@@ -6,6 +6,12 @@ import android.util.Log
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Persistent store for message IDs we've already acknowledged as delivered, read locally, or
@@ -15,10 +21,24 @@ import com.google.gson.annotations.SerializedName
  * Transport delivery is best-effort and retryable, while local read state drives unread UI.
  * Limits to last MAX_IDS entries per set to avoid memory bloat.
  */
-class SeenMessageStore private constructor(private val context: Context) {
+class SeenMessageStore internal constructor(
+    private val context: Context,
+    private val persistScope: CoroutineScope,
+    private val persistDelayMs: Long = DEFAULT_PERSIST_DELAY_MS,
+    private val payloadSerializer: ((Any) -> String)? = null
+) {
+    private constructor(context: Context) : this(
+        context = context,
+        persistScope = CoroutineScope(Dispatchers.IO.limitedParallelism(1) + SupervisorJob()),
+        persistDelayMs = DEFAULT_PERSIST_DELAY_MS,
+        payloadSerializer = null
+    )
+
     companion object {
         private const val TAG = "SeenMessageStore"
         private const val STORAGE_KEY = "seen_message_store_v1"
+        private const val DEFAULT_PERSIST_DELAY_MS = 500L
+        private const val MAX_SYNC_CLEAR_RETRIES = 3
         private const val MAX_IDS = com.bitchat.android.util.AppConstants.Services.SEEN_MESSAGE_MAX_IDS
 
         // The constructor always receives applicationContext, so process lifetime is intentional.
@@ -33,10 +53,15 @@ class SeenMessageStore private constructor(private val context: Context) {
 
     private val gson = Gson()
     private val secure = SecureIdentityStateManager(context)
+    private val persistLock = Any()
+    private var pendingPersistJob: Job? = null
+    private var mutationGeneration: Long = 0L
+    private var destructiveGeneration: Long = 0L
+    private var persistedGeneration: Long = 0L
 
-    private val delivered = LinkedHashSet<String>(MAX_IDS)
-    private val locallyRead = LinkedHashSet<String>(MAX_IDS)
-    private val readReceiptsSent = LinkedHashSet<String>(MAX_IDS)
+    private val delivered = LinkedHashSet<String>()
+    private val locallyRead = LinkedHashSet<String>()
+    private val readReceiptsSent = LinkedHashSet<String>()
 
     init { load() }
 
@@ -45,43 +70,91 @@ class SeenMessageStore private constructor(private val context: Context) {
     @Synchronized fun hasReadReceiptBeenSent(id: String) = readReceiptsSent.contains(id)
 
     @Synchronized fun markDelivered(id: String) {
-        if (delivered.remove(id)) delivered.add(id) else {
-            delivered.add(id)
-            trim(delivered)
-        }
-        persist()
+        if (delivered.contains(id)) return
+        delivered.add(id)
+        trim(delivered)
+        mutationGeneration++
+        schedulePersistLocked()
     }
 
     @Synchronized fun markReadLocally(id: String) {
-        if (locallyRead.remove(id)) locallyRead.add(id) else {
+        val added = if (locallyRead.contains(id)) false else {
             locallyRead.add(id)
             trim(locallyRead)
+            mutationGeneration++
+            true
         }
         AppStateStore.markPrivateMessageRead(id)
-        persist()
+        if (added) schedulePersistLocked()
     }
 
     @Synchronized fun markReadReceiptSent(id: String) {
-        if (readReceiptsSent.remove(id)) readReceiptsSent.add(id) else {
-            readReceiptsSent.add(id)
-            trim(readReceiptsSent)
-        }
-        persist()
+        if (readReceiptsSent.contains(id)) return
+        readReceiptsSent.add(id)
+        trim(readReceiptsSent)
+        mutationGeneration++
+        schedulePersistLocked()
     }
 
-    @Synchronized fun remove(ids: Set<String>) {
+    fun remove(ids: Set<String>) {
         if (ids.isEmpty()) return
-        delivered.removeAll(ids)
-        locallyRead.removeAll(ids)
-        readReceiptsSent.removeAll(ids)
-        persist()
+        val changed = synchronized(this) {
+            val modified = delivered.removeAll(ids) or
+                locallyRead.removeAll(ids) or
+                readReceiptsSent.removeAll(ids)
+            if (modified) {
+                mutationGeneration++
+                destructiveGeneration++
+                pendingPersistJob?.cancel()
+                pendingPersistJob = null
+            }
+            modified
+        }
+        if (!changed) return
+        // Enqueue immediate serialized IO write so UI conversation deletion never blocks the main thread.
+        persistScope.launch {
+            persistOnce()
+            synchronized(this@SeenMessageStore) {
+                if (persistedGeneration < mutationGeneration) {
+                    schedulePersistLocked()
+                }
+            }
+        }
     }
 
-    @Synchronized fun clear() {
-        delivered.clear()
-        locallyRead.clear()
-        readReceiptsSent.clear()
-        persist()
+    fun clear() {
+        synchronized(this) {
+            mutationGeneration++
+            destructiveGeneration++
+            pendingPersistJob?.cancel()
+            pendingPersistJob = null
+            delivered.clear()
+            locallyRead.clear()
+            readReceiptsSent.clear()
+        }
+        // Panic wipe must commit synchronously before returning, with JSON serialized outside persistLock.
+        repeat(MAX_SYNC_CLEAR_RETRIES) {
+            if (persistOnce()) return
+        }
+    }
+
+    /**
+     * Bounded-latency batching: never cancel/restart an active timer, so continuous
+     * mutations cannot starve persistence indefinitely.
+     */
+    private fun schedulePersistLocked() {
+        if (pendingPersistJob?.isActive == true) return
+        pendingPersistJob = persistScope.launch {
+            delay(persistDelayMs)
+            persistOnce()
+            // If more mutations arrived while persistOnce() ran, schedule one follow-up flush.
+            synchronized(this@SeenMessageStore) {
+                pendingPersistJob = null
+                if (persistedGeneration < mutationGeneration) {
+                    schedulePersistLocked()
+                }
+            }
+        }
     }
 
     private fun trim(set: LinkedHashSet<String>) {
@@ -114,19 +187,45 @@ class SeenMessageStore private constructor(private val context: Context) {
         }
     }
 
-    @Synchronized private fun persist() {
-        try {
-            val payload = StorePayload(
-                delivered = delivered.toList(),
-                locallyRead = locallyRead.toList(),
-                readReceiptsSent = readReceiptsSent.toList()
-            )
-            val json = gson.toJson(payload)
-            secure.storeSecureValue(STORAGE_KEY, json)
+    /**
+     * Perform a single snapshot + serialize + persist pass without unbounded retry churn.
+     *
+     * Concurrent additive mutations during serialization are safe to persist incrementally (the
+     * next bounded batch persists newer IDs). Only destructive mutations (`remove`/`clear`) bump
+     * [destructiveGeneration] and abort an older snapshot so deleted/wiped IDs are never
+     * resurrected on disk.
+     */
+    private fun persistOnce(): Boolean {
+        return try {
+            val (gen, destructiveGen, payload) = synchronized(this) {
+                Triple(mutationGeneration, destructiveGeneration, snapshotLocked())
+            }
+            val json = payloadSerializer?.invoke(payload) ?: gson.toJson(payload)
+            synchronized(persistLock) {
+                val safeToCommit = synchronized(this) { destructiveGeneration == destructiveGen }
+                if (!safeToCommit) {
+                    false
+                } else {
+                    secure.storeSecureValue(STORAGE_KEY, json)
+                    synchronized(this) {
+                        if (destructiveGeneration == destructiveGen && gen > persistedGeneration) {
+                            persistedGeneration = gen
+                        }
+                    }
+                    true
+                }
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to persist SeenMessageStore: ${e.message}")
+            false
         }
     }
+
+    private fun snapshotLocked(): StorePayload = StorePayload(
+        delivered = delivered.toList(),
+        locallyRead = locallyRead.toList(),
+        readReceiptsSent = readReceiptsSent.toList()
+    )
 
     private data class StorePayload(
         val delivered: List<String> = emptyList(),

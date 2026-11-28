@@ -676,6 +676,10 @@ class MediaSendingManager(
         filePath: String,
         messageType: BitchatMessageType
     ) {
+        if (!channelOrNull.isNullOrBlank() && channelManager.refuseSendIfPasswordProtected(channelOrNull)) {
+            return
+        }
+
         val payload = withContext(mediaWorkDispatcher) { filePacket.encode() }
             ?: run {
                 Log.e(TAG, "Failed to encode file packet for broadcast send")

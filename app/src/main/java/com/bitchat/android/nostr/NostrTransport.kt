@@ -16,6 +16,8 @@ import java.util.concurrent.ConcurrentLinkedQueue
  */
 class NostrTransport(
     private val context: Context,
+    // BLE short peer ID embedded in favorites (recipient-addressed) envelopes.
+    // Geohash envelopes never carry it (see NostrEmbeddedBitChat).
     var senderPeerID: String = ""
 ) {
     
@@ -310,8 +312,7 @@ class NostrTransport(
             try {
                 val embedded = NostrEmbeddedBitChat.encodeAckForNostrNoRecipient(
                     type = NoisePayloadType.DELIVERED,
-                    messageID = messageID,
-                    senderPeerID = senderPeerID
+                    messageID = messageID
                 )
                 
                 if (embedded == null) return@launch
@@ -343,8 +344,7 @@ class NostrTransport(
             try {
                 val embedded = NostrEmbeddedBitChat.encodeAckForNostrNoRecipient(
                     type = NoisePayloadType.READ_RECEIPT,
-                    messageID = messageID,
-                    senderPeerID = senderPeerID
+                    messageID = messageID
                 )
                 
                 if (embedded == null) return@launch
@@ -401,8 +401,7 @@ class NostrTransport(
                 // Build embedded BitChat packet without recipient peer ID
                 val embedded = NostrEmbeddedBitChat.encodePMForNostrNoRecipient(
                     content = content,
-                    messageID = messageID,
-                    senderPeerID = senderPeerID
+                    messageID = messageID
                 ) ?: run {
                     Log.e(TAG, "NostrTransport: failed to embed geohash PM packet")
                     return@launch

@@ -3,6 +3,7 @@ package com.bitchat.android.nostr
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.spam.SpamFilter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -23,12 +24,17 @@ class NostrBackgroundEventProcessorTest {
     @Before
     fun setUp() {
         AppStateStore.clear()
+        // This test floods one sender to measure throughput; that is exactly what the spam
+        // filter hides, so it is covered by SpamFilterTest instead.
+        SpamFilter.shared.enabled = false
         scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
 
     @After
     fun tearDown() {
         scope.cancel()
+        SpamFilter.shared.enabled = true
+        SpamFilter.shared.reset()
         AppStateStore.clear()
     }
 

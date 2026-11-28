@@ -20,6 +20,8 @@ import com.bitchat.android.util.toHexString
 import com.bitchat.android.services.VerificationService
 import com.bitchat.android.service.TransportBridgeService
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.channels.Channel
 import java.util.*
 import kotlin.math.sign
@@ -33,7 +35,6 @@ import kotlin.random.Random
  * - PeerManager: Peer lifecycle management
  * - FragmentManager: Message fragmentation and reassembly  
  * - SecurityManager: Security, duplicate detection, encryption
- * - StoreForwardManager: Offline message caching
  * - MessageHandler: Message type processing and relay logic
  * - BluetoothConnectionManager: BLE connections and GATT operations
  * - PacketProcessor: Incoming packet routing
@@ -108,7 +109,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         )
     }
     private val securityManager = SecurityManager(encryptionService, myPeerID)
-    private val storeForwardManager = StoreForwardManager()
     private val messageHandler = MessageHandler(myPeerID, context.applicationContext)
     internal val connectionManager = BluetoothConnectionManager(context, myPeerID, fragmentManager) // Made internal for access
     private val packetProcessor = PacketProcessor(myPeerID)
@@ -153,6 +153,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         }
 
         // Initialize sync manager (needs serviceScope)
+        val appPowerManager = PowerManager.getInstance(context)
         gossipSyncManager = GossipSyncManager(
             myPeerID = myPeerID,
             scope = serviceScope,
@@ -168,7 +169,17 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 override fun gcsTargetFpr(): Double = try {
                     com.bitchat.android.ui.debug.DebugPreferenceManager.getGcsFprPercent(1.0) / 100.0
                 } catch (_: Exception) { 0.01 }
-            }
+            },
+            hasPeersProvider = {
+                peerManager.getActivePeerCount() > 0 ||
+                    com.bitchat.android.services.AppStateStore.directPeers.value.isNotEmpty()
+            },
+            syncIntervalProvider = {
+                GossipSyncManager.recommendedSyncIntervalMs(appPowerManager.profile.value)
+            },
+            syncIntervalFlow = appPowerManager.profile
+                .map { GossipSyncManager.recommendedSyncIntervalMs(it) }
+                .distinctUntilChanged()
         )
 
         com.bitchat.android.service.MeshServiceHolder.setGossipManager(gossipSyncManager) { packet ->
@@ -291,13 +302,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                     authenticatedRemoteStaticKey,
                     authenticatedSessionToken
                 )
-                // Send announcement and cached messages after key exchange
+                // Send announcement after key exchange
                 serviceScope.launch {
                     delay(100)
                     sendAnnouncementToPeer(peerID)
-                    
-                    delay(1000)
-                    storeForwardManager.sendCachedMessages(peerID)
                 }
             }
             
@@ -323,21 +331,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
 
             override fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? =
                 authenticatedPeerState.persistedSigningKeyFor(noisePublicKey)
-        }
-        
-        // StoreForwardManager delegates
-        storeForwardManager.delegate = object : StoreForwardManagerDelegate {
-            override fun isFavorite(peerID: String): Boolean {
-                return delegate?.isFavorite(peerID) ?: false
-            }
-            
-            override fun isPeerOnline(peerID: String): Boolean {
-                return peerManager.isPeerActive(peerID)
-            }
-            
-            override fun sendPacket(packet: BitchatPacket) {
-                broadcastRoutedPacket(RoutedPacket(packet))
-            }
         }
         
         // MessageHandler delegates
@@ -567,12 +560,12 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 return SpecialRecipients.BROADCAST
             }
             
-            override fun handleNoiseHandshake(routed: RoutedPacket): Boolean {
-                return runBlocking { securityManager.handleNoiseHandshake(routed) }
+            override suspend fun handleNoiseHandshake(routed: RoutedPacket): Boolean {
+                return securityManager.handleNoiseHandshake(routed)
             }
             
-            override fun handleNoiseEncrypted(routed: RoutedPacket): Boolean {
-                return runBlocking { messageHandler.handleNoiseEncrypted(routed) }
+            override suspend fun handleNoiseEncrypted(routed: RoutedPacket): Boolean {
+                return messageHandler.handleNoiseEncrypted(routed)
             }
             
             override suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
@@ -602,8 +595,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 return true
             }
             
-            override fun handleMessage(routed: RoutedPacket) {
-                serviceScope.launch { messageHandler.handleMessage(routed) }
+            override suspend fun handleMessage(routed: RoutedPacket) {
+                messageHandler.handleMessage(routed)
                 // Track broadcast messages for sync
                 try {
                     val pkt = routed.packet
@@ -617,8 +610,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             override fun handleVoiceFrame(routed: RoutedPacket): Boolean =
                 messageHandler.handlePublicVoiceFrame(routed)
             
-            override fun handleLeave(routed: RoutedPacket) {
-                serviceScope.launch { messageHandler.handleLeave(routed) }
+            override suspend fun handleLeave(routed: RoutedPacket) {
+                messageHandler.handleLeave(routed)
             }
             
             override fun handleFragment(packet: BitchatPacket): BitchatPacket? {
@@ -634,10 +627,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             
             override fun sendAnnouncementToPeer(peerID: String) {
                 this@BluetoothMeshService.sendAnnouncementToPeer(peerID)
-            }
-            
-            override fun sendCachedMessages(peerID: String) {
-                storeForwardManager.sendCachedMessages(peerID)
             }
             
             override fun relayPacket(routed: RoutedPacket) {
@@ -832,7 +821,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             peerManager.shutdown()
             fragmentManager.shutdown()
             securityManager.shutdown()
-            storeForwardManager.shutdown()
             messageHandler.shutdown()
             packetProcessor.shutdown()
             
@@ -1521,8 +1509,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             appendLine()
             appendLine(securityManager.getDebugInfo())
             appendLine()
-            appendLine(storeForwardManager.getDebugInfo())
-            appendLine()
             appendLine(messageHandler.getDebugInfo())
             appendLine()
             appendLine(packetProcessor.getDebugInfo())
@@ -1532,23 +1518,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     /**
      * Convert hex string peer ID to binary data (8 bytes) - exactly same as iOS
      */
-    private fun hexStringToByteArray(hexString: String): ByteArray {
-        val result = ByteArray(8) { 0 } // Initialize with zeros, exactly 8 bytes
-        var tempID = hexString
-        var index = 0
-        
-        while (tempID.length >= 2 && index < 8) {
-            val hexByte = tempID.substring(0, 2)
-            val byte = hexByte.toIntOrNull(16)?.toByte()
-            if (byte != null) {
-                result[index] = byte
-            }
-            tempID = tempID.substring(2)
-            index++
-        }
-        
-        return result
-    }
+    private fun hexStringToByteArray(hexString: String): ByteArray =
+        MeshPacketUtils.hexStringToByteArray(hexString)
     
     /**
      * Sign packet before broadcasting using our signing private key
@@ -1557,7 +1528,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         return try {
             val recipient = packet.recipientID
             if (recipient != null && !recipient.contentEquals(SpecialRecipients.BROADCAST)) {
-                val destination = recipient.joinToString("") { byte -> "%02x".format(byte) }
+                val destination = recipient.toHexString()
                 val path = com.bitchat.android.services.meshgraph.RoutePlanner.shortestPath(
                     myPeerID,
                     destination
@@ -1626,7 +1597,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
 
             // Clear all managers
             fragmentManager.clearAllFragments()
-            storeForwardManager.clearAllCache()
             securityManager.clearAllData()
             peerManager.clearAllPeers()
             peerManager.clearAllFingerprints()
@@ -1639,13 +1609,14 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     /**
      * Clear all encryption and cryptographic data (for panic mode)
      */
-    fun clearAllEncryptionData() {
+    fun clearAllEncryptionData(): Boolean {
         Log.w(TAG, "Clearing all encryption data")
-        try {
+        return try {
             // Clear encryption service persistent identity (includes Ed25519 signing keys)
             encryptionService.clearPersistentIdentity()
         } catch (e: Exception) {
             Log.e(TAG, "Error clearing encryption data: ${e.message}")
+            false
         }
     }
 }
