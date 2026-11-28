@@ -41,9 +41,15 @@ class VerificationHandler(
     val verifiedFingerprints: StateFlow<Set<String>> = _verifiedFingerprints.asStateFlow()
 
     private val pendingQRVerifications = ConcurrentHashMap<String, PendingVerification>()
+    private val _hasUnsentPendingVerifications = MutableStateFlow(false)
+    val hasUnsentPendingVerifications: StateFlow<Boolean> = _hasUnsentPendingVerifications.asStateFlow()
     private val lastVerifyNonceByPeer = ConcurrentHashMap<String, ByteArray>()
     private val lastInboundVerifyChallengeAt = ConcurrentHashMap<String, Long>()
     private val lastMutualToastAt = ConcurrentHashMap<String, Long>()
+
+    private fun refreshUnsentPendingState() {
+        _hasUnsentPendingVerifications.value = pendingQRVerifications.values.any { !it.sent }
+    }
 
     fun loadVerifiedFingerprints() {
         _verifiedFingerprints.value = identityManager.getVerifiedFingerprints()
@@ -87,6 +93,7 @@ class VerificationHandler(
         } else {
             meshService.initiateNoiseHandshake(peerID)
         }
+        refreshUnsentPendingState()
         fingerprintFromNoiseHex(qr.noiseKeyHex)?.let { fp ->
             identityManager.cacheFingerprintNickname(fp, qr.nickname)
             identityManager.cacheNoiseFingerprint(qr.noiseKeyHex, fp)
@@ -100,6 +107,7 @@ class VerificationHandler(
         if (pending.sent) return
         meshService.sendVerifyChallenge(peerID, pending.noiseKeyHex, pending.nonceA)
         pendingQRVerifications[peerID] = pending.copy(sent = true)
+        refreshUnsentPendingState()
     }
 
     fun didReceiveVerifyChallenge(peerID: String, payload: ByteArray) {
@@ -147,6 +155,7 @@ class VerificationHandler(
             if (!ok) return@launch
 
             pendingQRVerifications.remove(peerID)
+            refreshUnsentPendingState()
             val fp = meshService.getPeerFingerprint(peerID) ?: return@launch
             identityManager.setVerifiedFingerprint(fp, true)
             val current = _verifiedFingerprints.value.toMutableSet()

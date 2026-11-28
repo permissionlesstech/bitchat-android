@@ -21,7 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -32,6 +32,7 @@ import androidx.wear.compose.foundation.rotary.rotaryScrollable
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.items
@@ -57,7 +58,12 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun ChatScreen(onOpenPeople: () -> Unit, onOpenTextInput: () -> Unit) {
+fun ChatScreen(
+    active: Boolean = true,
+    onOpenPeople: () -> Unit,
+    onOpenTextInput: () -> Unit,
+    onHorizontalGestureActive: (Boolean) -> Unit = {},
+) {
     val context = LocalContext.current
     val messages by AppStateStore.publicMessages.collectAsState()
     val peers by AppStateStore.peers.collectAsState()
@@ -82,9 +88,18 @@ fun ChatScreen(onOpenPeople: () -> Unit, onOpenTextInput: () -> Unit) {
         }
     ) { path -> mesh?.let { sendVoiceNote(it, null, path) } }
 
-    androidx.compose.runtime.DisposableEffect(liveVoiceManager) {
-        liveVoiceManager.showPublicMesh()
-        onDispose { liveVoiceManager.clearVisibleConversation() }
+    // Push-to-talk drags and the image viewer own the whole screen; the home pager must not
+    // turn them into a page swipe.
+    val horizontalGestureActive = voice.recording || viewerPath != null
+    LaunchedEffect(horizontalGestureActive) { onHorizontalGestureActive(horizontalGestureActive) }
+
+    // Only the foreground copy claims the conversation; a copy revealed behind a swipe must
+    // not clear the screen it is revealed from when the swipe is cancelled.
+    if (active) {
+        androidx.compose.runtime.DisposableEffect(liveVoiceManager) {
+            liveVoiceManager.showPublicMesh()
+            onDispose { liveVoiceManager.clearVisibleConversation() }
+        }
     }
 
     ChatScaffold(
@@ -161,7 +176,7 @@ private fun ChatHeader(
         }
         Icon(
             imageVector = Icons.Filled.People,
-            contentDescription = "people",
+            contentDescription = "People",
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(iconSize),
         )
@@ -177,7 +192,7 @@ private fun ChatHeader(
         if (unreadDms > 0) {
             Icon(
                 imageVector = Icons.Filled.MailOutline,
-                contentDescription = "$unreadDms unread messages",
+                contentDescription = unreadDescription(unreadDms),
                 tint = LocalBitchatPalette.current.accentOrange,
                 modifier = Modifier.padding(start = 6.dp).size(iconSize),
             )
@@ -199,7 +214,8 @@ fun MessageItem(
     message: BitchatMessage,
     myPeerID: String,
     onOpenImage: (String) -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    animateAppear: Boolean = true
 ) {
     val palette = LocalBitchatPalette.current
     val isSelf = message.senderPeerID == myPeerID
@@ -208,8 +224,8 @@ fun MessageItem(
         else -> colorForPeer(message.sender + (message.senderPeerID ?: ""), palette)
     }
 
-    // Snappy appear animation for incoming messages (BitchatMotion.EMPHASIZED_MS)
-    var appeared by remember { mutableStateOf(false) }
+    // Snappy appear animation for new messages (BitchatMotion.EMPHASIZED_MS)
+    var appeared by remember { mutableStateOf(!animateAppear) }
     LaunchedEffect(message.id) { appeared = true }
     val alpha by androidx.compose.animation.core.animateFloatAsState(
         targetValue = if (appeared) 1f else 0f,
@@ -226,8 +242,10 @@ fun MessageItem(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 14.dp, vertical = 3.dp)
-            .offset(y = offset)
-            .alpha(alpha)
+            // Lambda overloads read the animation in layout/draw only, so an arriving message
+            // no longer recomposes its row on every frame.
+            .offset { IntOffset(0, offset.roundToPx()) }
+            .graphicsLayer { this.alpha = alpha }
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -268,6 +286,9 @@ fun MessageItem(
         }
     }
 }
+
+internal fun unreadDescription(count: Int): String =
+    if (count == 1) "1 unread message" else "$count unread messages"
 
 private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 

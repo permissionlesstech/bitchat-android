@@ -28,6 +28,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
@@ -106,8 +108,7 @@ class NostrDirectMessageHandlerTest {
             content = requireNotNull(
                 NostrEmbeddedBitChat.encodePMForNostrNoRecipient(
                     content = "first",
-                    messageID = firstId,
-                    senderPeerID = "0011223344556677"
+                    messageID = firstId
                 )
             ),
             sender = sender,
@@ -119,8 +120,7 @@ class NostrDirectMessageHandlerTest {
             content = requireNotNull(
                 NostrEmbeddedBitChat.encodePMForNostrNoRecipient(
                     content = "second",
-                    messageID = secondId,
-                    senderPeerID = "0011223344556677"
+                    messageID = secondId
                 )
             ),
             sender = sender,
@@ -138,6 +138,59 @@ class NostrDirectMessageHandlerTest {
         assertEquals(listOf(firstId, secondId), messages.map { it.id })
         assertEquals(firstRumorTime * 1000L, messages[0].timestamp.time)
         assertEquals(secondRumorTime * 1000L, messages[1].timestamp.time)
+    }
+
+    @Test
+    fun `blocked geohash sender gets no delivery ack`() {
+        val application = RuntimeEnvironment.getApplication()
+        val state = ChatState(scope).apply { setNickname("recipient") }
+        val dataManager = DataManager(application)
+        val privateChatManager = PrivateChatManager(
+            state = state,
+            messageManager = MessageManager(state),
+            dataManager = dataManager,
+            noiseSessionDelegate = mock<NoiseSessionDelegate>()
+        )
+        val seenStore = mock<SeenMessageStore>()
+        val handler = NostrDirectMessageHandler(
+            application = application,
+            state = state,
+            privateChatManager = privateChatManager,
+            updateDeliveryStatus = { _, _ -> },
+            scope = scope,
+            repo = GeohashRepository(application, state, dataManager, scope),
+            dataManager = dataManager,
+            seenStoreProvider = { seenStore }
+        )
+        val sender = NostrIdentity.generate()
+        val recipient = NostrIdentity.generate()
+        dataManager.addGeohashBlockedUser(sender.publicKeyHex.lowercase())
+        val now = (System.currentTimeMillis() / 1000).toInt()
+
+        val giftWrap = privateMessageGiftWrap(
+            content = requireNotNull(
+                NostrEmbeddedBitChat.encodePMForNostrNoRecipient(
+                    content = "hello",
+                    messageID = "blocked-message"
+                )
+            ),
+            sender = sender,
+            recipient = recipient,
+            rumorCreatedAt = now - 60,
+            giftWrapCreatedAt = now - 5
+        )
+
+        try {
+            handler.onGiftWrap(giftWrap, "zzzzzz", recipient)
+
+            // The handler runs on an unconfined scope and drops a blocked sender before
+            // its first suspension, so nothing can still be in flight here.
+            assertEquals(emptyList<String>(), state.getPrivateChatsValue().values.flatten().map { it.id })
+            verify(seenStore, never()).hasDelivered(any())
+            verify(seenStore, never()).markDelivered(any())
+        } finally {
+            dataManager.removeGeohashBlockedUser(sender.publicKeyHex.lowercase())
+        }
     }
 
     private fun waitForMessage(state: ChatState, messageId: String) {

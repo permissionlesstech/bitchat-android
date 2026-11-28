@@ -87,12 +87,12 @@ private fun BatteryOptimizationEnabledContent(
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
-        // Scrollable content area
+        // Scrollable content area; padding outside the scroll keeps clipped text off the buttons
         Column(
             modifier = Modifier
                 .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = 16.dp),
+                .padding(bottom = 16.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Header Section - matching AboutSheet style

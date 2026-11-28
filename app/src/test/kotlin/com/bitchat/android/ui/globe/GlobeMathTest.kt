@@ -57,4 +57,17 @@ class GlobeMathTest {
             assertTrue(zoom <= GlobeMath.MAX_ZOOM)
         }
     }
+
+    @Test
+    fun preciseProjector_matchesProjectRaw() {
+        val projector = GlobeMath.PreciseProjector(centerLatDeg = 35.0, centerLonDeg = 170.0)
+        val out = FloatArray(3)
+        for ((lat, lon) in listOf(35.0 to 170.0, 10.0 to -175.0, -60.0 to 20.0, 89.0 to 0.0)) {
+            projector.project(lat, lon, out, 0)
+            val expected = GlobeMath.projectRaw(lat, lon, 35.0, 170.0)
+            org.junit.Assert.assertEquals(expected.x, out[0], 1e-6f)
+            org.junit.Assert.assertEquals(expected.y, out[1], 1e-6f)
+            org.junit.Assert.assertEquals(expected.cosC, out[2], 1e-6f)
+        }
+    }
 }

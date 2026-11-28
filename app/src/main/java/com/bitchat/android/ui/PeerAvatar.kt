@@ -34,10 +34,14 @@ internal fun PeerAvatar(
     isFavorite: Boolean = false,
     theyFavoritedUs: Boolean = false,
     isVerified: Boolean = false,
+    isOffline: Boolean = false,
     badge: (@Composable () -> Unit)? = null
 ) {
     val palette = LocalBitchatPalette.current
     val colorScheme = MaterialTheme.colorScheme
+    // Offline peers render their badges without accent colours, matching the greyed avatar.
+    val starTint = if (isOffline) palette.textTertiary else palette.accentOrange
+    val verifiedTint = if (isOffline) palette.textTertiary else colorScheme.primary
 
     Box(
         modifier = modifier.size(42.dp),
@@ -100,7 +104,7 @@ internal fun PeerAvatar(
                             }
                         ),
                         modifier = Modifier.size(10.dp),
-                        tint = palette.accentOrange
+                        tint = starTint
                     )
                 }
             }
@@ -122,7 +126,7 @@ internal fun PeerAvatar(
                             R.string.fingerprint_verified_label
                         ),
                         modifier = Modifier.size(12.dp),
-                        tint = colorScheme.primary
+                        tint = verifiedTint
                     )
                 }
             }

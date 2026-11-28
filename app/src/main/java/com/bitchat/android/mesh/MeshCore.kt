@@ -22,6 +22,8 @@ import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.ConcurrentHashMap
@@ -109,7 +111,6 @@ class MeshCore(
         )
     }
     private val securityManager = SecurityManager(encryptionService, myPeerID)
-    private val storeForwardManager = StoreForwardManager()
     private val messageHandler = MessageHandler(myPeerID, context.applicationContext)
     private val packetProcessor = PacketProcessor(myPeerID)
     private data class VoiceFrameRequest(val recipientPeerID: String?, val payload: ByteArray)
@@ -117,7 +118,22 @@ class MeshCore(
     private val directPeers = ConcurrentHashMap.newKeySet<String>()
 
     val gossipSyncManager: GossipSyncManager =
-        sharedGossipManager ?: GossipSyncManager(myPeerID = myPeerID, scope = scope, configProvider = gossipConfigProvider)
+        sharedGossipManager ?: GossipSyncManager(
+            myPeerID = myPeerID,
+            scope = scope,
+            configProvider = gossipConfigProvider,
+            hasPeersProvider = {
+                peerManager.getActivePeerCount() > 0 ||
+                    directPeers.isNotEmpty() ||
+                    com.bitchat.android.services.AppStateStore.directPeers.value.isNotEmpty()
+            },
+            syncIntervalProvider = {
+                GossipSyncManager.recommendedSyncIntervalMs(PowerManager.getInstance(context).profile.value)
+            },
+            syncIntervalFlow = PowerManager.getInstance(context).profile
+                .map { GossipSyncManager.recommendedSyncIntervalMs(it) }
+                .distinctUntilChanged()
+        )
     private val ownsGossipManager: Boolean = sharedGossipManager == null
 
     var delegate: MeshDelegate? = null
@@ -172,7 +188,6 @@ class MeshCore(
         peerManager.shutdown()
         fragmentManager.shutdown()
         securityManager.shutdown()
-        storeForwardManager.shutdown()
         messageHandler.shutdown()
         packetProcessor.shutdown()
     }
@@ -245,8 +260,6 @@ class MeshCore(
                 scope.launch {
                     delay(100)
                     sendAnnouncementToPeer(peerID)
-                    delay(1000)
-                    storeForwardManager.sendCachedMessages(peerID)
                 }
             }
 
@@ -267,20 +280,6 @@ class MeshCore(
 
             override fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? =
                 authenticatedPeerState.persistedSigningKeyFor(noisePublicKey)
-        }
-
-        storeForwardManager.delegate = object : StoreForwardManagerDelegate {
-            override fun isFavorite(peerID: String): Boolean {
-                return delegate?.isFavorite(peerID) ?: false
-            }
-
-            override fun isPeerOnline(peerID: String): Boolean {
-                return peerManager.isPeerActive(peerID)
-            }
-
-            override fun sendPacket(packet: BitchatPacket) {
-                dispatchGlobal(RoutedPacket(packet))
-            }
         }
 
         messageHandler.delegate = object : MessageHandlerDelegate {
@@ -460,12 +459,12 @@ class MeshCore(
                 return SpecialRecipients.BROADCAST
             }
 
-            override fun handleNoiseHandshake(routed: RoutedPacket): Boolean {
-                return runBlocking { securityManager.handleNoiseHandshake(routed) }
+            override suspend fun handleNoiseHandshake(routed: RoutedPacket): Boolean {
+                return securityManager.handleNoiseHandshake(routed)
             }
 
-            override fun handleNoiseEncrypted(routed: RoutedPacket): Boolean {
-                return runBlocking { messageHandler.handleNoiseEncrypted(routed) }
+            override suspend fun handleNoiseEncrypted(routed: RoutedPacket): Boolean {
+                return messageHandler.handleNoiseEncrypted(routed)
             }
 
             override suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
@@ -506,10 +505,6 @@ class MeshCore(
 
             override fun sendAnnouncementToPeer(peerID: String) {
                 this@MeshCore.sendAnnouncementToPeer(peerID)
-            }
-
-            override fun sendCachedMessages(peerID: String) {
-                storeForwardManager.sendCachedMessages(peerID)
             }
 
             override fun relayPacket(routed: RoutedPacket) {
@@ -1021,7 +1016,6 @@ class MeshCore(
             appendLine(peerManager.getDebugInfo(deviceMap))
             appendLine(fragmentManager.getDebugInfo())
             appendLine(securityManager.getDebugInfo())
-            appendLine(storeForwardManager.getDebugInfo())
             appendLine(messageHandler.getDebugInfo())
             appendLine(packetProcessor.getDebugInfo())
         }
@@ -1030,16 +1024,14 @@ class MeshCore(
     fun clearAllInternalData() {
         directPeers.clear()
         fragmentManager.clearAllFragments()
-        storeForwardManager.clearAllCache()
         securityManager.clearAllData()
         peerManager.clearAllPeers()
         peerManager.clearAllFingerprints()
         try { gossipSyncManager.clear() } catch (_: Exception) { }
     }
 
-    fun clearAllEncryptionData() {
+    fun clearAllEncryptionData(): Boolean =
         encryptionService.clearPersistentIdentity()
-    }
 
     private fun applyRouteIfAvailable(packet: BitchatPacket): BitchatPacket {
         return try {

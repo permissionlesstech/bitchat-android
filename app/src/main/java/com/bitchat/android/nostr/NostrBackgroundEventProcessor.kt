@@ -1,6 +1,8 @@
 package com.bitchat.android.nostr
 
 import android.app.Application
+import android.content.Context
+import android.content.SharedPreferences
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.ui.ChatState
@@ -8,6 +10,7 @@ import com.bitchat.android.ui.DataManager
 import com.bitchat.android.ui.MessageManager
 import com.bitchat.android.ui.NoiseSessionDelegate
 import com.bitchat.android.ui.PrivateChatManager
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -21,10 +24,13 @@ import kotlinx.coroutines.launch
  */
 internal class NostrBackgroundEventProcessor(
     application: Application,
-    parentScope: CoroutineScope
+    parentScope: CoroutineScope,
+    participantStore: GeohashParticipantStore = NostrBackgroundRuntime.participants,
+    processingDispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(1),
+    signatureVerificationDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) {
     private val scope = CoroutineScope(
-        parentScope.coroutineContext + Dispatchers.IO.limitedParallelism(1)
+        parentScope.coroutineContext + processingDispatcher
     )
     private val state = ChatState(scope)
     private val dataManager = DataManager(application.applicationContext).apply {
@@ -33,7 +39,7 @@ internal class NostrBackgroundEventProcessor(
         loadGeohashBlockedUsers()
     }
     private val messageManager = MessageManager(state)
-    private val geohashRepository = GeohashRepository(application, state, dataManager, scope)
+    private val geohashRepository = GeohashRepository(application, state, dataManager, scope, participantStore)
     private val privateChatManager = PrivateChatManager(
         state = state,
         messageManager = messageManager,
@@ -50,7 +56,8 @@ internal class NostrBackgroundEventProcessor(
         repo = geohashRepository,
         scope = scope,
         dataManager = dataManager,
-        addChannelMessage = AppStateStore::addChannelMessage
+        addChannelMessage = AppStateStore::addChannelMessage,
+        signatureVerificationDispatcher = signatureVerificationDispatcher
     )
     private val directMessageHandler = NostrDirectMessageHandler(
         application = application,
@@ -62,7 +69,17 @@ internal class NostrBackgroundEventProcessor(
         dataManager = dataManager
     )
 
+    private val prefs = application.applicationContext.getSharedPreferences("bitchat_prefs", Context.MODE_PRIVATE)
+    @Volatile private var blockListsDirty = false
+    @Volatile private var loadedBlockListGeneration = DataManager.blockListGeneration()
+    private val prefsChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == null || key.contains("blocked", ignoreCase = true)) {
+            blockListsDirty = true
+        }
+    }
+
     init {
+        prefs.registerOnSharedPreferenceChangeListener(prefsChangeListener)
         // Keep the headless state aligned with messages sent or received through other transports.
         // This preserves duplicate detection and focused-conversation behavior without retaining UI.
         scope.launch {
@@ -109,6 +126,10 @@ internal class NostrBackgroundEventProcessor(
     }
 
     private fun refreshBlockLists() {
+        val currentGeneration = DataManager.blockListGeneration()
+        if (!blockListsDirty && currentGeneration == loadedBlockListGeneration) return
+        blockListsDirty = false
+        loadedBlockListGeneration = currentGeneration
         dataManager.loadBlockedUsers()
         dataManager.loadGeohashBlockedUsers()
     }

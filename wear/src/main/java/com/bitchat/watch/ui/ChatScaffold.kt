@@ -274,6 +274,10 @@ private fun ChatBody(
         magnetPull = Offset.Zero
     }
 
+    // Only messages that arrive while the thread is open animate in. Rows scrolled back into
+    // view are recomposed from scratch by the lazy list and must not replay their entrance.
+    val knownMessageIDs = remember { messages.mapTo(HashSet()) { it.id } }
+
     // Tactile tick each time the finger enters or leaves the cancel target.
     var hoverHapticState by remember { mutableStateOf(false) }
     LaunchedEffect(hoveringCancel, voice.recording) {
@@ -317,7 +321,8 @@ private fun ChatBody(
                 }
             }
     ) {
-        ScreenScaffold(scrollState = columnState) { scaffoldPadding ->
+        // The chat header owns the top of the display, so the app-wide TimeText stays hidden.
+        ScreenScaffold(scrollState = columnState, timeText = {}) { scaffoldPadding ->
             val layoutDirection = LocalLayoutDirection.current
             TransformingLazyColumn(
                 state = columnState,
@@ -391,10 +396,12 @@ private fun ChatBody(
                     }
                 }
                 items(messages, key = { it.id }) { message ->
+                    val animateAppear = remember(message.id) { knownMessageIDs.add(message.id) }
                     MessageItem(
                         message = message,
                         myPeerID = myPeerID,
                         onOpenImage = onOpenImage,
+                        animateAppear = animateAppear,
                         modifier = Modifier
                             .transformedHeight(this, transformationSpec)
                             .graphicsLayer {
@@ -451,7 +458,7 @@ private const val CANCEL_HOVER_SLANT_PX = 56f
 private val CHAT_ACTION_BAR_CLEARANCE = 64.dp
 private val CHAT_HEADER_EDGE_FADE = 36.dp
 private val CHAT_ACTION_BAR_EDGE_FADE = 72.dp
-private const val CHAT_ROUND_EDGE_OPAQUE_STOP = 0.78f
+private const val CHAT_ROUND_EDGE_OPAQUE_STOP = 0.86f
 // Magnetic zone geometry (px at watch density): the button starts reacting at
 // MAGNET_OUTER_PX from its center and fully blushes at MAGNET_INNER_PX (~the activation
 // boundary); it leans toward the finger by up to MAGNET_PULL_PX.

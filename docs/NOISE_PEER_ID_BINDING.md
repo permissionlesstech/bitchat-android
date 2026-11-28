@@ -60,3 +60,25 @@ Consequently, discovery metadata or capability bits in an announcement are
 hints, not proof of Noise-key possession. Security-sensitive capabilities must
 be confirmed inside the authenticated Noise channel before they are pinned or
 used to authorize a downgrade-sensitive behavior.
+
+## Verification QR freshness
+
+Verification QR timestamps are signed Unix seconds. The scanner accepts a
+validly signed QR only when its timestamp is within 300 seconds of the local
+clock in either direction (inclusive), unless the caller supplies a different
+age limit. Future dating does not extend this window. An absolute timestamp
+difference larger than `Long.MAX_VALUE` saturates to `Long.MAX_VALUE`; signed
+subtraction or absolute-value overflow must never produce a small accepted age.
+
+Fixed freshness vectors at synthetic receiver time `1700000000` seconds:
+
+| QR timestamp | Absolute skew | Default freshness result |
+|---|---:|---|
+| `1699999700` | 300 | accept |
+| `1700000300` | 300 | accept |
+| `1699999699` | 301 | reject |
+| `1700000301` | 301 | reject |
+| `-9223372036854775808` | saturated | reject |
+| `9223372036854775807` | greater than 300 | reject |
+
+Signature and key validation still apply after this freshness check.

@@ -464,8 +464,8 @@ fun MeshPeerListSheet(
                                 Icon(
                                     imageVector = Icons.Outlined.QrCode,
                                     contentDescription = stringResource(R.string.verify_title),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(22.dp)
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(HeaderIconSize)
                                 )
                             }
                         }
@@ -1001,6 +1001,7 @@ private fun ConversationSwipeItem(
             favoriteRelationship?.theyFavoritedUs == true
     val isVerified = fingerprint != null && fingerprint in verifiedFingerprints
     val dismissState = rememberSwipeToDismissBoxState()
+    val swipeScope = rememberCoroutineScope()
     val shape = RoundedCornerShape(
         topStart = if (isFirst) 14.dp else 0.dp,
         topEnd = if (isFirst) 14.dp else 0.dp,
@@ -1008,22 +1009,25 @@ private fun ConversationSwipeItem(
         bottomEnd = if (isLast) 14.dp else 0.dp
     )
 
-    LaunchedEffect(dismissState.currentValue, conversation.conversationID) {
-        when (dismissState.currentValue) {
+    // Act only once the swipe has settled at a dismissed anchor (finger lifted, fling done),
+    // then spring the row back. Keying an effect on `currentValue` instead fires mid-drag as
+    // soon as the row passes the halfway point; the reset animation then loses to the still
+    // active drag and the row stays stuck in the dismissed position.
+    val onSwipeDismissed: (SwipeToDismissBoxValue) -> Unit = { direction ->
+        when (direction) {
             SwipeToDismissBoxValue.StartToEnd -> {
                 hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                 onReadStateRequested(conversation, conversation.unreadCount > 0)
-                dismissState.reset()
             }
 
             SwipeToDismissBoxValue.EndToStart -> {
                 hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                 onDeleteRequested(conversation)
-                dismissState.reset()
             }
 
             SwipeToDismissBoxValue.Settled -> Unit
         }
+        swipeScope.launch { dismissState.reset() }
     }
 
     Surface(
@@ -1040,6 +1044,7 @@ private fun ConversationSwipeItem(
                 state = dismissState,
                 enableDismissFromStartToEnd = true,
                 enableDismissFromEndToStart = true,
+                onDismiss = onSwipeDismissed,
                 backgroundContent = {
                     val markRead = conversation.unreadCount > 0
                     val startToEnd =
@@ -1178,7 +1183,13 @@ private fun ConversationRow(
     val peerIdentity = conversation.nostrPubkey
         ?.let(viewModel::peerIdentityForNostrPubkey)
         ?: viewModel.peerIdentityForMeshPeer(conversation.conversationID)
-    val assignedColor = colorForPeer(peerIdentity, palette)
+    // Offline peers lose their identity colour so they read as inactive at a glance.
+    val isOffline = !conversation.isConnected
+    val assignedColor = if (isOffline) {
+        palette.textTertiary
+    } else {
+        colorForPeer(peerIdentity, palette)
+    }
     val (baseNameRaw, suffix) = splitSuffix(conversation.displayName)
     val relativeTime by produceState(
         initialValue = conversationRelativeTime(conversation.latestMessageAt),
@@ -1249,6 +1260,7 @@ private fun ConversationRow(
             isFavorite = isFavorite,
             theyFavoritedUs = theyFavoritedUs,
             isVerified = isVerified,
+            isOffline = isOffline,
             badge = {
                 when {
                     conversation.isConnected -> Icon(
@@ -1270,7 +1282,7 @@ private fun ConversationRow(
                             R.string.offline_reachable_via_nostr
                         ),
                         modifier = Modifier.size(13.dp),
-                        tint = palette.accentPurple
+                        tint = palette.textTertiary
                     )
 
                     else -> Icon(
@@ -1491,7 +1503,13 @@ private fun PeerItem(
         viewModel.peerIdentityForMeshPeer(peerID),
         palette
     )
-    val baseColor = if (isMe) palette.accentOrange else assignedColor
+    // Offline peers lose their identity colour so they read as inactive at a glance.
+    val isOffline = !isConnected && !isMe
+    val baseColor = when {
+        isMe -> palette.accentOrange
+        isOffline -> palette.textTertiary
+        else -> assignedColor
+    }
 
     Row(
         modifier = Modifier
@@ -1506,6 +1524,7 @@ private fun PeerItem(
             isFavorite = isFavorite,
             theyFavoritedUs = theyFavoritedUs,
             isVerified = isVerified,
+            isOffline = isOffline,
             badge = {
                 when {
                     isConnected -> Icon(
@@ -1525,7 +1544,7 @@ private fun PeerItem(
                         painter = painterResource(R.drawable.ic_spec_globe),
                         contentDescription = stringResource(R.string.cd_reachable_via_nostr),
                         modifier = Modifier.size(13.dp),
-                        tint = palette.accentPurple
+                        tint = palette.textTertiary
                     )
 
                     else -> Icon(
@@ -1855,7 +1874,7 @@ fun PrivateChatSheet(
                         },
                         onSend = {
                             if (messageText.text.trim().isNotEmpty()) {
-                                viewModel.sendMessage(messageText.text.trim()) { accepted ->
+                                viewModel.sendPrivateChatSheetMessage(peerID, messageText.text.trim()) { accepted ->
                                     if (accepted) {
                                         messageText =
                                             androidx.compose.ui.text.input.TextFieldValue("")

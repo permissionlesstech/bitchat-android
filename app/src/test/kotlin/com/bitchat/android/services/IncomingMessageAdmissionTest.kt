@@ -276,6 +276,65 @@ class IncomingMessageAdmissionTest {
         assertTrue(state.getPrivateChatsValue().isEmpty())
     }
 
+    @Test
+    fun `public flood from one peer is hidden while private messages still arrive`() {
+        val peer = "flood-${UUID.randomUUID()}"
+        val admitted = (1..7).map { index ->
+            IncomingMessageAdmission.admitToAppState(
+                BitchatMessage(
+                    id = "$peer-$index",
+                    sender = "flooder",
+                    content = "hi $index",
+                    timestamp = Date(),
+                    senderPeerID = peer
+                )
+            )
+        }
+
+        assertEquals(listOf(true, true, true, true, true, true, false), admitted)
+        assertFalse(AppStateStore.publicMessages.value.any { it.id == "$peer-7" })
+        assertTrue(
+            IncomingMessageAdmission.admitToAppState(
+                privateMessage(id = "$peer-dm").copy(senderPeerID = peer)
+            )
+        )
+    }
+
+    @Test
+    fun `peer calling itself system is still spam filtered`() {
+        val peer = "system-nick-${UUID.randomUUID()}"
+        val admitted = (1..7).map { index ->
+            IncomingMessageAdmission.admitToAppState(
+                BitchatMessage(
+                    id = "$peer-$index",
+                    sender = "system",
+                    content = "hi $index",
+                    timestamp = Date(),
+                    senderPeerID = peer
+                )
+            )
+        }
+
+        assertFalse(admitted.last())
+    }
+
+    @Test
+    fun `local system notices are never spam filtered`() {
+        val run = UUID.randomUUID().toString()
+        val admitted = (1..10).map { index ->
+            IncomingMessageAdmission.admitToAppState(
+                BitchatMessage(
+                    id = "notice-$run-$index",
+                    sender = "system",
+                    content = "peer$index favorited you — favorite back to continue DMs later.",
+                    timestamp = Date()
+                )
+            )
+        }
+
+        assertTrue(admitted.all { it })
+    }
+
     private fun privateMessage(id: String) = BitchatMessage(
         id = id,
         sender = "alice",

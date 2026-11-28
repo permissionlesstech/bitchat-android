@@ -12,8 +12,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Job
@@ -680,6 +683,10 @@ class ChatViewModel(
         return channelManager.joinChannel(channel, password, mesh.myPeerID)
     }
     
+    fun hidePasswordPrompt() {
+        channelManager.hidePasswordPrompt()
+    }
+
     fun switchToChannel(channel: String?) {
         channelManager.switchToChannel(channel)
     }
@@ -722,8 +729,25 @@ class ChatViewModel(
             setCurrentPrivateChatPeer(conversationID)
             // Clear notifications for this sender since user is now viewing the chat
             clearNotificationsForSender(conversationID)
+        } else {
+            closePrivateChatSheetIfShowing(conversationID)
         }
     }
+
+    /**
+     * A sheet whose chat was refused has nothing to offer, and the reason is posted to the
+     * timeline behind it. A newer sheet for someone else is left alone.
+     */
+    private fun closePrivateChatSheetIfShowing(peerID: String) {
+        val sheetPeer = state.getPrivateChatSheetPeerValue() ?: return
+        if (isSameConversation(sheetPeer, peerID)) {
+            endPrivateChat()
+        }
+    }
+
+    private fun isSameConversation(first: String, second: String): Boolean =
+        ContactDirectory.canonicalConversationId(first)
+            .equals(ContactDirectory.canonicalConversationId(second), ignoreCase = true)
     
     fun endPrivateChat() {
         val conversationID = state.getSelectedPrivateChatPeerValue()
@@ -949,20 +973,8 @@ class ChatViewModel(
                         mesh.myPeerID,
                         state.getNicknameValue()
                     )
-                } else if (channel != null && channelManager.hasChannelKey(channel)) {
-                    channelManager.sendEncryptedChannelMessage(
-                        messageContent,
-                        mentions,
-                        channel,
-                        state.getNicknameValue(),
-                        mesh.myPeerID,
-                        onEncryptedPayload = {
-                            mesh.sendMessage(messageContent, mentions, channel)
-                        },
-                        onFallback = {
-                            mesh.sendMessage(messageContent, mentions, channel)
-                        }
-                    )
+                } else if (channel != null && channelManager.refuseSendIfPasswordProtected(channel)) {
+                    // Refused with a visible notice; never falls back to plaintext.
                 } else {
                     mesh.sendMessage(messageContent, mentions, channel)
                 }
@@ -972,58 +984,11 @@ class ChatViewModel(
         }
         
         val mentions = messageManager.parseMentions(content, mesh.getPeerNicknames().values.toSet(), state.getNicknameValue())
-        var selectedPeer = state.getSelectedPrivateChatPeerValue()
+        val selectedPeer = state.getSelectedPrivateChatPeerValue()
         val currentChannelValue = state.getCurrentChannelValue()
         
         if (selectedPeer != null) {
-            // If the selected peer is a temporary Nostr alias or a noise-hex identity, resolve to a canonical target
-            selectedPeer = ContactDirectory.canonicalConversationId(
-                com.bitchat.android.services.ConversationAliasResolver.resolveCanonicalPeerID(
-                selectedPeerID = selectedPeer,
-                connectedPeers = state.getConnectedPeersValue(),
-                meshNoiseKeyForPeer = { pid -> mesh.getPeerInfo(pid)?.noisePublicKey },
-                nostrPubHexForAlias = { alias -> com.bitchat.android.nostr.GeohashAliasRegistry.get(alias) },
-                findNoiseKeyForNostr = { key -> com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNoiseKey(key) }
-                )
-            ).also { canonical ->
-                if (canonical != state.getSelectedPrivateChatPeerValue()) {
-                    privateChatManager.startPrivateChat(canonical, mesh)
-                    // If we're in the private chat sheet, update its active peer too
-                    if (state.getPrivateChatSheetPeerValue() != null) {
-                        showPrivateChatSheet(canonical)
-                    }
-                }
-            }
-            // Send private message
-            val recipientNickname = nicknameForPeer(selectedPeer)
-            val destination = selectedPeer
-            viewModelScope.launch {
-                val accepted = privateChatManager.sendPrivateMessageDurably(
-                    content,
-                    destination,
-                    recipientNickname,
-                    state.getNicknameValue(),
-                    mesh.myPeerID
-                ) { messageContent, peerID, recipientNicknameParam, messageId ->
-                    val router = com.bitchat.android.services.MessageRouter.getInstance(
-                        getApplication(),
-                        mesh
-                    )
-                    val route = router.sendPrivate(
-                        messageContent,
-                        peerID,
-                        recipientNicknameParam,
-                        messageId
-                    )
-                    if (route == com.bitchat.android.services.MessageRouter.RouteResult.NOSTR) {
-                        messageManager.updateMessageDeliveryStatus(
-                            messageId,
-                            com.bitchat.android.model.DeliveryStatus.Sent
-                        )
-                    }
-                }
-                onAccepted(accepted)
-            }
+            sendPrivateConversationMessage(selectedPeer, content, onAccepted)
         } else {
             // Check if we're in a location channel
             val selectedLocationChannel = state.selectedLocationChannel.value
@@ -1032,6 +997,13 @@ class ChatViewModel(
                 geohashViewModel.sendGeohashMessage(content, selectedLocationChannel.channel, mesh.myPeerID, state.getNicknameValue())
             } else {
                 // Send public/channel message via mesh
+                if (currentChannelValue != null &&
+                    channelManager.refuseSendIfPasswordProtected(currentChannelValue)
+                ) {
+                    onAccepted(false)
+                    return
+                }
+
                 val message = BitchatMessage(
                     sender = state.getNicknameValue() ?: mesh.myPeerID,
                     content = content,
@@ -1044,31 +1016,107 @@ class ChatViewModel(
 
                 if (currentChannelValue != null) {
                     channelManager.addChannelMessage(currentChannelValue, message, mesh.myPeerID)
-
-                    // Check if encrypted channel
-                    if (channelManager.hasChannelKey(currentChannelValue)) {
-                        channelManager.sendEncryptedChannelMessage(
-                            content,
-                            mentions,
-                            currentChannelValue,
-                            state.getNicknameValue(),
-                            mesh.myPeerID,
-                            onEncryptedPayload = { encryptedData ->
-                                mesh.sendMessage(content, mentions, currentChannelValue)
-                            },
-                            onFallback = {
-                                mesh.sendMessage(content, mentions, currentChannelValue)
-                            }
-                        )
-                    } else {
-                        mesh.sendMessage(content, mentions, currentChannelValue)
-                    }
+                    mesh.sendMessage(content, mentions, currentChannelValue)
                 } else {
                     messageManager.addMessage(message)
                     mesh.sendMessage(content, mentions, null)
                 }
             }
             onAccepted(true)
+        }
+    }
+
+    /**
+     * Sends text typed into the private-chat sheet for [sheetPeerID].
+     *
+     * The sheet's composer is addressed to that peer, so unlike [sendMessage] this has no public
+     * path and never uses a different selected chat: the selection lags the sheet while a chat
+     * starts on IO, and is never set for a blocked peer. The message reaches this peer or is
+     * refused.
+     */
+    fun sendPrivateChatSheetMessage(
+        sheetPeerID: String,
+        content: String,
+        onAccepted: (Boolean) -> Unit = {}
+    ) {
+        if (content.isEmpty()) {
+            onAccepted(false)
+            return
+        }
+
+        if (content.startsWith("/")) {
+            // Commands act on the selected chat, so they wait until that is this sheet's chat.
+            val selectedPeer = state.getSelectedPrivateChatPeerValue()
+            if (selectedPeer != null && isSameConversation(selectedPeer, sheetPeerID)) {
+                sendMessage(content, onAccepted)
+            } else {
+                onAccepted(false)
+            }
+            return
+        }
+
+        val blocked = privateChatManager.isPeerBlocked(sheetPeerID)
+        sendPrivateConversationMessage(sheetPeerID, content) { accepted ->
+            onAccepted(accepted)
+            if (blocked && !accepted) {
+                closePrivateChatSheetIfShowing(sheetPeerID)
+            }
+        }
+    }
+
+    private fun sendPrivateConversationMessage(
+        targetPeerID: String,
+        content: String,
+        onAccepted: (Boolean) -> Unit
+    ) {
+        // If the peer is a temporary Nostr alias or a noise-hex identity, resolve to a canonical target
+        val destination = ContactDirectory.canonicalConversationId(
+            com.bitchat.android.services.ConversationAliasResolver.resolveCanonicalPeerID(
+                selectedPeerID = targetPeerID,
+                connectedPeers = state.getConnectedPeersValue(),
+                meshNoiseKeyForPeer = { pid -> mesh.getPeerInfo(pid)?.noisePublicKey },
+                nostrPubHexForAlias = { alias -> com.bitchat.android.nostr.GeohashAliasRegistry.get(alias) },
+                findNoiseKeyForNostr = { key -> com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNoiseKey(key) }
+            )
+        )
+        if (
+            destination != state.getSelectedPrivateChatPeerValue() &&
+            !privateChatManager.isPeerBlocked(destination)
+        ) {
+            privateChatManager.startPrivateChat(destination, mesh)
+            // If we're in the private chat sheet, update its active peer too
+            if (state.getPrivateChatSheetPeerValue() != null) {
+                showPrivateChatSheet(destination)
+            }
+        }
+
+        val recipientNickname = nicknameForPeer(destination)
+        viewModelScope.launch {
+            val accepted = privateChatManager.sendPrivateMessageDurably(
+                content,
+                destination,
+                recipientNickname,
+                state.getNicknameValue(),
+                mesh.myPeerID
+            ) { messageContent, peerID, recipientNicknameParam, messageId ->
+                val router = com.bitchat.android.services.MessageRouter.getInstance(
+                    getApplication(),
+                    mesh
+                )
+                val route = router.sendPrivate(
+                    messageContent,
+                    peerID,
+                    recipientNicknameParam,
+                    messageId
+                )
+                if (route == com.bitchat.android.services.MessageRouter.RouteResult.NOSTR) {
+                    messageManager.updateMessageDeliveryStatus(
+                        messageId,
+                        com.bitchat.android.model.DeliveryStatus.Sent
+                    )
+                }
+            }
+            onAccepted(accepted)
         }
     }
 
@@ -1185,14 +1233,41 @@ class ChatViewModel(
         return try { mesh.getSessionState(peerID) } catch (_: Exception) { NoiseSession.NoiseSessionState.Uninitialized }
     }
     
+    private var lastCachedPeerIdentities: List<SecureIdentityStateManager.CachedPeerIdentity>? = null
+    private var lastCachedPeerGeneration: Long = -1L
+
     /**
-     * Initialize session state monitoring for reactive UI updates
+     * Initialize session state monitoring for reactive UI updates.
+     * Pauses completely while the app is in the background (unless an unsent QR verification
+     * challenge is waiting for a Noise handshake to finish) or when no peers are connected,
+     * eliminating unnecessary main-thread wakeups and EncryptedSharedPreferences reads.
      */
     private fun initializeSessionStateMonitoring() {
         viewModelScope.launch {
-            while (true) {
-                delay(1000) // Check session states every second
+            val isBackgroundFlow = com.bitchat.android.mesh.PowerManager
+                .getInstance(getApplication())
+                .profile
+                .map { it.isBackground }
+                .distinctUntilChanged()
+            val hasPeersFlow = state.connectedPeers
+                .map { it.isNotEmpty() }
+                .distinctUntilChanged()
+
+            combine(
+                isBackgroundFlow,
+                hasPeersFlow,
+                verificationHandler.hasUnsentPendingVerifications
+            ) { isBackground, hasPeers, hasUnsentVerification ->
+                Triple(!isBackground, hasPeers, hasUnsentVerification)
+            }.distinctUntilChanged().collectLatest { (isForeground, hasPeers, hasUnsentVerification) ->
+                if (!isForeground && !hasUnsentVerification) return@collectLatest
+                // Sync once on foreground entry, peer-count transition, or pending QR verification.
                 updateReactiveStates()
+                if (!hasPeers) return@collectLatest
+                while (true) {
+                    delay(2000)
+                    updateReactiveStates()
+                }
             }
         }
     }
@@ -1207,10 +1282,12 @@ class ChatViewModel(
         
         // Update session states
         val prevStates = state.getPeerSessionStatesValue()
-        val sessionStates = currentPeers.associateWith { peerID ->
+        val sessionStates = if (currentPeers.isEmpty()) emptyMap() else currentPeers.associateWith { peerID ->
             sessionStateForPeer(peerID).toString()
         }
-        state.setPeerSessionStates(sessionStates)
+        if (sessionStates != prevStates) {
+            state.setPeerSessionStates(sessionStates)
+        }
         // Detect new established sessions and flush router outbox for them and their noiseHex aliases
         sessionStates.forEach { (peerID, newState) ->
             val old = prevStates[peerID]
@@ -1224,13 +1301,21 @@ class ChatViewModel(
         val cacheGeneration = identityManager.cacheGeneration()
         val fingerprints = privateChatManager.getAllPeerFingerprints()
         state.setPeerFingerprints(fingerprints)
-        withContext(Dispatchers.IO) {
-            identityManager.cachePeerIdentities(fingerprints.map { (peerID, fingerprint) ->
-                val info = try { mesh.getPeerInfo(peerID) } catch (_: Exception) { null }
-                SecureIdentityStateManager.CachedPeerIdentity(
-                    peerID, fingerprint, info?.noisePublicKey?.hexEncodedString(), info?.nickname
-                )
-            }, cacheGeneration)
+        val identitiesToCache = fingerprints.map { (peerID, fingerprint) ->
+            val info = try { mesh.getPeerInfo(peerID) } catch (_: Exception) { null }
+            SecureIdentityStateManager.CachedPeerIdentity(
+                peerID, fingerprint, info?.noisePublicKey?.hexEncodedString(), info?.nickname
+            )
+        }
+        if (identitiesToCache.isEmpty()) {
+            lastCachedPeerIdentities = null
+            lastCachedPeerGeneration = cacheGeneration
+        } else if (identitiesToCache != lastCachedPeerIdentities || cacheGeneration != lastCachedPeerGeneration) {
+            withContext(Dispatchers.IO) {
+                identityManager.cachePeerIdentities(identitiesToCache, cacheGeneration)
+            }
+            lastCachedPeerIdentities = identitiesToCache
+            lastCachedPeerGeneration = cacheGeneration
         }
 
         state.setPeerNicknames(mesh.getPeerNicknames())
@@ -1239,7 +1324,7 @@ class ChatViewModel(
 
         // Update directness per peer (driven by PeerManager state)
         try {
-            val directMap = state.getConnectedPeersValue().associateWith { pid ->
+            val directMap = if (currentPeers.isEmpty()) emptyMap() else currentPeers.associateWith { pid ->
                 mesh.getPeerInfo(pid)?.isDirectConnection == true
             }
             state.setPeerDirect(directMap)
@@ -1300,21 +1385,12 @@ class ChatViewModel(
         notificationManager.clearMeshMentionNotifications()
     }
 
-    private var reopenSidebarAfterVerification = false
-
-    fun showVerificationSheet(fromSidebar: Boolean = false) {
-        if (fromSidebar) {
-            reopenSidebarAfterVerification = true
-        }
+    fun showVerificationSheet() {
         state.setShowVerificationSheet(true)
     }
 
     fun hideVerificationSheet() {
         state.setShowVerificationSheet(false)
-        if (reopenSidebarAfterVerification) {
-            reopenSidebarAfterVerification = false
-            state.setShowMeshPeerList(true)
-        }
     }
 
     fun showSecurityVerificationSheet() {
@@ -1462,6 +1538,8 @@ class ChatViewModel(
 
         // Stop all message admission before wiping storage. The AppStateStore gate also rejects
         // any transport callback already in flight until the fresh identity is ready.
+        lastCachedPeerIdentities = null
+        lastCachedPeerGeneration = -1L
         clearAllMeshServiceData()
         val conversationsCleared =
             com.bitchat.android.services.AppStateStore
@@ -1475,22 +1553,35 @@ class ChatViewModel(
         dataManager.clearAllData()
         conversationListPreferences.clearAll()
         
+        // Every stage that wipes data at rest reports here. The success message is a
+        // security assurance, so it requires all of them, not just the conversation database.
+        var wipeComplete = true
+
         // Clear seen message store and MessageRouter outbox
         try {
             com.bitchat.android.services.SeenMessageStore.getInstance(getApplication()).clear()
-        } catch (_: Exception) { }
+        } catch (_: Exception) {
+            wipeComplete = false
+        }
         try {
             com.bitchat.android.services.MessageRouter.tryGetInstance()?.clearAll()
-        } catch (_: Exception) { }
+        } catch (_: Exception) {
+            wipeComplete = false
+        }
+
+        // The spam filter keeps recent message text and sender keys for its repeat checks
+        com.bitchat.android.spam.SpamFilter.shared.reset()
         
         // Clear all cryptographic data
-        clearAllCryptographicData()
+        if (!clearAllCryptographicData()) wipeComplete = false
         
         // Clear all notifications
         notificationManager.clearAllNotifications(removeConversationShortcuts = true)
 
         // Clear all media files
-        com.bitchat.android.features.file.FileUtils.clearAllMedia(getApplication())
+        if (!com.bitchat.android.features.file.FileUtils.clearAllMedia(getApplication())) {
+            wipeComplete = false
+        }
         
         // Clear Nostr/geohash state, keys, connections, bookmarks, and reinitialize from scratch
         try {
@@ -1498,16 +1589,21 @@ class ChatViewModel(
             try {
                 val store = com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(getApplication())
                 store.clearAll()
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+                wipeComplete = false
+            }
 
             try {
                 val locationManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(getApplication())
                 locationManager.clearPersistedChannel()
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+                wipeComplete = false
+            }
 
-            geohashViewModel.panicReset()
+            if (!geohashViewModel.panicReset(reconnectRelays = conversationsCleared)) wipeComplete = false
         } catch (e: Exception) {
             Log.e(TAG, "Failed to reset Nostr/geohash: ${e.message}")
+            wipeComplete = false
         }
 
         // Reset nickname
@@ -1519,6 +1615,11 @@ class ChatViewModel(
             // Privacy wins over availability: keep private-message admission and transports
             // stopped if SQLite could not prove that the conversation history was erased.
             Log.e(TAG, "🚨 PANIC MODE INCOMPLETE - conversation database wipe failed")
+            // A wipe that does not commit must be as visible as the wipe itself: the
+            // person who triggered it may be relying on the device being clean.
+            messageManager.addSystemMessage(
+                getApplication<Application>().getString(com.bitchat.android.R.string.system_panic_incomplete)
+            )
             return
         }
 
@@ -1526,6 +1627,17 @@ class ChatViewModel(
         com.bitchat.android.services.AppStateStore
             .resumePrivateConversationsAfterPanic()
         recreateMeshServiceAfterPanic()
+
+        // In a duress scenario "did it work?" must not be a guess: the natural
+        // response to uncertainty is to trigger the wipe again. Announce success
+        // only when every stage confirmed its wipe.
+        val outcome = if (wipeComplete) {
+            com.bitchat.android.R.string.system_panic_completed
+        } else {
+            Log.e(TAG, "🚨 PANIC MODE INCOMPLETE - a wipe stage did not confirm")
+            com.bitchat.android.R.string.system_panic_incomplete
+        }
+        messageManager.addSystemMessage(getApplication<Application>().getString(outcome))
 
         Log.w(TAG, "🚨 PANIC MODE COMPLETED - New identity: ${mesh.myPeerID}")
     }
@@ -1576,34 +1688,41 @@ class ChatViewModel(
     /**
      * Clear all cryptographic data including persistent identity
      */
-    private fun clearAllCryptographicData() {
+    /** Returns true only when every identity, key, and favorites store confirmed its wipe. */
+    private fun clearAllCryptographicData(): Boolean {
+        var cleared = true
         try {
             // Clear encryption service persistent identity (Ed25519 signing keys)
-            mesh.clearAllEncryptionData()
+            if (!mesh.clearAllEncryptionData()) cleared = false
             
             // Clear secure identity state (if used)
             try {
                 val identityManager = SecureIdentityStateManager(getApplication())
-                identityManager.clearIdentityData()
+                if (!identityManager.clearIdentityData()) cleared = false
                 // Also clear secure values used by FavoritesPersistenceService (favorites + peerID index)
-                try {
-                    identityManager.clearSecureValues("favorite_relationships", "favorite_peerid_index")
-                } catch (_: Exception) { }
+                if (!identityManager.clearSecureValuesSynchronously("favorite_relationships", "favorite_peerid_index")) {
+                    cleared = false
+                }
                 Log.d(TAG, "✅ Cleared secure identity state and secure favorites store")
             } catch (e: Exception) {
-                Log.d(TAG, "SecureIdentityStateManager not available or already cleared: ${e.message}")
+                Log.e(TAG, "❌ Failed to clear secure identity state: ${e.message}")
+                cleared = false
             }
 
             // Clear FavoritesPersistenceService persistent relationships
             try {
                 FavoritesPersistenceService.shared.clearAllFavorites()
                 Log.d(TAG, "✅ Cleared FavoritesPersistenceService relationships")
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+                cleared = false
+            }
             
             Log.d(TAG, "✅ Cleared all cryptographic data")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error clearing cryptographic data: ${e.message}")
+            cleared = false
         }
+        return cleared
     }
 
     /**
@@ -1666,10 +1785,10 @@ class ChatViewModel(
     }
 
     /**
-     * Block a user in geohash channels by their nickname
+     * Block a user in geohash channels, preferring the sender's Nostr pubkey over the nickname
      */
-    fun blockUserInGeohash(targetNickname: String) {
-        geohashViewModel.blockUserInGeohash(targetNickname)
+    fun blockUserInGeohash(targetNickname: String, pubkeyHex: String? = null) {
+        geohashViewModel.blockUserInGeohash(targetNickname, pubkeyHex)
     }
 
     // MARK: - Navigation Management
